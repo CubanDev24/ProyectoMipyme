@@ -195,7 +195,13 @@ function conectar() {
         const cuenta = d.factura;
         if (cuenta && cuenta.mesa_numero) {
           const pedidoKey = cuenta.id || `mesa-${cuenta.mesa_numero}`;
-          pedidos[pedidoKey] = { ...cuenta, cuenta_solicitada: true, mesa_numero: cuenta.mesa_numero, id: pedidoKey };
+          pedidos[pedidoKey] = {
+            ...cuenta,
+            cuenta_solicitada: true,
+            mesa_numero: cuenta.mesa_numero,
+            id: pedidoKey,
+            mesera_nombre: cuenta.mesera_nombre || d.mesera_nombre || '',
+          };
           renderLista();
         }
       }
@@ -347,6 +353,7 @@ function cerrarPedido() {
     mesa_numero: pedidoSeleccionado.mesa_numero,
     forma_pago: formaPagoSeleccionada,
     tasa_cambio: tasa_cambio,
+    mesera_nombre: pedidoSeleccionado.mesera_nombre || '',
   }));
 }
 

@@ -68,6 +68,8 @@ class Factura(models.Model):
     monto_transferencia_cup = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     monto_usd = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     tasa_cambio = models.DecimalField(max_digits=8, decimal_places=2, null=True, blank=True)
+    mesera_nombre = models.CharField(max_length=100, blank=True, default='')
+    cajera_nombre = models.CharField(max_length=100, blank=True, default='')
     items_snapshot = models.JSONField(default=list, blank=True)
     creado_en = models.DateTimeField(auto_now_add=True)
 

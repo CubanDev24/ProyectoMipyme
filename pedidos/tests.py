@@ -35,6 +35,8 @@ class FacturaWorkflowTests(TestCase):
             forma_pago='efectivo_cup',
             total_cup='50.00',
             monto_efectivo_cup='50.00',
+            mesera_nombre='María',
+            cajera_nombre='Lina',
             items_snapshot=[{
                 'plato': self.plato.nombre,
                 'cantidad': 2,
@@ -48,6 +50,8 @@ class FacturaWorkflowTests(TestCase):
         self.assertIsNotNone(resultado)
         self.assertIn('items_snapshot', resultado)
         self.assertEqual(resultado['items_snapshot'][0]['plato'], self.plato.nombre)
+        self.assertEqual(resultado['mesera_nombre'], 'María')
+        self.assertEqual(resultado['cajera_nombre'], 'Lina')
         self.assertTrue(resultado['pdf_url'].startswith('/pedidos/caja/factura/'))
 
     def test_mesera_acepta_factura_y_envia_a_caja(self):
@@ -62,3 +66,33 @@ class FacturaWorkflowTests(TestCase):
 
     def test_mesera_tiene_handler_para_factura_solicitada(self):
         self.assertTrue(hasattr(MeseraConsumer, 'factura_solicitada'))
+
+    def test_factura_usa_username_cuando_no_hay_nombre_personal(self):
+        from django.contrib.auth import get_user_model
+
+        User = get_user_model()
+        user = User(username='mesera1')
+        self.assertEqual(user.get_full_name(), '')
+        self.assertEqual(user.get_full_name() or user.username, 'mesera1')
+
+    def test_factura_imprimir_devuelve_pdf_descargable(self):
+        factura = Factura.objects.create(
+            pedido=self.pedido,
+            mesa_numero=self.mesa.numero,
+            forma_pago='efectivo_cup',
+            total_cup='50.00',
+            monto_efectivo_cup='50.00',
+            items_snapshot=[{
+                'plato': self.plato.nombre,
+                'cantidad': 2,
+                'precio_unit': '25.00',
+                'subtotal': '50.00',
+            }],
+        )
+
+        response = self.client.get(f'/pedidos/caja/factura/{factura.id}/imprimir/')
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response['Content-Type'], 'application/pdf')
+        self.assertIn('attachment; filename=', response['Content-Disposition'])
+        self.assertTrue(response.content.startswith(b'%PDF'))

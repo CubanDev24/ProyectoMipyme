@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+from decimal import Decimal
+
 from django.conf import settings
 from django.contrib.auth.models import AbstractUser
 from django.db import models
+from django.db.models import Sum
 from django.utils import timezone
 
 from carta.models import Plato
@@ -69,6 +72,68 @@ class Turno(models.Model):
 
     def __str__(self):
         return f'Turno {self.fecha:%d/%m/%Y} - {self.get_estado_display()}'
+
+    @property
+    def facturas_queryset(self):
+        from pedidos.models import Factura
+        return Factura.objects.filter(creado_en__date=self.fecha)
+
+    @property
+    def total_general_cup(self):
+        return self.facturas_queryset.aggregate(total=Sum('total_cup'))['total'] or Decimal('0')
+
+    @property
+    def total_efectivo_cup(self):
+        return self.facturas_queryset.aggregate(total=Sum('monto_efectivo_cup'))['total'] or Decimal('0')
+
+    @property
+    def total_transferencia_cup(self):
+        return self.facturas_queryset.aggregate(total=Sum('monto_transferencia_cup'))['total'] or Decimal('0')
+
+    @property
+    def total_usd(self):
+        return self.facturas_queryset.aggregate(total=Sum('monto_usd'))['total'] or Decimal('0')
+
+    @property
+    def cantidad_facturas(self):
+        return self.facturas_queryset.count()
+
+    @property
+    def ipv(self):
+        if self.cantidad_facturas == 0:
+            return Decimal('0')
+        return self.total_general_cup / Decimal(self.cantidad_facturas)
+
+    @property
+    def horas_abiertas(self):
+        if self.cierre is None or self.apertura is None:
+            return Decimal('0')
+        delta = self.cierre - self.apertura
+        segundos = delta.total_seconds()
+        if segundos <= 0:
+            return Decimal('0')
+        if segundos < 60:
+            return Decimal('0')
+        return Decimal(str(max(segundos / 3600, 0)))
+
+    @property
+    def rendimiento_por_hora_cup(self):
+        if self.horas_abiertas <= 0:
+            return Decimal('0')
+        return self.total_general_cup / self.horas_abiertas
+
+    @property
+    def resumen_financiero(self):
+        return {
+            'total_general_cup': self.total_general_cup,
+            'total_efectivo_cup': self.total_efectivo_cup,
+            'total_transferencia_cup': self.total_transferencia_cup,
+            'total_usd': self.total_usd,
+            'cantidad_facturas': self.cantidad_facturas,
+            'ipv': self.ipv,
+            'horas_abiertas': self.horas_abiertas,
+            'rendimiento_por_hora_cup': self.rendimiento_por_hora_cup,
+        }
 
 
 class Notificacion(models.Model):
@@ -155,6 +220,8 @@ def cerrar_turno(usuario, observaciones=''):
     total = facturas.aggregate(total=Sum('total_cup'))['total'] or Decimal('0')
     efectivo = facturas.aggregate(efectivo=Sum('monto_efectivo_cup'))['efectivo'] or Decimal('0')
     transferencia = facturas.aggregate(transferencia=Sum('monto_transferencia_cup'))['transferencia'] or Decimal('0')
+    usd = facturas.aggregate(usd=Sum('monto_usd'))['usd'] or Decimal('0')
+    usd_cup_equivalente = facturas.aggregate(cup=Sum('total_cup'))['cup'] or Decimal('0')
 
     turno.cierre = timezone.now()
     turno.estado = 'cerrado'
@@ -162,9 +229,11 @@ def cerrar_turno(usuario, observaciones=''):
     turno.resumen = (
         f'Fecha: {turno.fecha:%d/%m/%Y}\n'
         f'Ventas: {facturas.count()}\n'
-        f'Total: {total:.2f} CUP\n'
-        f'Efectivo: {efectivo:.2f} CUP\n'
-        f'Transferencia: {transferencia:.2f} CUP\n'
+        f'USD: {usd:.2f} USD\n'
+        f'Efectivo CUP: {efectivo:.2f} CUP\n'
+        f'Transferencia CUP: {transferencia:.2f} CUP\n'
+        f'Total general: {total:.2f} CUP\n'
+        f'Total en USD: {usd_cup_equivalente:.2f} CUP equivalentes\n'
         f'Participantes: {", ".join(user.get_full_name() or user.username for user in turno.usuarios.all()) or "-"}'
     )
     turno.save()

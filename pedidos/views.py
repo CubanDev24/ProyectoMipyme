@@ -1,11 +1,14 @@
 from collections import defaultdict
 from decimal import Decimal
+from io import BytesIO
 
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.db.models import Count, Sum
-from django.http import JsonResponse
+from django.http import HttpResponse, JsonResponse
 from django.shortcuts import render, get_object_or_404
-from carta.models import Categoria
+from reportlab.lib.pagesizes import A5
+from reportlab.pdfgen import canvas
+from carta.models import Categoria, Plato
 from inventario.models import Insumo
 from inventario.models import TasaCambio
 from inventario.models import RecetaItem
@@ -22,12 +25,11 @@ def _rol_permitido(*roles):
 @login_required
 @user_passes_test(_rol_permitido('mesera'))
 def mesera(request):
-    categorias = Categoria.objects.prefetch_related('platos').all()
-    categorias_con_platos = [c for c in categorias if c.platos.filter(disponible=True).exists()]
+    productos = Insumo.objects.filter(activo=True, disponible=True).select_related('categoria').order_by('categoria__orden', 'categoria__nombre', 'nombre')
     turno = get_turno_abierto()
     mesas = mesas_del_turno(turno) if turno else Mesa.objects.none()
     return render(request, 'mesera/mesera.html', {
-        'categorias': categorias_con_platos,
+        'productos': productos,
         'mesas': mesas,
         'turno': turno,
     })
@@ -47,9 +49,57 @@ def caja(request):
 
 def factura_imprimir(request, pk):
     factura = get_object_or_404(Factura, pk=pk)
-    return render(request, 'caja/factura_imprimir.html', {
-        'factura': factura,
-    })
+
+    buffer = BytesIO()
+    pdf = canvas.Canvas(buffer, pagesize=A5)
+    width, height = A5
+
+    pdf.setTitle(f'Factura #{factura.pk}')
+    pdf.setAuthor('Las Cuquis')
+    pdf.setFont('Helvetica-Bold', 14)
+    pdf.drawString(30, height - 35, 'LAS CUQUIS')
+    pdf.setFont('Helvetica', 9)
+    pdf.drawString(30, height - 52, 'Factura de consumo')
+    pdf.drawString(30, height - 70, f'Factura: #{factura.pk}')
+    pdf.drawString(30, height - 82, f'Mesa: {factura.mesa_numero}')
+    pdf.drawString(30, height - 94, f'Fecha: {factura.creado_en.strftime("%d/%m/%Y %H:%M")}')
+    if factura.cajera_nombre:
+        pdf.drawString(30, height - 106, f'Cajera: {factura.cajera_nombre}')
+    if factura.mesera_nombre:
+        pdf.drawString(30, height - 118, f'Mesera: {factura.mesera_nombre}')
+
+    y = height - 138
+    pdf.setFont('Helvetica-Bold', 9)
+    pdf.drawString(30, y, 'ITEM')
+    pdf.drawRightString(width - 30, y, 'SUBTOTAL')
+    y -= 14
+    pdf.setFont('Helvetica', 9)
+
+    for item in factura.items_snapshot or []:
+        nombre = f"{item.get('cantidad', 1)}x {item.get('plato', 'Item')}"
+        subtotal = item.get('subtotal', '0.00')
+        if len(nombre) > 28:
+            nombre = nombre[:25] + '...'
+        pdf.drawString(30, y, nombre)
+        pdf.drawRightString(width - 30, y, f'{subtotal} CUP')
+        y -= 16
+        if y < 90:
+            pdf.showPage()
+            y = height - 30
+
+    pdf.setFont('Helvetica-Bold', 10)
+    pdf.drawString(30, y - 18, 'TOTAL')
+    pdf.drawRightString(width - 30, y - 18, f'{factura.total_cup} CUP')
+
+    pdf.setFont('Helvetica', 9)
+    pdf.drawString(30, y - 36, f'Forma de pago: {factura.get_forma_pago_display()}')
+    pdf.drawString(30, y - 52, 'Gracias por su visita!')
+
+    pdf.save()
+
+    response = HttpResponse(buffer.getvalue(), content_type='application/pdf')
+    response['Content-Disposition'] = f'attachment; filename="factura_{factura.pk}.pdf"'
+    return response
 
 def facturas_historial(request):
     facturas = Factura.objects.order_by('-creado_en')

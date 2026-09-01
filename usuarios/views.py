@@ -1,7 +1,10 @@
+from decimal import Decimal
+
 from django.contrib import messages
 from django.contrib.auth import logout, login, authenticate
 from django.contrib.auth.decorators import login_required
-from django.shortcuts import redirect, render
+from django.db.models import Sum
+from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_http_methods
 
 from .models import Notificacion, Turno, Usuario, cerrar_turno, configurar_turno, get_turno_abierto, registrar_inicio_turno
@@ -40,11 +43,9 @@ def login_view(request):
 def dashboard(request):
     turno = get_turno_abierto()
     notificaciones = Notificacion.objects.filter(destinatario=request.user).order_by('-creada_en')[:10]
-    from carta.models import Plato
     return render(request, 'usuarios/dashboard.html', {
         'turno': turno,
         'notificaciones': notificaciones,
-        'plato_options': Plato.objects.select_related('categoria').order_by('categoria__nombre', 'nombre'),
     })
 
 
@@ -109,28 +110,6 @@ def configurar_mesas_turno_view(request):
 
 @login_required
 @require_http_methods(['POST'])
-def configurar_carta_turno_view(request):
-    if request.user.role != 'administrador':
-        messages.error(request, 'Solo el administrador puede configurar la carta del turno.')
-        return redirect('usuarios:dashboard')
-
-    turno = get_turno_abierto()
-    if turno is None:
-        turno = registrar_inicio_turno(request.user)
-
-    plato_ids = request.POST.getlist('platos')
-    platos = []
-    if plato_ids:
-        from carta.models import Plato
-        platos = list(Plato.objects.filter(id__in=plato_ids))
-
-    turno.platos.set(platos)
-    messages.success(request, f'La carta del turno quedó configurada con {turno.platos.count()} platos.')
-    return redirect('usuarios:dashboard')
-
-
-@login_required
-@require_http_methods(['POST'])
 def cerrar_turno_view(request):
     if request.user.role != 'cajera':
         messages.error(request, 'Solo la cajera puede cerrar el turno.')
@@ -144,3 +123,63 @@ def cerrar_turno_view(request):
     except ValueError as exc:
         messages.error(request, str(exc))
     return redirect('usuarios:dashboard')
+
+
+@login_required
+def historial_turnos_view(request):
+    if request.user.role != 'administrador':
+        messages.error(request, 'Solo el administrador puede ver el historial de turnos.')
+        return redirect('usuarios:dashboard')
+
+    turnos = Turno.objects.filter(estado='cerrado').prefetch_related('usuarios').order_by('-cierre', '-fecha')
+    historial = []
+    total_general = Decimal('0')
+    total_efectivo = Decimal('0')
+    total_transferencia = Decimal('0')
+    total_usd = Decimal('0')
+    total_facturas = 0
+    total_horas = Decimal('0')
+
+    for turno in turnos:
+        data = turno.resumen_financiero
+        historial.append({'turno': turno, **data})
+        total_general += data['total_general_cup']
+        total_efectivo += data['total_efectivo_cup']
+        total_transferencia += data['total_transferencia_cup']
+        total_usd += data['total_usd']
+        total_facturas += data['cantidad_facturas']
+        total_horas += data['horas_abiertas']
+
+    promedio_ipv = (total_general / Decimal(total_facturas)) if total_facturas else Decimal('0')
+    rendimiento_promedio = (total_general / total_horas) if total_horas > 0 else Decimal('0')
+
+    context = {
+        'historial': historial,
+        'resumen_general': {
+            'total_general_cup': total_general,
+            'total_efectivo_cup': total_efectivo,
+            'total_transferencia_cup': total_transferencia,
+            'total_usd': total_usd,
+            'total_facturas': total_facturas,
+            'promedio_ipv': promedio_ipv,
+            'rendimiento_promedio': rendimiento_promedio,
+            'turnos_cerrados': turnos.count(),
+        },
+    }
+    return render(request, 'usuarios/historial_turnos.html', context)
+
+
+@login_required
+def historial_turno_detalle_view(request, turno_id):
+    if request.user.role != 'administrador':
+        messages.error(request, 'Solo el administrador puede ver el detalle de un turno.')
+        return redirect('usuarios:dashboard')
+
+    turno = get_object_or_404(Turno.objects.prefetch_related('usuarios'), pk=turno_id)
+    data = turno.resumen_financiero
+    context = {
+        'turno': turno,
+        'detalles': data,
+        'resumen': turno.resumen or 'Sin resumen registrado.',
+    }
+    return render(request, 'usuarios/historial_turno_detalle.html', context)

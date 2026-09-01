@@ -1,0 +1,56 @@
+{% extends 'base.html' %}
+{% block title %}Historial de turnos{% endblock %}
+{% block content %}
+<div class="admin-body">
+  <h1>Historial de turnos</h1>
+
+  <div class="admin-grid">
+    <section class="admin-card">
+      <h2>Rendimiento General</h2>
+      <div class="admin-tasa-actual">
+        <p><strong>General:</strong> resumen histórico del turno</p>
+        <p><strong>Turnos cerrados:</strong> {{ resumen_general.turnos_cerrados }}</p>
+        <p><strong>Total general:</strong> {{ resumen_general.total_general_cup }} CUP</p>
+        <p><strong>USD:</strong> {{ resumen_general.total_usd }} USD</p>
+        <p><strong>Efectivo CUP:</strong> {{ resumen_general.total_efectivo_cup }} CUP</p>
+        <p><strong>Transferencia CUP:</strong> {{ resumen_general.total_transferencia_cup }} CUP</p>
+        <p><strong>IPV promedio:</strong> {{ resumen_general.promedio_ipv }} CUP</p>
+        <p><strong>Rendimiento promedio:</strong> {{ resumen_general.rendimiento_promedio }} CUP/h</p>
+      </div>
+    </section>
+
+    {% if historial %}
+      {% for item in historial %}
+      <section class="admin-card">
+        <h2>Turno {{ item.turno.fecha|date:'d/m/Y' }}</h2>
+        <p><strong>Estado:</strong> {{ item.turno.get_estado_display }}</p>
+        <p><strong>Participantes:</strong>
+          {% for user in item.turno.usuarios.all %}
+            {{ user.username }}{% if not forloop.last %}, {% endif %}
+          {% empty %}
+            Sin participantes
+          {% endfor %}
+        </p>
+        <p><strong>Facturas:</strong> {{ item.cantidad_facturas }}</p>
+        <p><strong>USD:</strong> {{ item.total_usd }} USD</p>
+        <p><strong>Efectivo CUP:</strong> {{ item.total_efectivo_cup }} CUP</p>
+        <p><strong>Transferencia CUP:</strong> {{ item.total_transferencia_cup }} CUP</p>
+        <p><strong>Total:</strong> {{ item.total_general_cup }} CUP</p>
+        <p><strong>IPV:</strong> {{ item.ipv }} CUP</p>
+        <p><strong>Horas abiertas:</strong> {{ item.horas_abiertas }}</p>
+        <p><strong>Rendimiento/h:</strong> {{ item.rendimiento_por_hora_cup }} CUP/h</p>
+        <a href="{% url 'usuarios:historial_turno_detalle' item.turno.pk %}" class="btn btn-primary">Ver detalle del turno</a>
+        {% if item.turno.resumen %}
+          <pre>{{ item.turno.resumen }}</pre>
+        {% endif %}
+      </section>
+      {% endfor %}
+    {% else %}
+      <section class="admin-card">
+        <h2>No hay turnos cerrados</h2>
+        <p>Aún no se registran cierres de turno.</p>
+      </section>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

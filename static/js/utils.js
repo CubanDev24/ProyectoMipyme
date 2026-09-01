@@ -8,6 +8,26 @@ function toast(msg, tipo) {
   setTimeout(() => el.remove(), 3500);
 }
 
+function abrirModal(modalId) {
+  const modal = document.getElementById(modalId);
+  if (!modal) return;
+  modal.hidden = false;
+  modal.classList.remove('hidden');
+  modal.removeAttribute('hidden');
+  modal.setAttribute('aria-hidden', 'false');
+  modal.style.display = 'block';
+}
+
+function cerrarModal(modalId) {
+  const modal = document.getElementById(modalId);
+  if (!modal) return;
+  modal.hidden = true;
+  modal.classList.add('hidden');
+  modal.setAttribute('hidden', 'hidden');
+  modal.setAttribute('aria-hidden', 'true');
+  modal.style.display = 'none';
+}
+
 function mostrarModalFactura({ title, kicker = 'Solicitud', mesaNumero = null, items = [], total = 0, tipo = 'cliente', onAccept = null }) {
   const modal = document.getElementById('modal-factura');
   const titleEl = document.getElementById('modal-factura-title');
@@ -36,24 +56,17 @@ function mostrarModalFactura({ title, kicker = 'Solicitud', mesaNumero = null, i
     ${detalleExtra}
   `;
 
-  actionBtn.onclick = null;
-  actionBtn.onclick = () => {
+  const aceptar = () => {
     if (typeof onAccept === 'function') onAccept();
-    cerrarModalFactura();
+    cerrarModal('modal-factura');
   };
 
-  modal.classList.remove('hidden');
-  modal.setAttribute('aria-hidden', 'false');
-  modal.style.display = 'flex';
+  actionBtn.onclick = aceptar;
+  abrirModal('modal-factura');
 }
 
 function cerrarModalFactura() {
-  const modal = document.getElementById('modal-factura');
-  if (modal) {
-    modal.classList.add('hidden');
-    modal.setAttribute('aria-hidden', 'true');
-    modal.style.display = 'none';
-  }
+  cerrarModal('modal-factura');
 }
 
 let contextoAudio = null;

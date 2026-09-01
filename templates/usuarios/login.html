@@ -1,22 +1,50 @@
 {% extends 'base.html' %}
 {% block title %}Iniciar sesión{% endblock %}
+{% block body_class %}login-page{% endblock %}
 {% block content %}
-<div class="auth-shell">
-  <div class="auth-card">
-    <h1>Acceso del restaurante</h1>
-    {% if messages %}
-      {% for message in messages %}
-        <div class="alert alert-danger">{{ message }}</div>
-      {% endfor %}
-    {% endif %}
-    <form method="post" action="{% url 'usuarios:login' %}">
-      {% csrf_token %}
-      <label>Usuario</label>
-      <input type="text" name="username" required>
-      <label>Contraseña</label>
-      <input type="password" name="password" required>
-      <button type="submit">Entrar</button>
-    </form>
+<div class="auth-page">
+  <div class="auth-panel">
+    <div class="auth-visual">
+      <div class="auth-visual-inner">
+        <span class="auth-brand-chip">Las Cuquis</span>
+        <h2>Control profesional del servicio</h2>
+        <p>Gestiona pedidos, cocina, caja y turnos desde un único punto de acceso.</p>
+        <ul class="auth-points">
+          <li>Pedidos en tiempo real</li>
+          <li>Seguimiento de cocina</li>
+          <li>Facturación y cierre de turno</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="auth-form-wrap">
+      <div class="auth-header">
+        <span class="auth-eyebrow">Acceso autorizado</span>
+        <h1>Inicia sesión</h1>
+      </div>
+
+      {% if messages %}
+        {% for message in messages %}
+          <div class="alert alert-danger">{{ message }}</div>
+        {% endfor %}
+      {% endif %}
+
+      <form method="post" action="{% url 'usuarios:login' %}" class="auth-form">
+        {% csrf_token %}
+
+        <div class="field-group">
+          <label for="username">Usuario</label>
+          <input type="text" id="username" name="username" placeholder="usuario" required>
+        </div>
+
+        <div class="field-group">
+          <label for="password">Contraseña</label>
+          <input type="password" id="password" name="password" placeholder="••••••••" required>
+        </div>
+
+        <button type="submit" class="btn btn-primary auth-submit">Entrar</button>
+      </form>
+    </div>
   </div>
 </div>
 {% endblock %}

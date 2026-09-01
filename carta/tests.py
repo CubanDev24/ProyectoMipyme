@@ -13,3 +13,4 @@ class CartaQrTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'Mesa 1')
         self.assertContains(response, 'QR')
+        self.assertTrue(response.headers.get('X-Frame-Options') in (None, 'ALLOWALL'))

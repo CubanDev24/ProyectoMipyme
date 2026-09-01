@@ -6,6 +6,7 @@ from django.core.exceptions import ObjectDoesNotExist
 from django.http import Http404
 from django.urls import reverse
 from django.shortcuts import render
+from django.views.decorators.clickjacking import xframe_options_exempt
 from .models import Categoria
 from pedidos.models import Mesa
 
@@ -26,6 +27,7 @@ def index(request):
     return render(request, 'carta/index.html', {'mesas': mesas})
 
 
+@xframe_options_exempt
 def qr_mesa(request, mesa_numero):
     try:
         mesa = Mesa.objects.get(numero=mesa_numero, activa=True)

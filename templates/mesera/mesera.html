@@ -2,15 +2,24 @@
 {% block title %}Mesera{% endblock %}
 {% block nav_mesera %}activo{% endblock %}
 {% block content %}
-<div id="modal-factura" class="modal-backdrop hidden" aria-hidden="true">
-  <div class="modal-panel" role="dialog" aria-modal="true" aria-labelledby="modal-factura-title">
+<div id="modal-factura" class="modal-backdrop" aria-hidden="true" hidden>
+  <div class="modal-panel modal-panel-premium" role="dialog" aria-modal="true" aria-labelledby="modal-factura-title">
     <button type="button" class="modal-close" onclick="cerrarModalFactura()" aria-label="Cerrar">×</button>
     <div class="modal-kicker" id="modal-factura-kicker">Solicitud</div>
     <h3 id="modal-factura-title">Factura solicitada</h3>
     <div id="modal-factura-body" class="modal-body"></div>
     <div class="modal-actions">
-      <button id="modal-factura-accept" type="button" class="btn btn-primary">Aceptar</button>
+      <button id="modal-factura-accept" type="button" class="btn btn-primary modal-submit-btn">Aceptar</button>
     </div>
+  </div>
+</div>
+
+<div id="modal-qr-mesa" class="modal-backdrop" aria-hidden="true" hidden>
+  <div class="modal-panel modal-panel-qr modal-panel-premium" role="dialog" aria-modal="true" aria-labelledby="modal-qr-title">
+    <button type="button" class="modal-close" onclick="cerrarModalQrMesa()" aria-label="Cerrar">×</button>
+    <div class="modal-kicker">Mesa</div>
+    <h3 id="modal-qr-title">QR de la mesa</h3>
+    <iframe id="modal-qr-iframe" title="QR de la mesa"></iframe>
   </div>
 </div>
 <div class="mesera-layout">
@@ -43,30 +52,23 @@
       </h1>
       <span class="badge-mesa" id="mesa-badge-header">— Selecciona mesa —</span>
     </div>
-    <nav class="categorias-nav">
-      {% for cat in categorias %}
-      <button class="btn-cat {% if forloop.first %}activo{% endif %}" onclick="scrollACat('mcat-{{ cat.id }}',this)">{{ cat.nombre }}</button>
-      {% endfor %}
-    </nav>
-    {% for cat in categorias %}
-    <div class="seccion-cat" id="mcat-{{ cat.id }}">
-      <h2>{{ cat.nombre }}</h2>
-      <div class="platos-lista">
-        {% for p in cat.platos.all %}{% if p.disponible %}
-        <div class="plato-card">
-          <div class="plato-info">
-            <div class="plato-nombre">{{ p.nombre }}</div>
-            {% if p.descripcion %}<div class="plato-desc">{{ p.descripcion }}</div>{% endif %}
-          </div>
-          <div class="plato-precio">{{ p.precio }} CUP</div>
-          <button class="btn-agregar" onclick='agregarMesera({{ p.id }},"{{ p.nombre|escapejs }}",{{ p.precio }})' title="Agregar">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-          </button>
+
+    <div class="platos-lista">
+      {% for p in productos %}
+      <div class="plato-card">
+        <div class="plato-info">
+          <div class="plato-nombre">{{ p.nombre }}</div>
+          {% if p.categoria %}<div class="plato-desc">{{ p.categoria.nombre }}</div>{% endif %}
         </div>
-        {% endif %}{% endfor %}
+        <div class="plato-precio">{{ p.precio }} CUP</div>
+        <button class="btn-agregar" onclick='agregarMesera({{ p.plato_id|default:p.id }},"{{ p.nombre|escapejs }}",{{ p.precio }})' title="Agregar">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        </button>
       </div>
+      {% empty %}
+      <div class="pedido-vacio" style="padding:1.5rem 0;">No hay productos disponibles en el inventario.</div>
+      {% endfor %}
     </div>
-    {% endfor %}
   </div>
 
   <!-- COL 3: PEDIDO ACTUAL de la mesa seleccionada -->
@@ -231,8 +233,53 @@ const QR_MESA_BASE = '{% url "carta:qr_mesa" 0 %}';
 
 function abrirQrMesa(numero) {
   if (!numero) return;
+  const modal = document.getElementById('modal-qr-mesa');
+  const panel = modal ? modal.querySelector('.modal-panel') : null;
+  const iframe = document.getElementById('modal-qr-iframe');
+  const title = document.getElementById('modal-qr-title');
   const url = QR_MESA_BASE.replace('/0/', `/${numero}/`);
-  window.open(url, `qr-mesa-${numero}`, 'width=520,height=700,noopener,noreferrer');
+  if (title) title.textContent = `QR de la mesa ${numero}`;
+  if (iframe) iframe.src = url;
+  if (modal) {
+    modal.hidden = false;
+    modal.removeAttribute('hidden');
+    modal.classList.remove('hidden');
+    modal.setAttribute('aria-hidden', 'false');
+    modal.style.display = 'block';
+    modal.style.position = 'fixed';
+    modal.style.inset = '0';
+    modal.style.zIndex = '2147483647';
+    modal.style.background = 'rgba(11,10,9,.68)';
+  }
+  if (panel) {
+    panel.style.position = 'absolute';
+    panel.style.top = '50%';
+    panel.style.left = '50%';
+    panel.style.transform = 'translate(-50%, -50%)';
+    panel.style.width = 'min(700px, calc(100vw - 2rem))';
+    panel.style.maxWidth = 'calc(100vw - 2rem)';
+    panel.style.maxHeight = 'calc(100vh - 2rem)';
+    panel.style.margin = '0';
+    panel.style.zIndex = '2147483647';
+    panel.style.overflow = 'auto';
+    panel.style.background = 'rgba(26,26,26,.98)';
+    panel.style.backgroundColor = 'rgba(26,26,26,.98)';
+    panel.style.border = '1px solid var(--border)';
+    panel.style.boxShadow = '0 18px 40px rgba(0,0,0,.35)';
+  }
+}
+
+function cerrarModalQrMesa() {
+  const modal = document.getElementById('modal-qr-mesa');
+  const iframe = document.getElementById('modal-qr-iframe');
+  if (modal) {
+    modal.hidden = true;
+    modal.setAttribute('hidden', 'hidden');
+    modal.classList.add('hidden');
+    modal.setAttribute('aria-hidden', 'true');
+    modal.style.display = 'none';
+  }
+  if (iframe) iframe.src = 'about:blank';
 }
 
 function alternarMesa(id, numero) {

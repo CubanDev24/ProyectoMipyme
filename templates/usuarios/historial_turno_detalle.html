@@ -1,0 +1,45 @@
+{% extends 'base.html' %}
+{% block title %}Detalle del turno{% endblock %}
+{% block content %}
+<div class="admin-body">
+  <h1>Detalle del turno</h1>
+
+  <div class="admin-grid">
+    <section class="admin-card">
+      <h2>{{ turno.fecha|date:'d/m/Y' }}</h2>
+      <p><strong>Estado:</strong> {{ turno.get_estado_display }}</p>
+      <p><strong>Fecha de apertura:</strong> {{ turno.apertura }}</p>
+      <p><strong>Fecha de cierre:</strong> {{ turno.cierre|default:'Sin cierre' }}</p>
+      <p><strong>Participantes:</strong>
+        {% for user in turno.usuarios.all %}
+          {{ user.username }}{% if not forloop.last %}, {% endif %}
+        {% empty %}
+          Sin participantes
+        {% endfor %}
+      </p>
+      <p><strong>Mesas:</strong> {{ turno.cantidad_mesas }}</p>
+    </section>
+
+    <section class="admin-card">
+      <h2>Resumen financiero</h2>
+      <p><strong>Facturas:</strong> {{ detalles.cantidad_facturas }}</p>
+      <p><strong>USD:</strong> {{ detalles.total_usd }} USD</p>
+      <p><strong>Efectivo CUP:</strong> {{ detalles.total_efectivo_cup }} CUP</p>
+      <p><strong>Transferencia CUP:</strong> {{ detalles.total_transferencia_cup }} CUP</p>
+      <p><strong>Total general:</strong> {{ detalles.total_general_cup }} CUP</p>
+      <p><strong>IPV:</strong> {{ detalles.ipv }} CUP</p>
+      <p><strong>Horas abiertas:</strong> {{ detalles.horas_abiertas }}</p>
+      <p><strong>Rendimiento por hora:</strong> {{ detalles.rendimiento_por_hora_cup }} CUP/h</p>
+    </section>
+
+    <section class="admin-card">
+      <h2>Cierre del turno</h2>
+      {% if turno.resumen %}
+        <pre>{{ turno.resumen }}</pre>
+      {% else %}
+        <p>No hay resumen guardado para este turno.</p>
+      {% endif %}
+    </section>
+  </div>
+</div>
+{% endblock %}

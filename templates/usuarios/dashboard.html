@@ -43,6 +43,12 @@
     </section>
 
     <section class="admin-card">
+      <h2>Historial de turnos</h2>
+      <p>Consulta el rendimiento histórico, el IPV y el cierre de cada turno.</p>
+      <a href="{% url 'usuarios:historial_turnos' %}" class="btn btn-primary">Ver historial</a>
+    </section>
+
+    <section class="admin-card">
       <h2>1. Configurar mesas del turno</h2>
       <form method="post" action="{% url 'usuarios:configurar_mesas_turno' %}">
         {% csrf_token %}
@@ -52,19 +58,6 @@
       </form>
     </section>
 
-    <section class="admin-card">
-      <h2>2. Configurar carta del turno</h2>
-      <form method="post" action="{% url 'usuarios:configurar_carta_turno' %}">
-        {% csrf_token %}
-        <label>Platos de la carta del turno</label>
-        <select name="platos" multiple size="8" style="min-height: 180px;">
-          {% for plato in plato_options %}
-            <option value="{{ plato.id }}" {% if turno and turno.platos.all %}{% for p in turno.platos.all %}{% if p.id == plato.id %}selected{% endif %}{% endfor %}{% endif %}>{{ plato.nombre }} ({{ plato.categoria.nombre }})</option>
-          {% endfor %}
-        </select>
-        <button type="submit">Guardar carta</button>
-      </form>
-    </section>
     {% endif %}
 
     {% if user.role == 'cajera' %}

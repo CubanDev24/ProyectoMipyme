@@ -1,6 +1,6 @@
 from decimal import Decimal
 from django.db import models
-from carta.models import Plato
+from carta.models import Categoria, Plato
 
 
 class Insumo(models.Model):
@@ -13,9 +13,12 @@ class Insumo(models.Model):
         ('ml', 'Mililitro'),
     ]
     nombre = models.CharField(max_length=150, unique=True)
+    categoria = models.ForeignKey(Categoria, on_delete=models.SET_NULL, null=True, blank=True, related_name='insumos')
     unidad = models.CharField(max_length=10, choices=UNIDAD_CHOICES, default='unidad')
     stock_actual = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0'))
     stock_minimo = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0'))
+    precio = models.DecimalField(max_digits=8, decimal_places=2, default=Decimal('0'))
+    disponible = models.BooleanField(default=True)
     activo = models.BooleanField(default=True)
     creado_en = models.DateTimeField(auto_now_add=True)
     actualizado_en = models.DateTimeField(auto_now=True)
@@ -27,6 +30,40 @@ class Insumo(models.Model):
 
     def __str__(self):
         return self.nombre
+
+    @property
+    def plato(self):
+        return Plato.objects.filter(nombre__iexact=self.nombre).order_by('-id').first()
+
+    @property
+    def plato_id(self):
+        plato = self.plato
+        return plato.id if plato else None
+
+    def save(self, *args, **kwargs):
+        super().save(*args, **kwargs)
+        if not self.nombre:
+            return
+        categoria = self.categoria or Categoria.objects.order_by('orden', 'nombre').first()
+        if categoria is None:
+            return
+        plato_defaults = {
+            'categoria': categoria,
+            'descripcion': f'Producto del inventario: {self.nombre}',
+            'precio': self.precio or Decimal('0'),
+            'disponible': self.disponible and self.activo,
+            'orden': Plato.objects.count() + 1,
+        }
+        plato, _ = Plato.objects.get_or_create(
+            nombre__iexact=self.nombre,
+            defaults={**plato_defaults, 'nombre': self.nombre},
+        )
+        plato.categoria = categoria
+        plato.nombre = self.nombre
+        plato.descripcion = plato_defaults['descripcion']
+        plato.precio = self.precio or Decimal('0')
+        plato.disponible = self.disponible and self.activo
+        plato.save()
 
     @property
     def stock_bajo(self):

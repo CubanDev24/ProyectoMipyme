@@ -97,6 +97,8 @@ def serializar_factura(factura):
         'monto_transferencia_cup': str(factura.monto_transferencia_cup),
         'monto_usd': str(factura.monto_usd),
         'tasa_cambio': str(factura.tasa_cambio) if factura.tasa_cambio else None,
+        'mesera_nombre': getattr(factura, 'mesera_nombre', '') or '',
+        'cajera_nombre': getattr(factura, 'cajera_nombre', '') or '',
         'creado_en': factura.creado_en.strftime('%d/%m/%Y %H:%M'),
         'items': [
             {
@@ -162,10 +164,17 @@ class MeseraConsumer(AsyncWebsocketConsumer):
             cuenta = await self.get_cuenta_mesa(mesa_numero)
             if not cuenta:
                 return
+            user = self.scope.get('user')
+            if user and hasattr(user, 'get_full_name'):
+                mesera_nombre = user.get_full_name() or user.username
+            else:
+                mesera_nombre = user.username if user else ''
+            cuenta['mesera_nombre'] = mesera_nombre
             payload = self.build_factura_para_caja(cuenta)
+            payload['mesera_nombre'] = mesera_nombre
             await self.channel_layer.group_send(
                 'caja',
-                {'type': 'factura_solicitada', 'factura': cuenta, 'mesa_numero': mesa_numero, 'aceptada_por_mesera': True}
+                {'type': 'factura_solicitada', 'factura': cuenta, 'mesa_numero': mesa_numero, 'aceptada_por_mesera': True, 'mesera_nombre': mesera_nombre}
             )
             await self.send(text_data=json.dumps({'tipo': 'factura_aceptada', **payload}))
 
@@ -438,7 +447,13 @@ class CajaConsumer(AsyncWebsocketConsumer):
             pedido_id = data['pedido_id']
             forma_pago = data.get('forma_pago')
             tasa_cambio = data.get('tasa_cambio')
-            resultado, error = await self.cerrar_pedido_con_pago(pedido_id, forma_pago, tasa_cambio)
+            mesera_nombre = data.get('mesera_nombre') or ''
+            user = self.scope.get('user')
+            if user and hasattr(user, 'get_full_name'):
+                cajera_nombre = user.get_full_name() or user.username
+            else:
+                cajera_nombre = user.username if user else ''
+            resultado, error = await self.cerrar_pedido_con_pago(pedido_id, forma_pago, tasa_cambio, mesera_nombre=mesera_nombre, cajera_nombre=cajera_nombre)
             if error:
                 await self.send(text_data=json.dumps({'tipo': 'error_cobro', 'mensaje': error}))
             elif resultado:
@@ -543,7 +558,7 @@ class CajaConsumer(AsyncWebsocketConsumer):
         )
 
     @database_sync_to_async
-    def cerrar_pedido_con_pago(self, pedido_id, forma_pago, tasa_cambio_raw):
+    def cerrar_pedido_con_pago(self, pedido_id, forma_pago, tasa_cambio_raw, mesera_nombre='', cajera_nombre=''):
         """
         Verifica el pedido, calcula el monto según la forma de pago elegida
         por la cajera y registra la factura antes de cerrar la cuenta.
@@ -611,6 +626,8 @@ class CajaConsumer(AsyncWebsocketConsumer):
             monto_transferencia_cup=monto_transferencia_cup,
             monto_usd=monto_usd,
             tasa_cambio=tasa_cambio,
+            mesera_nombre=mesera_nombre,
+            cajera_nombre=cajera_nombre,
             items_snapshot=items_snapshot,
         )
 
@@ -629,6 +646,8 @@ class CajaConsumer(AsyncWebsocketConsumer):
             'monto_transferencia_cup': str(factura.monto_transferencia_cup),
             'monto_usd': str(factura.monto_usd),
             'tasa_cambio': str(factura.tasa_cambio) if factura.tasa_cambio else None,
+            'mesera_nombre': factura.mesera_nombre,
+            'cajera_nombre': factura.cajera_nombre,
             'items_snapshot': items_snapshot,
             'items': [
                 {
@@ -684,6 +703,8 @@ class ClienteConsumer(AsyncWebsocketConsumer):
                     'total_cup': str(sum(Decimal(str(pedido.get('total', '0'))) for pedido in pedidos)),
                     'items': [item for pedido in pedidos for item in pedido.get('items', [])],
                     'items_snapshot': [item for pedido in pedidos for item in pedido.get('items', [])],
+                    'mesera_nombre': '',
+                    'cajera_nombre': '',
                     'cuenta_solicitada': True,
                     'pdf_url': None,
                 }

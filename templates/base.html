@@ -5,17 +5,19 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{% block title %}Restaurante{% endblock %}</title>
   {% load static %}
-  <link rel="stylesheet" href="{% static 'css/main.css' %}?v=20260828-1">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="stylesheet" href="{% static 'css/main.css' %}?v=20260901-restyle-emerald">
   {% block extra_head %}{% endblock %}
 </head>
-<body>
+<body class="{% block body_class %}{% endblock %}">
   <div id="toast-container" class="toast-container"></div>
   {% block topbar %}
   <div class="topbar">
     <div class="topbar-brand">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 2l1.5 18.5L12 22l7.5-1.5L21 2"/><path d="M12 2v20M7 6h10M6 10h12M7 14h10"/></svg>
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M3 2l1.5 18.5L12 22l7.5-1.5L21 2"/><path d="M12 2v20M7 6h10M6 10h12M7 14h10"/></svg>
       Las Cuquis
     </div>
+
     <div class="topbar-links">
       {% if user.is_authenticated %}
         {% if user.role == 'mesera' %}
@@ -38,9 +40,14 @@
         <a href="{% url 'usuarios:landing' %}" class="topbar-link">Iniciar sesión</a>
       {% endif %}
     </div>
-    <div class="ws-status">
-      <div class="ws-dot desconectado" id="ws-dot"></div>
-      <span id="ws-label">—</span>
+    <div style="display:flex;align-items:center;gap:.75rem">
+      {% if user.is_authenticated %}
+      <span class="text-muted" style="font-size:.75rem;font-weight:600">{{ user.get_full_name|default:user.username }} <span style="opacity:.6">· {{ user.get_role_display }}</span></span>
+      {% endif %}
+      <div class="ws-status">
+        <div class="ws-dot desconectado" id="ws-dot"></div>
+        <span id="ws-label">—</span>
+      </div>
     </div>
   </div>
   {% endblock %}

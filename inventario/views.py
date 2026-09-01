@@ -65,43 +65,59 @@ def categoria_crear(request):
 def plato_crear(request):
     if request.method == 'POST':
         categoria_id = request.POST.get('categoria')
+        categoria_nombre = request.POST.get('categoria_nueva', '').strip()
         nombre = request.POST.get('nombre', '').strip()
         descripcion = request.POST.get('descripcion', '').strip()
         precio = _to_decimal(request.POST.get('precio'))
-        if not categoria_id or not nombre or precio is None or precio <= 0:
-            messages.error(request, 'Completa nombre, precio y categoría del plato.')
-        else:
+
+        if not categoria_id and not categoria_nombre:
+            messages.error(request, 'Debes elegir una categoría o crear una nueva.')
+            return redirect('inventario:administrador')
+
+        if not nombre or precio is None or precio <= 0:
+            messages.error(request, 'Completa nombre y precio del plato.')
+            return redirect('inventario:administrador')
+
+        if categoria_id:
             categoria = get_object_or_404(Categoria, pk=categoria_id)
-            plato = Plato.objects.create(
-                categoria=categoria,
-                nombre=nombre,
-                descripcion=descripcion,
-                precio=precio,
-                disponible=request.POST.get('disponible') == 'on',
-                orden=Plato.objects.count() + 1,
+        else:
+            categoria, created = Categoria.objects.get_or_create(
+                nombre__iexact=categoria_nombre,
+                defaults={'nombre': categoria_nombre, 'orden': Categoria.objects.count() + 1}
             )
+            if created:
+                messages.success(request, f'Categoría "{categoria.nombre}" creada.')
 
-            insumo_ids = request.POST.getlist('insumo_id[]') or request.POST.getlist('insumo_id')
-            cantidades = request.POST.getlist('cantidad[]') or request.POST.getlist('cantidad')
-            creados = 0
-            for insumo_id, cantidad_raw in zip(insumo_ids, cantidades):
-                insumo_id = (insumo_id or '').strip()
-                cantidad = _to_decimal(cantidad_raw)
-                if not insumo_id or cantidad is None or cantidad <= 0:
-                    continue
-                insumo = Insumo.objects.filter(pk=insumo_id).first()
-                if not insumo:
-                    continue
-                RecetaItem.objects.update_or_create(
-                    plato=plato, insumo=insumo,
-                    defaults={'cantidad': cantidad}
-                )
-                creados += 1
+        plato = Plato.objects.create(
+            categoria=categoria,
+            nombre=nombre,
+            descripcion=descripcion,
+            precio=precio,
+            disponible=request.POST.get('disponible') == 'on',
+            orden=Plato.objects.count() + 1,
+        )
 
-            if creados:
-                messages.success(request, f'Plato "{nombre}" creado con {creados} ingrediente(s) de inventario.')
-            else:
-                messages.success(request, f'Plato "{nombre}" creado sin receta asociada.')
+        insumo_ids = request.POST.getlist('insumo_id[]') or request.POST.getlist('insumo_id')
+        cantidades = request.POST.getlist('cantidad[]') or request.POST.getlist('cantidad')
+        creados = 0
+        for insumo_id, cantidad_raw in zip(insumo_ids, cantidades):
+            insumo_id = (insumo_id or '').strip()
+            cantidad = _to_decimal(cantidad_raw)
+            if not insumo_id or cantidad is None or cantidad <= 0:
+                continue
+            insumo = Insumo.objects.filter(pk=insumo_id).first()
+            if not insumo:
+                continue
+            RecetaItem.objects.update_or_create(
+                plato=plato, insumo=insumo,
+                defaults={'cantidad': cantidad}
+            )
+            creados += 1
+
+        if creados:
+            messages.success(request, f'Plato "{nombre}" creado con {creados} ingrediente(s) de inventario.')
+        else:
+            messages.success(request, f'Plato "{nombre}" creado sin receta asociada.')
     return redirect('inventario:administrador')
 
 
@@ -145,17 +161,27 @@ def insumo_crear(request):
         unidad = request.POST.get('unidad', 'unidad')
         stock_actual = _to_decimal(request.POST.get('stock_actual'), Decimal('0'))
         stock_minimo = _to_decimal(request.POST.get('stock_minimo'), Decimal('0'))
+        precio = _to_decimal(request.POST.get('precio'), Decimal('0'))
+        categoria_id = request.POST.get('categoria')
+        categoria = None
+        if categoria_id:
+            categoria = get_object_or_404(Categoria, pk=categoria_id)
         if not nombre:
             messages.error(request, 'El insumo necesita un nombre.')
         elif Insumo.objects.filter(nombre__iexact=nombre).exists():
             messages.error(request, f'Ya existe un insumo llamado "{nombre}".')
         else:
-            Insumo.objects.create(
-                nombre=nombre, unidad=unidad,
+            insumo = Insumo.objects.create(
+                nombre=nombre,
+                categoria=categoria,
+                unidad=unidad,
                 stock_actual=stock_actual or Decimal('0'),
                 stock_minimo=stock_minimo or Decimal('0'),
+                precio=precio or Decimal('0'),
+                disponible=True,
+                activo=True,
             )
-            messages.success(request, f'Insumo "{nombre}" creado.')
+            messages.success(request, f'Insumo "{nombre}" creado y sincronizado con la carta.')
     return redirect('inventario:administrador')
 
 
@@ -168,11 +194,18 @@ def insumo_editar(request, pk):
         insumo.unidad = request.POST.get('unidad', insumo.unidad)
         stock_actual = _to_decimal(request.POST.get('stock_actual'))
         stock_minimo = _to_decimal(request.POST.get('stock_minimo'))
+        precio = _to_decimal(request.POST.get('precio'))
+        categoria_id = request.POST.get('categoria')
+        if peso := request.POST.get('categoria'):
+            insumo.categoria = get_object_or_404(Categoria, pk=peso)
         if stock_actual is not None:
             insumo.stock_actual = stock_actual
         if stock_minimo is not None:
             insumo.stock_minimo = stock_minimo
+        if precio is not None:
+            insumo.precio = precio
         insumo.activo = request.POST.get('activo') == 'on'
+        insumo.disponible = insumo.activo
         insumo.save()
         messages.success(request, f'Insumo "{insumo.nombre}" actualizado.')
     return redirect('inventario:administrador')
