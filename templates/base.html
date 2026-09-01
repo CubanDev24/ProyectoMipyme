@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}Restaurante{% endblock %}</title>
+  {% load static %}
+  <link rel="stylesheet" href="{% static 'css/main.css' %}?v=20260828-1">
+  {% block extra_head %}{% endblock %}
+</head>
+<body>
+  <div id="toast-container" class="toast-container"></div>
+  {% block topbar %}
+  <div class="topbar">
+    <div class="topbar-brand">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 2l1.5 18.5L12 22l7.5-1.5L21 2"/><path d="M12 2v20M7 6h10M6 10h12M7 14h10"/></svg>
+      Las Cuquis
+    </div>
+    <div class="topbar-links">
+      {% if user.is_authenticated %}
+        {% if user.role == 'mesera' %}
+          <a href="{% url 'pedidos:mesera' %}" class="topbar-link {% block nav_mesera %}{% endblock %}">Mesera</a>
+        {% elif user.role == 'cocina' %}
+          <a href="{% url 'pedidos:cocina' %}" class="topbar-link {% block nav_cocina %}{% endblock %}">Cocina</a>
+        {% elif user.role == 'cajera' %}
+          <a href="{% url 'pedidos:caja' %}" class="topbar-link {% block nav_caja %}{% endblock %}">Caja</a>
+        {% elif user.role == 'administrador' %}
+          <a href="{% url 'inventario:administrador' %}" class="topbar-link {% block nav_administrador %}{% endblock %}">Administrador</a>
+          <a href="{% url 'usuarios:dashboard' %}" class="topbar-link">Turno</a>
+        {% endif %}
+
+        {% if user.role == 'mesera' or user.role == 'cocina' or user.role == 'cajera' %}
+          <a href="{% url 'usuarios:dashboard' %}" class="topbar-link">Turno</a>
+        {% endif %}
+
+        <a href="{% url 'usuarios:logout' %}" class="topbar-link">Cerrar sesión</a>
+      {% else %}
+        <a href="{% url 'usuarios:landing' %}" class="topbar-link">Iniciar sesión</a>
+      {% endif %}
+    </div>
+    <div class="ws-status">
+      <div class="ws-dot desconectado" id="ws-dot"></div>
+      <span id="ws-label">—</span>
+    </div>
+  </div>
+  {% endblock %}
+  {% block content %}{% endblock %}
+  <script src="{% static 'js/utils.js' %}?v=20260828-2"></script>
+  {% block extra_js %}{% endblock %}
+</body>
+</html>

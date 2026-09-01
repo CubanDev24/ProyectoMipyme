@@ -1,0 +1,101 @@
+{% extends 'base.html' %}
+{% block title %}Cocina{% endblock %}
+{% block nav_cocina %}activo{% endblock %}
+{% block content %}
+<div class="cocina-body">
+  <div class="cocina-toolbar">
+    <div><strong>Pedidos en tiempo real</strong><span>Las alertas sonoras están activas en esta pantalla.</span></div>
+    <button class="btn btn-outline btn-sm" data-activar-sonido onclick="activarSonido()">Activar sonido</button>
+  </div>
+  <div class="cocina-columnas">
+    <div>
+      <div class="col-header"><div class="col-dot-pendiente"></div> Pendientes <span class="col-header-cnt" id="cnt-p">0</span></div>
+      <div id="col-pendiente"></div>
+    </div>
+    <div>
+      <div class="col-header"><div class="col-dot-prep"></div> En preparación <span class="col-header-cnt" id="cnt-prep">0</span></div>
+      <div id="col-preparacion"></div>
+    </div>
+    <div>
+      <div class="col-header"><div class="col-dot-listo"></div> Listos <span class="col-header-cnt" id="cnt-l">0</span></div>
+      <div id="col-listo"></div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+{% block extra_js %}
+<script>
+const WS_URL = `ws://${location.host}/ws/cocina/`;
+let ws = null, pedidos = {};
+
+function conectar() {
+  ws = new WebSocket(WS_URL);
+  ws.onopen = () => setDot(true);
+  ws.onclose = () => { setDot(false); setTimeout(conectar, 3000); };
+  ws.onmessage = e => {
+    const d = JSON.parse(e.data);
+    if (d.tipo==='estado_inicial') { pedidos={}; d.pedidos.forEach(p=>pedidos[p.id]=p); renderTodo(); }
+    else if (d.tipo==='pedido_nuevo') { pedidos[d.pedido.id]=d.pedido; renderTodo(); toast(`Nuevo pedido — Mesa ${d.pedido.mesa_numero}`,'orange'); sonidoPedidoNuevo(); }
+    else if (d.tipo==='pedido_actualizado') {
+      const anterior = pedidos[d.pedido.id];
+      pedidos[d.pedido.id]=d.pedido;
+      renderTodo();
+      if (anterior && (anterior.estado !== d.pedido.estado || anterior.cuenta_solicitada !== d.pedido.cuenta_solicitada)) sonidoCambioEstado();
+    }
+    else if (d.tipo==='pedido_cerrado') { delete pedidos[d.pedido_id]; renderTodo(); sonidoCambioEstado(); }
+  };
+}
+
+function setDot(ok) {
+  const dot=document.getElementById('ws-dot'), lbl=document.getElementById('ws-label');
+  if(dot) dot.className='ws-dot '+(ok?'conectado':'desconectado');
+  if(lbl) lbl.textContent=ok?'En línea':'Reconectando...';
+}
+
+function cambiarEstado(id, estado) {
+  if(ws&&ws.readyState===1) ws.send(JSON.stringify({accion:'cambiar_estado',pedido_id:id,estado}));
+}
+
+function renderTodo() {
+  const cols = {pendiente:[], en_preparacion:[], listo:[]};
+  Object.values(pedidos).forEach(p=>{ if(cols[p.estado]) cols[p.estado].push(p); });
+  ['pendiente','en_preparacion','listo'].forEach(e=>cols[e].sort((a,b)=>a.id-b.id));
+  renderCol('pendiente', cols.pendiente);
+  renderCol('preparacion', cols.en_preparacion);
+  renderCol('listo', cols.listo);
+  document.getElementById('cnt-p').textContent = cols.pendiente.length;
+  document.getElementById('cnt-prep').textContent = cols.en_preparacion.length;
+  document.getElementById('cnt-l').textContent = cols.listo.length;
+}
+
+function renderCol(id, lista) {
+  const el = document.getElementById(`col-${id}`);
+  el.innerHTML='';
+  lista.forEach(p=>el.appendChild(crearCard(p)));
+}
+
+function crearCard(p) {
+  const div = document.createElement('div');
+  div.className='pedido-card';
+  const items = p.items.map(i=>`<li><span><span class="cant-badge">${i.cantidad}</span>${i.plato}</span><span style="color:var(--text-muted)">${i.subtotal} CUP</span></li>`).join('');
+  const cuentaTag = p.cuenta_solicitada ? `<div class="tag-cuenta-cocina"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg> Pide la cuenta</div>` : '';
+  const nota = p.nota ? `<div class="nota-cocina">Nota: ${p.nota}</div>` : '';
+  let btns='';
+  if(p.estado==='pendiente') btns=`<button class="btn btn-orange" onclick="cambiarEstado(${p.id},'en_preparacion')">Preparar</button>`;
+  else if(p.estado==='en_preparacion') btns=`<button class="btn btn-success" onclick="cambiarEstado(${p.id},'listo')">Marcar listo</button>`;
+  else if(p.estado==='listo') btns=`<button class="btn btn-blue" onclick="cambiarEstado(${p.id},'servido')">Marcar servido</button>`;
+  div.innerHTML=`
+    <div class="pedido-card-top">
+      <div><div class="pedido-mesa-label">Mesa ${p.mesa_numero}</div><div class="pedido-hora">#${p.id} · ${p.creado_en}</div></div>
+    </div>
+    ${cuentaTag}
+    <ul class="pedido-items-ul">${items}</ul>
+    ${nota}
+    <div class="total-cocina">Total: <span>${p.total} CUP</span></div>
+    <div class="cocina-btns">${btns}</div>`;
+  return div;
+}
+
+conectar();
+</script>
+{% endblock %}

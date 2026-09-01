@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Factura #{{ factura.id }}</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Courier New', monospace;
+    background: #eee;
+    color: #111;
+    display: flex;
+    justify-content: center;
+    padding: 24px 0;
+  }
+  .ticket {
+    width: 300px;
+    background: #fff;
+    padding: 18px 16px;
+    box-shadow: 0 2px 14px rgba(0,0,0,.2);
+  }
+  .centro { text-align: center; }
+  .marca { font-size: 1.15rem; font-weight: 700; letter-spacing: .08em; }
+  .sub { font-size: .72rem; color: #555; margin-bottom: 10px; }
+  .linea { border-top: 1px dashed #999; margin: 10px 0; }
+  .fila { display: flex; justify-content: space-between; font-size: .8rem; padding: 2px 0; }
+  .fila.item-nombre { flex: 1; padding-right: 6px; }
+  .items { margin: 8px 0; }
+  .items .fila span:first-child { flex: 1; }
+  .total-fila { display:flex; justify-content:space-between; font-size:1rem; font-weight:700; padding-top:8px; }
+  .pago-titulo { font-size: .75rem; text-transform: uppercase; letter-spacing: .05em; color: #555; margin-top: 10px; margin-bottom: 4px; }
+  .footer { text-align: center; font-size: .72rem; color: #555; margin-top: 14px; }
+  .btn-imprimir {
+    display: block; width: 100%; margin-top: 16px; padding: 10px;
+    background: #111; color: #fff; border: none; border-radius: 4px;
+    font-size: .85rem; cursor: pointer;
+  }
+  @media print {
+    body { background: #fff; padding: 0; }
+    .ticket { box-shadow: none; width: 100%; }
+    .btn-imprimir { display: none; }
+  }
+</style>
+</head>
+<body>
+  <div class="ticket">
+    <div class="centro">
+      <div class="marca">Las Cuquis</div>
+      <div class="sub">Factura de consumo</div>
+    </div>
+    <div class="linea"></div>
+    <div class="fila"><span>Factura</span><span>#{{ factura.id }}</span></div>
+    <div class="fila"><span>Mesa</span><span>{{ factura.mesa_numero }}</span></div>
+    <div class="fila"><span>Fecha</span><span>{{ factura.creado_en|date:"d/m/Y H:i" }}</span></div>
+    <div class="linea"></div>
+
+    <div class="items">
+      {% for i in factura.items_snapshot %}
+      <div class="fila">
+        <span>{{ i.cantidad }}x {{ i.plato }}</span>
+        <span>{{ i.subtotal }}</span>
+      </div>
+      {% endfor %}
+    </div>
+
+    <div class="linea"></div>
+    <div class="total-fila"><span>TOTAL</span><span>{{ factura.total_cup }} CUP</span></div>
+
+    <div class="pago-titulo">Forma de pago: {{ factura.get_forma_pago_display }}</div>
+    {% if factura.forma_pago == 'efectivo_cup' %}
+      <div class="fila"><span>Efectivo CUP</span><span>{{ factura.monto_efectivo_cup }} CUP</span></div>
+    {% elif factura.forma_pago == 'transferencia' %}
+      <div class="fila"><span>Transferencia</span><span>{{ factura.monto_transferencia_cup }} CUP</span></div>
+    {% elif factura.forma_pago == 'mixto' %}
+      <div class="fila"><span>Efectivo CUP</span><span>{{ factura.monto_efectivo_cup }} CUP</span></div>
+      <div class="fila"><span>Transferencia</span><span>{{ factura.monto_transferencia_cup }} CUP</span></div>
+    {% elif factura.forma_pago == 'usd' %}
+      <div class="fila"><span>Monto USD</span><span>{{ factura.monto_usd }} USD</span></div>
+      <div class="fila"><span>Tasa usada</span><span>1 USD = {{ factura.tasa_cambio }} CUP</span></div>
+    {% endif %}
+
+    <div class="linea"></div>
+    <div class="footer">¡Gracias por su visita!</div>
+
+    <button class="btn-imprimir" onclick="window.print()">Imprimir</button>
+  </div>
+  <script>window.addEventListener('load', () => setTimeout(() => window.print(), 300));</script>
+</body>
+</html>

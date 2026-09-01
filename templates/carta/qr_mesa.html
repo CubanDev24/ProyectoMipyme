@@ -1,0 +1,15 @@
+{% extends 'base.html' %}
+{% block title %}QR Mesa {{ mesa.numero }}{% endblock %}
+{% block topbar %}{% endblock %}
+{% block content %}
+<div style="max-width: 520px; margin: 2rem auto; padding: 2rem; border-radius: 20px; background: #121826; border: 1px solid rgba(255,255,255,0.08); box-shadow: 0 20px 40px rgba(0,0,0,0.25); text-align: center;">
+  <div style="font-size: .8rem; letter-spacing: .12em; text-transform: uppercase; color: #c8a96e; margin-bottom: 1rem;">Acceso del cliente</div>
+  <h1 style="margin: 0 0 .75rem; font-size: 2rem;">Mesa {{ mesa.numero }}</h1>
+  <p style="margin: 0 0 1.5rem; color: #aeb7c9;">Escanea este código para entrar a la carta de esta mesa.</p>
+  <img src="{{ qr_data }}" alt="Código QR de la mesa {{ mesa.numero }}" style="width: 100%; max-width: 320px; border-radius: 16px; background: white; padding: 10px;">
+  <div style="margin-top: 1.25rem; font-size: .85rem; color: #dfe6f3; word-break: break-all;">{{ qr_url }}</div>
+  <div style="margin-top: 1.5rem;">
+    <a href="{{ qr_url }}" class="btn btn-primary" target="_blank" rel="noopener noreferrer">Abrir carta</a>
+  </div>
+</div>
+{% endblock %}

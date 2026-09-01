@@ -1,0 +1,94 @@
+{% extends 'base.html' %}
+{% block title %}Panel de turno{% endblock %}
+{% block content %}
+<div class="admin-body">
+  <h1>Panel de turno</h1>
+
+  {% if messages %}
+    {% for message in messages %}
+      <div class="admin-flash {% if message.tags == 'error' %}admin-flash-error{% else %}admin-flash-ok{% endif %}">{{ message }}</div>
+    {% endfor %}
+  {% endif %}
+
+  <div class="admin-grid">
+    <section class="admin-card">
+      <h2>Turno actual</h2>
+      {% if turno %}
+        <p><strong>Estado:</strong> {{ turno.get_estado_display }}</p>
+        <p><strong>Fecha:</strong> {{ turno.fecha }}</p>
+        <p><strong>Cantidad de mesas:</strong> {{ turno.cantidad_mesas }}</p>
+        <p><strong>Miembros:</strong> {% for user in turno.usuarios.all %}{{ user.username }}{% if not forloop.last %}, {% endif %}{% empty %}Sin participantes{% endfor %}</p>
+        {% if turno.resumen %}
+          <pre>{{ turno.resumen }}</pre>
+        {% endif %}
+      {% else %}
+        <p>No hay turno abierto para hoy.</p>
+      {% endif %}
+    </section>
+
+    {% if user.role == 'administrador' %}
+    <section class="admin-card">
+      <h2>Crear usuario</h2>
+      <form method="post" action="{% url 'usuarios:crear_usuario' %}">
+        {% csrf_token %}
+        <input type="text" name="username" placeholder="Nombre de usuario" required>
+        <input type="password" name="password" placeholder="Contraseña" required>
+        <select name="role">
+          {% for value, label in user.ROLE_CHOICES %}
+            {% if value != 'administrador' %}<option value="{{ value }}">{{ label }}</option>{% endif %}
+          {% endfor %}
+        </select>
+        <button type="submit">Crear usuario</button>
+      </form>
+    </section>
+
+    <section class="admin-card">
+      <h2>1. Configurar mesas del turno</h2>
+      <form method="post" action="{% url 'usuarios:configurar_mesas_turno' %}">
+        {% csrf_token %}
+        <label>Cantidad de mesas</label>
+        <input type="number" name="cantidad_mesas" min="1" value="{{ turno.cantidad_mesas|default:10 }}" required>
+        <button type="submit">Guardar mesas</button>
+      </form>
+    </section>
+
+    <section class="admin-card">
+      <h2>2. Configurar carta del turno</h2>
+      <form method="post" action="{% url 'usuarios:configurar_carta_turno' %}">
+        {% csrf_token %}
+        <label>Platos de la carta del turno</label>
+        <select name="platos" multiple size="8" style="min-height: 180px;">
+          {% for plato in plato_options %}
+            <option value="{{ plato.id }}" {% if turno and turno.platos.all %}{% for p in turno.platos.all %}{% if p.id == plato.id %}selected{% endif %}{% endfor %}{% endif %}>{{ plato.nombre }} ({{ plato.categoria.nombre }})</option>
+          {% endfor %}
+        </select>
+        <button type="submit">Guardar carta</button>
+      </form>
+    </section>
+    {% endif %}
+
+    {% if user.role == 'cajera' %}
+    <section class="admin-card">
+      <h2>Cierre de turno</h2>
+      <form method="post" action="{% url 'usuarios:cerrar_turno' %}">
+        {% csrf_token %}
+        <textarea name="observaciones" rows="4" placeholder="Observaciones del cierre"></textarea>
+        <button type="submit">Marcar cierre del turno</button>
+      </form>
+    </section>
+    {% endif %}
+
+    <section class="admin-card">
+      <h2>Notificaciones</h2>
+      {% for n in notificaciones %}
+        <div class="note-item">
+          <strong>{{ n.asunto }}</strong>
+          <p>{{ n.mensaje }}</p>
+        </div>
+      {% empty %}
+        <p>No hay notificaciones.</p>
+      {% endfor %}
+    </section>
+  </div>
+</div>
+{% endblock %}

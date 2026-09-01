@@ -1,0 +1,104 @@
+{% extends 'base.html' %}
+{% block title %}La Mesa — Inicio{% endblock %}
+{% block topbar %}{% endblock %}
+{% block content %}
+<div class="index-page">
+  <div class="brand-logo">
+    <svg width="60" height="60" viewBox="0 0 24 24" fill="none" stroke="#c8a96e" stroke-width="1.5">
+      <path d="M3 2l1.5 18.5L12 22l7.5-1.5L21 2"/><path d="M12 2v20M7 6h10M6 10h12M7 14h10"/>
+    </svg>
+  </div>
+  <div class="brand-name">Las Cuquis</div>
+  <div class="brand-tagline">Sistema de carta y pedidos</div>
+
+  <div class="roles-grid">
+    {% if not user.is_authenticated %}
+      <a href="{% url 'pedidos:mesera' %}" class="role-card">
+        <div class="role-icon">
+          <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#c8a96e" stroke-width="1.5">
+            <path d="M20 7H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z"/>
+            <path d="M12 12h.01M8 12h.01M16 12h.01"/>
+          </svg>
+        </div>
+        <div class="role-title">Mesera</div>
+        <div class="role-desc">Tomar pedidos por mesa y hacer seguimiento</div>
+      </a>
+      <a href="{% url 'pedidos:cocina' %}" class="role-card">
+        <div class="role-icon">
+          <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#e07c3a" stroke-width="1.5">
+            <path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10 10-4.5 10-10S17.5 2 12 2z"/>
+            <path d="M12 6v6l4 2"/>
+          </svg>
+        </div>
+        <div class="role-title">Cocina</div>
+        <div class="role-desc">Ver pedidos en tiempo real y marcar estado</div>
+      </a>
+      <a href="{% url 'pedidos:caja' %}" class="role-card">
+        <div class="role-icon">
+          <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#4caf7d" stroke-width="1.5">
+            <rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/>
+            <path d="M7 15h2M12 15h5"/>
+          </svg>
+        </div>
+        <div class="role-title">Caja</div>
+        <div class="role-desc">Gestionar cuentas y cerrar pedidos</div>
+      </a>
+      <a href="{% url 'inventario:administrador' %}" class="role-card">
+        <div class="role-icon">
+          <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#9b7fe8" stroke-width="1.5">
+            <path d="M21 8V6a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v2"/>
+            <path d="M3 8h18v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8z"/>
+            <path d="M8 12h8M8 16h5"/>
+          </svg>
+        </div>
+        <div class="role-title">Administrador</div>
+        <div class="role-desc">Inventario, recetas y tasa de cambio</div>
+      </a>
+    {% else %}
+      {% if user.role == 'mesera' %}
+        <a href="{% url 'pedidos:mesera' %}" class="role-card">
+          <div class="role-icon">...</div>
+          <div class="role-title">Mesera</div>
+          <div class="role-desc">Tomar pedidos por mesa y hacer seguimiento</div>
+        </a>
+      {% elif user.role == 'cocina' %}
+        <a href="{% url 'pedidos:cocina' %}" class="role-card">
+          <div class="role-icon">...</div>
+          <div class="role-title">Cocina</div>
+          <div class="role-desc">Ver pedidos en tiempo real y marcar estado</div>
+        </a>
+      {% elif user.role == 'cajera' %}
+        <a href="{% url 'pedidos:caja' %}" class="role-card">
+          <div class="role-icon">...</div>
+          <div class="role-title">Caja</div>
+          <div class="role-desc">Gestionar cuentas y cerrar pedidos</div>
+        </a>
+      {% elif user.role == 'administrador' %}
+        <a href="{% url 'inventario:administrador' %}" class="role-card">
+          <div class="role-icon">...</div>
+          <div class="role-title">Administrador</div>
+          <div class="role-desc">Inventario, recetas y tasa de cambio</div>
+        </a>
+      {% endif %}
+    {% endif %}
+  </div>
+
+  <div class="mesas-section">
+    <div class="mesas-heading">
+      <h3>QR de carta por mesa</h3>
+      <button class="btn btn-outline btn-sm" onclick="window.print()">Imprimir QR</button>
+    </div>
+    <div class="mesas-grid-idx">
+      {% for mesa in mesas %}
+      <article class="mesa-qr-card">
+        <div class="mesa-qr-title">Mesa {{ mesa.numero }}</div>
+        <img src="{{ mesa.qr_data }}" alt="Código QR para la mesa {{ mesa.numero }}" class="mesa-qr-img">
+        <a href="{% url 'carta:carta' mesa.numero %}" class="btn-mesa-idx">Abrir carta</a>
+      </article>
+      {% empty %}
+      <div class="admin-empty">No hay mesas activas registradas.</div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+{% endblock %}

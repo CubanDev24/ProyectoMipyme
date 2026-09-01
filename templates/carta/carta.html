@@ -1,0 +1,409 @@
+{% extends 'base.html' %}
+{% load l10n %}
+{% block title %}Mesa {{ mesa_id }} — Carta{% endblock %}
+{% block topbar %}{% endblock %}
+{% block content %}
+<div class="cliente-carta-page">
+  <header class="cliente-header">
+    <a href="#inicio" class="cliente-marca">
+      <span class="cliente-marca-icon">L</span>
+      <span><strong>Las Cuquis</strong><small>Restaurante · Bar · Cafetería</small></span>
+    </a>
+    <div class="cliente-header-actions">
+      <span class="cliente-mesa-badge">Mesa {{ mesa_id }}</span>
+      <button type="button" class="cliente-sonido-btn" data-activar-sonido onclick="activarSonido()" title="Activar sonido" aria-label="Activar sonido">Activar sonido</button>
+      <button type="button" class="cliente-theme-btn" onclick="alternarTema()" title="Cambiar tema" aria-label="Cambiar tema">◐</button>
+    </div>
+  </header>
+
+  <section class="cliente-hero" id="inicio">
+    <div class="cliente-hero-content">
+      <span class="cliente-eyebrow">Cocina hecha para compartir</span>
+      <h1>Sabores que hacen<br><em>memorable</em> tu mesa</h1>
+      <p>Elige tus platos, envía el pedido a cocina y disfruta. Estamos para atenderte.</p>
+      <div class="cliente-hero-meta"><span>✦ Ingredientes frescos</span><span>◷ Atención en mesa</span></div>
+    </div>
+  </section>
+
+<div id="modal-confirmar-cuenta" class="modal-backdrop hidden" aria-hidden="true">
+  <div class="modal-panel" role="dialog" aria-modal="true" aria-labelledby="modal-confirmar-cuenta-title">
+    <button type="button" class="modal-close" onclick="cerrarConfirmacionCuenta()" aria-label="Cerrar">×</button>
+    <div class="modal-kicker">Confirmación</div>
+    <h3 id="modal-confirmar-cuenta-title">Solicitar factura</h3>
+    <div id="modal-confirmar-cuenta-body" class="modal-body"></div>
+    <div class="modal-actions">
+      <button type="button" class="btn btn-outline" onclick="cerrarConfirmacionCuenta()">Cancelar</button>
+      <button type="button" id="modal-confirmar-cuenta-accept" class="btn btn-primary">Aceptar</button>
+    </div>
+  </div>
+</div>
+
+<div class="carta-layout">
+  <!-- CARTA -->
+  <div class="panel-carta">
+    <div class="carta-header cliente-menu-heading">
+      <h1>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 2l1.5 18.5L12 22l7.5-1.5L21 2"/><path d="M12 2v20M7 6h10M6 10h12M7 14h10"/></svg>
+        Nuestra carta
+      </h1>
+      <span class="cliente-menu-count">{{ categorias|length }} categorías</span>
+    </div>
+    <div class="cliente-discovery">
+      <div class="cliente-search"><span>⌕</span><input id="buscar-plato" type="search" placeholder="Buscar platos o ingredientes..." oninput="filtrarCarta()"></div>
+      <div class="cliente-filtros"><button class="cliente-filtro activo" onclick="filtrarTipo('todos', this)">Todos</button><button class="cliente-filtro" onclick="filtrarTipo('precio', this)">Especiales</button><button class="cliente-filtro" onclick="filtrarTipo('disponibles', this)">Disponibles</button></div>
+    </div>
+    <nav class="categorias-nav">
+      {% for cat in categorias %}
+      <button class="btn-cat cliente-cat {% if forloop.first %}activo{% endif %}" onclick="scrollACat('cat-{{ cat.id }}',this)">{{ cat.nombre }}</button>
+      {% endfor %}
+    </nav>
+    {% for cat in categorias %}
+    <div class="seccion-cat cliente-seccion" id="cat-{{ cat.id }}">
+      <div class="cliente-seccion-title"><h2>{{ cat.nombre }}</h2><span>{{ cat.platos.all|length }} opciones</span></div>
+      <div class="platos-lista">
+        {% for p in cat.platos.all %}{% if p.disponible %}
+        <div class="plato-card cliente-plato" data-nombre="{{ p.nombre|lower }} {{ p.descripcion|lower }}" data-precio="{{ p.precio }}">
+          <div class="cliente-plato-image"></div>
+          <div class="plato-info">
+            <div class="plato-nombre">{{ p.nombre }}</div>
+            {% if p.descripcion %}<div class="plato-desc">{{ p.descripcion }}</div>{% endif %}
+            <div class="cliente-plato-tag">Disponible ahora</div>
+          </div>
+          <div class="cliente-plato-bottom"><div class="plato-precio">{{ p.precio }} <small>CUP</small></div>
+          <button type="button" class="btn-agregar" onclick='agregar({{ p.id }},"{{ p.nombre|escapejs }}",{{ p.precio|unlocalize }})' ontouchstart="event.preventDefault(); agregar({{ p.id }},&quot;{{ p.nombre|escapejs }}&quot;,{{ p.precio|unlocalize }})" title="Agregar" aria-label="Agregar {{ p.nombre|escapejs }}">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          </button>
+          </div>
+        </div>
+        {% endif %}{% endfor %}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+
+  <!-- PEDIDO -->
+  <div class="panel-pedido">
+    <button type="button" class="pedido-header cliente-pedido-toggle" onclick="alternarPedido()" ontouchstart="event.preventDefault(); alternarPedido()" aria-expanded="true">
+      <h2>Mi pedido</h2>
+      <span class="pedido-contador" id="cnt">0</span>
+      <span class="cliente-pedido-chevron">⌃</span>
+    </button>
+    <div class="cliente-pedido-contenido">
+    <section class="cliente-historial-pedidos">
+      <div class="cliente-panel-title"><span>Pedidos de esta sesión</span><span id="cliente-pedidos-cnt">0</span></div>
+      <div id="cliente-historial-lista"><div class="cliente-vacio">Todavía no has enviado pedidos</div></div>
+    </section>
+    <section class="cliente-cuenta-final" id="cliente-cuenta-final" style="display:none"></section>
+    <div class="cliente-nuevo-pedido-label">Nuevo pedido</div>
+    <div class="pedido-items" id="pedido-items">
+      <div class="pedido-vacio" id="pedido-vacio">
+        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
+        <span>El pedido está vacío</span>
+      </div>
+    </div>
+    <div class="pedido-footer">
+      <div class="pedido-nota">
+        <label>Nota (alergias, preferencias...)</label>
+        <textarea id="nota" rows="2" placeholder="Ej: sin cebolla..."></textarea>
+      </div>
+      <div class="total-line">
+        <span class="total-label">Total estimado</span>
+        <span class="total-valor" id="total">0.00 CUP</span>
+      </div>
+      <button type="button" class="btn btn-primary" id="btn-enviar" onclick="enviarPedido()" ontouchstart="event.preventDefault(); enviarPedido()" disabled>Enviar a cocina</button>
+      <div id="estado-box" style="display:none">
+        <div class="estado-pedido" id="estado-pedido">
+          <div class="estado-badge" id="estado-txt"></div>
+          <div id="estado-items" style="font-size:.78rem;color:var(--text-muted)"></div>
+        </div>
+        <div class="sep"></div>
+        <button type="button" class="btn btn-danger" id="btn-cuenta" onclick="abrirConfirmacionCuenta()" ontouchstart="event.preventDefault(); abrirConfirmacionCuenta()" style="display:none">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle;margin-right:4px"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
+          Solicitar factura
+        </button>
+        <div id="cuenta-msg" style="display:none;text-align:center;color:var(--green);font-size:.83rem;padding:.5rem">✓ Factura solicitada</div>
+        <div id="cerrado-msg" style="display:none;text-align:center;color:var(--purple);font-size:.83rem;padding:.5rem">✓ Cuenta cerrada. ¡Gracias!</div>
+      </div>
+    </div>
+    </div>
+  </div>
+</div>
+</div>
+{% endblock %}
+{% block extra_js %}
+<script>
+const MESA = {{ mesa_id }};
+const WS_PROTOCOL = location.protocol === 'https:' ? 'wss' : 'ws';
+const WS_URL = `${WS_PROTOCOL}://${location.host}/ws/cliente/${MESA}/`;
+let carrito = [], pedidoActual = null, ws = null, pedidosCliente = [];
+let filtroActual = 'todos';
+let pedidoAbierto = true;
+let mesaDisponible = true;
+const notificacionesCliente = new Set();
+
+function notificarCliente(clave, mensaje, tipo = 'blue', sonido = 'estado') {
+  if (notificacionesCliente.has(clave)) return;
+  notificacionesCliente.add(clave);
+  toast(mensaje, tipo);
+  if (navigator.vibrate) navigator.vibrate(tipo === 'green' ? [120, 70, 120] : [160]);
+  if (sonido === 'cuenta') sonidoCuenta();
+  else if (sonido === 'exito') sonidoExito();
+  else if (sonido === 'error') sonidoError();
+  else if (sonido === 'mesa') sonidoMesa();
+  else sonidoCambioEstado();
+}
+
+function alternarPedido() {
+  pedidoAbierto = !pedidoAbierto;
+  const panel = document.querySelector('.panel-pedido');
+  panel.classList.toggle('pedido-plegado', !pedidoAbierto);
+  document.querySelector('.cliente-pedido-toggle').setAttribute('aria-expanded', pedidoAbierto);
+}
+
+function renderHistorialCliente() {
+  const lista = document.getElementById('cliente-historial-lista');
+  document.getElementById('cliente-pedidos-cnt').textContent = pedidosCliente.length;
+  if (!pedidosCliente.length) { lista.innerHTML = '<div class="cliente-vacio">Todavía no has enviado pedidos</div>'; return; }
+  lista.innerHTML = pedidosCliente.slice().reverse().map(pedido => `
+    <div class="cliente-pedido-row">
+      <div><strong>Pedido #${pedido.id}</strong><span>${pedido.creado_en} · ${pedido.items.map(i => `${i.cantidad}x ${i.plato}`).join(', ')}</span></div>
+      <div><b>${pedido.total} CUP</b><small class="cliente-estado estado-${pedido.estado}">${pedido.estado_display}</small></div>
+    </div>`).join('');
+}
+
+function renderCuentaFinal(factura) {
+  if (!factura) return;
+  const cuenta = document.getElementById('cliente-cuenta-final');
+  const items = (factura.items_snapshot || factura.items || []).map(item => `
+    <li>
+      <span>${item.cantidad}x ${item.plato}</span>
+      <strong>${item.subtotal} CUP</strong>
+    </li>`).join('');
+  cuenta.style.display = 'block';
+  cuenta.innerHTML = `
+    <div class="cliente-panel-title"><span>Factura</span><span>#${factura.id}</span></div>
+    <div class="cliente-cuenta-total"><span>Total a pagar</span><strong>${factura.total_cup || factura.total || '0.00'} CUP</strong></div>
+    <ul class="cliente-cuenta-items">${items || '<li><span>Sin detalle</span></li>'}</ul>
+    <div class="cliente-cuenta-info">${factura.forma_pago_display ? `Pago: ${factura.forma_pago_display} · ` : ''}${factura.creado_en || ''}</div>
+    ${factura.pdf_url ? `<a class="btn btn-outline btn-sm" href="${factura.pdf_url}" target="_blank" rel="noopener">Descargar PDF</a>` : ''}
+  `;
+}
+
+function alternarTema() {
+  document.querySelector('.cliente-carta-page').classList.toggle('tema-claro');
+}
+
+function filtrarTipo(tipo, boton) {
+  filtroActual = tipo;
+  document.querySelectorAll('.cliente-filtro').forEach(item => item.classList.remove('activo'));
+  boton.classList.add('activo');
+  filtrarCarta();
+}
+
+function filtrarCarta() {
+  const query = document.getElementById('buscar-plato').value.toLowerCase().trim();
+  document.querySelectorAll('.cliente-seccion').forEach(seccion => {
+    let visibles = 0;
+    seccion.querySelectorAll('.cliente-plato').forEach(plato => {
+      const coincideTexto = !query || plato.dataset.nombre.includes(query);
+      const coincideTipo = filtroActual !== 'precio' || parseFloat(plato.dataset.precio) >= 15;
+      const visible = coincideTexto && coincideTipo;
+      plato.style.display = visible ? '' : 'none';
+      if (visible) visibles++;
+    });
+    seccion.style.display = visibles ? '' : 'none';
+  });
+}
+
+function conectar() {
+  ws = new WebSocket(WS_URL);
+  ws.onopen = () => {
+    actualizarDisponibilidadMesa();
+  };
+  ws.onerror = () => {
+    toast('No se pudo conectar con el servidor. Revisa la conexión Wi-Fi.', 'red');
+  };
+  ws.onclose = () => setTimeout(conectar, 3000);
+  ws.onmessage = e => {
+    const d = JSON.parse(e.data);
+    if (d.tipo === 'estado_inicial_cliente' || d.tipo === 'historial_cliente') {
+      mesaDisponible = d.mesa_abierta !== false;
+      pedidosCliente = d.pedidos || [];
+      pedidoActual = pedidosCliente.filter(p => p.estado !== 'cerrado').slice(-1)[0] || null;
+      renderHistorialCliente();
+      renderCuentaFinal(d.factura);
+      if (pedidoActual) mostrarEstado(pedidoActual);
+      actualizarDisponibilidadMesa();
+    } else if (d.tipo === 'pedido_confirmado') {
+      pedidoActual = d.pedido;
+      pedidosCliente.push(d.pedido);
+      renderHistorialCliente();
+      carrito = [];
+      document.getElementById('nota').value = '';
+      renderCarrito();
+      mostrarEstado(d.pedido);
+      toast('Pedido enviado a cocina. Puedes hacer otro pedido','green');
+      sonidoExito();
+    }
+    else if (d.tipo === 'pedido_actualizado') {
+      const anterior = pedidosCliente.find(p => p.id === d.pedido.id);
+      const indice = pedidosCliente.findIndex(p => p.id === d.pedido.id);
+      if (indice >= 0) pedidosCliente[indice] = d.pedido; else pedidosCliente.push(d.pedido);
+      renderHistorialCliente();
+      if (pedidoActual && (d.pedido.id === pedidoActual.id || d.pedido.pedido_ids?.includes(pedidoActual.id))) { pedidoActual = d.pedido; mostrarEstado(d.pedido); }
+      if (anterior && anterior.estado !== d.pedido.estado) {
+        if (d.pedido.estado === 'listo') notificarCliente(`pedido-${d.pedido.id}-listo`, `Pedido #${d.pedido.id} listo`, 'green', 'exito');
+        else if (d.pedido.estado === 'en_preparacion') notificarCliente(`pedido-${d.pedido.id}-preparacion`, `Pedido #${d.pedido.id} está en preparación`, 'orange');
+        else if (d.pedido.estado === 'servido') notificarCliente(`pedido-${d.pedido.id}-servido`, `Pedido #${d.pedido.id} servido`, 'blue');
+      }
+    }
+    else if (d.tipo === 'pedido_cerrado') { const pedido = pedidosCliente.find(p => p.id === d.pedido_id); if (pedido) { pedido.estado = 'cerrado'; pedido.estado_display = 'Cerrado'; renderHistorialCliente(); } if (pedidoActual && d.pedido_id === pedidoActual.id) { document.getElementById('cerrado-msg').style.display='block'; document.getElementById('btn-cuenta').style.display='none'; document.getElementById('cuenta-msg').style.display='none'; } notificarCliente(`pedido-${d.pedido_id}-cerrado`, `Pedido #${d.pedido_id} cerrado`, 'blue'); }
+    else if (d.tipo === 'factura_solicitada' || d.tipo === 'cuenta_en_camino') {
+      const factura = d.factura || {id: '—', total_cup: d.total_cup || 0, items_snapshot: d.items || [], items: d.items || []};
+      renderCuentaFinal(factura);
+      notificarCliente(`factura-solicitada-${factura.id || MESA}`, `Factura solicitada: ${factura.total_cup || factura.total || '0.00'} CUP`, 'orange', 'cuenta');
+    }
+    else if (d.tipo === 'factura_final') { renderCuentaFinal(d.factura); notificarCliente(`factura-${d.factura.id}`, `Factura final lista: ${d.factura.total_cup} CUP`, 'green', 'cuenta'); }
+    else if (d.tipo === 'mesa_actualizada') {
+      mesaDisponible = d.mesa.abierta;
+      if (!mesaDisponible) {
+        pedidosCliente = [];
+        pedidoActual = null;
+        document.getElementById('cliente-cuenta-final').style.display = 'none';
+        renderHistorialCliente();
+        notificarCliente(`mesa-${MESA}-cerrada`, 'La mesa está cerrada. Espera a que la mesera la abra', 'orange', 'mesa');
+      } else {
+        ws.send(JSON.stringify({accion:'cargar_historial'}));
+        notificarCliente(`mesa-${MESA}-abierta`, 'La mesa está abierta. Ya puedes pedir', 'green', 'mesa');
+      }
+      actualizarDisponibilidadMesa();
+    }
+    else if (d.tipo === 'cuenta_en_camino') { document.getElementById('btn-cuenta').style.display='none'; document.getElementById('cuenta-msg').style.display='block'; notificarCliente('cuenta-en-camino', 'La cuenta fue solicitada', 'orange', 'cuenta'); }
+  };
+}
+
+function agregar(id, nombre, precio) {
+  if (!mesaDisponible) { toast('La mesa está cerrada', 'red'); return; }
+  const ex = carrito.find(i=>i.plato_id===id);
+  if (ex) ex.cantidad++; else carrito.push({plato_id:id,nombre,precio:parseFloat(precio),cantidad:1});
+  renderCarrito(); toast(`${nombre} agregado`); sonidoAlerta(700);
+}
+
+function cambiarQty(id, d) {
+  const idx = carrito.findIndex(i=>i.plato_id===id);
+  if (idx===-1) return;
+  carrito[idx].cantidad += d;
+  if (carrito[idx].cantidad<=0) carrito.splice(idx,1);
+  renderCarrito();
+}
+
+function renderCarrito() {
+  const cont = document.getElementById('pedido-items');
+  const vacio = document.getElementById('pedido-vacio');
+  const total = carrito.reduce((s,i)=>s+i.precio*i.cantidad,0);
+  const count = carrito.reduce((s,i)=>s+i.cantidad,0);
+  document.getElementById('cnt').textContent = count;
+  document.getElementById('total').textContent = total.toFixed(2)+' CUP';
+  document.getElementById('btn-enviar').disabled = carrito.length===0;
+  cont.querySelectorAll('.item-pedido').forEach(e=>e.remove());
+  if (!carrito.length) { vacio.style.display='flex'; return; }
+  vacio.style.display='none';
+  carrito.forEach(item => {
+    const div = document.createElement('div');
+    div.className = 'item-pedido';
+    div.innerHTML = `
+      <div class="item-nombre">${item.nombre}</div>
+      <div class="item-controles">
+              <button type="button" class="btn-qty" onclick="cambiarQty(${item.plato_id},-1)" ontouchstart="event.preventDefault(); cambiarQty(${item.plato_id},-1)"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
+        <span class="qty-num">${item.cantidad}</span>
+        <button type="button" class="btn-qty" onclick="cambiarQty(${item.plato_id},1)" ontouchstart="event.preventDefault(); cambiarQty(${item.plato_id},1)"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
+      </div>
+      <div class="item-precio">${(item.precio*item.cantidad).toFixed(2)}</div>`;
+    cont.appendChild(div);
+  });
+}
+
+function enviarPedido() {
+  if (!mesaDisponible) { toast('La mesa está cerrada', 'red'); return; }
+  if (!ws || ws.readyState !== WebSocket.OPEN) {
+    toast('Conectando con el servidor. Intenta de nuevo en unos segundos.', 'orange');
+    return;
+  }
+  if (!carrito.length) return;
+  ws.send(JSON.stringify({accion:'crear_pedido', items:carrito.map(i=>({plato_id:i.plato_id,cantidad:i.cantidad})), nota:document.getElementById('nota').value.trim()}));
+  document.getElementById('btn-enviar').disabled = true;
+  sonidoAlerta(600);
+}
+
+function actualizarDisponibilidadMesa() {
+  document.querySelector('.cliente-mesa-badge').textContent = mesaDisponible ? `Mesa ${MESA}` : `Mesa ${MESA} · Cerrada`;
+  document.getElementById('btn-enviar').disabled = !mesaDisponible || carrito.length === 0;
+}
+
+function mostrarEstado(p) {
+  document.getElementById('estado-box').style.display='block';
+  const box = document.getElementById('estado-pedido');
+  box.className = `estado-pedido estado-${p.estado}`;
+  const iconos = {pendiente:'⏳',en_preparacion:'👨‍🍳',listo:'✅',servido:'🍽️',cerrado:'✓'};
+  document.getElementById('estado-txt').textContent = `${iconos[p.estado]||''} ${p.estado_display}`;
+  document.getElementById('estado-items').textContent = p.items.map(i=>`${i.cantidad}x ${i.plato}`).join(', ');
+  const puedeSolicitarFactura = ['listo', 'servido'].includes(p.estado) && !p.cuenta_solicitada;
+  document.getElementById('btn-cuenta').style.display = puedeSolicitarFactura ? 'block' : 'none';
+  document.getElementById('cuenta-msg').style.display = p.cuenta_solicitada ? 'block' : 'none';
+}
+
+function abrirConfirmacionCuenta() {
+  if (!pedidoActual || !ws || ws.readyState !== WebSocket.OPEN) return;
+  const items = (pedidoActual.items || []).map(item => `
+    <div class="modal-item-row">
+      <span>${item.cantidad}x ${item.plato}</span>
+      <strong>${Number(item.subtotal || 0).toFixed(2)} CUP</strong>
+    </div>
+  `).join('');
+  const total = Number(pedidoActual.total || 0);
+  const body = document.getElementById('modal-confirmar-cuenta-body');
+  const modal = document.getElementById('modal-confirmar-cuenta');
+  if (!body || !modal) return;
+  body.innerHTML = `
+    <div class="modal-note">Vas a pedir la factura de tu mesa. La mesera recibirá la solicitud y podrá aceptarla para continuar con el cobro.</div>
+    <div class="modal-lista">${items || '<div class="modal-empty">Sin detalle de pedido.</div>'}</div>
+    <div class="modal-total"><span>Total estimado</span><strong>${total.toFixed(2)} CUP</strong></div>
+  `;
+  const acceptBtn = document.getElementById('modal-confirmar-cuenta-accept');
+  if (acceptBtn) {
+    acceptBtn.onclick = () => {
+      ws.send(JSON.stringify({accion:'solicitar_factura',pedido_id:pedidoActual.id}));
+      cerrarConfirmacionCuenta();
+      document.getElementById('cuenta-msg').style.display = 'block';
+      toast('Factura enviada a la mesera', 'orange');
+      sonidoCuenta();
+    };
+  }
+  modal.classList.remove('hidden');
+  modal.setAttribute('aria-hidden', 'false');
+  modal.style.display = 'flex';
+}
+
+function cerrarConfirmacionCuenta() {
+  const modal = document.getElementById('modal-confirmar-cuenta');
+  if (modal) {
+    modal.classList.add('hidden');
+    modal.setAttribute('aria-hidden', 'true');
+    modal.style.display = 'none';
+  }
+}
+
+function pedirCuenta() {
+  abrirConfirmacionCuenta();
+}
+
+function scrollACat(id, btn) {
+  document.querySelectorAll('.btn-cat').forEach(b=>b.classList.remove('activo'));
+  btn.classList.add('activo');
+  document.getElementById(id)?.scrollIntoView({behavior:'smooth',block:'start'});
+}
+
+conectar();
+renderCarrito();
+</script>
+{% endblock %}

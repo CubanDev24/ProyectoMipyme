@@ -1,0 +1,368 @@
+{% extends 'base.html' %}
+{% block title %}Mesera{% endblock %}
+{% block nav_mesera %}activo{% endblock %}
+{% block content %}
+<div id="modal-factura" class="modal-backdrop hidden" aria-hidden="true">
+  <div class="modal-panel" role="dialog" aria-modal="true" aria-labelledby="modal-factura-title">
+    <button type="button" class="modal-close" onclick="cerrarModalFactura()" aria-label="Cerrar">×</button>
+    <div class="modal-kicker" id="modal-factura-kicker">Solicitud</div>
+    <h3 id="modal-factura-title">Factura solicitada</h3>
+    <div id="modal-factura-body" class="modal-body"></div>
+    <div class="modal-actions">
+      <button id="modal-factura-accept" type="button" class="btn btn-primary">Aceptar</button>
+    </div>
+  </div>
+</div>
+<div class="mesera-layout">
+  <button class="btn btn-outline btn-sm aviso-sonido-btn" data-activar-sonido onclick="activarSonido()">Activar sonido</button>
+
+  <!-- COL 1: LISTA DE MESAS -->
+  <div class="panel-mesas">
+    <div class="panel-mesas-header">Mesas</div>
+    {% for mesa in mesas %}
+    <div class="mesa-item" id="mesa-item-{{ mesa.numero }}" onclick="seleccionarMesa({{ mesa.id }},{{ mesa.numero }})">
+      <div>
+        <div class="mesa-num">Mesa {{ mesa.numero }}</div>
+        <div style="font-size:.73rem;color:var(--text-muted)" id="mesa-resumen-{{ mesa.numero }}">Sin pedidos</div>
+      </div>
+      <div class="mesa-item-actions">
+        <div class="mesa-estado-dot libre" id="mesa-dot-{{ mesa.numero }}"></div>
+        <button class="btn btn-outline btn-sm qr-mesa-btn" id="mesa-qr-{{ mesa.numero }}" onclick="event.stopPropagation(); abrirQrMesa({{ mesa.numero }})">QR</button>
+        <button class="btn btn-outline btn-sm" id="mesa-action-{{ mesa.numero }}" onclick="event.stopPropagation(); alternarMesa({{ mesa.id }}, {{ mesa.numero }})">Abrir</button>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+
+  <!-- COL 2: CARTA para tomar pedido -->
+  <div class="panel-carta-mesera">
+    <div class="carta-header" style="top:0">
+      <h1>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 2l1.5 18.5L12 22l7.5-1.5L21 2"/><path d="M12 2v20M7 6h10M6 10h12M7 14h10"/></svg>
+        Carta
+      </h1>
+      <span class="badge-mesa" id="mesa-badge-header">— Selecciona mesa —</span>
+    </div>
+    <nav class="categorias-nav">
+      {% for cat in categorias %}
+      <button class="btn-cat {% if forloop.first %}activo{% endif %}" onclick="scrollACat('mcat-{{ cat.id }}',this)">{{ cat.nombre }}</button>
+      {% endfor %}
+    </nav>
+    {% for cat in categorias %}
+    <div class="seccion-cat" id="mcat-{{ cat.id }}">
+      <h2>{{ cat.nombre }}</h2>
+      <div class="platos-lista">
+        {% for p in cat.platos.all %}{% if p.disponible %}
+        <div class="plato-card">
+          <div class="plato-info">
+            <div class="plato-nombre">{{ p.nombre }}</div>
+            {% if p.descripcion %}<div class="plato-desc">{{ p.descripcion }}</div>{% endif %}
+          </div>
+          <div class="plato-precio">{{ p.precio }} CUP</div>
+          <button class="btn-agregar" onclick='agregarMesera({{ p.id }},"{{ p.nombre|escapejs }}",{{ p.precio }})' title="Agregar">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          </button>
+        </div>
+        {% endif %}{% endfor %}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+
+  <!-- COL 3: PEDIDO ACTUAL de la mesa seleccionada -->
+  <div class="panel-pedido-mesera">
+    <div class="pedido-header">
+      <h2>Pedido</h2>
+      <span class="pedido-contador" id="cnt-mesera">0</span>
+    </div>
+
+    <!-- Pedidos existentes de la mesa -->
+    <div class="pedidos-mesa-lista" id="pedidos-mesa-lista">
+      <div style="text-align:center;color:var(--text-muted);padding:2rem;font-size:.85rem" id="pedidos-vacio-msg">
+        Selecciona una mesa
+      </div>
+    </div>
+
+    <!-- Nuevo pedido -->
+    <div class="pedido-footer" style="border-top:2px solid var(--border)">
+      <div style="font-size:.7rem;text-transform:uppercase;letter-spacing:.1em;color:var(--text-muted);margin-bottom:.6rem">Nuevo pedido</div>
+      <div class="pedido-items" id="pedido-items-mesera" style="max-height:180px;flex:none;padding:0;margin-bottom:.75rem">
+        <div class="pedido-vacio" id="pedido-vacio-mesera" style="padding:1rem 0">
+          <span style="font-size:.82rem">Agrega platos de la carta</span>
+        </div>
+      </div>
+      <div class="pedido-nota">
+        <label>Nota</label>
+        <textarea id="nota-mesera" rows="1" placeholder="Alergias, preferencias..."></textarea>
+      </div>
+      <div class="total-line">
+        <span class="total-label">Total</span>
+        <span class="total-valor" id="total-mesera">0.00 CUP</span>
+      </div>
+      <button class="btn btn-primary" id="btn-enviar-mesera" onclick="enviarPedidoMesera()" disabled>
+        Enviar a cocina
+      </button>
+    </div>
+  </div>
+
+</div>
+{% endblock %}
+{% block extra_js %}
+<script>
+const WS_URL = `ws://${location.host}/ws/mesera/`;
+let ws = null;
+let mesaSeleccionada = null; // {id, numero}
+let carrito = [];
+let pedidosPorMesa = {}; // numero -> [pedidos]
+let mesas = {};
+
+function conectar() {
+  ws = new WebSocket(WS_URL);
+  ws.onopen = () => { setWsDot(true); };
+  ws.onclose = () => { setWsDot(false); setTimeout(conectar, 3000); };
+  ws.onmessage = e => {
+    const d = JSON.parse(e.data);
+    if (d.tipo === 'estado_inicial') {
+      d.mesas.forEach(m => { mesas[m.numero] = m; pedidosPorMesa[m.numero] = []; });
+      d.pedidos.forEach(p => agregarOActualizarPedido(p));
+      actualizarTodasMesas();
+      if (mesaSeleccionada) renderPedidosMesa(mesaSeleccionada.numero);
+      actualizarTodasMesas();
+    } else if (d.tipo === 'pedido_nuevo' || d.tipo === 'pedido_confirmado') {
+      const anterior = pedidosPorMesa[d.pedido.mesa_numero]?.find(p => p.id === d.pedido.id);
+      agregarOActualizarPedido(d.pedido);
+      actualizarDotMesa(d.pedido.mesa_numero);
+      if (mesaSeleccionada && d.pedido.mesa_numero === mesaSeleccionada.numero) renderPedidosMesa(mesaSeleccionada.numero);
+      if (d.tipo === 'pedido_nuevo' && !anterior) { sonidoPedidoNuevo(); toast(`Nuevo pedido — Mesa ${d.pedido.mesa_numero}`, 'orange'); }
+      if (d.tipo === 'pedido_confirmado') { carrito=[]; renderCarritoMesera(); toast('Pedido enviado a cocina','green'); sonidoExito(); }
+    } else if (d.tipo === 'pedido_actualizado') {
+      const anterior = pedidosPorMesa[d.pedido.mesa_numero]?.find(p => p.id === d.pedido.id);
+      agregarOActualizarPedido(d.pedido);
+      actualizarDotMesa(d.pedido.mesa_numero);
+      if (mesaSeleccionada && d.pedido.mesa_numero === mesaSeleccionada.numero) renderPedidosMesa(mesaSeleccionada.numero);
+      if (anterior && (anterior.estado !== d.pedido.estado || anterior.cuenta_solicitada !== d.pedido.cuenta_solicitada)) sonidoCambioEstado();
+    } else if (d.tipo === 'pedido_cerrado') {
+      Object.keys(pedidosPorMesa).forEach(num => {
+        pedidosPorMesa[num] = pedidosPorMesa[num].filter(p => p.id !== d.pedido_id);
+      });
+      actualizarTodasMesas();
+      if (mesaSeleccionada) renderPedidosMesa(mesaSeleccionada.numero);
+      sonidoCambioEstado();
+    } else if (d.tipo === 'factura_solicitada') {
+      const mesa = d.mesa_numero ?? d.factura?.mesa_numero;
+      mostrarModalFactura({
+        title: 'Factura solicitada',
+        kicker: 'Mesera',
+        mesaNumero: mesa,
+        items: d.factura?.items || [],
+        total: parseFloat(d.factura?.total_cup || d.factura?.total || 0),
+        tipo: 'mesera',
+        onAccept: () => {
+          if (ws && ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify({ accion: 'aceptar_factura', mesa_numero: mesa }));
+          }
+        }
+      });
+      sonidoCuenta();
+      toast(`Mesa ${mesa} solicitó la factura`, 'orange');
+    } else if (d.tipo === 'mesa_actualizada') {
+      const mesa = d.mesa;
+      mesas[mesa.numero] = mesa;
+      pedidosPorMesa[mesa.numero] = [];
+      actualizarDotMesa(mesa.numero);
+      if (mesaSeleccionada && mesaSeleccionada.numero === mesa.numero) renderPedidosMesa(mesa.numero);
+      toast(`Mesa ${mesa.numero} ${mesa.abierta ? 'abierta' : 'cerrada'}`, mesa.abierta ? 'green' : 'orange');
+      sonidoMesa();
+    } else if (d.tipo === 'error_mesa') {
+      toast(d.mensaje, 'red');
+      sonidoError();
+    }
+  };
+}
+
+function setWsDot(ok) {
+  const dot = document.getElementById('ws-dot');
+  const lbl = document.getElementById('ws-label');
+  if (dot) { dot.className = 'ws-dot ' + (ok ? 'conectado' : 'desconectado'); }
+  if (lbl) lbl.textContent = ok ? 'En línea' : 'Reconectando...';
+}
+
+function agregarOActualizarPedido(p) {
+  if (!pedidosPorMesa[p.mesa_numero]) pedidosPorMesa[p.mesa_numero] = [];
+  const idx = pedidosPorMesa[p.mesa_numero].findIndex(x => x.id === p.id);
+  if (idx >= 0) pedidosPorMesa[p.mesa_numero][idx] = p;
+  else pedidosPorMesa[p.mesa_numero].push(p);
+}
+
+function actualizarTodasMesas() {
+  Object.keys(pedidosPorMesa).forEach(num => actualizarDotMesa(parseInt(num)));
+}
+
+function actualizarDotMesa(num) {
+  const pedidos = (pedidosPorMesa[num] || []).filter(p => p.estado !== 'cerrado');
+  const dot = document.getElementById(`mesa-dot-${num}`);
+  const resumen = document.getElementById(`mesa-resumen-${num}`);
+  const action = document.getElementById(`mesa-action-${num}`);
+  const qr = document.getElementById(`mesa-qr-${num}`);
+  if (!dot) return;
+  if (!mesas[num]?.abierta) {
+    dot.className = 'mesa-estado-dot cerrado';
+    if (resumen) resumen.textContent = 'Cerrada';
+    if (action) { action.textContent = 'Abrir'; action.className = 'btn btn-success btn-sm'; }
+    if (qr) qr.style.display = 'none';
+    return;
+  }
+  if (action) { action.textContent = 'Cerrar'; action.className = 'btn btn-outline btn-sm'; }
+  if (qr) qr.style.display = 'inline-flex';
+  if (!pedidos.length) {
+    dot.className = 'mesa-estado-dot libre';
+    if (resumen) resumen.textContent = 'Libre';
+  } else if (pedidos.some(p => p.cuenta_solicitada)) {
+    dot.className = 'mesa-estado-dot cuenta';
+    if (resumen) resumen.textContent = 'Factura solicitada';
+  } else {
+    dot.className = 'mesa-estado-dot ocupada';
+    const total = pedidos.reduce((s,p)=>s+parseFloat(p.total),0);
+    if (resumen) resumen.textContent = `${pedidos.length} pedido(s) · ${total.toFixed(2)} CUP`;
+  }
+}
+
+const QR_MESA_BASE = '{% url "carta:qr_mesa" 0 %}';
+
+function abrirQrMesa(numero) {
+  if (!numero) return;
+  const url = QR_MESA_BASE.replace('/0/', `/${numero}/`);
+  window.open(url, `qr-mesa-${numero}`, 'width=520,height=700,noopener,noreferrer');
+}
+
+function alternarMesa(id, numero) {
+  if (!ws || ws.readyState !== 1) return;
+  const accion = mesas[numero]?.abierta ? 'cerrar_mesa' : 'abrir_mesa';
+  ws.send(JSON.stringify({accion, mesa_id: id}));
+}
+
+function seleccionarMesa(id, numero) {
+  mesaSeleccionada = {id, numero};
+  document.querySelectorAll('.mesa-item').forEach(el => el.classList.remove('activa'));
+  const el = document.getElementById(`mesa-item-${numero}`);
+  if (el) el.classList.add('activa');
+  document.getElementById('mesa-badge-header').textContent = `Mesa ${numero}`;
+  document.getElementById('btn-enviar-mesera').disabled = carrito.length === 0;
+  renderPedidosMesa(numero);
+}
+
+function renderPedidosMesa(num) {
+  const cont = document.getElementById('pedidos-mesa-lista');
+  const pedidos = (pedidosPorMesa[num] || []).filter(p => p.estado !== 'cerrado');
+  cont.innerHTML = '';
+  if (!pedidos.length) {
+    cont.innerHTML = '<div style="text-align:center;color:var(--text-muted);padding:1.5rem;font-size:.83rem">Sin pedidos activos</div>';
+    return;
+  }
+  const titulo = document.createElement('div');
+  titulo.style.cssText = 'font-size:.7rem;text-transform:uppercase;letter-spacing:.1em;color:var(--text-muted);padding:.75rem 1rem .4rem';
+  titulo.textContent = `Mesa ${num} — Pedidos activos`;
+  cont.appendChild(titulo);
+  pedidos.forEach(p => {
+    const card = document.createElement('div');
+    card.className = 'pedido-mini-card';
+    const itemsText = p.items.map(i=>`${i.cantidad}x ${i.plato}`).join(', ');
+    const cuentaTag = p.cuenta_solicitada ? `<div class="tag-cuenta-mini"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg> Factura solicitada</div>` : '';
+    let acciones = '';
+    if (p.estado === 'listo') {
+      acciones = `<button class="btn btn-blue btn-sm" onclick="marcarServido(${p.id})">Marcar servido</button>`;
+    }
+    card.innerHTML = `
+      <div class="pedido-mini-header">
+        <span class="pedido-mini-id">#${p.id} · ${p.creado_en}</span>
+        <span class="pedido-mini-estado estado-chip-${p.estado}">${p.estado_display}</span>
+      </div>
+      ${cuentaTag}
+      <div class="pedido-mini-items">${itemsText}</div>
+      <div style="font-size:.82rem;color:var(--accent);text-align:right;margin-bottom:.4rem">Total: ${p.total} CUP</div>
+      <div class="acciones-mini">${acciones}</div>`;
+    cont.appendChild(card);
+  });
+  if (pedidos.some(p => !p.cuenta_solicitada)) {
+    const cuentaBtn = document.createElement('button');
+    cuentaBtn.className = 'btn btn-danger btn-sm';
+    cuentaBtn.style.margin = '0 1rem 1rem';
+    cuentaBtn.textContent = 'Solicitar factura de la mesa';
+    cuentaBtn.onclick = () => solicitarCuentaMesa(num);
+    cont.prepend(cuentaBtn);
+  }
+}
+
+function marcarServido(pedidoId) {
+  if (ws && ws.readyState===1)
+    ws.send(JSON.stringify({accion:'marcar_servido', pedido_id:pedidoId}));
+}
+
+function solicitarCuentaMesa(num) {
+  const mesa = mesas[num];
+  if (ws && ws.readyState===1 && mesa)
+    ws.send(JSON.stringify({accion:'solicitar_cuenta', mesa_id:mesa.id}));
+}
+
+// Carrito mesera
+function agregarMesera(id, nombre, precio) {
+  if (!mesaSeleccionada) { toast('Selecciona una mesa primero','red'); return; }
+  const ex = carrito.find(i=>i.plato_id===id);
+  if (ex) ex.cantidad++; else carrito.push({plato_id:id,nombre,precio:parseFloat(precio),cantidad:1});
+  renderCarritoMesera();
+  toast(`${nombre} agregado`);
+}
+
+function cambiarQtyM(id, d) {
+  const idx = carrito.findIndex(i=>i.plato_id===id);
+  if (idx===-1) return;
+  carrito[idx].cantidad += d;
+  if (carrito[idx].cantidad<=0) carrito.splice(idx,1);
+  renderCarritoMesera();
+}
+
+function renderCarritoMesera() {
+  const cont = document.getElementById('pedido-items-mesera');
+  const vacio = document.getElementById('pedido-vacio-mesera');
+  const total = carrito.reduce((s,i)=>s+i.precio*i.cantidad,0);
+  const count = carrito.reduce((s,i)=>s+i.cantidad,0);
+  document.getElementById('cnt-mesera').textContent = count;
+  document.getElementById('total-mesera').textContent = total.toFixed(2)+' CUP';
+  document.getElementById('btn-enviar-mesera').disabled = carrito.length===0 || !mesaSeleccionada;
+  cont.querySelectorAll('.item-pedido').forEach(e=>e.remove());
+  if (!carrito.length) { vacio.style.display='flex'; return; }
+  vacio.style.display='none';
+  carrito.forEach(item => {
+    const div = document.createElement('div');
+    div.className = 'item-pedido';
+    div.innerHTML = `
+      <div class="item-nombre" style="font-size:.83rem">${item.nombre}</div>
+      <div class="item-controles">
+        <button class="btn-qty" onclick="cambiarQtyM(${item.plato_id},-1)"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
+        <span class="qty-num">${item.cantidad}</span>
+        <button class="btn-qty" onclick="cambiarQtyM(${item.plato_id},1)"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
+      </div>
+      <div class="item-precio" style="font-size:.8rem">${(item.precio*item.cantidad).toFixed(2)}</div>`;
+    cont.appendChild(div);
+  });
+}
+
+function enviarPedidoMesera() {
+  if (!ws||ws.readyState!==1||!carrito.length||!mesaSeleccionada) return;
+  ws.send(JSON.stringify({
+    accion:'crear_pedido', mesa_id:mesaSeleccionada.id,
+    items:carrito.map(i=>({plato_id:i.plato_id,cantidad:i.cantidad})),
+    nota:document.getElementById('nota-mesera').value.trim()
+  }));
+  document.getElementById('btn-enviar-mesera').disabled=true;
+}
+
+function scrollACat(id, btn) {
+  document.querySelectorAll('.btn-cat').forEach(b=>b.classList.remove('activo'));
+  btn.classList.add('activo');
+  document.getElementById(id)?.scrollIntoView({behavior:'smooth',block:'start'});
+}
+
+conectar();
+</script>
+{% endblock %}

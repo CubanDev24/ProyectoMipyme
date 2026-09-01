@@ -1,0 +1,22 @@
+{% extends 'base.html' %}
+{% block title %}Iniciar sesión{% endblock %}
+{% block content %}
+<div class="auth-shell">
+  <div class="auth-card">
+    <h1>Acceso del restaurante</h1>
+    {% if messages %}
+      {% for message in messages %}
+        <div class="alert alert-danger">{{ message }}</div>
+      {% endfor %}
+    {% endif %}
+    <form method="post" action="{% url 'usuarios:login' %}">
+      {% csrf_token %}
+      <label>Usuario</label>
+      <input type="text" name="username" required>
+      <label>Contraseña</label>
+      <input type="password" name="password" required>
+      <button type="submit">Entrar</button>
+    </form>
+  </div>
+</div>
+{% endblock %}

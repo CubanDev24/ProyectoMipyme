@@ -1,0 +1,399 @@
+{% extends 'base.html' %}
+{% load l10n %}
+{% block title %}Caja{% endblock %}
+{% block nav_caja %}activo{% endblock %}
+{% block content %}
+<div class="caja-layout">
+  <button class="btn btn-outline btn-sm aviso-sonido-btn" data-activar-sonido onclick="activarSonido()">Activar sonido</button>
+  <!-- LISTA DE PEDIDOS CON CUENTA SOLICITADA -->
+  <div class="panel-caja-lista">
+    <div class="caja-alertas">
+      <div class="caja-alertas-header">
+        <span>Avisos de inventario</span>
+        <span id="caja-alertas-cnt" class="pedido-contador" style="display:none">0</span>
+      </div>
+      <div id="caja-alertas-lista" class="caja-alertas-lista"></div>
+    </div>
+
+    <h2>Cuentas pendientes de cobro</h2>
+    <div id="lista-caja">
+      <div class="cobro-vacio" id="caja-vacio">
+        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/><path d="M7 15h2M12 15h5"/></svg>
+        <span>Sin cuentas pendientes</span>
+      </div>
+    </div>
+
+    <section class="caja-historial">
+      <div class="caja-historial-header">
+        <h2>Historial de facturas</h2>
+        <span id="caja-historial-cnt" class="pedido-contador">0</span>
+      </div>
+      <div id="lista-facturas" class="caja-historial-lista">
+        <div class="admin-empty">Cargando historial...</div>
+      </div>
+    </section>
+
+    <section class="caja-estadisticas">
+      <div class="caja-historial-header">
+        <h2>Estadísticas acumuladas</h2>
+      </div>
+      <div class="caja-metricas" id="caja-metricas">
+        <div class="caja-metrica"><span>Facturas</span><strong>—</strong></div>
+        <div class="caja-metrica"><span>Total recaudado</span><strong>—</strong></div>
+        <div class="caja-metrica"><span>Efectivo CUP</span><strong>—</strong></div>
+        <div class="caja-metrica"><span>Transferencias</span><strong>—</strong></div>
+      </div>
+      <h3 class="caja-subtitulo">Salidas y existencias de productos</h3>
+      <div id="caja-inventario" class="caja-inventario">
+        <div class="admin-empty">Cargando inventario...</div>
+      </div>
+    </section>
+  </div>
+
+  <!-- PANEL DE COBRO -->
+  <div class="panel-cobro">
+    <div class="cobro-vacio" id="cobro-vacio">
+      <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/><path d="M7 15h2M12 15h5"/></svg>
+      <span>Selecciona una cuenta para cobrar</span>
+    </div>
+    <div id="cobro-detalle" style="display:none">
+      <div class="cobro-mesa" id="cobro-mesa-label">—</div>
+      <ul class="cobro-items-ul" id="cobro-items-ul"></ul>
+      <div class="cobro-total" id="cobro-total">0.00 CUP</div>
+      <div class="cobro-nota" id="cobro-nota"></div>
+
+      <div class="pago-box">
+        <div class="pago-box-titulo">Forma de pago</div>
+        <div class="pago-formas" id="pago-formas">
+          <label class="pago-opcion" data-forma="efectivo_cup">
+            <input type="radio" name="forma_pago" value="efectivo_cup" onchange="seleccionarPago('efectivo_cup')"> Efectivo CUP
+          </label>
+          <label class="pago-opcion" data-forma="transferencia">
+            <input type="radio" name="forma_pago" value="transferencia" onchange="seleccionarPago('transferencia')"> Transferencia
+          </label>
+          <label class="pago-opcion" data-forma="mixto">
+            <input type="radio" name="forma_pago" value="mixto" onchange="seleccionarPago('mixto')"> Mixto (mitad/mitad)
+          </label>
+          <label class="pago-opcion" data-forma="usd">
+            <input type="radio" name="forma_pago" value="usd" onchange="seleccionarPago('usd')"> USD
+          </label>
+        </div>
+
+        <div class="pago-detalle" id="pago-detalle" style="display:none"></div>
+
+        <div class="sep"></div>
+        <button class="btn btn-success" id="btn-cobrar" onclick="cerrarPedido()" disabled>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle;margin-right:5px"><polyline points="20 6 9 17 4 12"/></svg>
+          Registrar factura y cerrar cuenta
+        </button>
+        <button class="btn btn-outline btn-imprimir" id="btn-imprimir" style="display:none" onclick="imprimirFacturaActual()">
+          Imprimir facturita
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+{% block extra_js %}
+<script>
+const WS_URL = `ws://${location.host}/ws/caja/`;
+const TASA_ACTUAL = {{ tasa_actual|default:"null"|unlocalize }};
+let ws = null;
+let pedidos = {};
+let pedidoSeleccionado = null;
+let formaPagoSeleccionada = null;
+let ultimaFacturaId = null;
+let alertasInventario = [];
+
+function cargarHistorialFacturas() {
+  fetch('{% url "pedidos:facturas_historial" %}')
+    .then(response => response.json())
+    .then(data => renderHistorialFacturas(data.facturas))
+    .catch(() => {
+      document.getElementById('lista-facturas').innerHTML = '<div class="admin-empty">No se pudo cargar el historial.</div>';
+    });
+}
+
+function cargarEstadisticasCaja() {
+  fetch('{% url "pedidos:caja_estadisticas" %}')
+    .then(response => response.json())
+    .then(data => renderEstadisticasCaja(data))
+    .catch(() => {
+      document.getElementById('caja-metricas').innerHTML = '<div class="admin-empty">No se pudieron cargar las estadísticas.</div>';
+    });
+}
+
+function renderEstadisticasCaja(data) {
+  const recaudacion = data.recaudacion;
+  document.getElementById('caja-metricas').innerHTML = `
+    <div class="caja-metrica"><span>Facturas</span><strong>${recaudacion.cantidad}</strong></div>
+    <div class="caja-metrica"><span>Total recaudado</span><strong>${recaudacion.total} CUP</strong></div>
+    <div class="caja-metrica"><span>Efectivo CUP</span><strong>${recaudacion.efectivo} CUP</strong></div>
+    <div class="caja-metrica"><span>Transferencias</span><strong>${recaudacion.transferencia} CUP</strong></div>`;
+  const inventario = document.getElementById('caja-inventario');
+  if (!data.inventario.length) {
+    inventario.innerHTML = '<div class="admin-empty">No hay productos registrados.</div>';
+    return;
+  }
+  inventario.innerHTML = data.inventario.map(producto => `
+    <div class="caja-inventario-row ${producto.stock_bajo ? 'stock-bajo' : ''}">
+      <strong>${producto.nombre}</strong>
+      <span>Salida: ${producto.salida} ${producto.unidad}</span>
+      <span>Quedan: <b>${producto.stock_actual} ${producto.unidad}</b></span>
+    </div>`).join('');
+}
+
+function renderHistorialFacturas(facturas) {
+  const lista = document.getElementById('lista-facturas');
+  document.getElementById('caja-historial-cnt').textContent = facturas.length;
+  if (!facturas.length) {
+    lista.innerHTML = '<div class="admin-empty">Todavía no hay facturas registradas.</div>';
+    return;
+  }
+  lista.innerHTML = facturas.map(factura => `
+    <div class="caja-factura-row">
+      <div>
+        <strong>Factura #${factura.id}</strong>
+        <span>Mesa ${factura.mesa_numero} · ${factura.creado_en}</span>
+      </div>
+      <div class="caja-factura-pago">
+        <span>${factura.forma_pago_display}</span>
+        <strong>${factura.total_cup} CUP</strong>
+      </div>
+      <button class="btn btn-outline btn-sm" onclick="imprimirFactura(${factura.id})" title="Imprimir factura">Imprimir</button>
+    </div>`).join('');
+}
+
+function imprimirFactura(facturaId) {
+  window.open(`/pedidos/caja/factura/${facturaId}/imprimir/`, '_blank');
+}
+
+function conectar() {
+  ws = new WebSocket(WS_URL);
+  ws.onopen = () => setDot(true);
+  ws.onclose = () => { setDot(false); setTimeout(conectar, 3000); };
+  ws.onmessage = e => {
+    const d = JSON.parse(e.data);
+    if (d.tipo === 'estado_inicial') {
+      pedidos = {};
+      d.pedidos.forEach(p => pedidos[p.id] = p);
+      renderLista();
+    } else if (d.tipo === 'pedido_actualizado') {
+      if (d.pedido.cuenta_solicitada) {
+        pedidos[d.pedido.id] = d.pedido;
+        renderLista();
+        if (!pedidoSeleccionado) toast(`Mesa ${d.pedido.mesa_numero} solicitó la factura`, 'red');
+        sonidoAlerta(660);
+      } else {
+        sonidoCambioEstado();
+      }
+    } else if (d.tipo === 'factura_solicitada') {
+      const mesa = d.mesa_numero ?? d.factura?.mesa_numero;
+      toast(`Mesa ${mesa} solicitó la factura`, 'orange');
+      sonidoAlerta(660);
+      if (d.factura) {
+        const cuenta = d.factura;
+        if (cuenta && cuenta.mesa_numero) {
+          const pedidoKey = cuenta.id || `mesa-${cuenta.mesa_numero}`;
+          pedidos[pedidoKey] = { ...cuenta, cuenta_solicitada: true, mesa_numero: cuenta.mesa_numero, id: pedidoKey };
+          renderLista();
+        }
+      }
+    } else if (d.tipo === 'pedido_cerrado') {
+      delete pedidos[d.pedido_id];
+      if (pedidoSeleccionado && pedidoSeleccionado.id === d.pedido_id) {
+        cerrarPanelCobro();
+      }
+      renderLista();
+      sonidoCambioEstado();
+    } else if (d.tipo === 'alerta_inventario') {
+      recibirAlertasInventario(d.alertas, d.mesa_numero);
+    } else if (d.tipo === 'factura_registrada') {
+      onFacturaRegistrada(d.factura);
+    } else if (d.tipo === 'error_cobro') {
+      toast(d.mensaje, 'red');
+      sonidoError();
+    }
+  };
+}
+
+function setDot(ok) {
+  const dot = document.getElementById('ws-dot'), lbl = document.getElementById('ws-label');
+  if (dot) dot.className = 'ws-dot ' + (ok ? 'conectado' : 'desconectado');
+  if (lbl) lbl.textContent = ok ? 'En línea' : 'Reconectando...';
+}
+
+function renderLista() {
+  const lista = document.getElementById('lista-caja');
+  const pendientes = Object.values(pedidos).filter(p => p.cuenta_solicitada && p.estado !== 'cerrado');
+  if (!pendientes.length) {
+    lista.innerHTML = `<div class="cobro-vacio" id="caja-vacio">
+      <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/><path d="M7 15h2M12 15h5"/></svg>
+      <span>Sin cuentas pendientes</span>
+    </div>`;
+    return;
+  }
+  lista.innerHTML = '';
+  pendientes.sort((a,b) => a.id - b.id).forEach(p => {
+    const card = document.createElement('div');
+    card.className = 'caja-card' + (pedidoSeleccionado && pedidoSeleccionado.id === p.id ? ' seleccionada' : '');
+    card.onclick = () => seleccionarCuenta(p);
+    const items = p.items.map(i => `<li><span>${i.cantidad}x ${i.plato}</span><span>${i.subtotal} CUP</span></li>`).join('');
+    card.innerHTML = `
+      <div class="caja-card-top">
+        <div class="caja-mesa">Mesa ${p.mesa_numero}</div>
+        <div class="caja-hora">#${p.id} · ${p.creado_en}</div>
+      </div>
+      <ul class="caja-items-ul">${items}</ul>
+      <div class="caja-total-row"><span>Total</span><span class="caja-total-val">${p.total} CUP</span></div>`;
+    lista.appendChild(card);
+  });
+}
+
+function seleccionarCuenta(p) {
+  pedidoSeleccionado = p;
+  formaPagoSeleccionada = null;
+  ultimaFacturaId = null;
+  renderLista();
+  document.getElementById('cobro-vacio').style.display = 'none';
+  document.getElementById('cobro-detalle').style.display = 'block';
+  document.getElementById('cobro-mesa-label').textContent = `Mesa ${p.mesa_numero}`;
+  const ul = document.getElementById('cobro-items-ul');
+  ul.innerHTML = p.items.map(i => `
+    <li>
+      <span>${i.cantidad}x ${i.plato}</span>
+      <span>${i.subtotal} CUP</span>
+    </li>`).join('');
+  document.getElementById('cobro-total').textContent = `${p.total} CUP`;
+  const nota = document.getElementById('cobro-nota');
+  nota.textContent = p.nota ? `Nota: ${p.nota}` : '';
+
+  document.querySelectorAll('input[name="forma_pago"]').forEach(r => r.checked = false);
+  document.querySelectorAll('.pago-opcion').forEach(el => el.classList.remove('seleccionada'));
+  document.getElementById('pago-detalle').style.display = 'none';
+  document.getElementById('btn-cobrar').disabled = true;
+  document.getElementById('btn-cobrar').style.display = 'block';
+  document.getElementById('btn-imprimir').style.display = 'none';
+}
+
+function cerrarPanelCobro() {
+  pedidoSeleccionado = null;
+  formaPagoSeleccionada = null;
+  ultimaFacturaId = null;
+  document.getElementById('cobro-detalle').style.display = 'none';
+  document.getElementById('cobro-vacio').style.display = 'flex';
+}
+
+function seleccionarPago(forma) {
+  if (!pedidoSeleccionado) return;
+  formaPagoSeleccionada = forma;
+  document.querySelectorAll('.pago-opcion').forEach(el => {
+    el.classList.toggle('seleccionada', el.dataset.forma === forma);
+  });
+  renderDetallePago();
+  document.getElementById('btn-cobrar').disabled = false;
+}
+
+function renderDetallePago() {
+  const cont = document.getElementById('pago-detalle');
+  const total = parseFloat(pedidoSeleccionado.total);
+  if (!formaPagoSeleccionada) { cont.style.display = 'none'; return; }
+  cont.style.display = 'block';
+
+  if (formaPagoSeleccionada === 'efectivo_cup') {
+    cont.innerHTML = `<div class="pago-detalle-linea"><span>Efectivo CUP</span><strong>${total.toFixed(2)} CUP</strong></div>`;
+  } else if (formaPagoSeleccionada === 'transferencia') {
+    cont.innerHTML = `<div class="pago-detalle-linea"><span>Transferencia</span><strong>${total.toFixed(2)} CUP</strong></div>`;
+  } else if (formaPagoSeleccionada === 'mixto') {
+    const mitad = Math.round((total/2) * 100) / 100;
+    const resto = Math.round((total - mitad) * 100) / 100;
+    cont.innerHTML = `
+      <div class="pago-detalle-linea"><span>Efectivo CUP</span><strong>${mitad.toFixed(2)} CUP</strong></div>
+      <div class="pago-detalle-linea"><span>Transferencia</span><strong>${resto.toFixed(2)} CUP</strong></div>`;
+  } else if (formaPagoSeleccionada === 'usd') {
+    const tasaInicial = TASA_ACTUAL !== null ? TASA_ACTUAL : '';
+    cont.innerHTML = `
+      <div class="pago-detalle-linea"><span>Total</span><strong>${total.toFixed(2)} CUP</strong></div>
+      <label style="display:block;margin-top:.3rem">Tasa de cambio (CUP por 1 USD)
+        <input type="number" step="0.01" min="0.01" id="input-tasa-usd" class="pago-tasa-input" value="${tasaInicial}" oninput="actualizarMontoUsd()">
+      </label>
+      <div class="pago-detalle-linea" style="margin-top:.4rem"><span>A cobrar en USD</span><strong id="monto-usd-calc">—</strong></div>`;
+    actualizarMontoUsd();
+  }
+}
+
+function actualizarMontoUsd() {
+  const input = document.getElementById('input-tasa-usd');
+  const out = document.getElementById('monto-usd-calc');
+  if (!input || !out || !pedidoSeleccionado) return;
+  const tasa = parseFloat(input.value);
+  if (!tasa || tasa <= 0) { out.textContent = '—'; return; }
+  const total = parseFloat(pedidoSeleccionado.total);
+  out.textContent = `${(total/tasa).toFixed(2)} USD`;
+}
+
+function cerrarPedido() {
+  if (!pedidoSeleccionado || !ws || ws.readyState !== 1 || !formaPagoSeleccionada) return;
+  let tasa_cambio = null;
+  if (formaPagoSeleccionada === 'usd') {
+    const input = document.getElementById('input-tasa-usd');
+    tasa_cambio = input ? parseFloat(input.value) : null;
+    if (!tasa_cambio || tasa_cambio <= 0) { toast('Indica una tasa de cambio válida', 'red'); return; }
+  }
+  document.getElementById('btn-cobrar').disabled = true;
+  ws.send(JSON.stringify({
+    accion: 'cerrar_pedido',
+    pedido_id: pedidoSeleccionado.id,
+    mesa_numero: pedidoSeleccionado.mesa_numero,
+    forma_pago: formaPagoSeleccionada,
+    tasa_cambio: tasa_cambio,
+  }));
+}
+
+function onFacturaRegistrada(factura) {
+  ultimaFacturaId = factura.id;
+  toast(`Mesa ${factura.mesa_numero} — factura #${factura.id} registrada (${factura.forma_pago_display})`, 'green');
+  document.getElementById('btn-cobrar').style.display = 'none';
+  document.getElementById('btn-imprimir').style.display = 'block';
+  cargarHistorialFacturas();
+  cargarEstadisticasCaja();
+  sonidoCuenta();
+}
+
+function imprimirFacturaActual() {
+  if (!ultimaFacturaId) return;
+  imprimirFactura(ultimaFacturaId);
+}
+
+function recibirAlertasInventario(alertas, mesaNumero) {
+  alertas.forEach(a => {
+    alertasInventario.unshift({...a, mesa_numero: mesaNumero});
+    toast(`Mesa ${mesaNumero} — ${a.mensaje}`, a.nivel === 'critico' ? 'red' : 'orange');
+    sonidoAlerta(a.nivel === 'critico' ? 440 : 550);
+  });
+  alertasInventario = alertasInventario.slice(0, 20);
+  renderAlertasInventario();
+  cargarEstadisticasCaja();
+}
+
+function renderAlertasInventario() {
+  const cont = document.getElementById('caja-alertas-lista');
+  const cnt = document.getElementById('caja-alertas-cnt');
+  cont.innerHTML = alertasInventario.map(a => `
+    <div class="alerta-item nivel-${a.nivel}">
+      <span>${a.nivel === 'critico' ? '⛔' : '⚠️'}</span>
+      <span>Mesa ${a.mesa_numero} — ${a.mensaje}</span>
+    </div>`).join('');
+  if (alertasInventario.length) {
+    cnt.style.display = 'inline-block';
+    cnt.textContent = alertasInventario.length;
+  } else {
+    cnt.style.display = 'none';
+  }
+}
+
+cargarHistorialFacturas();
+cargarEstadisticasCaja();
+conectar();
+</script>
+{% endblock %}
