@@ -1,89 +1,265 @@
 <!DOCTYPE html>
+{% load l10n %}
 <html lang="es">
 <head>
-<meta charset="UTF-8">
-<title>Factura #{{ factura.id }}</title>
-<style>
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body {
-    font-family: 'Courier New', monospace;
-    background: #eee;
-    color: #111;
-    display: flex;
-    justify-content: center;
-    padding: 24px 0;
-  }
-  .ticket {
-    width: 300px;
-    background: #fff;
-    padding: 18px 16px;
-    box-shadow: 0 2px 14px rgba(0,0,0,.2);
-  }
-  .centro { text-align: center; }
-  .marca { font-size: 1.15rem; font-weight: 700; letter-spacing: .08em; }
-  .sub { font-size: .72rem; color: #555; margin-bottom: 10px; }
-  .linea { border-top: 1px dashed #999; margin: 10px 0; }
-  .fila { display: flex; justify-content: space-between; font-size: .8rem; padding: 2px 0; }
-  .fila.item-nombre { flex: 1; padding-right: 6px; }
-  .items { margin: 8px 0; }
-  .items .fila span:first-child { flex: 1; }
-  .total-fila { display:flex; justify-content:space-between; font-size:1rem; font-weight:700; padding-top:8px; }
-  .pago-titulo { font-size: .75rem; text-transform: uppercase; letter-spacing: .05em; color: #555; margin-top: 10px; margin-bottom: 4px; }
-  .footer { text-align: center; font-size: .72rem; color: #555; margin-top: 14px; }
-  .btn-imprimir {
-    display: block; width: 100%; margin-top: 16px; padding: 10px;
-    background: #111; color: #fff; border: none; border-radius: 4px;
-    font-size: .85rem; cursor: pointer;
-  }
-  @media print {
-    body { background: #fff; padding: 0; }
-    .ticket { box-shadow: none; width: 100%; }
-    .btn-imprimir { display: none; }
-  }
-</style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Factura #{{ factura.pk }}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+  
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background: #fff;
+      font-family: 'Open Sans', sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      padding: 10px;
+      color: #333333;
+    }
+
+    .receipt-container {
+      width: 80mm;
+      max-width: 100%;
+    }
+
+    .receipt {
+      background: #ffffff;
+      padding: 20px 18px 18px 18px;
+    }
+
+    .divider {
+      border-bottom: 2px dashed #999999;
+      margin: 12px 0;
+    }
+
+    .divider-double {
+      border-bottom: 2px dashed #999999;
+      position: relative;
+      margin: 12px 0;
+    }
+    
+    .divider-double::after {
+      content: '';
+      display: block;
+      border-bottom: 2px dashed #999999;
+      margin-top: 4px;
+    }
+
+    .title {
+      text-align: center;
+      font-size: 22px;
+      font-weight: 800;
+      letter-spacing: 1px;
+      margin: 3px 0;
+      color: #222222;
+    }
+    
+    .sub-title {
+      text-align: center;
+      font-size: 13px;
+      font-weight: 600;
+      color: #555;
+      letter-spacing: 0.5px;
+      margin-top: -3px;
+      margin-bottom: 3px;
+    }
+
+    .item-list, .totals {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 14px;
+      font-weight: 600;
+      color: #555555;
+    }
+
+    .item-list td, .totals td {
+      padding: 2px 0;
+    }
+
+    .item-list tr td:last-child, .totals tr td:last-child {
+      text-align: right;
+    }
+
+    .price-col {
+      white-space: nowrap;
+    }
+
+    .total-main {
+      font-size: 16px;
+      font-weight: 800;
+      color: #222222;
+    }
+
+    .total-main td {
+      padding: 5px 0;
+    }
+
+    .thank-you {
+      text-align: center;
+      font-size: 20px;
+      font-weight: 800;
+      letter-spacing: 1px;
+      margin: 18px 0;
+      color: #333333;
+    }
+
+    .barcode-container {
+      text-align: center;
+      margin-top: 15px;
+    }
+
+    .barcode {
+      width: 100%;
+      height: 38px;
+      background: repeating-linear-gradient(
+        90deg,
+        #333 0px,
+        #333 2px,
+        #fff 2px,
+        #fff 4px,
+        #333 4px,
+        #333 8px,
+        #fff 8px,
+        #fff 9px,
+        #333 9px,
+        #333 11px,
+        #fff 11px,
+        #fff 13px,
+        #333 13px,
+        #333 16px
+      );
+    }
+    
+    .meta-info {
+      font-size: 12px;
+      font-weight: 600;
+      color: #555;
+      margin: 2px 0;
+      display: flex;
+      justify-content: space-between;
+    }
+    
+    .meta-info span:first-child {
+      color: #777;
+    }
+    
+    .payment-method {
+      font-size: 13px;
+      font-weight: 700;
+      color: #333;
+      text-align: center;
+      margin: 6px 0;
+    }
+    
+    @page {
+      size: 80mm auto;
+      margin: 0;
+    }
+    
+    @media print {
+      body { padding: 0; }
+      .receipt { padding: 12px 14px; }
+    }
+  </style>
 </head>
 <body>
-  <div class="ticket">
-    <div class="centro">
-      <div class="marca">Las Cuquis</div>
-      <div class="sub">Factura de consumo</div>
-    </div>
-    <div class="linea"></div>
-    <div class="fila"><span>Factura</span><span>#{{ factura.id }}</span></div>
-    <div class="fila"><span>Mesa</span><span>{{ factura.mesa_numero }}</span></div>
-    <div class="fila"><span>Fecha</span><span>{{ factura.creado_en|date:"d/m/Y H:i" }}</span></div>
-    <div class="linea"></div>
 
-    <div class="items">
-      {% for i in factura.items_snapshot %}
-      <div class="fila">
-        <span>{{ i.cantidad }}x {{ i.plato }}</span>
-        <span>{{ i.subtotal }}</span>
+  <div class="receipt-container">
+    <div class="receipt">
+      
+      <div class="divider-double"></div>
+      <div class="title">LAS CUQUIS</div>
+      <div class="sub-title">FACTURA DE CONSUMO</div>
+      <div class="divider-double"></div>
+      
+      <div class="meta-info">
+        <span>Factura</span>
+        <span><strong>#{{ factura.pk }}</strong></span>
       </div>
-      {% endfor %}
+      <div class="meta-info">
+        <span>Mesa</span>
+        <span><strong>{{ factura.mesa_numero }}</strong></span>
+      </div>
+      <div class="meta-info">
+        <span>Fecha</span>
+        <span><strong>{{ factura.creado_en|date:"d/m/Y H:i" }}</strong></span>
+      </div>
+      {% if factura.cajera_nombre %}
+      <div class="meta-info">
+        <span>Cajera</span>
+        <span><strong>{{ factura.cajera_nombre }}</strong></span>
+      </div>
+      {% endif %}
+      {% if factura.mesera_nombre %}
+      <div class="meta-info">
+        <span>Mesera</span>
+        <span><strong>{{ factura.mesera_nombre }}</strong></span>
+      </div>
+      {% endif %}
+      
+      <div class="divider"></div>
+      
+      <table class="item-list">
+        {% for item in factura.items_snapshot %}
+        <tr>
+          <td>{{ item.cantidad }}x {{ item.plato }}</td>
+          <td class="price-col">{{ item.subtotal }} CUP</td>
+        </tr>
+        {% endfor %}
+      </table>
+
+      <div class="divider"></div>
+
+      <table class="totals">
+        <tr class="total-main">
+          <td>TOTAL</td>
+          <td class="price-col">{{ factura.total_cup }} CUP</td>
+        </tr>
+      </table>
+
+      <div class="divider"></div>
+
+      <div class="payment-method">{{ factura.get_forma_pago_display }}</div>
+      {% if factura.forma_pago == 'efectivo_cup' %}
+        <div class="meta-info"><span>Efectivo CUP</span><span>{{ factura.monto_efectivo_cup }} CUP</span></div>
+      {% elif factura.forma_pago == 'transferencia' %}
+        <div class="meta-info"><span>Transferencia</span><span>{{ factura.monto_transferencia_cup }} CUP</span></div>
+      {% elif factura.forma_pago == 'mixto' %}
+        <div class="meta-info"><span>Efectivo CUP</span><span>{{ factura.monto_efectivo_cup }} CUP</span></div>
+        <div class="meta-info"><span>Transferencia</span><span>{{ factura.monto_transferencia_cup }} CUP</span></div>
+      {% elif factura.forma_pago == 'usd' %}
+        <div class="meta-info"><span>Monto USD</span><span>{{ factura.monto_usd }} USD</span></div>
+        <div class="meta-info"><span>Tasa</span><span>1 USD = {{ factura.tasa_cambio }} CUP</span></div>
+      {% endif %}
+      {% if factura.monto_usd and factura.forma_pago != 'usd' %}
+        <div class="meta-info"><span>Total USD</span><span>{{ factura.monto_usd }} USD</span></div>
+      {% endif %}
+
+      <div class="divider"></div>
+
+      <div class="thank-you">¡GRACIAS!</div>
+
+      <div class="divider"></div>
+
+      <div class="barcode-container">
+        <div class="barcode"></div>
+      </div>
+
     </div>
-
-    <div class="linea"></div>
-    <div class="total-fila"><span>TOTAL</span><span>{{ factura.total_cup }} CUP</span></div>
-
-    <div class="pago-titulo">Forma de pago: {{ factura.get_forma_pago_display }}</div>
-    {% if factura.forma_pago == 'efectivo_cup' %}
-      <div class="fila"><span>Efectivo CUP</span><span>{{ factura.monto_efectivo_cup }} CUP</span></div>
-    {% elif factura.forma_pago == 'transferencia' %}
-      <div class="fila"><span>Transferencia</span><span>{{ factura.monto_transferencia_cup }} CUP</span></div>
-    {% elif factura.forma_pago == 'mixto' %}
-      <div class="fila"><span>Efectivo CUP</span><span>{{ factura.monto_efectivo_cup }} CUP</span></div>
-      <div class="fila"><span>Transferencia</span><span>{{ factura.monto_transferencia_cup }} CUP</span></div>
-    {% elif factura.forma_pago == 'usd' %}
-      <div class="fila"><span>Monto USD</span><span>{{ factura.monto_usd }} USD</span></div>
-      <div class="fila"><span>Tasa usada</span><span>1 USD = {{ factura.tasa_cambio }} CUP</span></div>
-    {% endif %}
-
-    <div class="linea"></div>
-    <div class="footer">¡Gracias por su visita!</div>
-
-    <button class="btn-imprimir" onclick="window.print()">Imprimir</button>
   </div>
-  <script>window.addEventListener('load', () => setTimeout(() => window.print(), 300));</script>
+
+  <script>
+    window.addEventListener('load', () => setTimeout(() => window.print(), 300));
+  </script>
 </body>
 </html>
