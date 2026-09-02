@@ -104,5 +104,8 @@ con el botón **Imprimir QR**.
 
 
 
-por hacer:
-cambiar el estilo visual completo, mejorar la funcionalidad de la administracion para el inventario, al final del dia mostrar el ipv y el cierre y estadisticas de las ventas y finalmente hacer roles para cada turno
+## por hacer:
+- mejorar el diseno de la vista del usuario, admin y cajera y mesera
+- que asigne mesas a las meseras el administrador
+- que la mesera elija eltipo de pago antes de enviar la factura a la cajera
+- mejorar la factura
