@@ -1,415 +1,921 @@
-{% extends 'base.html' %}
-{% block title %}Mesera{% endblock %}
-{% block nav_mesera %}activo{% endblock %}
-{% block content %}
-<div id="modal-factura" class="modal-backdrop" aria-hidden="true" hidden>
-  <div class="modal-panel modal-panel-premium" role="dialog" aria-modal="true" aria-labelledby="modal-factura-title">
-    <button type="button" class="modal-close" onclick="cerrarModalFactura()" aria-label="Cerrar">×</button>
-    <div class="modal-kicker" id="modal-factura-kicker">Solicitud</div>
-    <h3 id="modal-factura-title">Factura solicitada</h3>
-    <div id="modal-factura-body" class="modal-body"></div>
-    <div class="modal-actions">
-      <button id="modal-factura-accept" type="button" class="btn btn-primary modal-submit-btn">Aceptar</button>
-    </div>
-  </div>
-</div>
-
-<div id="modal-qr-mesa" class="modal-backdrop" aria-hidden="true" hidden>
-  <div class="modal-panel modal-panel-qr modal-panel-premium" role="dialog" aria-modal="true" aria-labelledby="modal-qr-title">
-    <button type="button" class="modal-close" onclick="cerrarModalQrMesa()" aria-label="Cerrar">×</button>
-    <div class="modal-kicker">Mesa</div>
-    <h3 id="modal-qr-title">QR de la mesa</h3>
-    <iframe id="modal-qr-iframe" title="QR de la mesa"></iframe>
-  </div>
-</div>
-<div class="mesera-layout">
-  <button class="btn btn-outline btn-sm aviso-sonido-btn" data-activar-sonido onclick="activarSonido()">Activar sonido</button>
-
-  <!-- COL 1: LISTA DE MESAS -->
-  <div class="panel-mesas">
-    <div class="panel-mesas-header">Mesas</div>
-    {% for mesa in mesas %}
-    <div class="mesa-item" id="mesa-item-{{ mesa.numero }}" onclick="seleccionarMesa({{ mesa.id }},{{ mesa.numero }})">
-      <div>
-        <div class="mesa-num">Mesa {{ mesa.numero }}</div>
-        <div style="font-size:.73rem;color:var(--text-muted)" id="mesa-resumen-{{ mesa.numero }}">Sin pedidos</div>
-      </div>
-      <div class="mesa-item-actions">
-        <div class="mesa-estado-dot libre" id="mesa-dot-{{ mesa.numero }}"></div>
-        <button class="btn btn-outline btn-sm qr-mesa-btn" id="mesa-qr-{{ mesa.numero }}" onclick="event.stopPropagation(); abrirQrMesa({{ mesa.numero }})">QR</button>
-        <button class="btn btn-outline btn-sm" id="mesa-action-{{ mesa.numero }}" onclick="event.stopPropagation(); alternarMesa({{ mesa.id }}, {{ mesa.numero }})">Abrir</button>
-      </div>
-    </div>
-    {% endfor %}
-  </div>
-
-  <!-- COL 2: CARTA para tomar pedido -->
-  <div class="panel-carta-mesera">
-    <div class="carta-header" style="top:0">
-      <h1>
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 2l1.5 18.5L12 22l7.5-1.5L21 2"/><path d="M12 2v20M7 6h10M6 10h12M7 14h10"/></svg>
-        Carta
-      </h1>
-      <span class="badge-mesa" id="mesa-badge-header">— Selecciona mesa —</span>
-    </div>
-
-    <div class="platos-lista">
-      {% for p in productos %}
-      <div class="plato-card">
-        <div class="plato-info">
-          <div class="plato-nombre">{{ p.nombre }}</div>
-          {% if p.categoria %}<div class="plato-desc">{{ p.categoria.nombre }}</div>{% endif %}
-        </div>
-        <div class="plato-precio">{{ p.precio }} CUP</div>
-        <button class="btn-agregar" onclick='agregarMesera({{ p.plato_id|default:p.id }},"{{ p.nombre|escapejs }}",{{ p.precio }})' title="Agregar">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-        </button>
-      </div>
-      {% empty %}
-      <div class="pedido-vacio" style="padding:1.5rem 0;">No hay productos disponibles en el inventario.</div>
-      {% endfor %}
-    </div>
-  </div>
-
-  <!-- COL 3: PEDIDO ACTUAL de la mesa seleccionada -->
-  <div class="panel-pedido-mesera">
-    <div class="pedido-header">
-      <h2>Pedido</h2>
-      <span class="pedido-contador" id="cnt-mesera">0</span>
-    </div>
-
-    <!-- Pedidos existentes de la mesa -->
-    <div class="pedidos-mesa-lista" id="pedidos-mesa-lista">
-      <div style="text-align:center;color:var(--text-muted);padding:2rem;font-size:.85rem" id="pedidos-vacio-msg">
-        Selecciona una mesa
-      </div>
-    </div>
-
-    <!-- Nuevo pedido -->
-    <div class="pedido-footer" style="border-top:2px solid var(--border)">
-      <div style="font-size:.7rem;text-transform:uppercase;letter-spacing:.1em;color:var(--text-muted);margin-bottom:.6rem">Nuevo pedido</div>
-      <div class="pedido-items" id="pedido-items-mesera" style="max-height:180px;flex:none;padding:0;margin-bottom:.75rem">
-        <div class="pedido-vacio" id="pedido-vacio-mesera" style="padding:1rem 0">
-          <span style="font-size:.82rem">Agrega platos de la carta</span>
-        </div>
-      </div>
-      <div class="pedido-nota">
-        <label>Nota</label>
-        <textarea id="nota-mesera" rows="1" placeholder="Alergias, preferencias..."></textarea>
-      </div>
-      <div class="total-line">
-        <span class="total-label">Total</span>
-        <span class="total-valor" id="total-mesera">0.00 CUP</span>
-      </div>
-      <button class="btn btn-primary" id="btn-enviar-mesera" onclick="enviarPedidoMesera()" disabled>
-        Enviar a cocina
-      </button>
-    </div>
-  </div>
-
-</div>
-{% endblock %}
-{% block extra_js %}
-<script>
-const WS_URL = `ws://${location.host}/ws/mesera/`;
-let ws = null;
-let mesaSeleccionada = null; // {id, numero}
-let carrito = [];
-let pedidosPorMesa = {}; // numero -> [pedidos]
-let mesas = {};
-
-function conectar() {
-  ws = new WebSocket(WS_URL);
-  ws.onopen = () => { setWsDot(true); };
-  ws.onclose = () => { setWsDot(false); setTimeout(conectar, 3000); };
-  ws.onmessage = e => {
-    const d = JSON.parse(e.data);
-    if (d.tipo === 'estado_inicial') {
-      d.mesas.forEach(m => { mesas[m.numero] = m; pedidosPorMesa[m.numero] = []; });
-      d.pedidos.forEach(p => agregarOActualizarPedido(p));
-      actualizarTodasMesas();
-      if (mesaSeleccionada) renderPedidosMesa(mesaSeleccionada.numero);
-      actualizarTodasMesas();
-    } else if (d.tipo === 'pedido_nuevo' || d.tipo === 'pedido_confirmado') {
-      const anterior = pedidosPorMesa[d.pedido.mesa_numero]?.find(p => p.id === d.pedido.id);
-      agregarOActualizarPedido(d.pedido);
-      actualizarDotMesa(d.pedido.mesa_numero);
-      if (mesaSeleccionada && d.pedido.mesa_numero === mesaSeleccionada.numero) renderPedidosMesa(mesaSeleccionada.numero);
-      if (d.tipo === 'pedido_nuevo' && !anterior) { sonidoPedidoNuevo(); toast(`Nuevo pedido — Mesa ${d.pedido.mesa_numero}`, 'orange'); }
-      if (d.tipo === 'pedido_confirmado') { carrito=[]; renderCarritoMesera(); toast('Pedido enviado a cocina','green'); sonidoExito(); }
-    } else if (d.tipo === 'pedido_actualizado') {
-      const anterior = pedidosPorMesa[d.pedido.mesa_numero]?.find(p => p.id === d.pedido.id);
-      agregarOActualizarPedido(d.pedido);
-      actualizarDotMesa(d.pedido.mesa_numero);
-      if (mesaSeleccionada && d.pedido.mesa_numero === mesaSeleccionada.numero) renderPedidosMesa(mesaSeleccionada.numero);
-      if (anterior && (anterior.estado !== d.pedido.estado || anterior.cuenta_solicitada !== d.pedido.cuenta_solicitada)) sonidoCambioEstado();
-    } else if (d.tipo === 'pedido_cerrado') {
-      Object.keys(pedidosPorMesa).forEach(num => {
-        pedidosPorMesa[num] = pedidosPorMesa[num].filter(p => p.id !== d.pedido_id);
-      });
-      actualizarTodasMesas();
-      if (mesaSeleccionada) renderPedidosMesa(mesaSeleccionada.numero);
-      sonidoCambioEstado();
-    } else if (d.tipo === 'factura_solicitada') {
-      const mesa = d.mesa_numero ?? d.factura?.mesa_numero;
-      mostrarModalFactura({
-        title: 'Factura solicitada',
-        kicker: 'Mesera',
-        mesaNumero: mesa,
-        items: d.factura?.items || [],
-        total: parseFloat(d.factura?.total_cup || d.factura?.total || 0),
-        tipo: 'mesera',
-        onAccept: () => {
-          if (ws && ws.readyState === WebSocket.OPEN) {
-            ws.send(JSON.stringify({ accion: 'aceptar_factura', mesa_numero: mesa }));
-          }
+<!DOCTYPE html>
+{% load static %}
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Panel de Mesera - RestoManager</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Plus Jakarta Sans', 'sans-serif'],
+                    },
+                    colors: {
+                        brand: {
+                            50: '#f0fdf4',
+                            100: '#dcfce7',
+                            500: '#22c55e',
+                            600: '#16a34a',
+                            700: '#15803d',
+                            900: '#14532d',
+                        }
+                    }
+                }
+            }
         }
-      });
-      sonidoCuenta();
-      toast(`Mesa ${mesa} solicitó la factura`, 'orange');
-    } else if (d.tipo === 'mesa_actualizada') {
-      const mesa = d.mesa;
-      mesas[mesa.numero] = mesa;
-      pedidosPorMesa[mesa.numero] = [];
-      actualizarDotMesa(mesa.numero);
-      if (mesaSeleccionada && mesaSeleccionada.numero === mesa.numero) renderPedidosMesa(mesa.numero);
-      toast(`Mesa ${mesa.numero} ${mesa.abierta ? 'abierta' : 'cerrada'}`, mesa.abierta ? 'green' : 'orange');
-      sonidoMesa();
-    } else if (d.tipo === 'error_mesa') {
-      toast(d.mensaje, 'red');
-      sonidoError();
-    }
-  };
-}
+    </script>
+    <style>
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f5f9;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 9999px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+    </style>
+</head>
+<body class="bg-slate-900 text-slate-100 font-sans min-h-screen flex flex-col md:flex-row overflow-x-hidden">
 
-function setWsDot(ok) {
-  const dot = document.getElementById('ws-dot');
-  const lbl = document.getElementById('ws-label');
-  if (dot) { dot.className = 'ws-dot ' + (ok ? 'conectado' : 'desconectado'); }
-  if (lbl) lbl.textContent = ok ? 'En línea' : 'Reconectando...';
-}
+    <!-- BARRA LATERAL / NAVEGACIÓN -->
+    <aside class="w-full md:w-20 lg:w-64 bg-slate-950 border-r border-slate-800 flex flex-col justify-between shrink-0">
+        <div>
+            <!-- Logo -->
+            <div class="p-4 lg:p-6 flex items-center justify-between border-b border-slate-800/80">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-500 to-teal-400 flex items-center justify-center text-slate-950 font-black text-xl shadow-lg shadow-emerald-500/20">
+                        <i class="fa-solid font-bold fa-utensils"></i>
+                    </div>
+                    <div class="hidden lg:block">
+                        <h1 class="font-bold text-lg tracking-tight leading-none text-white">GourmetControl</h1>
+                        <span class="text-xs text-slate-400 font-medium">Panel de Atencion</span>
+                    </div>
+                </div>
+            </div>
 
-function agregarOActualizarPedido(p) {
-  if (!pedidosPorMesa[p.mesa_numero]) pedidosPorMesa[p.mesa_numero] = [];
-  const idx = pedidosPorMesa[p.mesa_numero].findIndex(x => x.id === p.id);
-  if (idx >= 0) pedidosPorMesa[p.mesa_numero][idx] = p;
-  else pedidosPorMesa[p.mesa_numero].push(p);
-}
+            <!-- Info Mesera -->
+            <div class="p-4 border-b border-slate-800/50 hidden lg:flex items-center gap-3 bg-slate-900/40">
+                <div class="relative">
+                    <img src="https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&q=80&w=120" alt="Mesera" class="w-10 h-10 rounded-full object-cover border-2 border-emerald-500">
+                    <span class="absolute bottom-0 right-0 w-3 h-3 bg-emerald-500 border-2 border-slate-950 rounded-full"></span>
+                </div>
+                <div>
+                    <p class="text-sm font-semibold text-white leading-tight">{{ request.user.get_full_name|default:request.user.username }}</p>
+                    <p class="text-xs text-emerald-400 font-medium">Zona Principal (Piso 1)</p>
+                </div>
+            </div>
 
-function actualizarTodasMesas() {
-  Object.keys(pedidosPorMesa).forEach(num => actualizarDotMesa(parseInt(num)));
-}
+            <!-- Navegación Menú -->
+            <nav class="p-3 space-y-1">
+                <button onclick="switchView('tables')" id="nav-tables" class="w-full flex items-center gap-3 px-3 py-3 rounded-xl font-medium text-sm transition-all bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                    <i class="fa-solid fa-border-all text-lg w-6 text-center"></i>
+                    <span class="hidden lg:inline">Mesas y Salón</span>
+                </button>
+                <button onclick="switchView('active-orders')" id="nav-orders" class="w-full flex items-center gap-3 px-3 py-3 rounded-xl font-medium text-sm text-slate-400 hover:text-white hover:bg-slate-800/50 transition-all">
+                    <i class="fa-solid fa-receipt text-lg w-6 text-center"></i>
+                    <span class="hidden lg:inline">Pedidos Activos</span>
+                    <span id="badge-active-count" class="hidden lg:flex ml-auto bg-emerald-500/20 text-emerald-400 text-xs px-2 py-0.5 rounded-full font-bold">0</span>
+                </button>
+                <button onclick="switchView('menu')" id="nav-menu" class="w-full flex items-center gap-3 px-3 py-3 rounded-xl font-medium text-sm text-slate-400 hover:text-white hover:bg-slate-800/50 transition-all">
+                    <i class="fa-solid fa-book-open text-lg w-6 text-center"></i>
+                    <span class="hidden lg:inline">Carta / Menú</span>
+                </button>
+            </nav>
+        </div>
 
-function actualizarDotMesa(num) {
-  const pedidos = (pedidosPorMesa[num] || []).filter(p => p.estado !== 'cerrado');
-  const dot = document.getElementById(`mesa-dot-${num}`);
-  const resumen = document.getElementById(`mesa-resumen-${num}`);
-  const action = document.getElementById(`mesa-action-${num}`);
-  const qr = document.getElementById(`mesa-qr-${num}`);
-  if (!dot) return;
-  if (!mesas[num]?.abierta) {
-    dot.className = 'mesa-estado-dot cerrado';
-    if (resumen) resumen.textContent = 'Cerrada';
-    if (action) { action.textContent = 'Abrir'; action.className = 'btn btn-success btn-sm'; }
-    if (qr) qr.style.display = 'none';
-    return;
-  }
-  if (action) { action.textContent = 'Cerrar'; action.className = 'btn btn-outline btn-sm'; }
-  if (qr) qr.style.display = 'inline-flex';
-  if (!pedidos.length) {
-    dot.className = 'mesa-estado-dot libre';
-    if (resumen) resumen.textContent = 'Libre';
-  } else if (pedidos.some(p => p.cuenta_solicitada)) {
-    dot.className = 'mesa-estado-dot cuenta';
-    if (resumen) resumen.textContent = 'Factura solicitada';
-  } else {
-    dot.className = 'mesa-estado-dot ocupada';
-    const total = pedidos.reduce((s,p)=>s+parseFloat(p.total),0);
-    if (resumen) resumen.textContent = `${pedidos.length} pedido(s) · ${total.toFixed(2)} CUP`;
-  }
-}
+        <!-- Botón Salir / Resumen -->
+        <div class="p-3 border-t border-slate-800/80">
+            <div class="hidden lg:block p-3 rounded-xl bg-slate-900 border border-slate-800 mb-3">
+                <div class="flex justify-between text-xs text-slate-400 mb-1">
+                    <span>Ventas del Turno</span>
+                    <span class="font-bold text-emerald-400" id="shift-sales">$0.00</span>
+                </div>
+                <div class="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden">
+                    <div class="bg-emerald-500 h-full w-2/3"></div>
+                </div>
+            </div>
+            <a href="{% url 'usuarios:logout' %}" class="w-full flex items-center justify-center lg:justify-start gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold text-rose-400 hover:bg-rose-500/10 transition-all">
+                <i class="fa-solid fa-right-from-bracket text-base"></i>
+                <span class="hidden lg:inline">Cerrar Turno</span>
+            </a>
+        </div>
+    </aside>
 
-const QR_MESA_BASE = '{% url "carta:qr_mesa" 0 %}';
+    <!-- CONTENIDO PRINCIPAL -->
+    <main class="flex-1 flex flex-col h-screen overflow-hidden">
+        
+        <!-- HEADER SUPERIOR -->
+        <header class="h-16 border-b border-slate-800 bg-slate-950/60 backdrop-blur px-6 flex items-center justify-between shrink-0">
+            <div class="flex items-center gap-4">
+                <h2 id="page-title" class="text-lg font-bold text-white flex items-center gap-2">
+                    <i class="fa-solid fa-chair text-emerald-400"></i> Vista del Salón
+                </h2>
+                <span class="text-xs bg-slate-800 text-slate-300 px-2.5 py-1 rounded-full border border-slate-700 font-medium" id="clock-display">12:00 PM</span>
+            </div>
 
-function abrirQrMesa(numero) {
-  if (!numero) return;
-  const modal = document.getElementById('modal-qr-mesa');
-  const panel = modal ? modal.querySelector('.modal-panel') : null;
-  const iframe = document.getElementById('modal-qr-iframe');
-  const title = document.getElementById('modal-qr-title');
-  const url = QR_MESA_BASE.replace('/0/', `/${numero}/`);
-  if (title) title.textContent = `QR de la mesa ${numero}`;
-  if (iframe) iframe.src = url;
-  if (modal) {
-    modal.hidden = false;
-    modal.removeAttribute('hidden');
-    modal.classList.remove('hidden');
-    modal.setAttribute('aria-hidden', 'false');
-    modal.style.display = 'block';
-    modal.style.position = 'fixed';
-    modal.style.inset = '0';
-    modal.style.zIndex = '2147483647';
-    modal.style.background = 'rgba(11,10,9,.68)';
-  }
-  if (panel) {
-    panel.style.position = 'absolute';
-    panel.style.top = '50%';
-    panel.style.left = '50%';
-    panel.style.transform = 'translate(-50%, -50%)';
-    panel.style.width = 'min(700px, calc(100vw - 2rem))';
-    panel.style.maxWidth = 'calc(100vw - 2rem)';
-    panel.style.maxHeight = 'calc(100vh - 2rem)';
-    panel.style.margin = '0';
-    panel.style.zIndex = '2147483647';
-    panel.style.overflow = 'auto';
-    panel.style.background = 'rgba(26,26,26,.98)';
-    panel.style.backgroundColor = 'rgba(26,26,26,.98)';
-    panel.style.border = '1px solid var(--border)';
-    panel.style.boxShadow = '0 18px 40px rgba(0,0,0,.35)';
-  }
-}
+            <!-- Estadísticas rápidas superiores -->
+            <div class="flex items-center gap-3 text-xs">
+                <div class="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">
+                    <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                    <span class="font-medium">Libres: <strong id="count-free">0</strong></span>
+                </div>
+                <div class="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-400">
+                    <span class="w-2 h-2 rounded-full bg-rose-400"></span>
+                    <span class="font-medium">Ocupadas: <strong id="count-busy">0</strong></span>
+                </div>
+                <div class="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-400">
+                    <span class="w-2 h-2 rounded-full bg-amber-400"></span>
+                    <span class="font-medium">Limpieza: <strong id="count-clean">0</strong></span>
+                </div>
+            </div>
+        </header>
 
-function cerrarModalQrMesa() {
-  const modal = document.getElementById('modal-qr-mesa');
-  const iframe = document.getElementById('modal-qr-iframe');
-  if (modal) {
-    modal.hidden = true;
-    modal.setAttribute('hidden', 'hidden');
-    modal.classList.add('hidden');
-    modal.setAttribute('aria-hidden', 'true');
-    modal.style.display = 'none';
-  }
-  if (iframe) iframe.src = 'about:blank';
-}
+        <!-- AREA DE CONTENIDO DINÁMICO -->
+        <div class="flex-1 overflow-y-auto p-4 md:p-6" id="main-container">
+            
+            <!-- VISTA: MESAS (DEFAULT) -->
+            <section id="view-tables" class="space-y-6">
+                <!-- Filtros de mesas -->
+                <div class="flex flex-wrap items-center justify-between gap-4 bg-slate-950/40 p-3 rounded-2xl border border-slate-800">
+                    <div class="flex items-center gap-2 overflow-x-auto pb-1 md:pb-0">
+                        <button onclick="filterTables('all')" class="filter-btn px-4 py-2 rounded-xl text-xs font-semibold transition-all bg-emerald-500 text-slate-950 shadow-md shadow-emerald-500/20" data-filter="all">Todas</button>
+                        <button onclick="filterTables('libre')" class="filter-btn px-4 py-2 rounded-xl text-xs font-semibold text-slate-400 hover:text-white hover:bg-slate-800 transition-all" data-filter="libre">Libres</button>
+                        <button onclick="filterTables('ocupada')" class="filter-btn px-4 py-2 rounded-xl text-xs font-semibold text-slate-400 hover:text-white hover:bg-slate-800 transition-all" data-filter="ocupada">Ocupadas</button>
+                        <button onclick="filterTables('limpieza')" class="filter-btn px-4 py-2 rounded-xl text-xs font-semibold text-slate-400 hover:text-white hover:bg-slate-800 transition-all" data-filter="limpieza">Por Limpiar</button>
+                    </div>
 
-function alternarMesa(id, numero) {
-  if (!ws || ws.readyState !== 1) return;
-  const accion = mesas[numero]?.abierta ? 'cerrar_mesa' : 'abrir_mesa';
-  ws.send(JSON.stringify({accion, mesa_id: id}));
-}
+                    <div class="relative w-full md:w-64">
+                        <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-xs"></i>
+                        <input type="text" placeholder="Buscar mesa..." class="w-full bg-slate-900 border border-slate-800 rounded-xl pl-9 pr-4 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 transition-colors">
+                    </div>
+                </div>
 
-function seleccionarMesa(id, numero) {
-  mesaSeleccionada = {id, numero};
-  document.querySelectorAll('.mesa-item').forEach(el => el.classList.remove('activa'));
-  const el = document.getElementById(`mesa-item-${numero}`);
-  if (el) el.classList.add('activa');
-  document.getElementById('mesa-badge-header').textContent = `Mesa ${numero}`;
-  document.getElementById('btn-enviar-mesera').disabled = carrito.length === 0;
-  renderPedidosMesa(numero);
-}
+                <!-- Grid de Mesas -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4" id="tables-grid">
+                    <!-- Las mesas se generan mediante JavaScript -->
+                </div>
+            </section>
 
-function renderPedidosMesa(num) {
-  const cont = document.getElementById('pedidos-mesa-lista');
-  const pedidos = (pedidosPorMesa[num] || []).filter(p => p.estado !== 'cerrado');
-  cont.innerHTML = '';
-  if (!pedidos.length) {
-    cont.innerHTML = '<div style="text-align:center;color:var(--text-muted);padding:1.5rem;font-size:.83rem">Sin pedidos activos</div>';
-    return;
-  }
-  const titulo = document.createElement('div');
-  titulo.style.cssText = 'font-size:.7rem;text-transform:uppercase;letter-spacing:.1em;color:var(--text-muted);padding:.75rem 1rem .4rem';
-  titulo.textContent = `Mesa ${num} — Pedidos activos`;
-  cont.appendChild(titulo);
-  pedidos.forEach(p => {
-    const card = document.createElement('div');
-    card.className = 'pedido-mini-card';
-    const itemsText = p.items.map(i=>`${i.cantidad}x ${i.plato}`).join(', ');
-    const cuentaTag = p.cuenta_solicitada ? `<div class="tag-cuenta-mini"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg> Factura solicitada</div>` : '';
-    let acciones = '';
-    if (p.estado === 'listo') {
-      acciones = `<button class="btn btn-blue btn-sm" onclick="marcarServido(${p.id})">Marcar servido</button>`;
-    }
-    card.innerHTML = `
-      <div class="pedido-mini-header">
-        <span class="pedido-mini-id">#${p.id} · ${p.creado_en}</span>
-        <span class="pedido-mini-estado estado-chip-${p.estado}">${p.estado_display}</span>
-      </div>
-      ${cuentaTag}
-      <div class="pedido-mini-items">${itemsText}</div>
-      <div style="font-size:.82rem;color:var(--accent);text-align:right;margin-bottom:.4rem">Total: ${p.total} CUP</div>
-      <div class="acciones-mini">${acciones}</div>`;
-    cont.appendChild(card);
-  });
-  if (pedidos.some(p => !p.cuenta_solicitada)) {
-    const cuentaBtn = document.createElement('button');
-    cuentaBtn.className = 'btn btn-danger btn-sm';
-    cuentaBtn.style.margin = '0 1rem 1rem';
-    cuentaBtn.textContent = 'Solicitar factura de la mesa';
-    cuentaBtn.onclick = () => solicitarCuentaMesa(num);
-    cont.prepend(cuentaBtn);
-  }
-}
+            <!-- VISTA: PEDIDOS ACTIVOS -->
+            <section id="view-orders" class="hidden space-y-4">
+                <h3 class="text-base font-bold text-white flex items-center gap-2">
+                    <i class="fa-solid fa-fire text-amber-400"></i> Comandas en Seguimiento
+                </h3>
+                <div id="active-orders-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <!-- Comandas activas se insertan aquí dinámicamente -->
+                </div>
+            </section>
 
-function marcarServido(pedidoId) {
-  if (ws && ws.readyState===1)
-    ws.send(JSON.stringify({accion:'marcar_servido', pedido_id:pedidoId}));
-}
+            <!-- VISTA: MENÚ/CARTA -->
+            <section id="view-menu" class="hidden space-y-4">
+                <h3 class="text-base font-bold text-white flex items-center gap-2">
+                    <i class="fa-solid fa-utensils text-emerald-400"></i> Catálogo de Platillos y Bebidas
+                </h3>
+                <div class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4" id="menu-catalog">
+                    <!-- Catálogo dinámico -->
+                </div>
+            </section>
 
-function solicitarCuentaMesa(num) {
-  const mesa = mesas[num];
-  if (ws && ws.readyState===1 && mesa)
-    ws.send(JSON.stringify({accion:'solicitar_cuenta', mesa_id:mesa.id}));
-}
+        </div>
+    </main>
 
-// Carrito mesera
-function agregarMesera(id, nombre, precio) {
-  if (!mesaSeleccionada) { toast('Selecciona una mesa primero','red'); return; }
-  const ex = carrito.find(i=>i.plato_id===id);
-  if (ex) ex.cantidad++; else carrito.push({plato_id:id,nombre,precio:parseFloat(precio),cantidad:1});
-  renderCarritoMesera();
-  toast(`${nombre} agregado`);
-}
+    <!-- MODAL / DRAWER DE GESTIÓN DE MESA Y PEDIDO (DERECHA) -->
+    <div id="table-modal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex justify-end opacity-0 pointer-events-none transition-all duration-300">
+        <div class="w-full max-w-2xl bg-slate-900 h-full border-l border-slate-800 shadow-2xl flex flex-col justify-between transform translate-x-full transition-transform duration-300" id="modal-panel">
+            
+            <!-- Modal Header -->
+            <div class="p-4 md:p-6 border-b border-slate-800 bg-slate-950 flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <div id="modal-table-badge" class="w-12 h-12 rounded-2xl bg-emerald-500/20 text-emerald-400 font-extrabold text-xl flex items-center justify-center border border-emerald-500/30">
+                        M1
+                    </div>
+                    <div>
+                        <div class="flex items-center gap-2">
+                            <h3 class="font-bold text-lg text-white" id="modal-table-name">Mesa 01</h3>
+                            <span id="modal-table-status" class="px-2 py-0.5 rounded-md text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">Libre</span>
+                        </div>
+                        <p class="text-xs text-slate-400" id="modal-table-info">Capacidad: 4 personas • Zona Terraza</p>
+                    </div>
+                </div>
 
-function cambiarQtyM(id, d) {
-  const idx = carrito.findIndex(i=>i.plato_id===id);
-  if (idx===-1) return;
-  carrito[idx].cantidad += d;
-  if (carrito[idx].cantidad<=0) carrito.splice(idx,1);
-  renderCarritoMesera();
-}
+                <button onclick="closeModal()" class="w-9 h-9 rounded-xl bg-slate-800 text-slate-400 hover:text-white hover:bg-slate-700 flex items-center justify-center transition-colors">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
 
-function renderCarritoMesera() {
-  const cont = document.getElementById('pedido-items-mesera');
-  const vacio = document.getElementById('pedido-vacio-mesera');
-  const total = carrito.reduce((s,i)=>s+i.precio*i.cantidad,0);
-  const count = carrito.reduce((s,i)=>s+i.cantidad,0);
-  document.getElementById('cnt-mesera').textContent = count;
-  document.getElementById('total-mesera').textContent = total.toFixed(2)+' CUP';
-  document.getElementById('btn-enviar-mesera').disabled = carrito.length===0 || !mesaSeleccionada;
-  cont.querySelectorAll('.item-pedido').forEach(e=>e.remove());
-  if (!carrito.length) { vacio.style.display='flex'; return; }
-  vacio.style.display='none';
-  carrito.forEach(item => {
-    const div = document.createElement('div');
-    div.className = 'item-pedido';
-    div.innerHTML = `
-      <div class="item-nombre" style="font-size:.83rem">${item.nombre}</div>
-      <div class="item-controles">
-        <button class="btn-qty" onclick="cambiarQtyM(${item.plato_id},-1)"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
-        <span class="qty-num">${item.cantidad}</span>
-        <button class="btn-qty" onclick="cambiarQtyM(${item.plato_id},1)"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
-      </div>
-      <div class="item-precio" style="font-size:.8rem">${(item.precio*item.cantidad).toFixed(2)}</div>`;
-    cont.appendChild(div);
-  });
-}
+            <!-- Modal Content (Layout Dividido: Menú + Comanda Actual) -->
+            <div class="flex-1 overflow-y-auto p-4 md:p-6 flex flex-col lg:flex-row gap-6">
+                
+                <!-- Columna Izquierda: Agregar Items del Menú -->
+                <div class="flex-1 space-y-4">
+                    <div class="flex items-center justify-between">
+                        <h4 class="text-xs font-bold uppercase tracking-wider text-slate-400">Agregar al Pedido</h4>
+                        <!-- Filtro Categorial -->
+                        <select id="category-filter" onchange="filterMenuCategory(this.value)" class="bg-slate-950 border border-slate-800 text-xs text-slate-300 rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-emerald-500">
+                            <option value="all">Todas las Categorías</option>
+                            <option value="Entradas">Entradas</option>
+                            <option value="Fuertes">Platos Fuertes</option>
+                            <option value="Bebidas">Bebidas</option>
+                            <option value="Postres">Postres</option>
+                        </select>
+                    </div>
 
-function enviarPedidoMesera() {
-  if (!ws||ws.readyState!==1||!carrito.length||!mesaSeleccionada) return;
-  ws.send(JSON.stringify({
-    accion:'crear_pedido', mesa_id:mesaSeleccionada.id,
-    items:carrito.map(i=>({plato_id:i.plato_id,cantidad:i.cantidad})),
-    nota:document.getElementById('nota-mesera').value.trim()
-  }));
-  document.getElementById('btn-enviar-mesera').disabled=true;
-}
+                    <!-- Lista de Platillos -->
+                    <div class="space-y-2.5 max-h-[420px] overflow-y-auto pr-1" id="menu-items-list">
+                        <!-- Generado por JS -->
+                    </div>
+                </div>
 
-function scrollACat(id, btn) {
-  document.querySelectorAll('.btn-cat').forEach(b=>b.classList.remove('activo'));
-  btn.classList.add('activo');
-  document.getElementById(id)?.scrollIntoView({behavior:'smooth',block:'start'});
-}
+                <!-- Columna Derecha: Detalle de la Comanda -->
+                <div class="w-full lg:w-80 bg-slate-950/60 rounded-2xl border border-slate-800 p-4 flex flex-col justify-between">
+                    <div>
+                        <div class="flex justify-between items-center pb-3 border-b border-slate-800 mb-3">
+                            <h4 class="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-2">
+                                <i class="fa-solid fa-clipboard-list text-emerald-400"></i> Comanda Actual
+                            </h4>
+                            <span class="text-xs text-slate-500" id="modal-order-time">--:--</span>
+                        </div>
 
-conectar();
-</script>
-{% endblock %}
+                        <!-- Lista de items agregados al pedido -->
+                        <div class="space-y-3 max-h-[300px] overflow-y-auto pr-1" id="order-items-container">
+                            <div class="text-center py-8 text-slate-500 text-xs">
+                                <i class="fa-solid fa-utensils text-2xl mb-2 text-slate-700 block"></i>
+                                No hay platillos agregados a la mesa.
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Resumen de Costos -->
+                    <div class="pt-4 border-t border-slate-800 space-y-2">
+                        <div class="flex justify-between text-xs text-slate-400">
+                            <span>Subtotal</span>
+                            <span id="order-subtotal" class="font-medium text-slate-200">$0.00</span>
+                        </div>
+                        <div class="flex justify-between text-xs text-slate-400">
+                            <span>Impuesto (10%)</span>
+                            <span id="order-tax" class="font-medium text-slate-200">$0.00</span>
+                        </div>
+                        <div class="flex justify-between text-sm font-bold text-white pt-2 border-t border-slate-800/60">
+                            <span>Total</span>
+                            <span id="order-total" class="text-emerald-400 text-base">$0.00</span>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Modal Footer (Acciones según estado de mesa) -->
+            <div class="p-4 md:p-6 border-t border-slate-800 bg-slate-950 flex flex-wrap items-center justify-between gap-3" id="modal-footer-actions">
+                <!-- Acciones dinámicas inyectadas por JS -->
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL FACTURA / PAGO -->
+    <div id="payment-modal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 opacity-0 pointer-events-none transition-all duration-300">
+        <div class="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-md p-6 shadow-2xl space-y-6">
+            <div class="flex justify-between items-center border-b border-slate-800 pb-4">
+                <h3 class="font-bold text-lg text-white flex items-center gap-2">
+                    <i class="fa-solid fa-cash-register text-emerald-400"></i> Procesar Cuenta
+                </h3>
+                <button onclick="closePaymentModal()" class="text-slate-400 hover:text-white">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+
+            <div class="space-y-4">
+                <div class="bg-slate-950 p-4 rounded-2xl border border-slate-800 text-center">
+                    <span class="text-xs text-slate-400 uppercase tracking-wider font-semibold">Total a Pagar</span>
+                    <h2 class="text-3xl font-extrabold text-emerald-400 mt-1" id="pay-total-amount">$0.00</h2>
+                </div>
+
+                <!-- Método de Pago -->
+                <div>
+                    <label class="text-xs font-semibold text-slate-400 mb-2 block">Método de Pago</label>
+                    <div class="grid grid-cols-3 gap-2">
+                        <button onclick="selectPaymentMethod('Efectivo')" class="pay-method-btn p-3 rounded-xl border border-emerald-500 bg-emerald-500/10 text-emerald-400 font-medium text-xs flex flex-col items-center gap-2 transition-all" data-method="Efectivo">
+                            <i class="fa-solid fa-money-bill-wave text-base"></i> Efectivo
+                        </button>
+                        <button onclick="selectPaymentMethod('Tarjeta')" class="pay-method-btn p-3 rounded-xl border border-slate-800 bg-slate-950 text-slate-400 font-medium text-xs flex flex-col items-center gap-2 transition-all hover:border-slate-700" data-method="Tarjeta">
+                            <i class="fa-solid fa-credit-card text-base"></i> Tarjeta
+                        </button>
+                        <button onclick="selectPaymentMethod('QR')" class="pay-method-btn p-3 rounded-xl border border-slate-800 bg-slate-950 text-slate-400 font-medium text-xs flex flex-col items-center gap-2 transition-all hover:border-slate-700" data-method="QR">
+                            <i class="fa-solid fa-qrcode text-base"></i> Transf. / QR
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Propina -->
+                <div>
+                    <label class="text-xs font-semibold text-slate-400 mb-2 block">Propina sugerida</label>
+                    <div class="flex gap-2">
+                        <button onclick="setTip(0)" class="tip-btn flex-1 py-2 rounded-lg bg-slate-950 border border-slate-800 text-xs font-medium text-slate-400">0%</button>
+                        <button onclick="setTip(10)" class="tip-btn flex-1 py-2 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-xs font-medium text-emerald-400">10%</button>
+                        <button onclick="setTip(15)" class="tip-btn flex-1 py-2 rounded-lg bg-slate-950 border border-slate-800 text-xs font-medium text-slate-400">15%</button>
+                    </div>
+                </div>
+            </div>
+
+            <button onclick="confirmPayment()" class="w-full bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold py-3.5 rounded-2xl transition-all shadow-lg shadow-emerald-500/20 flex items-center justify-center gap-2 text-sm">
+                <i class="fa-solid fa-check-circle"></i> Confirmar y Liberar Mesa
+            </button>
+        </div>
+    </div>
+
+    <!-- NOTIFICACIÓN TOAST -->
+    <div id="toast" class="fixed bottom-6 right-6 bg-slate-800 border border-slate-700 text-white px-4 py-3 rounded-2xl shadow-2xl flex items-center gap-3 transform translate-y-20 opacity-0 transition-all duration-300 z-50">
+        <div id="toast-icon" class="w-8 h-8 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center">
+            <i class="fa-solid fa-check"></i>
+        </div>
+        <div>
+            <h5 id="toast-title" class="text-xs font-bold">Éxito</h5>
+            <p id="toast-message" class="text-xs text-slate-300">Operación realizada correctamente</p>
+        </div>
+    </div>
+
+    <!-- JAVASCRIPT LOGIC -->
+    <script>
+        // DATOS DE EJEMPLO
+        const menuItems = [
+            {% for producto in productos %}
+            { id: {{ producto.id }}, name: "{{ producto.nombre|escapejs }}", category: "{{ producto.categoria.nombre|default:'General'|escapejs }}", price: {{ producto.precio|default:0 }}, icon: "fa-utensils", desc: "{{ producto.categoria.nombre|default:'Disponible'|escapejs }}" }{% if not forloop.last %},{% endif %}
+            {% empty %}
+            { id: 1, name: "Hamburguesa Gourmet", category: "Fuertes", price: 14.50, icon: "fa-burger", desc: "Carne Angus 200g, queso cheddar y papas" },
+            { id: 2, name: "Pizza Napolitana", category: "Fuertes", price: 16.00, icon: "fa-pizza-slice", desc: "Salsa de tomate casera, mozzarella y albahaca" },
+            { id: 3, name: "Tacos al Pastor (3 pzs)", category: "Fuertes", price: 11.00, icon: "fa-pepper-hot", desc: "Con piña, cilantro y cebolla" },
+            { id: 4, name: "Ensalada César", category: "Entradas", price: 9.50, icon: "fa-bowl-food", desc: "Pollo a la parrilla, crotones y aderezo césar" },
+            { id: 5, name: "Nachos Supremos", category: "Entradas", price: 10.00, icon: "fa-cheese", desc: "Con queso fundido, guacamole y jalapeños" },
+            { id: 6, name: "Limonada Menta / Jengibre", category: "Bebidas", price: 4.50, icon: "fa-glass-water", desc: "Refrescante bebida natural" },
+            { id: 7, name: "Cerveza Artesanal IPA", category: "Bebidas", price: 6.00, icon: "fa-beer-mug-empty", desc: "Botella 330ml de la casa" },
+            { id: 8, name: "Vino Tinto Malbec", category: "Bebidas", price: 8.00, icon: "fa-wine-glass", desc: "Copa 150ml" },
+            { id: 9, name: "Tiramisú Clásico", category: "Postres", price: 6.50, icon: "fa-cake-candles", desc: "Receta tradicional italiana" },
+            { id: 10, name: "Volcán de Chocolate", category: "Postres", price: 7.00, icon: "fa-ice-cream", desc: "Con helado de vainilla" }
+            {% endfor %}
+        ];
+
+        let tables = [
+            {% for mesa in mesas %}
+            { id: {{ mesa.id }}, name: "Mesa {{ mesa.numero }}", seats: 4, zone: "Salón Principal", status: "{% if mesa.abierta %}ocupada{% else %}libre{% endif %}", order: [], timeStarted: null }{% if not forloop.last %},{% endif %}
+            {% empty %}
+            { id: 1, name: "Mesa 01", seats: 2, zone: "Terraza", status: "libre", order: [], timeStarted: null },
+            { id: 2, name: "Mesa 02", seats: 4, zone: "Salón Principal", status: "ocupada", order: [{ itemId: 1, qty: 2, note: "Sin cebolla" }, { itemId: 6, qty: 2, note: "" }], timeStarted: "12:15 PM" },
+            { id: 3, name: "Mesa 03", seats: 4, zone: "Salón Principal", status: "libre", order: [], timeStarted: null },
+            { id: 4, name: "Mesa 04", seats: 6, zone: "VIP", status: "limpieza", order: [], timeStarted: null },
+            { id: 5, name: "Mesa 05", seats: 2, zone: "Terraza", status: "ocupada", order: [{ itemId: 2, qty: 1, note: "Bien cocida" }, { itemId: 7, qty: 2, note: "" }], timeStarted: "12:30 PM" },
+            { id: 6, name: "Mesa 06", seats: 8, zone: "VIP", status: "libre", order: [], timeStarted: null },
+            { id: 7, name: "Mesa 07", seats: 4, zone: "Barra", status: "libre", order: [], timeStarted: null },
+            { id: 8, name: "Mesa 08", seats: 2, zone: "Barra", status: "ocupada", order: [{ itemId: 4, qty: 1, note: "" }, { itemId: 8, qty: 1, note: "" }], timeStarted: "12:45 PM" }
+            {% endfor %}
+        ];
+
+        let activeTableId = null;
+        let selectedTipPercent = 10;
+
+        // INICIALIZACIÓN
+        document.addEventListener('DOMContentLoaded', () => {
+            renderTables();
+            updateHeaderStats();
+            updateClock();
+            setInterval(updateClock, 30000);
+            renderMenuCatalog();
+        });
+
+        // REVOLVER RELOJ
+        function updateClock() {
+            const now = new Date();
+            document.getElementById('clock-display').textContent = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        }
+
+        // CAMBIAR ENTRE VISTAS
+        function switchView(viewName) {
+            document.getElementById('view-tables').classList.add('hidden');
+            document.getElementById('view-orders').classList.add('hidden');
+            document.getElementById('view-menu').classList.add('hidden');
+
+            document.getElementById('nav-tables').className = "w-full flex items-center gap-3 px-3 py-3 rounded-xl font-medium text-sm text-slate-400 hover:text-white hover:bg-slate-800/50 transition-all";
+            document.getElementById('nav-orders').className = "w-full flex items-center gap-3 px-3 py-3 rounded-xl font-medium text-sm text-slate-400 hover:text-white hover:bg-slate-800/50 transition-all";
+            document.getElementById('nav-menu').className = "w-full flex items-center gap-3 px-3 py-3 rounded-xl font-medium text-sm text-slate-400 hover:text-white hover:bg-slate-800/50 transition-all";
+
+            const activeClass = "w-full flex items-center gap-3 px-3 py-3 rounded-xl font-medium text-sm transition-all bg-emerald-500/10 text-emerald-400 border border-emerald-500/20";
+
+            if (viewName === 'tables') {
+                document.getElementById('view-tables').classList.remove('hidden');
+                document.getElementById('nav-tables').className = activeClass;
+                document.getElementById('page-title').innerHTML = `<i class="fa-solid fa-chair text-emerald-400"></i> Vista del Salón`;
+            } else if (viewName === 'active-orders') {
+                document.getElementById('view-orders').classList.remove('hidden');
+                document.getElementById('nav-orders').className = activeClass;
+                document.getElementById('page-title').innerHTML = `<i class="fa-solid fa-receipt text-emerald-400"></i> Pedidos en Cocina y Atención`;
+                renderActiveOrdersView();
+            } else if (viewName === 'menu') {
+                document.getElementById('view-menu').classList.remove('hidden');
+                document.getElementById('nav-menu').className = activeClass;
+                document.getElementById('page-title').innerHTML = `<i class="fa-solid fa-book-open text-emerald-400"></i> Carta Digital de Platillos`;
+            }
+        }
+
+        // MOSTRAR MESAS
+        function renderTables(filter = 'all') {
+            const grid = document.getElementById('tables-grid');
+            grid.innerHTML = '';
+
+            const filteredTables = tables.filter(t => filter === 'all' || t.status === filter);
+
+            filteredTables.forEach(t => {
+                const totalAmount = calculateTableTotal(t.id);
+                
+                let statusBadge = '';
+                let borderClass = '';
+                let bgGradient = '';
+
+                if (t.status === 'libre') {
+                    statusBadge = `<span class="px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">Libre</span>`;
+                    borderClass = 'border-slate-800 hover:border-emerald-500/50';
+                    bgGradient = 'from-slate-900 to-slate-900/90';
+                } else if (t.status === 'ocupada') {
+                    statusBadge = `<span class="px-2.5 py-1 rounded-full text-xs font-bold bg-rose-500/10 text-rose-400 border border-rose-500/30">Ocupada</span>`;
+                    borderClass = 'border-rose-500/40 hover:border-rose-500';
+                    bgGradient = 'from-slate-900 via-slate-900 to-rose-950/20';
+                } else if (t.status === 'limpieza') {
+                    statusBadge = `<span class="px-2.5 py-1 rounded-full text-xs font-bold bg-amber-500/10 text-amber-400 border border-amber-500/30">Limpiar</span>`;
+                    borderClass = 'border-amber-500/40 hover:border-amber-500';
+                    bgGradient = 'from-slate-900 via-slate-900 to-amber-950/20';
+                }
+
+                const card = document.createElement('div');
+                card.className = `bg-gradient-to-br ${bgGradient} border ${borderClass} rounded-2xl p-5 cursor-pointer transition-all hover:scale-[1.02] shadow-xl relative overflow-hidden flex flex-col justify-between group`;
+                card.onclick = () => openTableModal(t.id);
+
+                card.innerHTML = `
+                    <div class="flex justify-between items-start mb-4">
+                        <div class="flex items-center gap-3">
+                            <div class="w-12 h-12 rounded-xl bg-slate-950 border border-slate-800 flex items-center justify-center text-lg font-black text-white group-hover:border-emerald-500/50 transition-colors">
+                                ${t.name.split(' ')[1]}
+                            </div>
+                            <div>
+                                <h4 class="font-bold text-base text-white">${t.name}</h4>
+                                <span class="text-xs text-slate-400 font-medium">${t.zone} • ${t.seats} Pers.</span>
+                            </div>
+                        </div>
+                        ${statusBadge}
+                    </div>
+
+                    <div class="space-y-2">
+                        ${t.status === 'ocupada' ? `
+                            <div class="bg-slate-950/60 rounded-xl p-3 border border-slate-800/80">
+                                <div class="flex justify-between text-xs text-slate-400 mb-1">
+                                    <span>Platillos: <strong>${t.order.reduce((acc, i) => acc + i.qty, 0)}</strong></span>
+                                    <span>Inicio: <strong>${t.timeStarted || 'Hace poco'}</strong></span>
+                                </div>
+                                <div class="flex justify-between text-sm font-bold text-white">
+                                    <span>Total:</span>
+                                    <span class="text-emerald-400">$${totalAmount.toFixed(2)}</span>
+                                </div>
+                            </div>
+                        ` : t.status === 'limpieza' ? `
+                            <div class="bg-amber-500/5 rounded-xl p-3 border border-amber-500/10 text-center">
+                                <p class="text-xs text-amber-300 flex items-center justify-center gap-2">
+                                    <i class="fa-solid fa-broom"></i> Requiere desinfección
+                                </p>
+                            </div>
+                        ` : `
+                            <div class="bg-slate-950/30 rounded-xl p-3 border border-slate-800/40 text-center">
+                                <p class="text-xs text-slate-500">Lista para nuevos comensales</p>
+                            </div>
+                        `}
+                    </div>
+
+                    <div class="mt-4 pt-3 border-t border-slate-800/60 flex justify-between items-center text-xs text-slate-400">
+                        <span>Gestionar Mesa</span>
+                        <i class="fa-solid fa-chevron-right text-slate-500 group-hover:translate-x-1 transition-transform"></i>
+                    </div>
+                `;
+                grid.appendChild(card);
+            });
+        }
+
+        // FILTRAR MESAS POR BOTONES
+        function filterTables(filter) {
+            document.querySelectorAll('.filter-btn').forEach(btn => {
+                if (btn.dataset.filter === filter) {
+                    btn.className = "filter-btn px-4 py-2 rounded-xl text-xs font-semibold transition-all bg-emerald-500 text-slate-950 shadow-md shadow-emerald-500/20";
+                } else {
+                    btn.className = "filter-btn px-4 py-2 rounded-xl text-xs font-semibold text-slate-400 hover:text-white hover:bg-slate-800 transition-all";
+                }
+            });
+            renderTables(filter);
+        }
+
+        // ACTUALIZAR ESTADÍSTICAS DEL HEADER
+        function updateHeaderStats() {
+            const free = tables.filter(t => t.status === 'libre').length;
+            const busy = tables.filter(t => t.status === 'ocupada').length;
+            const clean = tables.filter(t => t.status === 'limpieza').length;
+
+            document.getElementById('count-free').textContent = free;
+            document.getElementById('count-busy').textContent = busy;
+            document.getElementById('count-clean').textContent = clean;
+            document.getElementById('badge-active-count').textContent = busy;
+        }
+
+        // CALCULAR TOTAL DE MESA
+        function calculateTableTotal(tableId) {
+            const table = tables.find(t => t.id === tableId);
+            if (!table || !table.order) return 0;
+            const subtotal = table.order.reduce((sum, item) => {
+                const menuItem = menuItems.find(m => m.id === item.itemId);
+                return sum + (menuItem ? menuItem.price * item.qty : 0);
+            }, 0);
+            return subtotal * 1.10; // Incluye 10% de impuesto
+        }
+
+        // ABRIR MODAL DE GESTIÓN MESA
+        function openTableModal(tableId) {
+            activeTableId = tableId;
+            const table = tables.find(t => t.id === tableId);
+            if (!table) return;
+
+            // Info Básica Modal
+            document.getElementById('modal-table-badge').textContent = table.name.split(' ')[1];
+            document.getElementById('modal-table-name').textContent = table.name;
+            document.getElementById('modal-table-info').textContent = `Capacidad: ${table.seats} personas • Zona ${table.zone}`;
+            document.getElementById('modal-order-time').textContent = table.timeStarted || 'Reciente';
+
+            const statusEl = document.getElementById('modal-table-status');
+            statusEl.textContent = table.status.toUpperCase();
+            if (table.status === 'libre') statusEl.className = "px-2.5 py-1 rounded-md text-xs font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20";
+            if (table.status === 'ocupada') statusEl.className = "px-2.5 py-1 rounded-md text-xs font-bold bg-rose-500/10 text-rose-400 border border-rose-500/20";
+            if (table.status === 'limpieza') statusEl.className = "px-2.5 py-1 rounded-md text-xs font-bold bg-amber-500/10 text-amber-400 border border-amber-500/20";
+
+            renderMenuItemsList('all');
+            renderOrderItems();
+            renderModalFooter(table);
+
+            // Mostrar Modal
+            const modal = document.getElementById('table-modal');
+            const panel = document.getElementById('modal-panel');
+            modal.classList.remove('opacity-0', 'pointer-events-none');
+            panel.classList.remove('translate-x-full');
+        }
+
+        // CERRAR MODAL
+        function closeModal() {
+            const modal = document.getElementById('table-modal');
+            const panel = document.getElementById('modal-panel');
+            panel.classList.add('translate-x-full');
+            modal.classList.add('opacity-0', 'pointer-events-none');
+            activeTableId = null;
+        }
+
+        // ACCIONES FOOTER DEL MODAL SEGÚN ESTADO
+        function renderModalFooter(table) {
+            const footer = document.getElementById('modal-footer-actions');
+            footer.innerHTML = '';
+
+            if (table.status === 'libre') {
+                footer.innerHTML = `
+                    <button onclick="changeTableStatus(${table.id}, 'ocupada')" class="w-full bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold py-3 rounded-xl transition-all shadow-lg shadow-emerald-500/20 flex items-center justify-center gap-2 text-sm">
+                        <i class="fa-solid fa-user-plus"></i> Abrir Mesa / Ocupar
+                    </button>
+                `;
+            } else if (table.status === 'ocupada') {
+                footer.innerHTML = `
+                    <button onclick="sendOrderToKitchen(${table.id})" class="px-4 py-3 bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold rounded-xl text-xs flex items-center gap-2 transition-all">
+                        <i class="fa-solid fa-paper-plane text-amber-400"></i> Enviar a Cocina
+                    </button>
+                    <button onclick="openPaymentModal()" class="flex-1 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold py-3 rounded-xl transition-all shadow-lg shadow-emerald-500/20 flex items-center justify-center gap-2 text-sm">
+                        <i class="fa-solid fa-receipt"></i> Cobrar y Cerrar Cuenta
+                    </button>
+                `;
+            } else if (table.status === 'limpieza') {
+                footer.innerHTML = `
+                    <button onclick="changeTableStatus(${table.id}, 'libre')" class="w-full bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold py-3 rounded-xl transition-all shadow-lg shadow-amber-500/20 flex items-center justify-center gap-2 text-sm">
+                        <i class="fa-solid fa-sparkles"></i> Marcar como Limpia y Disponible
+                    </button>
+                `;
+            }
+        }
+
+        // CAMBIAR ESTADO DE LA MESA
+        function changeTableStatus(tableId, newStatus) {
+            const table = tables.find(t => t.id === tableId);
+            if (table) {
+                table.status = newStatus;
+                if (newStatus === 'ocupada' && !table.timeStarted) {
+                    const now = new Date();
+                    table.timeStarted = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                }
+                if (newStatus === 'libre') {
+                    table.order = [];
+                    table.timeStarted = null;
+                }
+                renderTables();
+                updateHeaderStats();
+                closeModal();
+                showToast("Estado Actualizado", `La ${table.name} ahora está ${newStatus}.`);
+            }
+        }
+
+        // RENDERIZAR LISTA DE MENU EN MODAL
+        function renderMenuItemsList(category) {
+            const container = document.getElementById('menu-items-list');
+            container.innerHTML = '';
+
+            const filtered = category === 'all' ? menuItems : menuItems.filter(m => m.category === category);
+
+            filtered.forEach(item => {
+                const el = document.createElement('div');
+                el.className = "flex items-center justify-between p-3 rounded-xl bg-slate-950/80 border border-slate-800/80 hover:border-slate-700 transition-all";
+                el.innerHTML = `
+                    <div class="flex items-center gap-3">
+                        <div class="w-9 h-9 rounded-lg bg-slate-900 border border-slate-800 flex items-center justify-center text-slate-300">
+                            <i class="fa-solid ${item.icon}"></i>
+                        </div>
+                        <div>
+                            <h5 class="text-xs font-bold text-white">${item.name}</h5>
+                            <p class="text-[10px] text-slate-400">$${item.price.toFixed(2)}</p>
+                        </div>
+                    </div>
+                    <button onclick="addItemToOrder(${item.id})" class="px-3 py-1.5 rounded-lg bg-emerald-500/10 hover:bg-emerald-500 text-emerald-400 hover:text-slate-950 border border-emerald-500/20 text-xs font-bold transition-all flex items-center gap-1">
+                        <i class="fa-solid fa-plus"></i> Añadir
+                    </button>
+                `;
+                container.appendChild(el);
+            });
+        }
+
+        function filterMenuCategory(cat) {
+            renderMenuItemsList(cat);
+        }
+
+        // AGREGAR ITEM A LA COMANDA
+        function addItemToOrder(itemId) {
+            if (!activeTableId) return;
+            const table = tables.find(t => t.id === activeTableId);
+            if (!table) return;
+
+            if (table.status === 'libre') {
+                table.status = 'ocupada';
+                const now = new Date();
+                table.timeStarted = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                renderModalFooter(table);
+            }
+
+            const existing = table.order.find(o => o.itemId === itemId);
+            if (existing) {
+                existing.qty += 1;
+            } else {
+                table.order.push({ itemId, qty: 1, note: '' });
+            }
+
+            renderOrderItems();
+            renderTables();
+            updateHeaderStats();
+            showToast("Platillo Agregado", "Se sumó a la comanda actual.");
+        }
+
+        // MODIFICAR CANTIDAD DE UN ITEM EN LA COMANDA
+        function updateOrderQty(itemId, change) {
+            const table = tables.find(t => t.id === activeTableId);
+            if (!table) return;
+
+            const itemIndex = table.order.findIndex(o => o.itemId === itemId);
+            if (itemIndex > -1) {
+                table.order[itemIndex].qty += change;
+                if (table.order[itemIndex].qty <= 0) {
+                    table.order.splice(itemIndex, 1);
+                }
+            }
+
+            renderOrderItems();
+            renderTables();
+        }
+
+        // RENDERIZAR COMANDA DEL MODAL
+        function renderOrderItems() {
+            const container = document.getElementById('order-items-container');
+            container.innerHTML = '';
+
+            const table = tables.find(t => t.id === activeTableId);
+            if (!table || table.order.length === 0) {
+                container.innerHTML = `
+                    <div class="text-center py-8 text-slate-500 text-xs">
+                        <i class="fa-solid fa-utensils text-2xl mb-2 text-slate-700 block"></i>
+                        No hay platillos agregados a la mesa.
+                    </div>
+                `;
+                updateModalTotals(0);
+                return;
+            }
+
+            let subtotal = 0;
+
+            table.order.forEach(ord => {
+                const item = menuItems.find(m => m.id === ord.itemId);
+                if (!item) return;
+
+                const itemTotal = item.price * ord.qty;
+                subtotal += itemTotal;
+
+                const row = document.createElement('div');
+                row.className = "p-2.5 rounded-xl bg-slate-900 border border-slate-800 space-y-2";
+                row.innerHTML = `
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs font-bold text-white">${item.name}</span>
+                        <span class="text-xs font-semibold text-emerald-400">$${itemTotal.toFixed(2)}</span>
+                    </div>
+                    <div class="flex items-center justify-between text-xs">
+                        <div class="flex items-center gap-2 bg-slate-950 px-2 py-1 rounded-lg border border-slate-800">
+                            <button onclick="updateOrderQty(${item.id}, -1)" class="text-slate-400 hover:text-rose-400"><i class="fa-solid fa-minus text-[10px]"></i></button>
+                            <span class="font-bold text-white text-xs">${ord.qty}</span>
+                            <button onclick="updateOrderQty(${item.id}, 1)" class="text-slate-400 hover:text-emerald-400"><i class="fa-solid fa-plus text-[10px]"></i></button>
+                        </div>
+                        <input type="text" placeholder="Nota (Ej: Sin cebolla)" value="${ord.note}" onchange="updateOrderNote(${item.id}, this.value)" class="bg-slate-950 border border-slate-800 text-[10px] text-slate-300 rounded px-2 py-1 focus:outline-none focus:border-emerald-500 w-32">
+                    </div>
+                `;
+                container.appendChild(row);
+            });
+
+            updateModalTotals(subtotal);
+        }
+
+        function updateOrderNote(itemId, note) {
+            const table = tables.find(t => t.id === activeTableId);
+            if (!table) return;
+            const ord = table.order.find(o => o.itemId === itemId);
+            if (ord) ord.note = note;
+        }
+
+        function updateModalTotals(subtotal) {
+            const tax = subtotal * 0.10;
+            const total = subtotal + tax;
+
+            document.getElementById('order-subtotal').textContent = `$${subtotal.toFixed(2)}`;
+            document.getElementById('order-tax').textContent = `$${tax.toFixed(2)}`;
+            document.getElementById('order-total').textContent = `$${total.toFixed(2)}`;
+        }
+
+        // ENVIAR A COCINA
+        function sendOrderToKitchen(tableId) {
+            showToast("Comanda Enviada", "El pedido ha sido transmitido a la cocina.");
+            closeModal();
+        }
+
+        // PROCESAR PAGO DE CUENTA
+        function openPaymentModal() {
+            if (!activeTableId) return;
+            const total = calculateTableTotal(activeTableId);
+            
+            document.getElementById('pay-total-amount').textContent = `$${total.toFixed(2)}`;
+            
+            const pModal = document.getElementById('payment-modal');
+            pModal.classList.remove('opacity-0', 'pointer-events-none');
+        }
+
+        function closePaymentModal() {
+            const pModal = document.getElementById('payment-modal');
+            pModal.classList.add('opacity-0', 'pointer-events-none');
+        }
+
+        function selectPaymentMethod(method) {
+            document.querySelectorAll('.pay-method-btn').forEach(b => {
+                if (b.dataset.method === method) {
+                    b.className = "pay-method-btn p-3 rounded-xl border border-emerald-500 bg-emerald-500/10 text-emerald-400 font-medium text-xs flex flex-col items-center gap-2 transition-all";
+                } else {
+                    b.className = "pay-method-btn p-3 rounded-xl border border-slate-800 bg-slate-950 text-slate-400 font-medium text-xs flex flex-col items-center gap-2 transition-all hover:border-slate-700";
+                }
+            });
+        }
+
+        function setTip(percent) {
+            selectedTipPercent = percent;
+            showToast("Propina Ajustada", `Propina de ${percent}% seleccionada.`);
+        }
+
+        function confirmPayment() {
+            if (!activeTableId) return;
+            const table = tables.find(t => t.id === activeTableId);
+            if (table) {
+                const totalPaid = calculateTableTotal(activeTableId);
+                
+                // Sumar a ventas del turno
+                const currentSales = parseFloat(document.getElementById('shift-sales').textContent.replace('$', '')) || 0;
+                document.getElementById('shift-sales').textContent = `$${(currentSales + totalPaid).toFixed(2)}`;
+
+                table.status = 'limpieza';
+                table.order = [];
+                table.timeStarted = null;
+
+                renderTables();
+                updateHeaderStats();
+                closePaymentModal();
+                closeModal();
+                showToast("Cuenta Cerrada", "Pago recibido. La mesa pasó a estado Limpieza.");
+            }
+        }
+
+        // VISTA DE PEDIDOS ACTIVOS EN SEGUIMIENTO
+        function renderActiveOrdersView() {
+            const container = document.getElementById('active-orders-container');
+            container.innerHTML = '';
+
+            const busyTables = tables.filter(t => t.status === 'ocupada');
+
+            if (busyTables.length === 0) {
+                container.innerHTML = `
+                    <div class="col-span-full text-center py-12 text-slate-500">
+                        <i class="fa-solid fa-circle-check text-4xl mb-3 text-slate-700"></i>
+                        <p class="text-sm">No hay pedidos pendientes en este momento.</p>
+                    </div>
+                `;
+                return;
+            }
+
+            busyTables.forEach(t => {
+                const card = document.createElement('div');
+                card.className = "bg-slate-950 border border-slate-800 rounded-2xl p-4 space-y-3";
+                
+                let orderListHtml = t.order.map(o => {
+                    const item = menuItems.find(m => m.id === o.itemId);
+                    return `
+                        <div class="flex justify-between items-center text-xs border-b border-slate-900 pb-2">
+                            <span class="text-slate-200"><strong>${o.qty}x</strong> ${item ? item.name : ''}</span>
+                            <span class="text-slate-400 italic">${o.note || 'Sin notas'}</span>
+                        </div>
+                    `;
+                }).join('');
+
+                card.innerHTML = `
+                    <div class="flex justify-between items-center border-b border-slate-800 pb-3">
+                        <div class="flex items-center gap-2">
+                            <span class="w-8 h-8 rounded-lg bg-emerald-500/20 text-emerald-400 font-bold flex items-center justify-center text-sm">${t.name.split(' ')[1]}</span>
+                            <h4 class="font-bold text-white text-sm">${t.name}</h4>
+                        </div>
+                        <span class="text-xs text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20"><i class="fa-solid fa-clock"></i> ${t.timeStarted || 'En curso'}</span>
+                    </div>
+                    <div class="space-y-1.5 max-h-40 overflow-y-auto">
+                        ${orderListHtml}
+                    </div>
+                    <div class="pt-2 flex gap-2">
+                        <button onclick="openTableModal(${t.id})" class="flex-1 py-2 bg-slate-900 hover:bg-slate-800 text-xs font-semibold text-slate-300 rounded-xl border border-slate-800">Ver Mesa</button>
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        // VISTA DE CATÁLOGO GENERAL DE MENÚ
+        function renderMenuCatalog() {
+            const container = document.getElementById('menu-catalog');
+            container.innerHTML = '';
+
+            menuItems.forEach(item => {
+                const card = document.createElement('div');
+                card.className = "bg-slate-950 border border-slate-800 rounded-2xl p-4 flex flex-col justify-between hover:border-slate-700 transition-all";
+                card.innerHTML = `
+                    <div>
+                        <div class="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center text-lg mb-3 border border-emerald-500/20">
+                            <i class="fa-solid ${item.icon}"></i>
+                        </div>
+                        <h4 class="font-bold text-white text-sm">${item.name}</h4>
+                        <p class="text-xs text-slate-400 mt-1">${item.desc}</p>
+                    </div>
+                    <div class="mt-4 pt-3 border-t border-slate-900 flex justify-between items-center">
+                        <span class="text-xs font-semibold text-emerald-400">${item.category}</span>
+                        <span class="text-sm font-extrabold text-white">$${item.price.toFixed(2)}</span>
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        // MOSTRAR TOAST NOTIFICACIÓN
+        function showToast(title, message) {
+            const toast = document.getElementById('toast');
+            document.getElementById('toast-title').textContent = title;
+            document.getElementById('toast-message').textContent = message;
+
+            toast.classList.remove('translate-y-20', 'opacity-0');
+
+            setTimeout(() => {
+                toast.classList.add('translate-y-20', 'opacity-0');
+            }, 3000);
+        }
+    </script>
+</body>
+</html>
