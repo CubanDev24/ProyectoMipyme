@@ -1,39 +1,48 @@
-{% extends 'base.html' %}
-{% block title %}Detalle del turno{% endblock %}
-{% block content %}
-<div class="admin-body">
-  <h1>Detalle del turno</h1>
+<!DOCTYPE html>
+{% load static %}
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Detalle del turno - GourmetControl</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{% static 'css/main.css' %}?v=20260902-role-shell">
+</head>
+<body class="bg-slate-900 text-slate-100 font-sans min-h-screen flex flex-col md:flex-row overflow-x-hidden">
+  <aside class="w-full md:w-20 lg:w-64 bg-slate-950 border-r border-slate-800 flex flex-col justify-between shrink-0"><div><div class="p-4 lg:p-6 flex items-center justify-between border-b border-slate-800/80"><div class="flex items-center gap-3"><div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-500 to-teal-400 flex items-center justify-center text-slate-950 font-black text-xl shadow-lg shadow-emerald-500/20"><i class="fa-solid fa-utensils"></i></div><div class="hidden lg:block"><h1 class="font-bold text-lg tracking-tight leading-none text-white">GourmetControl</h1><span class="text-xs text-slate-400 font-medium">Detalle del turno</span></div></div></div><div class="p-4 border-b border-slate-800/50 hidden lg:flex items-center gap-3 bg-slate-900/40"><div class="w-10 h-10 rounded-full bg-emerald-500/15 border-2 border-emerald-500 flex items-center justify-center text-emerald-400"><i class="fa-solid fa-user-shield"></i></div><div><p class="text-sm font-semibold text-white leading-tight">{{ request.user.get_full_name|default:request.user.username }}</p><p class="text-xs text-emerald-400 font-medium">Administrador • Activo</p></div></div><nav class="p-3 space-y-1"><a href="{% url 'inventario:administrador' %}" class="w-full flex items-center gap-3 px-3 py-3 rounded-xl font-medium text-sm text-slate-400 hover:text-white hover:bg-slate-800/50 transition-all"><i class="fa-solid fa-sliders text-lg w-6 text-center"></i><span class="hidden lg:inline">Configuración</span></a><a href="{% url 'usuarios:historial_turnos' %}" class="w-full flex items-center gap-3 px-3 py-3 rounded-xl font-medium text-sm text-slate-400 hover:text-white hover:bg-slate-800/50 transition-all"><i class="fa-solid fa-clock-rotate-left text-lg w-6 text-center"></i><span class="hidden lg:inline">Historial de turnos</span></a></nav></div><div class="p-3 border-t border-slate-800/80"><a href="{% url 'usuarios:logout' %}" class="w-full flex items-center justify-center lg:justify-start gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold text-rose-400 hover:bg-rose-500/10 transition-all"><i class="fa-solid fa-right-from-bracket text-base"></i><span class="hidden lg:inline">Cerrar sesión</span></a></div></aside>
+  <main class="flex-1 flex flex-col h-screen overflow-hidden"><header class="h-16 border-b border-slate-800 bg-slate-950/60 backdrop-blur px-6 flex items-center justify-between shrink-0"><div class="flex items-center gap-4"><h2 class="text-lg font-bold text-white flex items-center gap-2 leading-none"><i class="fa-solid fa-clock-rotate-left text-emerald-400 text-base"></i><span>Detalle del turno</span></h2><span class="text-[11px] bg-slate-800 text-slate-300 px-2.5 py-1 rounded-full border border-slate-700 font-medium tracking-wide" id="clock-display">12:00 PM</span></div><div class="flex items-center gap-3 text-[11px]"><div class="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400"><span class="w-2 h-2 rounded-full bg-emerald-400"></span><span class="font-medium">Resumen histórico</span></div></div></header><div class="flex-1 overflow-y-auto"><div class="admin-body">
+  <div class="turn-page-heading"><div><p class="panel-kicker">Rendimiento</p><h1 class="admin-h1">Detalle del turno</h1><p class="turn-page-subtitle">Resumen completo del turno del {{ turno.fecha|date:'d/m/Y' }}.</p></div><span class="turn-live-badge"><span></span> {{ turno.get_estado_display }}</span></div>
 
   <div class="admin-grid">
-    <section class="admin-card">
-      <h2>{{ turno.fecha|date:'d/m/Y' }}</h2>
-      <p><strong>Estado:</strong> {{ turno.get_estado_display }}</p>
-      <p><strong>Fecha de apertura:</strong> {{ turno.apertura }}</p>
-      <p><strong>Fecha de cierre:</strong> {{ turno.cierre|default:'Sin cierre' }}</p>
-      <p><strong>Participantes:</strong>
-        {% for user in turno.usuarios.all %}
-          {{ user.username }}{% if not forloop.last %}, {% endif %}
-        {% empty %}
-          Sin participantes
-        {% endfor %}
-      </p>
-      <p><strong>Mesas:</strong> {{ turno.cantidad_mesas }}</p>
+    <section class="admin-card turn-summary-card turn-dashboard-card">
+      <div class="turn-card-heading"><div class="turn-section-icon"><i class="fa-solid fa-calendar-day"></i></div><div><p class="panel-kicker">Información operativa</p><h2>{{ turno.fecha|date:'d/m/Y' }}</h2></div></div>
+      <div class="turn-info-grid">
+        <div><span>Estado</span><strong class="turn-status-value">{{ turno.get_estado_display }}</strong></div>
+        <div><span>Mesas</span><strong>{{ turno.cantidad_mesas }}</strong></div>
+        <div><span>Fecha de apertura</span><strong>{{ turno.apertura }}</strong></div>
+        <div><span>Fecha de cierre</span><strong>{{ turno.cierre|default:'Sin cierre' }}</strong></div>
+        <div><span>Participantes</span><strong>{% for user in turno.usuarios.all %}{{ user.username }}{% if not forloop.last %}, {% endif %}{% empty %}Sin participantes{% endfor %}</strong></div>
+      </div>
     </section>
 
-    <section class="admin-card">
-      <h2>Resumen financiero</h2>
-      <p><strong>Facturas:</strong> {{ detalles.cantidad_facturas }}</p>
-      <p><strong>USD:</strong> {{ detalles.total_usd }} USD</p>
-      <p><strong>Efectivo CUP:</strong> {{ detalles.total_efectivo_cup }} CUP</p>
-      <p><strong>Transferencia CUP:</strong> {{ detalles.total_transferencia_cup }} CUP</p>
-      <p><strong>Total general:</strong> {{ detalles.total_general_cup }} CUP</p>
-      <p><strong>IPV:</strong> {{ detalles.ipv }} CUP</p>
-      <p><strong>Horas abiertas:</strong> {{ detalles.horas_abiertas }}</p>
-      <p><strong>Rendimiento por hora:</strong> {{ detalles.rendimiento_por_hora_cup }} CUP/h</p>
+    <section class="admin-card turn-summary-card turn-dashboard-card">
+      <div class="turn-card-heading"><div class="turn-section-icon"><i class="fa-solid fa-chart-column"></i></div><div><p class="panel-kicker">Resultados</p><h2>Resumen financiero</h2></div></div>
+      <div class="turn-metric-grid">
+        <div><span>Facturas</span><strong>{{ detalles.cantidad_facturas }}</strong></div>
+        <div><span>Total general</span><strong>{{ detalles.total_general_cup }} CUP</strong></div>
+        <div><span>Efectivo CUP</span><strong>{{ detalles.total_efectivo_cup }} CUP</strong></div>
+        <div><span>Transferencia CUP</span><strong>{{ detalles.total_transferencia_cup }} CUP</strong></div>
+        <div><span>Total USD</span><strong>{{ detalles.total_usd }} USD</strong></div>
+        <div><span>IPV</span><strong>{{ detalles.ipv }} CUP</strong></div>
+        <div><span>Horas abiertas</span><strong>{{ detalles.horas_abiertas }}</strong></div>
+        <div><span>Rendimiento por hora</span><strong>{{ detalles.rendimiento_por_hora_cup }} CUP/h</strong></div>
+      </div>
     </section>
 
-    <section class="admin-card">
-      <h2>Cierre del turno</h2>
+    <section class="admin-card turn-dashboard-card">
+      <div class="turn-card-heading"><div class="turn-section-icon"><i class="fa-solid fa-file-lines"></i></div><div><p class="panel-kicker">Registro</p><h2>Cierre del turno</h2></div></div>
       {% if turno.resumen %}
         <pre>{{ turno.resumen }}</pre>
       {% else %}
@@ -41,5 +50,7 @@
       {% endif %}
     </section>
   </div>
-</div>
-{% endblock %}
+</div></div></main>
+  <script>function actualizarReloj(){document.getElementById('clock-display').textContent=new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});}actualizarReloj();setInterval(actualizarReloj,30000);</script>
+</body>
+</html>

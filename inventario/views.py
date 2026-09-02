@@ -95,6 +95,7 @@ def plato_crear(request):
             precio=precio,
             disponible=request.POST.get('disponible') == 'on',
             orden=Plato.objects.count() + 1,
+            imagen=request.FILES.get('imagen'),
         )
 
         insumo_ids = request.POST.getlist('insumo_id[]') or request.POST.getlist('insumo_id')
@@ -137,6 +138,8 @@ def plato_editar(request, pk):
         plato.nombre = nombre
         plato.descripcion = descripcion
         plato.disponible = request.POST.get('disponible') == 'on'
+        if request.FILES.get('imagen'):
+            plato.imagen = request.FILES['imagen']
         plato.save()
         messages.success(request, f'Plato "{plato.nombre}" actualizado.')
     return redirect('inventario:administrador')

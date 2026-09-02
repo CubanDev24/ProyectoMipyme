@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-{% load static %}
+{% load static l10n %}
 <html lang="es">
 <head>
     <meta charset="UTF-8">
@@ -95,6 +95,10 @@
                     <i class="fa-solid fa-book-open text-lg w-6 text-center"></i>
                     <span class="hidden lg:inline">Carta / Menú</span>
                 </button>
+                <a href="{% url 'usuarios:dashboard' %}" class="w-full flex items-center gap-3 px-3 py-3 rounded-xl font-medium text-sm text-slate-400 hover:text-white hover:bg-slate-800/50 transition-all">
+                    <i class="fa-solid fa-clock-rotate-left text-lg w-6 text-center"></i>
+                    <span class="hidden lg:inline">Detalle del turno</span>
+                </a>
             </nav>
         </div>
 
@@ -111,7 +115,7 @@
             </div>
             <a href="{% url 'usuarios:logout' %}" class="w-full flex items-center justify-center lg:justify-start gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold text-rose-400 hover:bg-rose-500/10 transition-all">
                 <i class="fa-solid fa-right-from-bracket text-base"></i>
-                <span class="hidden lg:inline">Cerrar Turno</span>
+                <span class="hidden lg:inline">Cerrar sesión</span>
             </a>
         </div>
     </aside>
@@ -194,6 +198,44 @@
         </div>
     </main>
 
+    <div id="modal-factura" class="hidden fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-[60] flex items-center justify-center p-4" hidden>
+        <div class="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-md p-6 shadow-2xl">
+            <div class="flex items-center justify-between border-b border-slate-800 pb-4">
+                <div>
+                    <p id="modal-factura-kicker" class="text-xs uppercase tracking-wider text-amber-400 font-semibold">Solicitud</p>
+                    <h3 id="modal-factura-title" class="font-bold text-lg text-white mt-1">Factura solicitada</h3>
+                </div>
+                <button type="button" onclick="cerrarModalFactura()" class="w-9 h-9 rounded-xl bg-slate-800 text-slate-400 hover:text-white hover:bg-slate-700 flex items-center justify-center" aria-label="Cerrar factura">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+            <div id="modal-factura-body" class="py-5"></div>
+            <div class="flex justify-end gap-2">
+                <button type="button" onclick="cerrarModalFactura()" class="px-4 py-2.5 rounded-xl bg-slate-800 text-slate-300 hover:bg-slate-700 text-sm font-semibold">Más tarde</button>
+                <button type="button" id="modal-factura-accept" class="px-4 py-2.5 rounded-xl bg-emerald-500 text-slate-950 hover:bg-emerald-400 text-sm font-bold">Aceptar</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="qr-modal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 opacity-0 pointer-events-none transition-all duration-300">
+        <div class="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-md p-6 shadow-2xl">
+            <div class="flex items-center justify-between border-b border-slate-800 pb-4">
+                <h3 id="qr-modal-title" class="font-bold text-lg text-white flex items-center gap-2">
+                    <i class="fa-solid fa-qrcode text-emerald-400"></i> QR de la mesa
+                </h3>
+                <button onclick="closeQrModal()" class="w-9 h-9 rounded-xl bg-slate-800 text-slate-400 hover:text-white hover:bg-slate-700 flex items-center justify-center transition-colors" aria-label="Cerrar QR">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+            <div class="pt-5 text-center">
+                <iframe id="qr-modal-frame" title="Código QR de la mesa" class="w-full h-[430px] rounded-2xl bg-white border-0"></iframe>
+                <a id="qr-open-link" href="#" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-2 mt-4 text-xs font-semibold text-emerald-400 hover:text-emerald-300">
+                    <i class="fa-solid fa-arrow-up-right-from-square"></i> Abrir carta de esta mesa
+                </a>
+            </div>
+        </div>
+    </div>
+
     <!-- MODAL / DRAWER DE GESTIÓN DE MESA Y PEDIDO (DERECHA) -->
     <div id="table-modal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex justify-end opacity-0 pointer-events-none transition-all duration-300">
         <div class="w-full max-w-2xl bg-slate-900 h-full border-l border-slate-800 shadow-2xl flex flex-col justify-between transform translate-x-full transition-transform duration-300" id="modal-panel">
@@ -216,6 +258,11 @@
                 <button onclick="closeModal()" class="w-9 h-9 rounded-xl bg-slate-800 text-slate-400 hover:text-white hover:bg-slate-700 flex items-center justify-center transition-colors">
                     <i class="fa-solid fa-xmark text-lg"></i>
                 </button>
+            </div>
+
+            <div id="modal-account-alert" class="hidden mx-4 md:mx-6 mt-4 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-xs text-amber-300">
+                <div class="flex items-center gap-2 font-bold"><i class="fa-solid fa-file-invoice-dollar"></i> Cuenta solicitada</div>
+                <p class="mt-1 text-amber-200/70">El cliente de esta mesa está esperando atención en caja.</p>
             </div>
 
             <!-- Modal Content (Layout Dividido: Menú + Comanda Actual) -->
@@ -288,12 +335,12 @@
 
     <!-- MODAL FACTURA / PAGO -->
     <div id="payment-modal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 opacity-0 pointer-events-none transition-all duration-300">
-        <div class="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-md p-6 shadow-2xl space-y-6">
+        <form onsubmit="event.preventDefault(); confirmPayment();" class="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-md max-h-[calc(100vh-2rem)] overflow-y-auto p-6 shadow-2xl space-y-6">
             <div class="flex justify-between items-center border-b border-slate-800 pb-4">
                 <h3 class="font-bold text-lg text-white flex items-center gap-2">
                     <i class="fa-solid fa-cash-register text-emerald-400"></i> Procesar Cuenta
                 </h3>
-                <button onclick="closePaymentModal()" class="text-slate-400 hover:text-white">
+                <button type="button" onclick="closePaymentModal()" class="text-slate-400 hover:text-white">
                     <i class="fa-solid fa-xmark text-lg"></i>
                 </button>
             </div>
@@ -307,16 +354,26 @@
                 <!-- Método de Pago -->
                 <div>
                     <label class="text-xs font-semibold text-slate-400 mb-2 block">Método de Pago</label>
-                    <div class="grid grid-cols-3 gap-2">
-                        <button onclick="selectPaymentMethod('Efectivo')" class="pay-method-btn p-3 rounded-xl border border-emerald-500 bg-emerald-500/10 text-emerald-400 font-medium text-xs flex flex-col items-center gap-2 transition-all" data-method="Efectivo">
+                    <div class="grid grid-cols-2 gap-2">
+                        <button type="button" onclick="selectPaymentMethod('efectivo_cup')" class="pay-method-btn p-3 rounded-xl border border-emerald-500 bg-emerald-500/10 text-emerald-400 font-medium text-xs flex flex-col items-center gap-2 transition-all" data-method="efectivo_cup">
                             <i class="fa-solid fa-money-bill-wave text-base"></i> Efectivo
                         </button>
-                        <button onclick="selectPaymentMethod('Tarjeta')" class="pay-method-btn p-3 rounded-xl border border-slate-800 bg-slate-950 text-slate-400 font-medium text-xs flex flex-col items-center gap-2 transition-all hover:border-slate-700" data-method="Tarjeta">
+                        <button type="button" onclick="selectPaymentMethod('transferencia')" class="pay-method-btn p-3 rounded-xl border border-slate-800 bg-slate-950 text-slate-400 font-medium text-xs flex flex-col items-center gap-2 transition-all hover:border-slate-700" data-method="transferencia">
                             <i class="fa-solid fa-credit-card text-base"></i> Tarjeta
                         </button>
-                        <button onclick="selectPaymentMethod('QR')" class="pay-method-btn p-3 rounded-xl border border-slate-800 bg-slate-950 text-slate-400 font-medium text-xs flex flex-col items-center gap-2 transition-all hover:border-slate-700" data-method="QR">
+                        <button type="button" onclick="selectPaymentMethod('mixto')" class="pay-method-btn p-3 rounded-xl border border-slate-800 bg-slate-950 text-slate-400 font-medium text-xs flex flex-col items-center gap-2 transition-all hover:border-slate-700" data-method="mixto">
+                            <i class="fa-solid fa-money-bill-transfer text-base"></i> Mixto
+                        </button>
+                        <button type="button" onclick="selectPaymentMethod('usd')" class="pay-method-btn p-3 rounded-xl border border-slate-800 bg-slate-950 text-slate-400 font-medium text-xs flex flex-col items-center gap-2 transition-all hover:border-slate-700" data-method="usd">
+                            <i class="fa-solid fa-dollar-sign text-base"></i> USD
+                        </button>
+                        <button type="button" onclick="selectPaymentMethod('transferencia')" class="hidden pay-method-btn" data-method="QR">
                             <i class="fa-solid fa-qrcode text-base"></i> Transf. / QR
                         </button>
+                    </div>
+                    <div id="mesera-tasa-usd" class="hidden mt-3">
+                        <label class="text-xs font-semibold text-slate-400">Tasa de cambio (CUP por 1 USD)</label>
+                        <input id="mesera-input-tasa" type="number" min="0.01" step="0.01" class="mt-1 w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500">
                     </div>
                 </div>
 
@@ -324,17 +381,17 @@
                 <div>
                     <label class="text-xs font-semibold text-slate-400 mb-2 block">Propina sugerida</label>
                     <div class="flex gap-2">
-                        <button onclick="setTip(0)" class="tip-btn flex-1 py-2 rounded-lg bg-slate-950 border border-slate-800 text-xs font-medium text-slate-400">0%</button>
-                        <button onclick="setTip(10)" class="tip-btn flex-1 py-2 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-xs font-medium text-emerald-400">10%</button>
-                        <button onclick="setTip(15)" class="tip-btn flex-1 py-2 rounded-lg bg-slate-950 border border-slate-800 text-xs font-medium text-slate-400">15%</button>
+                        <button type="button" onclick="setTip(0)" class="tip-btn flex-1 py-2 rounded-lg bg-slate-950 border border-slate-800 text-xs font-medium text-slate-400">0%</button>
+                        <button type="button" onclick="setTip(10)" class="tip-btn flex-1 py-2 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-xs font-medium text-emerald-400">10%</button>
+                        <button type="button" onclick="setTip(15)" class="tip-btn flex-1 py-2 rounded-lg bg-slate-950 border border-slate-800 text-xs font-medium text-slate-400">15%</button>
                     </div>
                 </div>
             </div>
 
-            <button onclick="confirmPayment()" class="w-full bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold py-3.5 rounded-2xl transition-all shadow-lg shadow-emerald-500/20 flex items-center justify-center gap-2 text-sm">
-                <i class="fa-solid fa-check-circle"></i> Confirmar y Liberar Mesa
+            <button type="submit" class="w-full bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold py-3.5 rounded-2xl transition-all shadow-lg shadow-emerald-500/20 flex items-center justify-center gap-2 text-sm">
+                <i class="fa-solid fa-paper-plane"></i> Enviar cobro a caja
             </button>
-        </div>
+        </form>
     </div>
 
     <!-- NOTIFICACIÓN TOAST -->
@@ -348,12 +405,14 @@
         </div>
     </div>
 
+    <script src="{% static 'js/utils.js' %}?v=20260828-2"></script>
+
     <!-- JAVASCRIPT LOGIC -->
     <script>
         // DATOS DE EJEMPLO
         const menuItems = [
             {% for producto in productos %}
-            { id: {{ producto.id }}, name: "{{ producto.nombre|escapejs }}", category: "{{ producto.categoria.nombre|default:'General'|escapejs }}", price: {{ producto.precio|default:0 }}, icon: "fa-utensils", desc: "{{ producto.categoria.nombre|default:'Disponible'|escapejs }}" }{% if not forloop.last %},{% endif %}
+            { id: {{ producto.id }}, name: "{{ producto.nombre|escapejs }}", category: "{{ producto.categoria.nombre|default:'General'|escapejs }}", price: {{ producto.precio|default:0|unlocalize }}, icon: "fa-utensils", desc: "{{ producto.categoria.nombre|default:'Disponible'|escapejs }}" }{% if not forloop.last %},{% endif %}
             {% empty %}
             { id: 1, name: "Hamburguesa Gourmet", category: "Fuertes", price: 14.50, icon: "fa-burger", desc: "Carne Angus 200g, queso cheddar y papas" },
             { id: 2, name: "Pizza Napolitana", category: "Fuertes", price: 16.00, icon: "fa-pizza-slice", desc: "Salsa de tomate casera, mozzarella y albahaca" },
@@ -370,7 +429,7 @@
 
         let tables = [
             {% for mesa in mesas %}
-            { id: {{ mesa.id }}, name: "Mesa {{ mesa.numero }}", seats: 4, zone: "Salón Principal", status: "{% if mesa.abierta %}ocupada{% else %}libre{% endif %}", order: [], timeStarted: null }{% if not forloop.last %},{% endif %}
+            { id: {{ mesa.id }}, numero: {{ mesa.numero }}, name: "Mesa {{ mesa.numero }}", seats: 4, zone: "Salón Principal", status: "{% if mesa.abierta %}ocupada{% else %}libre{% endif %}", order: [], timeStarted: null }{% if not forloop.last %},{% endif %}
             {% empty %}
             { id: 1, name: "Mesa 01", seats: 2, zone: "Terraza", status: "libre", order: [], timeStarted: null },
             { id: 2, name: "Mesa 02", seats: 4, zone: "Salón Principal", status: "ocupada", order: [{ itemId: 1, qty: 2, note: "Sin cebolla" }, { itemId: 6, qty: 2, note: "" }], timeStarted: "12:15 PM" },
@@ -385,6 +444,13 @@
 
         let activeTableId = null;
         let selectedTipPercent = 10;
+        const WS_URL = `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws/mesera/`;
+        let ws = null;
+        let wsReconnectTimer = null;
+        const wsMessageQueue = [];
+        const facturasMostradas = new Set();
+        let cuentaEnProceso = null;
+        let formaPagoSeleccionada = 'efectivo_cup';
 
         // INICIALIZACIÓN
         document.addEventListener('DOMContentLoaded', () => {
@@ -393,7 +459,166 @@
             updateClock();
             setInterval(updateClock, 30000);
             renderMenuCatalog();
+            conectarMesera();
         });
+
+        function conectarMesera() {
+            if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) return;
+            ws = new WebSocket(WS_URL);
+            ws.onopen = () => {
+                while (wsMessageQueue.length && ws.readyState === WebSocket.OPEN) {
+                    ws.send(JSON.stringify(wsMessageQueue.shift()));
+                }
+            };
+            ws.onmessage = event => {
+                const data = JSON.parse(event.data);
+                if (data.tipo === 'estado_inicial') {
+                    data.mesas.forEach(mesa => {
+                        const table = tables.find(item => item.id === mesa.id);
+                        if (table) {
+                            table.status = mesa.abierta ? 'ocupada' : 'libre';
+                            table.pedidos = [];
+                            table.newOrder = [];
+                        }
+                    });
+                    data.pedidos.forEach(aplicarPedidoEnMesa);
+                    renderTables();
+                    updateHeaderStats();
+                } else if (data.tipo === 'pedido_nuevo' || data.tipo === 'pedido_actualizado') {
+                    aplicarPedidoEnMesa(data.pedido);
+                    renderTables();
+                    updateHeaderStats();
+                    if (activeTableId === data.pedido.mesa_id) openTableModal(activeTableId);
+                } else if (data.tipo === 'mesa_actualizada') {
+                    const table = tables.find(item => item.id === data.mesa.id);
+                    if (table) {
+                        table.status = data.mesa.abierta ? 'ocupada' : 'libre';
+                        if (!data.mesa.abierta) {
+                            table.pedidos = [];
+                            table.order = [];
+                            table.newOrder = [];
+                        }
+                    }
+                    renderTables();
+                    updateHeaderStats();
+                    if (activeTableId === data.mesa.id) closeModal();
+                    showToast('Mesa actualizada', `Mesa ${data.mesa.numero} ${data.mesa.abierta ? 'abierta' : 'cerrada'}.`);
+                } else if (data.tipo === 'pedido_cerrado') {
+                    tables.forEach(table => {
+                        table.pedidos = (table.pedidos || []).filter(pedido => pedido.id !== data.pedido_id);
+                        sincronizarPedidoMesa(table);
+                    });
+                    renderTables();
+                    updateHeaderStats();
+                } else if (data.tipo === 'pedido_confirmado') {
+                    const table = tables.find(item => item.id === data.pedido.mesa_id);
+                    if (table) table.newOrder = [];
+                    if (table) aplicarPedidoEnMesa(data.pedido);
+                    renderTables();
+                    showToast('Comanda enviada', 'El pedido ha sido transmitido a la cocina.');
+                } else if (data.tipo === 'factura_solicitada') {
+                    const mesa = data.mesa_numero ?? data.factura?.mesa_numero;
+                    const table = tables.find(item => item.numero === Number(mesa) || item.name.endsWith(` ${mesa}`));
+                    if (table) activeTableId = table.id;
+                    cuentaEnProceso = data.factura;
+                    openPaymentModal(cuentaEnProceso);
+                    sonidoCuenta();
+                } else if (data.tipo === 'cobro_preparado') {
+                    const mesa = Number(data.mesa_numero);
+                    const table = tables.find(item => item.numero === mesa || item.name.endsWith(` ${mesa}`));
+                    if (table) {
+                        (table.pedidos || []).forEach(pedido => {
+                            pedido.cuenta_solicitada = true;
+                            pedido.forma_pago = formaPagoSeleccionada;
+                        });
+                        renderTables();
+                        updateHeaderStats();
+                        if (activeTableId === table.id) openTableModal(table.id);
+                    }
+                    showToast('Cuenta enviada a caja', `Mesa ${mesa} quedó marcada como cuenta solicitada.`);
+                } else if (data.tipo === 'error_pedido') {
+                    showToast('No se pudo crear el pedido', data.mensaje);
+                } else if (data.tipo === 'error_mesa') {
+                    showToast('No se pudo actualizar', data.mensaje);
+                }
+            };
+            ws.onerror = () => ws.close();
+            ws.onclose = () => {
+                ws = null;
+                if (!wsReconnectTimer) {
+                    wsReconnectTimer = setTimeout(() => {
+                        wsReconnectTimer = null;
+                        conectarMesera();
+                    }, 1000);
+                }
+            };
+        }
+
+        function enviarMensajeMesera(payload) {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify(payload));
+            } else {
+                wsMessageQueue.push(payload);
+                conectarMesera();
+            }
+        }
+
+        function mostrarSolicitudFacturaPendiente(factura, mesaNumero = null) {
+            const mesa = mesaNumero ?? factura?.mesa_numero;
+            if (!mesa || facturasMostradas.has(String(mesa))) return;
+            facturasMostradas.add(String(mesa));
+            mostrarModalFactura({
+                title: 'Factura solicitada',
+                kicker: 'Solicitud del cliente',
+                mesaNumero: mesa,
+                items: factura?.items || factura?.items_snapshot || [],
+                total: parseFloat(factura?.total_cup || factura?.total || 0),
+                tipo: 'mesera',
+                onAccept: () => {
+                    cerrarModalFactura();
+                    if (ws && ws.readyState === WebSocket.OPEN) {
+                        ws.send(JSON.stringify({ accion: 'aceptar_factura', mesa_numero: mesa }));
+                        showToast('Factura aceptada', `Caja recibió la solicitud de la mesa ${mesa}.`);
+                    }
+                    facturasMostradas.delete(String(mesa));
+                }
+            });
+            sonidoCuenta();
+        }
+
+        function sincronizarPedidoMesa(table) {
+            table.newOrder = table.newOrder || [];
+            table.order = (table.pedidos || []).flatMap(pedido => pedido.items.map(item => ({
+                itemId: item.plato_id,
+                qty: item.cantidad,
+                note: item.nota || '',
+                pedidoId: pedido.id,
+                estado: pedido.estado,
+                estadoDisplay: pedido.estado_display
+            })));
+        }
+
+        function estadoPlato(ord) {
+            const labels = {
+                pendiente: 'Pendiente',
+                en_preparacion: 'En preparación',
+                listo: 'Listo',
+                servido: 'Servido',
+                cerrado: 'Cerrado'
+            };
+            return ord.estadoDisplay || labels[ord.estado] || 'Pendiente';
+        }
+
+        function aplicarPedidoEnMesa(pedido) {
+            const table = tables.find(item => item.id === pedido.mesa_id);
+            if (!table) return;
+            table.pedidos = table.pedidos || [];
+            const index = table.pedidos.findIndex(item => item.id === pedido.id);
+            if (index >= 0) table.pedidos[index] = pedido;
+            else table.pedidos.push(pedido);
+            table.status = 'ocupada';
+            sincronizarPedidoMesa(table);
+        }
 
         // REVOLVER RELOJ
         function updateClock() {
@@ -438,12 +663,17 @@
 
             filteredTables.forEach(t => {
                 const totalAmount = calculateTableTotal(t.id);
+                const cuentaSolicitada = (t.pedidos || []).some(pedido => pedido.cuenta_solicitada);
                 
                 let statusBadge = '';
                 let borderClass = '';
                 let bgGradient = '';
 
-                if (t.status === 'libre') {
+                if (cuentaSolicitada) {
+                    statusBadge = `<span class="px-2.5 py-1 rounded-full text-xs font-bold bg-amber-500/10 text-amber-300 border border-amber-500/30">Cuenta solicitada</span>`;
+                    borderClass = 'border-amber-500/50 hover:border-amber-400';
+                    bgGradient = 'from-slate-900 via-slate-900 to-amber-950/20';
+                } else if (t.status === 'libre') {
                     statusBadge = `<span class="px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">Libre</span>`;
                     borderClass = 'border-slate-800 hover:border-emerald-500/50';
                     bgGradient = 'from-slate-900 to-slate-900/90';
@@ -476,7 +706,15 @@
                     </div>
 
                     <div class="space-y-2">
-                        ${t.status === 'ocupada' ? `
+                        ${cuentaSolicitada ? `
+                            <div class="bg-amber-500/10 rounded-xl p-3 border border-amber-500/20">
+                                <p class="text-xs text-amber-300 flex items-center gap-2"><i class="fa-solid fa-file-invoice-dollar"></i> El cliente solicitó la cuenta</p>
+                                <div class="flex justify-between text-sm font-bold text-white mt-2">
+                                    <span>Total:</span>
+                                    <span class="text-amber-300">$${totalAmount.toFixed(2)}</span>
+                                </div>
+                            </div>
+                        ` : t.status === 'ocupada' ? `
                             <div class="bg-slate-950/60 rounded-xl p-3 border border-slate-800/80">
                                 <div class="flex justify-between text-xs text-slate-400 mb-1">
                                     <span>Platillos: <strong>${t.order.reduce((acc, i) => acc + i.qty, 0)}</strong></span>
@@ -502,7 +740,12 @@
 
                     <div class="mt-4 pt-3 border-t border-slate-800/60 flex justify-between items-center text-xs text-slate-400">
                         <span>Gestionar Mesa</span>
-                        <i class="fa-solid fa-chevron-right text-slate-500 group-hover:translate-x-1 transition-transform"></i>
+                        <div class="flex items-center gap-3">
+                            <button type="button" onclick="event.stopPropagation(); openQrModal(${t.name.split(' ')[1]})" class="text-emerald-400 hover:text-emerald-300 font-semibold inline-flex items-center gap-1.5" title="Mostrar QR de la mesa">
+                                <i class="fa-solid fa-qrcode"></i> QR
+                            </button>
+                            <i class="fa-solid fa-chevron-right text-slate-500 group-hover:translate-x-1 transition-transform"></i>
+                        </div>
                     </div>
                 `;
                 grid.appendChild(card);
@@ -519,6 +762,27 @@
                 }
             });
             renderTables(filter);
+        }
+
+        const QR_MESA_BASE = '{% url "carta:qr_mesa" 0 %}';
+
+        function openQrModal(tableNumber) {
+            const modal = document.getElementById('qr-modal');
+            const frame = document.getElementById('qr-modal-frame');
+            const link = document.getElementById('qr-open-link');
+            const title = document.getElementById('qr-modal-title');
+            const url = QR_MESA_BASE.replace('/0/', `/${tableNumber}/`);
+            title.innerHTML = `<i class="fa-solid fa-qrcode text-emerald-400"></i> QR de la mesa ${tableNumber}`;
+            frame.src = url;
+            link.href = url;
+            modal.classList.remove('opacity-0', 'pointer-events-none');
+        }
+
+        function closeQrModal() {
+            const modal = document.getElementById('qr-modal');
+            const frame = document.getElementById('qr-modal-frame');
+            modal.classList.add('opacity-0', 'pointer-events-none');
+            frame.src = 'about:blank';
         }
 
         // ACTUALIZAR ESTADÍSTICAS DEL HEADER
@@ -557,10 +821,13 @@
             document.getElementById('modal-order-time').textContent = table.timeStarted || 'Reciente';
 
             const statusEl = document.getElementById('modal-table-status');
-            statusEl.textContent = table.status.toUpperCase();
-            if (table.status === 'libre') statusEl.className = "px-2.5 py-1 rounded-md text-xs font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20";
-            if (table.status === 'ocupada') statusEl.className = "px-2.5 py-1 rounded-md text-xs font-bold bg-rose-500/10 text-rose-400 border border-rose-500/20";
-            if (table.status === 'limpieza') statusEl.className = "px-2.5 py-1 rounded-md text-xs font-bold bg-amber-500/10 text-amber-400 border border-amber-500/20";
+            const cuentaSolicitada = (table.pedidos || []).some(pedido => pedido.cuenta_solicitada);
+            statusEl.textContent = cuentaSolicitada ? 'CUENTA SOLICITADA' : table.status.toUpperCase();
+            if (cuentaSolicitada) statusEl.className = "px-2.5 py-1 rounded-md text-xs font-bold bg-amber-500/10 text-amber-300 border border-amber-500/20";
+            else if (table.status === 'libre') statusEl.className = "px-2.5 py-1 rounded-md text-xs font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20";
+            else if (table.status === 'ocupada') statusEl.className = "px-2.5 py-1 rounded-md text-xs font-bold bg-rose-500/10 text-rose-400 border border-rose-500/20";
+            else if (table.status === 'limpieza') statusEl.className = "px-2.5 py-1 rounded-md text-xs font-bold bg-amber-500/10 text-amber-400 border border-amber-500/20";
+            document.getElementById('modal-account-alert').classList.toggle('hidden', !cuentaSolicitada);
 
             renderMenuItemsList('all');
             renderOrderItems();
@@ -614,20 +881,21 @@
         // CAMBIAR ESTADO DE LA MESA
         function changeTableStatus(tableId, newStatus) {
             const table = tables.find(t => t.id === tableId);
-            if (table) {
-                table.status = newStatus;
-                if (newStatus === 'ocupada' && !table.timeStarted) {
-                    const now = new Date();
-                    table.timeStarted = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            if (!table) return;
+            if (newStatus === 'ocupada') {
+                if (!ws || ws.readyState !== WebSocket.OPEN) {
+                    showToast('Sin conexión', 'No se pudo conectar con el servidor.');
+                    return;
                 }
-                if (newStatus === 'libre') {
-                    table.order = [];
-                    table.timeStarted = null;
+                ws.send(JSON.stringify({ accion: 'abrir_mesa', mesa_id: tableId }));
+                return;
+            }
+            if (newStatus === 'libre') {
+                if (!ws || ws.readyState !== WebSocket.OPEN) {
+                    showToast('Sin conexión', 'No se pudo conectar con el servidor.');
+                    return;
                 }
-                renderTables();
-                updateHeaderStats();
-                closeModal();
-                showToast("Estado Actualizado", `La ${table.name} ahora está ${newStatus}.`);
+                ws.send(JSON.stringify({ accion: 'cerrar_mesa', mesa_id: tableId }));
             }
         }
 
@@ -670,17 +938,16 @@
             if (!table) return;
 
             if (table.status === 'libre') {
-                table.status = 'ocupada';
-                const now = new Date();
-                table.timeStarted = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-                renderModalFooter(table);
+                showToast('Mesa cerrada', 'Abre la mesa antes de agregar productos.');
+                return;
             }
 
-            const existing = table.order.find(o => o.itemId === itemId);
+            table.newOrder = table.newOrder || [];
+            const existing = table.newOrder.find(o => o.itemId === itemId);
             if (existing) {
                 existing.qty += 1;
             } else {
-                table.order.push({ itemId, qty: 1, note: '' });
+                table.newOrder.push({ itemId, qty: 1, note: '', estado: 'pendiente', estadoDisplay: 'Pendiente' });
             }
 
             renderOrderItems();
@@ -694,11 +961,11 @@
             const table = tables.find(t => t.id === activeTableId);
             if (!table) return;
 
-            const itemIndex = table.order.findIndex(o => o.itemId === itemId);
+            const itemIndex = (table.newOrder || []).findIndex(o => o.itemId === itemId);
             if (itemIndex > -1) {
-                table.order[itemIndex].qty += change;
-                if (table.order[itemIndex].qty <= 0) {
-                    table.order.splice(itemIndex, 1);
+                table.newOrder[itemIndex].qty += change;
+                if (table.newOrder[itemIndex].qty <= 0) {
+                    table.newOrder.splice(itemIndex, 1);
                 }
             }
 
@@ -712,7 +979,8 @@
             container.innerHTML = '';
 
             const table = tables.find(t => t.id === activeTableId);
-            if (!table || table.order.length === 0) {
+            const displayOrder = table ? [...table.order, ...(table.newOrder || [])] : [];
+            if (!table || displayOrder.length === 0) {
                 container.innerHTML = `
                     <div class="text-center py-8 text-slate-500 text-xs">
                         <i class="fa-solid fa-utensils text-2xl mb-2 text-slate-700 block"></i>
@@ -725,7 +993,7 @@
 
             let subtotal = 0;
 
-            table.order.forEach(ord => {
+            displayOrder.forEach(ord => {
                 const item = menuItems.find(m => m.id === ord.itemId);
                 if (!item) return;
 
@@ -736,22 +1004,34 @@
                 row.className = "p-2.5 rounded-xl bg-slate-900 border border-slate-800 space-y-2";
                 row.innerHTML = `
                     <div class="flex items-center justify-between">
-                        <span class="text-xs font-bold text-white">${item.name}</span>
+                        <div class="flex items-center gap-2 min-w-0">
+                            <span class="text-xs font-bold text-white truncate">${item.name}</span>
+                            <span class="px-2 py-0.5 rounded-md text-[10px] font-semibold ${ord.estado === 'listo' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : ord.estado === 'en_preparacion' ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20' : ord.estado === 'servido' ? 'bg-sky-500/10 text-sky-400 border border-sky-500/20' : 'bg-slate-800 text-slate-400 border border-slate-700'}">${estadoPlato(ord)}</span>
+                        </div>
                         <span class="text-xs font-semibold text-emerald-400">$${itemTotal.toFixed(2)}</span>
                     </div>
                     <div class="flex items-center justify-between text-xs">
                         <div class="flex items-center gap-2 bg-slate-950 px-2 py-1 rounded-lg border border-slate-800">
-                            <button onclick="updateOrderQty(${item.id}, -1)" class="text-slate-400 hover:text-rose-400"><i class="fa-solid fa-minus text-[10px]"></i></button>
+                            ${ord.pedidoId ? '<span class="text-[10px] text-slate-500">Enviado</span>' : `<button onclick="updateOrderQty(${item.id}, -1)" class="text-slate-400 hover:text-rose-400"><i class="fa-solid fa-minus text-[10px]"></i></button>`}
                             <span class="font-bold text-white text-xs">${ord.qty}</span>
-                            <button onclick="updateOrderQty(${item.id}, 1)" class="text-slate-400 hover:text-emerald-400"><i class="fa-solid fa-plus text-[10px]"></i></button>
+                            ${ord.pedidoId ? '' : `<button onclick="updateOrderQty(${item.id}, 1)" class="text-slate-400 hover:text-emerald-400"><i class="fa-solid fa-plus text-[10px]"></i></button>`}
                         </div>
                         <input type="text" placeholder="Nota (Ej: Sin cebolla)" value="${ord.note}" onchange="updateOrderNote(${item.id}, this.value)" class="bg-slate-950 border border-slate-800 text-[10px] text-slate-300 rounded px-2 py-1 focus:outline-none focus:border-emerald-500 w-32">
                     </div>
+                    ${ord.pedidoId && ord.estado === 'listo' ? `<button type="button" onclick="marcarServidoMesera(${ord.pedidoId})" class="w-full rounded-lg bg-sky-500/10 border border-sky-500/20 text-sky-300 hover:bg-sky-500 hover:text-slate-950 py-1.5 text-[10px] font-bold transition-all"><i class="fa-solid fa-hand-holding-heart"></i> Marcar servido</button>` : ''}
                 `;
                 container.appendChild(row);
             });
 
             updateModalTotals(subtotal);
+        }
+
+        function marcarServidoMesera(pedidoId) {
+            if (!ws || ws.readyState !== WebSocket.OPEN) {
+                showToast('Sin conexión', 'No se pudo actualizar el pedido.');
+                return;
+            }
+            ws.send(JSON.stringify({ accion: 'marcar_servido', pedido_id: pedidoId }));
         }
 
         function updateOrderNote(itemId, note) {
@@ -772,14 +1052,32 @@
 
         // ENVIAR A COCINA
         function sendOrderToKitchen(tableId) {
-            showToast("Comanda Enviada", "El pedido ha sido transmitido a la cocina.");
+            const table = tables.find(item => item.id === tableId);
+            if (!table || !(table.newOrder || []).length) {
+                showToast("Comanda vacía", "Agrega al menos un producto antes de enviar.");
+                return;
+            }
+            enviarMensajeMesera({
+                accion: 'crear_pedido',
+                mesa_id: tableId,
+                items: table.newOrder.map(item => ({
+                    plato_id: item.itemId,
+                    cantidad: item.qty,
+                    nota: item.note || ''
+                })),
+                nota: table.newOrder.map(item => item.note).filter(Boolean).join(' | ')
+            });
             closeModal();
         }
 
         // PROCESAR PAGO DE CUENTA
         function openPaymentModal() {
-            if (!activeTableId) return;
-            const total = calculateTableTotal(activeTableId);
+            const table = tables.find(t => t.id === activeTableId);
+            const total = cuentaEnProceso ? parseFloat(cuentaEnProceso.total_cup || cuentaEnProceso.total || 0) : calculateTableTotal(activeTableId);
+            if (!table && !cuentaEnProceso) return;
+            if (!cuentaEnProceso && table) {
+                cuentaEnProceso = { mesa_numero: table.numero || Number(table.name.replace(/\D/g, '')), total: total.toFixed(2) };
+            }
             
             document.getElementById('pay-total-amount').textContent = `$${total.toFixed(2)}`;
             
@@ -793,6 +1091,7 @@
         }
 
         function selectPaymentMethod(method) {
+            formaPagoSeleccionada = method;
             document.querySelectorAll('.pay-method-btn').forEach(b => {
                 if (b.dataset.method === method) {
                     b.className = "pay-method-btn p-3 rounded-xl border border-emerald-500 bg-emerald-500/10 text-emerald-400 font-medium text-xs flex flex-col items-center gap-2 transition-all";
@@ -800,6 +1099,7 @@
                     b.className = "pay-method-btn p-3 rounded-xl border border-slate-800 bg-slate-950 text-slate-400 font-medium text-xs flex flex-col items-center gap-2 transition-all hover:border-slate-700";
                 }
             });
+            document.getElementById('mesera-tasa-usd').classList.toggle('hidden', method !== 'usd');
         }
 
         function setTip(percent) {
@@ -808,25 +1108,26 @@
         }
 
         function confirmPayment() {
-            if (!activeTableId) return;
-            const table = tables.find(t => t.id === activeTableId);
-            if (table) {
-                const totalPaid = calculateTableTotal(activeTableId);
-                
-                // Sumar a ventas del turno
-                const currentSales = parseFloat(document.getElementById('shift-sales').textContent.replace('$', '')) || 0;
-                document.getElementById('shift-sales').textContent = `$${(currentSales + totalPaid).toFixed(2)}`;
-
-                table.status = 'limpieza';
-                table.order = [];
-                table.timeStarted = null;
-
-                renderTables();
-                updateHeaderStats();
-                closePaymentModal();
-                closeModal();
-                showToast("Cuenta Cerrada", "Pago recibido. La mesa pasó a estado Limpieza.");
+            if (!cuentaEnProceso) {
+                return;
             }
+            let tasa = null;
+            if (formaPagoSeleccionada === 'usd') {
+                tasa = parseFloat(document.getElementById('mesera-input-tasa').value);
+                if (!tasa || tasa <= 0) {
+                    showToast('Tasa inválida', 'Indica una tasa de cambio válida.');
+                    return;
+                }
+            }
+            enviarMensajeMesera({
+                accion: 'preparar_cobro',
+                mesa_numero: cuentaEnProceso.mesa_numero,
+                forma_pago: formaPagoSeleccionada,
+                tasa_cambio: tasa,
+            });
+            closePaymentModal();
+            cuentaEnProceso = null;
+            showToast('Cuenta enviada a caja', 'La cajera debe aceptar el cobro.');
         }
 
         // VISTA DE PEDIDOS ACTIVOS EN SEGUIMIENTO

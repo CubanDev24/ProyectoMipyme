@@ -31,6 +31,8 @@ class Pedido(models.Model):
     cerrado_en = models.DateTimeField(null=True, blank=True)
     inventario_descontado = models.BooleanField(default=False)
     sesion_id = models.UUIDField(null=True, editable=False)
+    forma_pago_preseleccionada = models.CharField(max_length=20, blank=True, default='')
+    tasa_cambio_preseleccionada = models.DecimalField(max_digits=8, decimal_places=2, null=True, blank=True)
 
     class Meta:
         ordering = ['-creado_en']

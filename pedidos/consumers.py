@@ -34,11 +34,14 @@ def serializar_pedido(pedido):
         'estado_display': pedido.get_estado_display(),
         'nota': pedido.nota,
         'cuenta_solicitada': pedido.cuenta_solicitada,
+        'forma_pago': pedido.forma_pago_preseleccionada or None,
+        'tasa_cambio': str(pedido.tasa_cambio_preseleccionada) if pedido.tasa_cambio_preseleccionada else None,
         'creado_en': pedido.creado_en.strftime('%H:%M'),
         'total': str(pedido.total()),
         'items': [
             {
                 'id': i.pk,
+                'plato_id': i.plato_id,
                 'plato': i.plato.nombre,
                 'precio_unit': str(i.plato.precio),
                 'cantidad': i.cantidad,
@@ -77,6 +80,8 @@ def serializar_cuenta(pedidos):
         'nota': ' | '.join(pedido.nota for pedido in pedidos if pedido.nota),
         'creado_en': pedidos[0].creado_en.strftime('%H:%M'),
         'total': str(total),
+        'forma_pago': pedidos[0].forma_pago_preseleccionada or None,
+        'tasa_cambio': str(pedidos[0].tasa_cambio_preseleccionada) if pedidos[0].tasa_cambio_preseleccionada else None,
         'items': items,
         'pdf_url': None,
     }
@@ -156,6 +161,15 @@ class MeseraConsumer(AsyncWebsocketConsumer):
                 await self.send(text_data=json.dumps({'tipo': 'pedido_confirmado', 'pedido': pedido}))
                 await self.channel_layer.group_send('cocina', {'type': 'pedido_nuevo', 'pedido': pedido})
                 await self.channel_layer.group_send('mesera', {'type': 'pedido_nuevo', 'pedido': pedido})
+                await self.channel_layer.group_send(
+                    f"cliente_{pedido['mesa_numero']}",
+                    {'type': 'pedido_nuevo', 'pedido': pedido},
+                )
+            else:
+                await self.send(text_data=json.dumps({
+                    'tipo': 'error_pedido',
+                    'mensaje': 'No se pudo crear el pedido. Verifica que la mesa esté abierta y los productos disponibles.',
+                }))
 
         elif accion == 'aceptar_factura':
             mesa_numero = data.get('mesa_numero')
@@ -177,6 +191,28 @@ class MeseraConsumer(AsyncWebsocketConsumer):
                 {'type': 'factura_solicitada', 'factura': cuenta, 'mesa_numero': mesa_numero, 'aceptada_por_mesera': True, 'mesera_nombre': mesera_nombre}
             )
             await self.send(text_data=json.dumps({'tipo': 'factura_aceptada', **payload}))
+
+        elif accion == 'preparar_cobro':
+            mesa_numero = data.get('mesa_numero')
+            forma_pago = data.get('forma_pago')
+            if not mesa_numero or forma_pago not in dict(Factura.FORMA_PAGO_CHOICES):
+                await self.send(text_data=json.dumps({'tipo': 'error_cobro', 'mensaje': 'Selecciona una forma de pago válida.'}))
+                return
+            await self.marcar_cuenta_solicitada_por_numero(mesa_numero)
+            cuenta = await self.get_cuenta_mesa(mesa_numero)
+            if not cuenta:
+                await self.send(text_data=json.dumps({'tipo': 'error_cobro', 'mensaje': 'No hay una cuenta pendiente para esta mesa.'}))
+                return
+            cuenta['forma_pago'] = forma_pago
+            cuenta['tasa_cambio'] = data.get('tasa_cambio')
+            await self.guardar_pago_preseleccionado(mesa_numero, forma_pago, data.get('tasa_cambio'))
+            user = self.scope.get('user')
+            cuenta['mesera_nombre'] = (user.get_full_name() or user.username) if user else ''
+            await self.channel_layer.group_send(
+                'caja',
+                {'type': 'factura_solicitada', 'factura': cuenta, 'mesa_numero': mesa_numero, 'mesera_nombre': cuenta['mesera_nombre']}
+            )
+            await self.send(text_data=json.dumps({'tipo': 'cobro_preparado', 'mesa_numero': mesa_numero}))
 
         elif accion == 'abrir_mesa':
             mesa, error = await self.abrir_mesa(data.get('mesa_id'))
@@ -232,11 +268,14 @@ class MeseraConsumer(AsyncWebsocketConsumer):
         await self.send(text_data=json.dumps({'tipo': 'pedido_actualizado', 'pedido': event['pedido']}))
 
     async def factura_solicitada(self, event):
+        factura = dict(event['factura'])
+        if event.get('mesera_nombre'):
+            factura['mesera_nombre'] = event['mesera_nombre']
         await self.send(text_data=json.dumps({
             'tipo': 'factura_solicitada',
-            'factura': event['factura'],
-            'mesa_numero': event.get('mesa_numero', event['factura'].get('mesa_numero')),
-            'mensaje': f"Mesa {event.get('mesa_numero', event['factura'].get('mesa_numero'))} solicitó la factura",
+            'factura': factura,
+            'mesa_numero': event.get('mesa_numero', factura.get('mesa_numero')),
+            'mensaje': f"Mesa {event.get('mesa_numero', factura.get('mesa_numero'))} solicitó la factura",
         }))
 
     async def pedido_cerrado(self, event):
@@ -362,9 +401,27 @@ class MeseraConsumer(AsyncWebsocketConsumer):
     def get_cuenta_mesa(self, mesa_numero):
         return serializar_cuenta(Pedido.objects.filter(
             mesa__numero=mesa_numero,
-            sesion_id=models.F('mesa__sesion_id'),
+            sesion_id=F('mesa__sesion_id'),
             cuenta_solicitada=True,
         ).exclude(estado='cerrado').select_related('mesa').prefetch_related('items__plato'))
+
+    @database_sync_to_async
+    def guardar_pago_preseleccionado(self, mesa_numero, forma_pago, tasa_cambio):
+        pedidos = Pedido.objects.filter(
+            mesa__numero=mesa_numero,
+            cuenta_solicitada=True,
+        ).exclude(estado='cerrado')
+        pedidos.update(
+            forma_pago_preseleccionada=forma_pago,
+            tasa_cambio_preseleccionada=_to_decimal(tasa_cambio),
+        )
+
+    @database_sync_to_async
+    def marcar_cuenta_solicitada_por_numero(self, mesa_numero):
+        Pedido.objects.filter(
+            mesa__numero=mesa_numero,
+            estado__in=['pendiente', 'en_preparacion', 'listo', 'servido'],
+        ).update(cuenta_solicitada=True)
 
 
 # ─── COCINA ──────────────────────────────────────────────────────────────────
@@ -400,6 +457,9 @@ class CocinaConsumer(AsyncWebsocketConsumer):
 
     async def pedido_actualizado(self, event):
         await self.send(text_data=json.dumps({'tipo': 'pedido_actualizado', 'pedido': event['pedido']}))
+
+    async def pedido_nuevo(self, event):
+        await self.send(text_data=json.dumps({'tipo': 'pedido_nuevo', 'pedido': event['pedido']}))
 
     async def pedido_cerrado(self, event):
         await self.send(text_data=json.dumps({'tipo': 'pedido_cerrado', 'pedido_id': event['pedido_id']}))
@@ -469,6 +529,22 @@ class CajaConsumer(AsyncWebsocketConsumer):
                     f'cliente_{mesa_numero}',
                     {'type': 'factura_final', 'factura': resultado}
                 )
+                await self.channel_layer.group_send(
+                    'mesera',
+                    {'type': 'mesa_actualizada', 'mesa': {
+                        'id': resultado['mesa_id'],
+                        'numero': mesa_numero,
+                        'abierta': False,
+                    }}
+                )
+                await self.channel_layer.group_send(
+                    f'cliente_{mesa_numero}',
+                    {'type': 'mesa_actualizada', 'mesa': {
+                        'id': resultado['mesa_id'],
+                        'numero': mesa_numero,
+                        'abierta': False,
+                    }}
+                )
                 await self.send(text_data=json.dumps({'tipo': 'factura_registrada', 'factura': resultado}))
 
     async def pedido_nuevo(self, event):
@@ -529,11 +605,14 @@ class CajaConsumer(AsyncWebsocketConsumer):
         await self.send(text_data=json.dumps({'tipo': 'pedido_actualizado', 'pedido': event['cuenta']}))
 
     async def factura_solicitada(self, event):
+        factura = dict(event['factura'])
+        if event.get('mesera_nombre'):
+            factura['mesera_nombre'] = event['mesera_nombre']
         await self.send(text_data=json.dumps({
             'tipo': 'factura_solicitada',
-            'factura': event['factura'],
-            'mesa_numero': event.get('mesa_numero', event['factura'].get('mesa_numero')),
-            'mensaje': f"Mesa {event.get('mesa_numero', event['factura'].get('mesa_numero'))} solicitó la factura",
+            'factura': factura,
+            'mesa_numero': event.get('mesa_numero', factura.get('mesa_numero')),
+            'mensaje': f"Mesa {event.get('mesa_numero', factura.get('mesa_numero'))} solicitó la factura",
         }))
 
     async def broadcast_cuenta(self, cuenta):
@@ -634,9 +713,12 @@ class CajaConsumer(AsyncWebsocketConsumer):
         Pedido.objects.filter(pk__in=[pedido.pk for pedido in pedidos]).update(
             estado='cerrado', cerrado_en=timezone.now()
         )
+        principal.mesa.abierta = False
+        principal.mesa.save(update_fields=['abierta'])
 
         factura_data = {
             'id': factura.id,
+            'mesa_id': principal.mesa_id,
             'mesa_numero': factura.mesa_numero,
             'pedido_ids': [pedido.pk for pedido in pedidos],
             'forma_pago': factura.forma_pago,
@@ -690,9 +772,17 @@ class ClienteConsumer(AsyncWebsocketConsumer):
         if accion == 'crear_pedido':
             pedido = await self.crear_pedido(data.get('items', []), data.get('nota', ''))
             if pedido:
-                await self.send(text_data=json.dumps({'tipo': 'pedido_confirmado', 'pedido': pedido}))
+                await self.channel_layer.group_send(
+                    self.group_name,
+                    {'type': 'pedido_confirmado', 'pedido': pedido},
+                )
                 await self.channel_layer.group_send('cocina', {'type': 'pedido_nuevo', 'pedido': pedido})
                 await self.channel_layer.group_send('mesera', {'type': 'pedido_nuevo', 'pedido': pedido})
+            else:
+                await self.send(text_data=json.dumps({
+                    'tipo': 'error_pedido',
+                    'mensaje': 'No se pudo crear el pedido. Verifica que la mesa esté abierta y los productos disponibles.',
+                }))
 
         elif accion in ['solicitar_cuenta', 'solicitar_factura']:
             pedidos = await self.solicitar_cuenta(data['pedido_id'])
@@ -728,6 +818,12 @@ class ClienteConsumer(AsyncWebsocketConsumer):
 
     async def pedido_actualizado(self, event):
         await self.send(text_data=json.dumps({'tipo': 'pedido_actualizado', 'pedido': event['pedido']}))
+
+    async def pedido_confirmado(self, event):
+        await self.send(text_data=json.dumps({'tipo': 'pedido_confirmado', 'pedido': event['pedido']}))
+
+    async def pedido_nuevo(self, event):
+        await self.send(text_data=json.dumps({'tipo': 'pedido_nuevo', 'pedido': event['pedido']}))
 
     async def pedido_cerrado(self, event):
         await self.send(text_data=json.dumps({'tipo': 'pedido_cerrado', 'pedido_id': event['pedido_id']}))

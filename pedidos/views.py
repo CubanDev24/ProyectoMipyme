@@ -16,6 +16,43 @@ from usuarios.models import get_turno_abierto, mesas_del_turno
 from .models import Mesa, Factura, Pedido
 
 
+def _build_caja_estadisticas_payload():
+    resumen = Factura.objects.aggregate(
+        cantidad=Count('id'),
+        total=Sum('total_cup'),
+        efectivo=Sum('monto_efectivo_cup'),
+        transferencia=Sum('monto_transferencia_cup'),
+    )
+    salidas = defaultdict(lambda: Decimal('0'))
+    pedidos_descontados = Pedido.objects.filter(
+        inventario_descontado=True,
+    ).prefetch_related('items__plato__receta')
+    for pedido in pedidos_descontados:
+        for item in pedido.items.all():
+            for receta in item.plato.receta.all():
+                salidas[receta.insumo_id] += receta.cantidad * item.cantidad
+
+    inventario = []
+    for insumo in Insumo.objects.all():
+        inventario.append({
+            'nombre': insumo.nombre,
+            'unidad': insumo.get_unidad_display(),
+            'salida': str(salidas[insumo.id]),
+            'stock_actual': str(insumo.stock_actual),
+            'stock_bajo': insumo.stock_bajo,
+        })
+
+    return {
+        'recaudacion': {
+            'cantidad': resumen['cantidad'] or 0,
+            'total': str(resumen['total'] or Decimal('0')),
+            'efectivo': str(resumen['efectivo'] or Decimal('0')),
+            'transferencia': str(resumen['transferencia'] or Decimal('0')),
+        },
+        'inventario': inventario,
+    }
+
+
 def _rol_permitido(*roles):
     def _check(user):
         return user.is_authenticated and user.role in roles
@@ -25,7 +62,7 @@ def _rol_permitido(*roles):
 @login_required
 @user_passes_test(_rol_permitido('mesera'))
 def mesera(request):
-    productos = Insumo.objects.filter(activo=True, disponible=True).select_related('categoria').order_by('categoria__orden', 'categoria__nombre', 'nombre')
+    productos = Plato.objects.filter(disponible=True).select_related('categoria').order_by('categoria__orden', 'categoria__nombre', 'nombre')
     turno = get_turno_abierto()
     mesas = mesas_del_turno(turno) if turno else Mesa.objects.none()
     return render(request, 'mesera/mesera.html', {
@@ -44,6 +81,17 @@ def cocina(request):
 @user_passes_test(_rol_permitido('cajera'))
 def caja(request):
     return render(request, 'caja/caja.html', {
+        'tasa_actual': TasaCambio.actual(),
+    })
+
+
+@login_required
+@user_passes_test(_rol_permitido('cajera'))
+def caja_estadisticas_pagina(request):
+    payload = _build_caja_estadisticas_payload()
+    return render(request, 'caja/estadisticas.html', {
+        'recaudacion': payload['recaudacion'],
+        'inventario': payload['inventario'],
         'tasa_actual': TasaCambio.actual(),
     })
 
@@ -101,6 +149,11 @@ def factura_imprimir(request, pk):
     response['Content-Disposition'] = f'attachment; filename="factura_{factura.pk}.pdf"'
     return response
 
+
+def factura_imprimir_web(request, pk):
+    factura = get_object_or_404(Factura, pk=pk)
+    return render(request, 'caja/factura_imprimir_web.html', {'factura': factura})
+
 def facturas_historial(request):
     facturas = Factura.objects.order_by('-creado_en')
     return JsonResponse({
@@ -117,36 +170,4 @@ def facturas_historial(request):
     })
 
 def caja_estadisticas(request):
-    resumen = Factura.objects.aggregate(
-        cantidad=Count('id'),
-        total=Sum('total_cup'),
-        efectivo=Sum('monto_efectivo_cup'),
-        transferencia=Sum('monto_transferencia_cup'),
-    )
-    salidas = defaultdict(lambda: Decimal('0'))
-    pedidos_descontados = Pedido.objects.filter(
-        inventario_descontado=True,
-    ).prefetch_related('items__plato__receta')
-    for pedido in pedidos_descontados:
-        for item in pedido.items.all():
-            for receta in item.plato.receta.all():
-                salidas[receta.insumo_id] += receta.cantidad * item.cantidad
-
-    inventario = []
-    for insumo in Insumo.objects.all():
-        inventario.append({
-            'nombre': insumo.nombre,
-            'unidad': insumo.get_unidad_display(),
-            'salida': str(salidas[insumo.id]),
-            'stock_actual': str(insumo.stock_actual),
-            'stock_bajo': insumo.stock_bajo,
-        })
-    return JsonResponse({
-        'recaudacion': {
-            'cantidad': resumen['cantidad'] or 0,
-            'total': str(resumen['total'] or Decimal('0')),
-            'efectivo': str(resumen['efectivo'] or Decimal('0')),
-            'transferencia': str(resumen['transferencia'] or Decimal('0')),
-        },
-        'inventario': inventario,
-    })
+    return JsonResponse(_build_caja_estadisticas_payload())

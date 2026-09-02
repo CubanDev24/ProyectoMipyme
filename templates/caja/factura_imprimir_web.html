@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+{% load l10n %}
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Factura #{{ factura.pk }}</title>
+    <style>
+        @page { size: 80mm auto; margin: 4mm; }
+        * { box-sizing: border-box; }
+        body { width: 72mm; margin: 0 auto; color: #111; background: #fff; font: 12px/1.35 Arial, sans-serif; }
+        .ticket { padding: 3mm 0; }
+        header { text-align: center; border-bottom: 1px dashed #555; padding-bottom: 3mm; margin-bottom: 3mm; }
+        h1 { margin: 0; font-size: 18px; letter-spacing: .08em; }
+        h2 { margin: 1mm 0 0; font-size: 12px; font-weight: normal; }
+        .meta { margin-bottom: 3mm; }
+        .meta p { display: flex; justify-content: space-between; gap: 4mm; margin: 1mm 0; }
+        table { width: 100%; border-collapse: collapse; border-bottom: 1px dashed #555; }
+        th { border-bottom: 1px solid #111; font-size: 10px; text-align: left; }
+        th:last-child, td:last-child { text-align: right; }
+        td { padding: 1.5mm 0; vertical-align: top; }
+        .total { display: flex; justify-content: space-between; font-size: 16px; font-weight: bold; padding: 3mm 0; }
+        footer { border-top: 1px dashed #555; padding-top: 3mm; text-align: center; font-size: 10px; }
+        .actions { display: flex; gap: 8px; justify-content: center; margin: 12px auto; }
+        button { border: 1px solid #111; background: #fff; padding: 7px 12px; cursor: pointer; }
+        @media print { .actions { display: none; } body { width: 100%; } }
+    </style>
+</head>
+<body>
+    <div class="actions">
+        <button type="button" onclick="window.print()">Imprimir</button>
+        <button type="button" onclick="window.close()">Cerrar</button>
+    </div>
+    <main class="ticket">
+        <header>
+            <h1>LAS CUQUIS</h1>
+            <h2>Factura de consumo</h2>
+        </header>
+        <section class="meta">
+            <p><span>Factura</span><strong>#{{ factura.pk }}</strong></p>
+            <p><span>Mesa</span><strong>{{ factura.mesa_numero }}</strong></p>
+            <p><span>Fecha</span><strong>{{ factura.creado_en|date:"d/m/Y H:i" }}</strong></p>
+            {% if factura.cajera_nombre %}<p><span>Cajera</span><strong>{{ factura.cajera_nombre }}</strong></p>{% endif %}
+            {% if factura.mesera_nombre %}<p><span>Mesera</span><strong>{{ factura.mesera_nombre }}</strong></p>{% endif %}
+        </section>
+        <table>
+            <thead><tr><th>Producto</th><th>Subtotal</th></tr></thead>
+            <tbody>
+                {% for item in factura.items_snapshot %}
+                <tr><td>{{ item.cantidad }}x {{ item.plato }}</td><td>{{ item.subtotal }} CUP</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        <div class="total"><span>TOTAL</span><span>{{ factura.total_cup }} CUP</span></div>
+        <section class="meta">
+            <p><span>Forma de pago</span><strong>{{ factura.get_forma_pago_display }}</strong></p>
+            {% if factura.monto_usd %}<p><span>Total USD</span><strong>{{ factura.monto_usd }} USD</strong></p>{% endif %}
+        </section>
+        <footer>Gracias por su visita</footer>
+    </main>
+    <script>
+        window.addEventListener('load', () => setTimeout(() => window.print(), 250));
+    </script>
+</body>
+</html>

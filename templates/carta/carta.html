@@ -1862,6 +1862,15 @@ function conectar() {
       renderCuentaFinal(d.factura);
       if (pedidoActual) mostrarEstado(pedidoActual);
       actualizarDisponibilidadMesa();
+    } else if (d.tipo === 'pedido_nuevo') {
+      const indice = pedidosCliente.findIndex(p => p.id === d.pedido.id);
+      if (indice >= 0) pedidosCliente[indice] = d.pedido;
+      else pedidosCliente.push(d.pedido);
+      pedidoActual = d.pedido;
+      renderHistorialCliente();
+      mostrarEstado(d.pedido);
+      toast('Nuevo pedido enviado por la mesera', 'green');
+      actualizarBadgeFlotante();
     } else if (d.tipo === 'pedido_confirmado') {
       pedidoActual = d.pedido;
       pedidosCliente.push(d.pedido);
@@ -1873,6 +1882,8 @@ function conectar() {
       toast('✅ Pedido enviado a cocina', 'green');
       sonidoExito();
       actualizarBadgeFlotante();
+    } else if (d.tipo === 'error_pedido') {
+      toast(d.mensaje, 'red');
     } else if (d.tipo === 'pedido_actualizado') {
       const indice = pedidosCliente.findIndex(p => p.id === d.pedido.id);
       if (indice >= 0) pedidosCliente[indice] = d.pedido;

@@ -1,4 +1,5 @@
 from django.test import TestCase
+from django.contrib.auth import get_user_model
 
 from carta.models import Categoria, Plato
 from pedidos.consumers import MeseraConsumer, serializar_cuenta, serializar_factura
@@ -96,3 +97,34 @@ class FacturaWorkflowTests(TestCase):
         self.assertEqual(response['Content-Type'], 'application/pdf')
         self.assertIn('attachment; filename=', response['Content-Disposition'])
         self.assertTrue(response.content.startswith(b'%PDF'))
+
+    def test_factura_imprimir_web_devuelve_ticket_para_impresora(self):
+        factura = Factura.objects.create(
+            pedido=self.pedido,
+            mesa_numero=self.mesa.numero,
+            forma_pago='efectivo_cup',
+            total_cup='50.00',
+            monto_efectivo_cup='50.00',
+            items_snapshot=[{
+                'plato': self.plato.nombre,
+                'cantidad': 2,
+                'precio_unit': '25.00',
+                'subtotal': '50.00',
+            }],
+        )
+
+        response = self.client.get(f'/pedidos/caja/factura/{factura.id}/imprimir-web/')
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'window.print()')
+        self.assertContains(response, 'Factura de consumo')
+
+    def test_vista_estadisticas_caja_existe_y_usa_template(self):
+        User = get_user_model()
+        User.objects.create_user(username='cajera_test', password='123456', role='cajera')
+        self.client.login(username='cajera_test', password='123456')
+        response = self.client.get('/pedidos/caja/estadisticas/pagina/')
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Estadísticas acumuladas')
+        self.assertContains(response, 'Panel de Caja')
