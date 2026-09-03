@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% load static %}
 {% load l10n %}
 
 {% block title %}Mesa {{ mesa_id }} — Carta Digital Las Cuquis{% endblock %}
@@ -97,7 +98,7 @@
                 <div class="cliente-plato-card" 
                      data-id="{{ p.id }}"
                      data-nombre="{{ p.nombre|lower }} {{ p.descripcion|lower }}"
-                     data-precio="{{ p.precio }}"
+                     data-precio="{{ p.precio|unlocalize }}"
                      data-destacado="{% if p.destacado %}true{% else %}false{% endif %}"
                      data-categoria="{{ cat.nombre }}"
                      data-icono="{{ cat.icono|default:'🍽️' }}"
@@ -155,7 +156,7 @@
               <div class="cliente-plato-card" 
                    data-id="{{ p.id }}"
                    data-nombre="{{ p.nombre|lower }} {{ p.descripcion|lower }}"
-                   data-precio="{{ p.precio }}"
+                   data-precio="{{ p.precio|unlocalize }}"
                    data-destacado="{% if p.destacado %}true{% else %}false{% endif %}"
                    data-categoria="{{ cat.nombre }}"
                    data-icono="{{ cat.icono|default:'🍽️' }}"
@@ -393,10 +394,10 @@
 
 {% block extra_js %}
 <!-- Font Awesome -->
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+<link rel="stylesheet" href="{% static 'vendor/fontawesome/css/all.min.css' %}">
 <!-- jsPDF & html2canvas -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="{% static 'vendor/js/jspdf.umd.min.js' %}"></script>
+<script src="{% static 'vendor/js/html2canvas.min.js' %}"></script>
 
 <style>
 /* ============================================
@@ -1758,6 +1759,22 @@ function fmt(num) {
   return (Math.round((num + Number.EPSILON) * 100) / 100).toFixed(2);
 }
 
+/**
+ * Convierte cualquier valor a número, manejando comas decimales y formatos locales.
+ * Ej: "10,50" → 10.50, "1.000,50" → 1000.50, "10.50" → 10.50
+ */
+function toNumber(val) {
+  if (typeof val === 'number') return val;
+  if (typeof val === 'string') {
+    // Reemplazar coma por punto si es el último separador decimal
+    val = val.replace(',', '.');
+    // Eliminar cualquier carácter que no sea dígito, punto o signo menos
+    val = val.replace(/[^0-9.-]/g, '');
+    return parseFloat(val) || 0;
+  }
+  return 0;
+}
+
 function showToast(title, message, type = 'success') {
   const toast = document.getElementById('clienteToast');
   const icon = document.getElementById('toastIcon');
@@ -2047,9 +2064,11 @@ function agregar(id, nombre, precio) {
     showToast('Mesa Cerrada', 'La mesa está cerrada.', 'warning');
     return; 
   }
+  // Asegurar que precio sea un número
+  const precioNum = toNumber(precio);
   const ex = carrito.find(i => i.plato_id === id);
   if (ex) ex.cantidad++;
-  else carrito.push({ plato_id: id, nombre, precio: parseFloat(precio), cantidad: 1 });
+  else carrito.push({ plato_id: id, nombre, precio: precioNum, cantidad: 1 });
   
   renderCartItems();
   showToast('Platillo Agregado', `${nombre} se añadió a tu comanda.`, 'success');
@@ -2092,7 +2111,7 @@ function renderCartItems() {
   
   let subtotal = 0;
   
-  carrito.forEach((item, idx) => {
+  carrito.forEach((item) => {
     const totalItem = item.precio * item.cantidad;
     subtotal += totalItem;
     
@@ -2160,7 +2179,7 @@ function enviarPedido() {
 }
 
 // ============================================================
-// HISTORIAL Y ESTADO
+// HISTORIAL Y ESTADO (CORREGIDO con toNumber)
 // ============================================================
 function renderHistorialCliente() {
   const lista = document.getElementById('placedOrdersList');
@@ -2194,12 +2213,19 @@ function renderHistorialCliente() {
       statusIcon = '<i class="fa-solid fa-check"></i> ';
     }
     
-    const itemsHtml = (pedido.items || []).map(i => `
-      <div class="cliente-order-item-row">
-        <span><strong>${i.cantidad}x</strong> ${escapeHtml(i.plato || i.nombre || '')}</span>
-        <span>${fmt(i.subtotal || (i.precio * i.cantidad) || 0)} CUP</span>
-      </div>
-    `).join('');
+    const itemsHtml = (pedido.items || []).map(i => {
+      const precio = toNumber(i.precio);
+      const cantidad = i.cantidad || 1;
+      const subtotal = toNumber(i.subtotal) || (precio * cantidad);
+      return `
+        <div class="cliente-order-item-row">
+          <span><strong>${cantidad}x</strong> ${escapeHtml(i.plato || i.nombre || '')}</span>
+          <span>${fmt(subtotal)} CUP</span>
+        </div>
+      `;
+    }).join('');
+    
+    const total = toNumber(pedido.total);
     
     const card = document.createElement('div');
     card.className = 'cliente-order-card';
@@ -2214,7 +2240,7 @@ function renderHistorialCliente() {
       <div class="cliente-order-items">${itemsHtml}</div>
       <div class="cliente-order-total-row">
         <span>Total</span>
-        <span class="total-valor">${fmt(pedido.total || 0)} CUP</span>
+        <span class="total-valor">${fmt(total)} CUP</span>
       </div>
     `;
     lista.appendChild(card);
@@ -2224,10 +2250,8 @@ function renderHistorialCliente() {
 }
 
 function mostrarEstado(p) {
-  // Actualizar la vista de órdenes
   renderHistorialCliente();
   
-  // Actualizar el estado en el carrito si es necesario
   const estadoBox = document.getElementById('estado-box');
   if (estadoBox) {
     estadoBox.style.display = 'block';
@@ -2238,7 +2262,6 @@ function mostrarEstado(p) {
     if (estadoItems) estadoItems.textContent = (p.items || []).map(i => `${i.cantidad}x ${i.plato || i.nombre}`).join(', ');
   }
   
-  // Mostrar/ocultar botón de factura
   const btnFactura = document.getElementById('btnFacturaDirecta');
   if (btnFactura) {
     const puedeSolicitar = ['listo', 'servido'].includes(p.estado) && !p.cuenta_solicitada;
@@ -2247,19 +2270,24 @@ function mostrarEstado(p) {
 }
 
 // ============================================================
-// CUENTA / FACTURA
+// CUENTA / FACTURA (CORREGIDO con toNumber)
 // ============================================================
 function renderCuentaFinal(factura) {
   if (!factura) return;
   const container = document.getElementById('cuentaFinalContainer');
   if (!container) return;
   
-  const items = (factura.items_snapshot || factura.items || []).map(item => `
-    <div class="cliente-order-item-row">
-      <span>${item.cantidad || 1}x ${escapeHtml(item.plato || item.nombre || '')}</span>
-      <span>${fmt(item.subtotal || 0)} CUP</span>
-    </div>
-  `).join('');
+  const items = (factura.items_snapshot || factura.items || []).map(item => {
+    const subtotal = toNumber(item.subtotal) || 0;
+    return `
+      <div class="cliente-order-item-row">
+        <span>${item.cantidad || 1}x ${escapeHtml(item.plato || item.nombre || '')}</span>
+        <span>${fmt(subtotal)} CUP</span>
+      </div>
+    `;
+  }).join('');
+  
+  const total = toNumber(factura.total_cup || factura.total || 0);
   
   container.style.display = 'block';
   container.innerHTML = `
@@ -2269,14 +2297,13 @@ function renderCuentaFinal(factura) {
     <div class="cliente-order-items">${items}</div>
     <div class="cliente-order-total-row">
       <span>Total a pagar</span>
-      <span class="total-valor">${fmt(factura.total_cup || factura.total || 0)} CUP</span>
+      <span class="total-valor">${fmt(total)} CUP</span>
     </div>
     <div style="font-size:10px;color:var(--gc-text-muted);margin-top:4px;">${factura.creado_en || ''}</div>
   `;
 }
 
 function renderCuentaFinalView() {
-  // Actualizar la vista de factura si hay datos
   if (pedidoActual && ['listo', 'servido'].includes(pedidoActual.estado)) {
     document.getElementById('btnFacturaDirecta').style.display = 'block';
   } else {
@@ -2290,13 +2317,16 @@ function abrirConfirmacionCuenta() {
     return;
   }
   
-  const items = (pedidoActual.items || []).map(item => `
-    <div class="cliente-order-item-row">
-      <span>${item.cantidad || 1}x ${escapeHtml(item.plato || item.nombre || '')}</span>
-      <span>${fmt(item.subtotal || 0)} CUP</span>
-    </div>
-  `).join('');
-  const total = fmt(pedidoActual.total || 0);
+  const items = (pedidoActual.items || []).map(item => {
+    const subtotal = toNumber(item.subtotal) || 0;
+    return `
+      <div class="cliente-order-item-row">
+        <span>${item.cantidad || 1}x ${escapeHtml(item.plato || item.nombre || '')}</span>
+        <span>${fmt(subtotal)} CUP</span>
+      </div>
+    `;
+  }).join('');
+  const total = toNumber(pedidoActual.total || 0);
   
   const body = document.getElementById('modalConfirmarCuentaBody');
   const modal = document.getElementById('modalConfirmarCuenta');
@@ -2308,7 +2338,7 @@ function abrirConfirmacionCuenta() {
     <div style="margin-bottom:8px;">${items}</div>
     <div class="cliente-summary-row">
       <span>Total estimado</span>
-      <strong style="color:var(--gc-emerald-light);">${total} CUP</strong>
+      <strong style="color:var(--gc-emerald-light);">${fmt(total)} CUP</strong>
     </div>
   `;
   
@@ -2345,7 +2375,7 @@ function llamarCamarero() {
 }
 
 // ============================================================
-// DETALLE DE PLATO
+// DETALLE DE PLATO (CORREGIDO)
 // ============================================================
 function abrirDetallePlato(id) {
   const card = document.querySelector(`.cliente-plato-card[data-id="${id}"]`);
@@ -2358,20 +2388,21 @@ function abrirDetallePlato(id) {
   
   const nombre = card.querySelector('.cliente-plato-nombre')?.textContent || 'Plato';
   const desc = card.querySelector('.cliente-plato-desc')?.textContent || '';
-  const precioText = card.querySelector('.cliente-plato-precio')?.textContent?.replace(/[^0-9.]/g, '') || '0';
+  // Obtener precio desde data-precio (ya viene sin formato)
+  const precio = parseFloat(card.dataset.precio) || 0;
   const categoria = card.dataset.categoria || 'Categoría';
   const icono = card.dataset.icono || '🍽️';
   const tagsHtml = card.querySelector('.cliente-plato-tags')?.innerHTML || '';
   const imgSrc = card.querySelector('.cliente-plato-img-wrapper img')?.src || '';
   
   platoEnDetalleNombre = nombre;
-  platoEnDetallePrecio = parseFloat(precioText) || 0;
+  platoEnDetallePrecio = precio;
   
   document.getElementById('modalProductoIcono').innerHTML = `<i class="fa-solid fa-utensils"></i>`;
   document.getElementById('modalProductoCategoria').textContent = categoria;
   document.getElementById('modalProductoTitle').textContent = nombre;
   document.getElementById('modalProductoDesc').textContent = desc || 'Descripción no disponible.';
-  document.getElementById('modalProductoPrecio').textContent = fmt(platoEnDetallePrecio) + ' CUP';
+  document.getElementById('modalProductoPrecio').textContent = fmt(precio) + ' CUP';
   document.getElementById('modalProductoTags').innerHTML = tagsHtml || '<span class="tag-disponible">✓ Disponible</span>';
   
   const imgContainer = document.getElementById('modalProductoImagen');

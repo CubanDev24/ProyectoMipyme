@@ -46,7 +46,7 @@ class Insumo(models.Model):
             return
         categoria = self.categoria or Categoria.objects.order_by('orden', 'nombre').first()
         if categoria is None:
-            return
+            categoria, _ = Categoria.objects.get_or_create(nombre='General', defaults={'orden': 0})
         plato_defaults = {
             'categoria': categoria,
             'descripcion': f'Producto del inventario: {self.nombre}',
