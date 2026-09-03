@@ -105,7 +105,5 @@ con el botón **Imprimir QR**.
 
 
 ## por hacer:
-- mejorar el diseno de la vista del usuario, admin y cajera 
-- que asigne mesas a las meseras el administrador
-- que la mesera elija eltipo de pago antes de enviar la factura a la cajera
-- mejorar la factura
+-  Falta EL IPV solamente
+- 
