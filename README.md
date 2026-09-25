@@ -102,17 +102,20 @@ con el botón **Imprimir QR**.
 - Cambiar SQLite por PostgreSQL
 - Configurar `ALLOWED_HOSTS` y `SECRET_KEY` reales
 
-
+## hecho
+- Correccion del error de csrf token y las sesiones de usuario.
+- corregido el inventario del administrador.
+- Corregida la creacion y edicion de usuarios por el administrador.
+- Se agrego la opcion para modificar las imagenes del inventario y la carta.
+- Se eliminaron los datos de prueba que habia en la vista de la mesera con respecto a los pedidos.
 
 ## por hacer:
-- no funciona el boton de llamar a la mesera 
+- la parte de la captura de pantalla del pago al recibir un pago en transferencia
 - pedir agregos a un plato
 - modificar la comanda para cancelar algun pedido, actualizar 
-- agregar sessions coquies 
-- modificar la creacion e usuarios por parte del admin y agregar usuarios al turno
 - que las notas de un pedido le salgan a la mesara y a la cocina asi como al cliente junto con el plato
-- que a ;a cajera le salga un resumen de todos los pedidos hechos en el dia 
-- la parte de la captura de pantalla del pago al recibir un pago en transferencia
+- no funciona el boton de llamar a la mesera 
+- que a la cajera le salga un resumen de todos los pedidos hechos en el dia 
 - que salgan bien los precios de todos los platos al cliente y la mesera 
 - que salga el historial depedidos
-- que se pueda modificar las imagenes del inventario 
+- corregir los permisos de los usuarios para las vistas 

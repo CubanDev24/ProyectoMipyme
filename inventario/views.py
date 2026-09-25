@@ -5,7 +5,7 @@ from django.contrib.auth.decorators import login_required, user_passes_test
 from django.shortcuts import render, redirect, get_object_or_404
 
 from carta.models import Categoria, Plato
-from .models import Insumo, RecetaItem, TasaCambio
+from .models import Insumo, MovimientoInventario, RecetaItem, TasaCambio
 
 
 def _es_admin(user):
@@ -22,8 +22,15 @@ def _to_decimal(valor, default=None):
 @login_required
 @user_passes_test(_es_admin)
 def administrador(request):
-    insumos = Insumo.objects.all()
-    platos = Plato.objects.select_related('categoria').all()
+    insumos = Insumo.objects.select_related('categoria').all()
+    movimientos = MovimientoInventario.objects.select_related('insumo', 'usuario').all()[:250]
+    platos = list(Plato.objects.select_related('categoria').all())
+    precios_inventario = {
+        insumo.nombre.casefold(): insumo.precio
+        for insumo in insumos
+    }
+    for plato in platos:
+        plato.precio_inventario = precios_inventario.get(plato.nombre.casefold(), plato.precio)
     categorias = Categoria.objects.all()
 
     plato_sel = None
@@ -36,6 +43,7 @@ def administrador(request):
 
     return render(request, 'administrador/administrador.html', {
         'insumos': insumos,
+        'movimientos': movimientos,
         'platos': platos,
         'categorias': categorias,
         'plato_sel': plato_sel,
@@ -57,7 +65,7 @@ def categoria_crear(request):
         else:
             Categoria.objects.create(nombre=nombre, orden=Categoria.objects.count() + 1)
             messages.success(request, f'Categoría "{nombre}" creada.')
-    return redirect('inventario:administrador')
+    return redirect('/administrador/#inventario')
 
 
 @login_required
@@ -127,13 +135,16 @@ def plato_crear(request):
 def plato_editar(request, pk):
     plato = get_object_or_404(Plato, pk=pk)
     if request.method == 'POST':
+        insumo_relacionado = Insumo.objects.filter(nombre__iexact=plato.nombre).first()
         categoria_id = request.POST.get('categoria')
         nombre = request.POST.get('nombre', plato.nombre).strip() or plato.nombre
         descripcion = request.POST.get('descripcion', plato.descripcion).strip()
         precio = _to_decimal(request.POST.get('precio'))
         if categoria_id:
             plato.categoria = get_object_or_404(Categoria, pk=categoria_id)
-        if precio is not None and precio > 0:
+        if insumo_relacionado is not None:
+            plato.precio = insumo_relacionado.precio
+        elif precio is not None and precio > 0:
             plato.precio = precio
         plato.nombre = nombre
         plato.descripcion = descripcion
@@ -164,6 +175,8 @@ def insumo_crear(request):
         unidad = request.POST.get('unidad', 'unidad')
         stock_actual = _to_decimal(request.POST.get('stock_actual'), Decimal('0'))
         stock_minimo = _to_decimal(request.POST.get('stock_minimo'), Decimal('0'))
+        stock_maximo = _to_decimal(request.POST.get('stock_maximo'), Decimal('0'))
+        costo = _to_decimal(request.POST.get('costo'), Decimal('0'))
         precio = _to_decimal(request.POST.get('precio'), Decimal('0'))
         categoria_id = request.POST.get('categoria')
         categoria = None
@@ -180,10 +193,18 @@ def insumo_crear(request):
                 unidad=unidad,
                 stock_actual=stock_actual or Decimal('0'),
                 stock_minimo=stock_minimo or Decimal('0'),
+                stock_maximo=stock_maximo or Decimal('0'),
+                costo=costo or Decimal('0'),
                 precio=precio or Decimal('0'),
                 disponible=True,
                 activo=True,
             )
+            if insumo.stock_actual > 0:
+                from .services import _registrar_movimiento
+                _registrar_movimiento(
+                    insumo, 'entrada', insumo.stock_actual, Decimal('0'), insumo.stock_actual,
+                    usuario=request.user, motivo='Inventario inicial',
+                )
             messages.success(request, f'Insumo "{nombre}" creado y sincronizado con la carta.')
     return redirect('inventario:administrador')
 
@@ -197,21 +218,66 @@ def insumo_editar(request, pk):
         insumo.unidad = request.POST.get('unidad', insumo.unidad)
         stock_actual = _to_decimal(request.POST.get('stock_actual'))
         stock_minimo = _to_decimal(request.POST.get('stock_minimo'))
+        stock_maximo = _to_decimal(request.POST.get('stock_maximo'))
+        costo = _to_decimal(request.POST.get('costo'))
         precio = _to_decimal(request.POST.get('precio'))
         categoria_id = request.POST.get('categoria')
         if peso := request.POST.get('categoria'):
             insumo.categoria = get_object_or_404(Categoria, pk=peso)
         if stock_actual is not None:
+            stock_anterior = insumo.stock_actual
             insumo.stock_actual = stock_actual
+        else:
+            stock_anterior = insumo.stock_actual
         if stock_minimo is not None:
             insumo.stock_minimo = stock_minimo
+        if stock_maximo is not None:
+            insumo.stock_maximo = stock_maximo
+        if costo is not None:
+            insumo.costo = costo
         if precio is not None:
             insumo.precio = precio
         insumo.activo = request.POST.get('activo') == 'on'
         insumo.disponible = insumo.activo
         insumo.save()
+        if stock_actual is not None and stock_actual != stock_anterior:
+            from .services import _registrar_movimiento
+            tipo = 'entrada' if stock_actual > stock_anterior else 'salida'
+            _registrar_movimiento(
+                insumo,
+                tipo,
+                abs(stock_actual - stock_anterior),
+                stock_anterior,
+                stock_actual,
+                usuario=request.user,
+                motivo='Ajuste manual del inventario',
+            )
         messages.success(request, f'Insumo "{insumo.nombre}" actualizado.')
     return redirect('inventario:administrador')
+
+
+@login_required
+@user_passes_test(_es_admin)
+def movimiento_crear(request):
+    if request.method == 'POST':
+        insumo = get_object_or_404(Insumo, pk=request.POST.get('insumo_id'))
+        tipo = request.POST.get('tipo')
+        cantidad = _to_decimal(request.POST.get('cantidad'))
+        motivo = request.POST.get('motivo', '').strip()
+        if tipo not in dict(MovimientoInventario.TIPO_CHOICES) or cantidad is None or cantidad <= 0:
+            messages.error(request, 'Selecciona un tipo y una cantidad válida.')
+        else:
+            stock_anterior = insumo.stock_actual
+            stock_posterior = stock_anterior + cantidad if tipo == 'entrada' else stock_anterior - cantidad
+            insumo.stock_actual = stock_posterior
+            insumo.save(update_fields=['stock_actual', 'actualizado_en'])
+            from .services import _registrar_movimiento
+            _registrar_movimiento(
+                insumo, tipo, cantidad, stock_anterior, stock_posterior,
+                usuario=request.user, motivo=motivo or 'Movimiento manual',
+            )
+            messages.success(request, f'Movimiento registrado para "{insumo.nombre}".')
+    return redirect('/administrador/#inventario')
 
 
 @login_required

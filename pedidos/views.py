@@ -63,10 +63,12 @@ def _rol_permitido(*roles):
 @user_passes_test(_rol_permitido('mesera'))
 def mesera(request):
     productos = Plato.objects.filter(disponible=True).select_related('categoria').order_by('categoria__orden', 'categoria__nombre', 'nombre')
+    categorias = Categoria.objects.filter(platos__disponible=True).distinct().order_by('orden', 'nombre')
     turno = get_turno_abierto()
     mesas = mesas_del_turno(turno) if turno else Mesa.objects.none()
     return render(request, 'mesera/mesera.html', {
         'productos': productos,
+        'categorias': categorias,
         'mesas': mesas,
         'turno': turno,
     })

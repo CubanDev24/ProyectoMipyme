@@ -115,6 +115,21 @@
             </div>
             <div class="turn-user-actions">
               <span class="turn-user-status {% if usuario.is_active %}is-active{% endif %}">{{ usuario.is_active|yesno:"Activo,Inactivo" }}</span>
+              <details class="turn-user-edit">
+                <summary class="btn btn-outline btn-sm"><i class="fa-solid fa-pen"></i> Editar</summary>
+                <form method="post" action="{% url 'usuarios:editar_usuario' usuario.id %}" class="turn-user-edit-form">
+                  {% csrf_token %}
+                  <div><label>Nombre</label><input type="text" name="first_name" value="{{ usuario.first_name }}" class="admin-input" required disabled></div>
+                  <div><label>Apellidos</label><input type="text" name="last_name" value="{{ usuario.last_name }}" class="admin-input" required disabled></div>
+                  <div><label>Usuario</label><input type="text" name="username" value="{{ usuario.username }}" class="admin-input" required disabled></div>
+                  <div><label>Correo</label><input type="email" name="email" value="{{ usuario.email }}" class="admin-input" disabled></div>
+                  <div><label>Teléfono</label><input type="text" name="telefono" value="{{ usuario.telefono }}" class="admin-input" disabled></div>
+                  <div><label>Rol</label><select name="role" class="admin-input" required disabled>{% for value, label in usuario.ROLE_CHOICES %}<option value="{{ value }}" {% if usuario.role == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></div>
+                  <div class="turn-user-password-status"><label>Contraseña actual</label><span>•••••••• · protegida</span></div>
+                  <div class="turn-user-password-field"><label for="user-password-{{ usuario.id }}">Nueva contraseña</label><div class="turn-user-password-input"><input id="user-password-{{ usuario.id }}" type="password" name="password" placeholder="Dejar vacía para conservarla" autocomplete="new-password" class="admin-input" disabled><button type="button" class="password-toggle" data-toggle-password="user-password-{{ usuario.id }}" aria-label="Mostrar contraseña"><i class="fa-solid fa-eye"></i></button></div></div>
+                  <div class="turn-user-edit-actions"><button type="button" class="btn btn-outline btn-sm" data-enable-user-edit><i class="fa-solid fa-pen"></i> Editar datos</button><button type="submit" class="btn btn-primary btn-sm" data-save-user-edit disabled><i class="fa-solid fa-floppy-disk"></i> Guardar cambios</button></div>
+                </form>
+              </details>
               {% if usuario != request.user %}
                 <form method="post" action="{% url 'usuarios:cambiar_estado_usuario' usuario.id %}">
                   {% csrf_token %}
@@ -175,6 +190,28 @@
     </div>
   </main>
   <div id="toast-container" class="toast-container"></div>
+  <script>
+    document.querySelectorAll('.turn-user-edit-form').forEach(form => {
+      const fields = form.querySelectorAll('input:not([type="hidden"]), select');
+      const editButton = form.querySelector('[data-enable-user-edit]');
+      const saveButton = form.querySelector('[data-save-user-edit]');
+      editButton.addEventListener('click', () => {
+        fields.forEach(field => { field.disabled = false; });
+        editButton.hidden = true;
+        saveButton.disabled = false;
+        fields[0].focus();
+      });
+    });
+    document.querySelectorAll('[data-toggle-password]').forEach(button => {
+      button.addEventListener('click', () => {
+        const field = document.getElementById(button.dataset.togglePassword);
+        const visible = field.type === 'text';
+        field.type = visible ? 'password' : 'text';
+        button.setAttribute('aria-label', visible ? 'Mostrar contraseña' : 'Ocultar contraseña');
+        button.innerHTML = `<i class="fa-solid fa-eye${visible ? '' : '-slash'}"></i>`;
+      });
+    });
+  </script>
   <script>
     function actualizarReloj() { document.getElementById('clock-display').textContent = new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}); }
     actualizarReloj();

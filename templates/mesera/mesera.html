@@ -53,12 +53,12 @@
             <!-- Info Mesera -->
             <div class="p-4 border-b border-slate-800/50 hidden lg:flex items-center gap-3 bg-slate-900/40">
                 <div class="relative">
-                    <img src="https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&q=80&w=120" alt="Mesera" class="w-10 h-10 rounded-full object-cover border-2 border-emerald-500">
+                    <div class="w-10 h-10 rounded-full bg-emerald-500/15 border-2 border-emerald-500 flex items-center justify-center text-emerald-400"><i class="fa-solid fa-user"></i></div>
                     <span class="absolute bottom-0 right-0 w-3 h-3 bg-emerald-500 border-2 border-slate-950 rounded-full"></span>
                 </div>
                 <div>
                     <p class="text-sm font-semibold text-white leading-tight">{{ request.user.get_full_name|default:request.user.username }}</p>
-                    <p class="text-xs text-emerald-400 font-medium">Zona Principal (Piso 1)</p>
+                    <p class="text-xs text-emerald-400 font-medium">Sesión activa</p>
                 </div>
             </div>
 
@@ -86,15 +86,6 @@
 
         <!-- Botón Salir / Resumen -->
         <div class="p-3 border-t border-slate-800/80">
-            <div class="hidden lg:block p-3 rounded-xl bg-slate-900 border border-slate-800 mb-3">
-                <div class="flex justify-between text-xs text-slate-400 mb-1">
-                    <span>Ventas del Turno</span>
-                    <span class="font-bold text-emerald-400" id="shift-sales">$0.00</span>
-                </div>
-                <div class="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden">
-                    <div class="bg-emerald-500 h-full w-2/3"></div>
-                </div>
-            </div>
             <a href="{% url 'usuarios:logout' %}" class="w-full flex items-center justify-center lg:justify-start gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold text-rose-400 hover:bg-rose-500/10 transition-all">
                 <i class="fa-solid fa-right-from-bracket text-base"></i>
                 <span class="hidden lg:inline">Cerrar sesión</span>
@@ -111,7 +102,7 @@
                 <h2 id="page-title" class="text-lg font-bold text-white flex items-center gap-2">
                     <i class="fa-solid fa-chair text-emerald-400"></i> Vista del Salón
                 </h2>
-                <span class="text-xs bg-slate-800 text-slate-300 px-2.5 py-1 rounded-full border border-slate-700 font-medium" id="clock-display">12:00 PM</span>
+                <span class="text-xs bg-slate-800 text-slate-300 px-2.5 py-1 rounded-full border border-slate-700 font-medium" id="clock-display"></span>
             </div>
 
             <!-- Estadísticas rápidas superiores -->
@@ -226,14 +217,14 @@
             <div class="p-4 md:p-6 border-b border-slate-800 bg-slate-950 flex items-center justify-between">
                 <div class="flex items-center gap-3">
                     <div id="modal-table-badge" class="w-12 h-12 rounded-2xl bg-emerald-500/20 text-emerald-400 font-extrabold text-xl flex items-center justify-center border border-emerald-500/30">
-                        M1
+                        —
                     </div>
                     <div>
                         <div class="flex items-center gap-2">
-                            <h3 class="font-bold text-lg text-white" id="modal-table-name">Mesa 01</h3>
-                            <span id="modal-table-status" class="px-2 py-0.5 rounded-md text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">Libre</span>
+                            <h3 class="font-bold text-lg text-white" id="modal-table-name">Sin mesa seleccionada</h3>
+                            <span id="modal-table-status" class="px-2 py-0.5 rounded-md text-xs font-semibold bg-slate-800 text-slate-400 border border-slate-700">—</span>
                         </div>
-                        <p class="text-xs text-slate-400" id="modal-table-info">Capacidad: 4 personas • Zona Terraza</p>
+                        <p class="text-xs text-slate-400" id="modal-table-info">Selecciona una mesa para ver sus datos</p>
                     </div>
                 </div>
 
@@ -257,10 +248,9 @@
                         <!-- Filtro Categorial -->
                         <select id="category-filter" onchange="filterMenuCategory(this.value)" class="bg-slate-950 border border-slate-800 text-xs text-slate-300 rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-emerald-500">
                             <option value="all">Todas las Categorías</option>
-                            <option value="Entradas">Entradas</option>
-                            <option value="Fuertes">Platos Fuertes</option>
-                            <option value="Bebidas">Bebidas</option>
-                            <option value="Postres">Postres</option>
+                            {% for categoria in categorias %}
+                            <option value="{{ categoria.nombre|escapejs }}">{{ categoria.nombre }}</option>
+                            {% endfor %}
                         </select>
                     </div>
 
@@ -391,36 +381,15 @@
 
     <!-- JAVASCRIPT LOGIC -->
     <script>
-        // DATOS DE EJEMPLO
         const menuItems = [
             {% for producto in productos %}
             { id: {{ producto.id }}, name: "{{ producto.nombre|escapejs }}", category: "{{ producto.categoria.nombre|default:'General'|escapejs }}", price: {{ producto.precio|default:0|unlocalize }}, icon: "fa-utensils", desc: "{{ producto.categoria.nombre|default:'Disponible'|escapejs }}" }{% if not forloop.last %},{% endif %}
-            {% empty %}
-            { id: 1, name: "Hamburguesa Gourmet", category: "Fuertes", price: 14.50, icon: "fa-burger", desc: "Carne Angus 200g, queso cheddar y papas" },
-            { id: 2, name: "Pizza Napolitana", category: "Fuertes", price: 16.00, icon: "fa-pizza-slice", desc: "Salsa de tomate casera, mozzarella y albahaca" },
-            { id: 3, name: "Tacos al Pastor (3 pzs)", category: "Fuertes", price: 11.00, icon: "fa-pepper-hot", desc: "Con piña, cilantro y cebolla" },
-            { id: 4, name: "Ensalada César", category: "Entradas", price: 9.50, icon: "fa-bowl-food", desc: "Pollo a la parrilla, crotones y aderezo césar" },
-            { id: 5, name: "Nachos Supremos", category: "Entradas", price: 10.00, icon: "fa-cheese", desc: "Con queso fundido, guacamole y jalapeños" },
-            { id: 6, name: "Limonada Menta / Jengibre", category: "Bebidas", price: 4.50, icon: "fa-glass-water", desc: "Refrescante bebida natural" },
-            { id: 7, name: "Cerveza Artesanal IPA", category: "Bebidas", price: 6.00, icon: "fa-beer-mug-empty", desc: "Botella 330ml de la casa" },
-            { id: 8, name: "Vino Tinto Malbec", category: "Bebidas", price: 8.00, icon: "fa-wine-glass", desc: "Copa 150ml" },
-            { id: 9, name: "Tiramisú Clásico", category: "Postres", price: 6.50, icon: "fa-cake-candles", desc: "Receta tradicional italiana" },
-            { id: 10, name: "Volcán de Chocolate", category: "Postres", price: 7.00, icon: "fa-ice-cream", desc: "Con helado de vainilla" }
             {% endfor %}
         ];
 
         let tables = [
             {% for mesa in mesas %}
-            { id: {{ mesa.id }}, numero: {{ mesa.numero }}, name: "Mesa {{ mesa.numero }}", seats: 4, zone: "Salón Principal", status: "{% if mesa.abierta %}ocupada{% else %}libre{% endif %}", order: [], timeStarted: null }{% if not forloop.last %},{% endif %}
-            {% empty %}
-            { id: 1, name: "Mesa 01", seats: 2, zone: "Terraza", status: "libre", order: [], timeStarted: null },
-            { id: 2, name: "Mesa 02", seats: 4, zone: "Salón Principal", status: "ocupada", order: [{ itemId: 1, qty: 2, note: "Sin cebolla" }, { itemId: 6, qty: 2, note: "" }], timeStarted: "12:15 PM" },
-            { id: 3, name: "Mesa 03", seats: 4, zone: "Salón Principal", status: "libre", order: [], timeStarted: null },
-            { id: 4, name: "Mesa 04", seats: 6, zone: "VIP", status: "limpieza", order: [], timeStarted: null },
-            { id: 5, name: "Mesa 05", seats: 2, zone: "Terraza", status: "ocupada", order: [{ itemId: 2, qty: 1, note: "Bien cocida" }, { itemId: 7, qty: 2, note: "" }], timeStarted: "12:30 PM" },
-            { id: 6, name: "Mesa 06", seats: 8, zone: "VIP", status: "libre", order: [], timeStarted: null },
-            { id: 7, name: "Mesa 07", seats: 4, zone: "Barra", status: "libre", order: [], timeStarted: null },
-            { id: 8, name: "Mesa 08", seats: 2, zone: "Barra", status: "ocupada", order: [{ itemId: 4, qty: 1, note: "" }, { itemId: 8, qty: 1, note: "" }], timeStarted: "12:45 PM" }
+            { id: {{ mesa.id }}, numero: {{ mesa.numero }}, name: "Mesa {{ mesa.numero }}", status: "{% if mesa.abierta %}ocupada{% else %}libre{% endif %}", order: [], pedidos: [] }{% if not forloop.last %},{% endif %}
             {% endfor %}
         ];
 
@@ -681,7 +650,7 @@
                             </div>
                             <div>
                                 <h4 class="font-bold text-base text-white">${t.name}</h4>
-                                <span class="text-xs text-slate-400 font-medium">${t.zone} • ${t.seats} Pers.</span>
+                                <span class="text-xs text-slate-400 font-medium">${t.order.length} pedidos</span>
                             </div>
                         </div>
                         ${statusBadge}
@@ -700,7 +669,7 @@
                             <div class="bg-slate-950/60 rounded-xl p-3 border border-slate-800/80">
                                 <div class="flex justify-between text-xs text-slate-400 mb-1">
                                     <span>Platillos: <strong>${t.order.reduce((acc, i) => acc + i.qty, 0)}</strong></span>
-                                    <span>Inicio: <strong>${t.timeStarted || 'Hace poco'}</strong></span>
+                                    <span><strong>${t.order.length} pedidos registrados</strong></span>
                                 </div>
                                 <div class="flex justify-between text-sm font-bold text-white">
                                     <span>Total:</span>
@@ -799,8 +768,8 @@
             // Info Básica Modal
             document.getElementById('modal-table-badge').textContent = table.name.split(' ')[1];
             document.getElementById('modal-table-name').textContent = table.name;
-            document.getElementById('modal-table-info').textContent = `Capacidad: ${table.seats} personas • Zona ${table.zone}`;
-            document.getElementById('modal-order-time').textContent = table.timeStarted || 'Reciente';
+            document.getElementById('modal-table-info').textContent = 'Datos de la mesa registrados en el sistema';
+            document.getElementById('modal-order-time').textContent = '';
 
             const statusEl = document.getElementById('modal-table-status');
             const cuentaSolicitada = (table.pedidos || []).some(pedido => pedido.cuenta_solicitada);
@@ -998,7 +967,7 @@
                             <span class="font-bold text-white text-xs">${ord.qty}</span>
                             ${ord.pedidoId ? '' : `<button onclick="updateOrderQty(${item.id}, 1)" class="text-slate-400 hover:text-emerald-400"><i class="fa-solid fa-plus text-[10px]"></i></button>`}
                         </div>
-                        <input type="text" placeholder="Nota (Ej: Sin cebolla)" value="${ord.note}" onchange="updateOrderNote(${item.id}, this.value)" class="bg-slate-950 border border-slate-800 text-[10px] text-slate-300 rounded px-2 py-1 focus:outline-none focus:border-emerald-500 w-32">
+                        <input type="text" placeholder="Nota del pedido" value="${ord.note}" onchange="updateOrderNote(${item.id}, this.value)" class="bg-slate-950 border border-slate-800 text-[10px] text-slate-300 rounded px-2 py-1 focus:outline-none focus:border-emerald-500 w-32">
                     </div>
                     ${ord.pedidoId && ord.estado === 'listo' ? `<button type="button" onclick="marcarServidoMesera(${ord.pedidoId})" class="w-full rounded-lg bg-sky-500/10 border border-sky-500/20 text-sky-300 hover:bg-sky-500 hover:text-slate-950 py-1.5 text-[10px] font-bold transition-all"><i class="fa-solid fa-hand-holding-heart"></i> Marcar servido</button>` : ''}
                 `;
@@ -1149,7 +1118,7 @@
                             <span class="w-8 h-8 rounded-lg bg-emerald-500/20 text-emerald-400 font-bold flex items-center justify-center text-sm">${t.name.split(' ')[1]}</span>
                             <h4 class="font-bold text-white text-sm">${t.name}</h4>
                         </div>
-                        <span class="text-xs text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20"><i class="fa-solid fa-clock"></i> ${t.timeStarted || 'En curso'}</span>
+                        <span class="text-xs text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20"><i class="fa-solid fa-list"></i> ${t.order.length} pedidos</span>
                     </div>
                     <div class="space-y-1.5 max-h-40 overflow-y-auto">
                         ${orderListHtml}
