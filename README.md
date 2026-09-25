@@ -105,5 +105,14 @@ con el botón **Imprimir QR**.
 
 
 ## por hacer:
--  Falta EL IPV solamente
-- 
+- no funciona el boton de llamar a la mesera 
+- pedir agregos a un plato
+- modificar la comanda para cancelar algun pedido, actualizar 
+- agregar sessions coquies 
+- modificar la creacion e usuarios por parte del admin y agregar usuarios al turno
+- que las notas de un pedido le salgan a la mesara y a la cocina asi como al cliente junto con el plato
+- que a ;a cajera le salga un resumen de todos los pedidos hechos en el dia 
+- la parte de la captura de pantalla del pago al recibir un pago en transferencia
+- que salgan bien los precios de todos los platos al cliente y la mesera 
+- que salga el historial depedidos
+- que se pueda modificar las imagenes del inventario 

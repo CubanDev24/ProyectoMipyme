@@ -96,11 +96,33 @@
         <select id="crear-usuario-role" name="role" required class="admin-input">
           <option value="" disabled selected>Seleccionar rol</option>
           {% for value, label in user.ROLE_CHOICES %}
-            {% if value != 'administrador' %}<option value="{{ value }}">{{ label }}</option>{% endif %}
+            <option value="{{ value }}">{{ label }}</option>
           {% endfor %}
         </select>
         <button type="submit" class="btn btn-primary btn-sm turn-action-btn"><i class="fa-solid fa-plus" aria-hidden="true"></i> Crear usuario</button>
       </form>
+      <div class="turn-user-list">
+        <p class="panel-kicker">Usuarios registrados</p>
+        {% for usuario in usuarios %}
+          <div class="turn-user-row">
+            <div>
+              <strong>{{ usuario.username }}</strong>
+              <span>{{ usuario.get_role_display }}</span>
+            </div>
+            <div class="turn-user-actions">
+              <span class="turn-user-status {% if usuario.is_active %}is-active{% endif %}">{{ usuario.is_active|yesno:"Activo,Inactivo" }}</span>
+              {% if usuario != request.user %}
+                <form method="post" action="{% url 'usuarios:cambiar_estado_usuario' usuario.id %}">
+                  {% csrf_token %}
+                  <button type="submit" class="btn btn-sm {% if usuario.is_active %}btn-orange{% else %}btn-primary{% endif %}">{{ usuario.is_active|yesno:"Desactivar,Activar" }}</button>
+                </form>
+              {% endif %}
+            </div>
+          </div>
+        {% empty %}
+          <div class="turn-empty"><span>No hay usuarios registrados.</span></div>
+        {% endfor %}
+      </div>
     </section>
 
     <section class="admin-card turn-dashboard-card turn-action-card" aria-labelledby="historial-heading">

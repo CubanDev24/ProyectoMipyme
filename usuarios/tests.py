@@ -1,6 +1,7 @@
 from decimal import Decimal
 
 from django.test import RequestFactory, TestCase
+from django.urls import reverse
 
 from carta.models import Categoria, Plato
 from pedidos.models import Factura, Mesa, Pedido
@@ -191,3 +192,30 @@ class UsuarioTurnoTests(TestCase):
         self.assertContains(response, 'Detalle del turno')
         self.assertContains(response, 'IPV')
         self.assertContains(response, '400.00')
+
+    def test_admin_puede_crear_usuario_con_rol_y_password_autenticable(self):
+        self.client.force_login(self.admin)
+
+        response = self.client.post(reverse('usuarios:crear_usuario'), {
+            'username': 'cocina_nueva',
+            'password': 'clave-segura-123',
+            'role': 'cocina',
+        })
+
+        self.assertRedirects(response, reverse('usuarios:dashboard'))
+        usuario = Usuario.objects.get(username='cocina_nueva')
+        self.assertEqual(usuario.role, 'cocina')
+        self.assertTrue(usuario.is_active)
+        self.assertTrue(usuario.check_password('clave-segura-123'))
+        self.assertTrue(self.client.login(username='cocina_nueva', password='clave-segura-123'))
+
+    def test_admin_puede_desactivar_usuario_y_se_bloquea_su_login(self):
+        self.client.force_login(self.admin)
+
+        response = self.client.post(reverse('usuarios:cambiar_estado_usuario', args=[self.mesera.pk]))
+
+        self.assertRedirects(response, reverse('usuarios:dashboard'))
+        self.mesera.refresh_from_db()
+        self.assertFalse(self.mesera.is_active)
+        self.assertFalse(self.mesera.activo)
+        self.assertFalse(self.client.login(username='mesera1', password='123456'))

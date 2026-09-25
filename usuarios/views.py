@@ -43,9 +43,11 @@ def login_view(request):
 def dashboard(request):
     turno = get_turno_abierto()
     notificaciones = Notificacion.objects.filter(destinatario=request.user).order_by('-creada_en')[:10]
+    usuarios = Usuario.objects.order_by('role', 'username') if request.user.role == 'administrador' else []
     return render(request, 'usuarios/dashboard.html', {
         'turno': turno,
         'notificaciones': notificaciones,
+        'usuarios': usuarios,
     })
 
 
@@ -73,8 +75,28 @@ def crear_usuario(request):
         messages.error(request, f'El usuario {username} ya existe.')
         return redirect('usuarios:dashboard')
 
-    Usuario.objects.create_user(username=username, password=password, role=role)
-    messages.success(request, f'Usuario {username} creado con rol {role}.')
+    Usuario.objects.create_user(username=username, password=password, role=role, is_active=True, activo=True)
+    messages.success(request, f'Usuario {username} creado con rol {dict(Usuario.ROLE_CHOICES)[role]}.')
+    return redirect('usuarios:dashboard')
+
+
+@login_required
+@require_http_methods(['POST'])
+def cambiar_estado_usuario(request, user_id):
+    if request.user.role != 'administrador':
+        messages.error(request, 'Solo el administrador puede gestionar usuarios.')
+        return redirect('usuarios:dashboard')
+
+    usuario = get_object_or_404(Usuario, pk=user_id)
+    if usuario == request.user:
+        messages.error(request, 'No puedes desactivar tu propio usuario.')
+        return redirect('usuarios:dashboard')
+
+    usuario.is_active = not usuario.is_active
+    usuario.activo = usuario.is_active
+    usuario.save(update_fields=['is_active', 'activo'])
+    estado = 'activado' if usuario.is_active else 'desactivado'
+    messages.success(request, f'Usuario {usuario.username} {estado}.')
     return redirect('usuarios:dashboard')
 
 
