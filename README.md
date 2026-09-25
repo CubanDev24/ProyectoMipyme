@@ -116,3 +116,4 @@ con el botón **Imprimir QR**.
 - que salgan bien los precios de todos los platos al cliente y la mesera 
 - que salga el historial depedidos
 - que se pueda modificar las imagenes del inventario 
+dcdc
