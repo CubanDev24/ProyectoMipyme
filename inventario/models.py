@@ -1,6 +1,7 @@
 from decimal import Decimal
 from django.db import models
 from carta.models import Categoria, Plato
+from django.conf import settings
 
 
 class Insumo(models.Model):
@@ -17,6 +18,8 @@ class Insumo(models.Model):
     unidad = models.CharField(max_length=10, choices=UNIDAD_CHOICES, default='unidad')
     stock_actual = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0'))
     stock_minimo = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0'))
+    stock_maximo = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0'))
+    costo = models.DecimalField(max_digits=8, decimal_places=2, default=Decimal('0'))
     precio = models.DecimalField(max_digits=8, decimal_places=2, default=Decimal('0'))
     disponible = models.BooleanField(default=True)
     activo = models.BooleanField(default=True)
@@ -68,6 +71,51 @@ class Insumo(models.Model):
     @property
     def stock_bajo(self):
         return self.stock_actual <= self.stock_minimo
+
+
+class MovimientoInventario(models.Model):
+    TIPO_CHOICES = [
+        ('entrada', 'Entrada'),
+        ('salida', 'Salida'),
+    ]
+
+    insumo = models.ForeignKey(
+        Insumo,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='movimientos',
+    )
+    producto_nombre = models.CharField(max_length=150)
+    categoria_nombre = models.CharField(max_length=150, blank=True, default='Sin categoría')
+    tipo = models.CharField(max_length=10, choices=TIPO_CHOICES)
+    cantidad = models.DecimalField(max_digits=10, decimal_places=2)
+    stock_anterior = models.DecimalField(max_digits=10, decimal_places=2)
+    stock_posterior = models.DecimalField(max_digits=10, decimal_places=2)
+    unidad = models.CharField(max_length=10, blank=True, default='unidad')
+    usuario = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='movimientos_inventario',
+    )
+    motivo = models.CharField(max_length=200, blank=True, default='')
+    creado_en = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-creado_en']
+        verbose_name = 'Movimiento de inventario'
+        verbose_name_plural = 'Movimientos de inventario'
+
+    def __str__(self):
+        return f'{self.get_tipo_display()} de {self.producto_nombre} ({self.cantidad})'
+
+    @property
+    def responsable_nombre(self):
+        if self.usuario is None:
+            return 'Sistema'
+        return self.usuario.get_full_name() or self.usuario.username
 
 
 class RecetaItem(models.Model):

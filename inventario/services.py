@@ -1,7 +1,25 @@
-from .models import RecetaItem
+from django.db import transaction
+
+from .models import MovimientoInventario, RecetaItem
 
 
-def descontar_inventario_por_pedido(pedido):
+def _registrar_movimiento(insumo, tipo, cantidad, stock_anterior, stock_posterior, usuario=None, motivo=''):
+    MovimientoInventario.objects.create(
+        insumo=insumo,
+        producto_nombre=insumo.nombre,
+        categoria_nombre=insumo.categoria.nombre if insumo.categoria else 'Sin categoría',
+        tipo=tipo,
+        cantidad=cantidad,
+        stock_anterior=stock_anterior,
+        stock_posterior=stock_posterior,
+        unidad=insumo.unidad,
+        usuario=usuario if getattr(usuario, 'is_authenticated', False) else None,
+        motivo=motivo,
+    )
+
+
+@transaction.atomic
+def descontar_inventario_por_pedido(pedido, usuario=None):
     """
     Descuenta del inventario los insumos usados por cada plato del pedido,
     según la receta configurada por el administrador.
@@ -23,8 +41,18 @@ def descontar_inventario_por_pedido(pedido):
         for receta in recetas:
             insumo = receta.insumo
             consumo = receta.cantidad * item.cantidad
-            insumo.stock_actual = insumo.stock_actual - consumo
+            stock_anterior = insumo.stock_actual
+            insumo.stock_actual = stock_anterior - consumo
             insumo.save(update_fields=['stock_actual', 'actualizado_en'])
+            _registrar_movimiento(
+                insumo,
+                'salida',
+                consumo,
+                stock_anterior,
+                insumo.stock_actual,
+                usuario=usuario,
+                motivo=f'Pedido #{pedido.pk} servido',
+            )
 
             if insumo.stock_actual < 0:
                 alertas.append({

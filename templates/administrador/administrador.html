@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-{% load static %}
+{% load static l10n %}
 <html lang="es">
 <head>
   <meta charset="UTF-8">
@@ -46,7 +46,7 @@
         {% for plato in platos %}
         <article class="carta-admin-item">
           <div class="carta-admin-image">{% if plato.imagen %}<img src="{{ plato.imagen.url }}" alt="{{ plato.nombre }}">{% else %}<i class="fa-solid fa-utensils"></i>{% endif %}</div>
-          <div class="carta-admin-content"><div class="carta-admin-topline"><div><p class="carta-admin-category">{{ plato.categoria.nombre }}</p><h3>{{ plato.nombre }}</h3></div><span class="carta-admin-price">{{ plato.precio }} <small>CUP</small></span></div><p class="carta-admin-description">{{ plato.descripcion|default:'Sin descripción registrada.' }}</p><div class="carta-admin-footer"><span class="carta-availability {% if not plato.disponible %}carta-unavailable{% endif %}"><span></span>{% if plato.disponible %}Disponible{% else %}No disponible{% endif %}</span><button type="button" class="btn btn-outline btn-sm" data-edit-plato data-id="{{ plato.pk }}" data-name="{{ plato.nombre|escapejs }}" data-category="{{ plato.categoria_id }}" data-price="{{ plato.precio }}" data-description="{{ plato.descripcion|escapejs }}" data-available="{% if plato.disponible %}true{% else %}false{% endif %}" data-image="{% if plato.imagen %}{{ plato.imagen.url }}{% endif %}"><i class="fa-solid fa-pen"></i> Editar producto</button></div></div>
+          <div class="carta-admin-content"><div class="carta-admin-topline"><div><p class="carta-admin-category">{{ plato.categoria.nombre }}</p><h3>{{ plato.nombre }}</h3></div><span class="carta-admin-price">{{ plato.precio_inventario|default:plato.precio|floatformat:2 }} <small>CUP</small></span></div><p class="carta-admin-description">{{ plato.descripcion|default:'Sin descripción registrada.' }}</p><div class="carta-admin-footer"><span class="carta-availability {% if not plato.disponible %}carta-unavailable{% endif %}"><span></span>{% if plato.disponible %}Disponible{% else %}No disponible{% endif %}</span><button type="button" class="btn btn-outline btn-sm" data-edit-plato data-id="{{ plato.pk }}" data-name="{{ plato.nombre|escapejs }}" data-category="{{ plato.categoria_id }}" data-price="{{ plato.precio_inventario|default:plato.precio|floatformat:2|unlocalize }}" data-description="{{ plato.descripcion|escapejs }}" data-available="{% if plato.disponible %}true{% else %}false{% endif %}" data-image="{% if plato.imagen %}{{ plato.imagen.url }}{% endif %}"><i class="fa-solid fa-pen"></i> Editar producto</button></div></div>
         </article>
         {% empty %}<div class="admin-empty">Todavía no hay platos registrados.</div>{% endfor %}
       </div>
@@ -91,78 +91,74 @@
     </div>
 
     <div id="admin-view-configuracion" class="admin-view">
-    <!-- ── INSUMOS / INVENTARIO ─────────────────────────────── -->
-    <section class="admin-card">
-      <h2>Inventario — Insumos</h2>
-      <p class="admin-hint">Registra aquí los productos que se controlan por stock (ingredientes, bebidas embotelladas, etc). El inventario se descuenta automáticamente cuando la mesera marca un pedido como servido.</p>
-
-      <form method="post" action="{% url 'inventario:insumo_crear' %}" class="admin-form-row">
+    <section class="admin-card categoria-panel">
+      <div class="turn-card-heading"><div class="turn-section-icon"><i class="fa-solid fa-tags"></i></div><div><p class="panel-kicker">Clasificación</p><h2>Nueva categoría</h2></div></div>
+      <form method="post" action="{% url 'inventario:categoria_crear' %}" class="categoria-create-form">
         {% csrf_token %}
-        <input type="text" name="nombre" placeholder="Nombre del producto" required class="admin-input" style="flex:2">
-        <select name="categoria" class="admin-input">
-          <option value="">— Categoría —</option>
-          {% for c in categorias %}
-          <option value="{{ c.id }}">{{ c.nombre }}</option>
-          {% endfor %}
-        </select>
-        <select name="unidad" class="admin-input">
-          <option value="unidad">Unidad</option>
-          <option value="kg">Kilogramo</option>
-          <option value="g">Gramo</option>
-          <option value="l">Litro</option>
-          <option value="ml">Mililitro</option>
-        </select>
-        <input type="number" step="0.01" name="stock_actual" placeholder="Stock inicial" class="admin-input" style="width:120px">
-        <input type="number" step="0.01" name="stock_minimo" placeholder="Stock mínimo" class="admin-input" style="width:120px">
-        <input type="number" step="0.01" min="0" name="precio" placeholder="Precio" class="admin-input" style="width:110px">
-        <button type="submit" class="btn btn-primary" style="width:auto;flex:none;padding:.6rem 1rem">+ Agregar</button>
+        <label for="nueva-categoria" class="sr-only">Nombre de la categoría</label>
+        <input id="nueva-categoria" type="text" name="nombre" placeholder="Ej. Bebidas, Carnes, Postres" class="admin-input" required maxlength="100">
+        <button type="submit" class="btn btn-primary"><i class="fa-solid fa-plus"></i> Agregar categoría</button>
+      </form>
+    </section>
+
+    <!-- ── INSUMOS / INVENTARIO ─────────────────────────────── -->
+    <section class="admin-card inventario-panel" id="inventario">
+      <div class="turn-card-heading"><div class="turn-section-icon"><i class="fa-solid fa-boxes-stacked"></i></div><div><p class="panel-kicker">Control de existencias</p><h2>Inventario — Insumos</h2></div><span class="admin-section-count">{{ insumos|length }} productos</span></div>
+      <p class="admin-hint">Consulta costo, precio de venta y niveles de existencia. Los cambios manuales y las salidas por pedidos quedan registrados en el historial.</p>
+
+      <form method="post" action="{% url 'inventario:insumo_crear' %}" class="inventario-create-form">
+        {% csrf_token %}
+        <input type="text" name="nombre" placeholder="Nombre del producto" required class="admin-input">
+        <select name="categoria" class="admin-input"><option value="">Categoría</option>{% for c in categorias %}<option value="{{ c.id }}">{{ c.nombre }}</option>{% endfor %}</select>
+        <select name="unidad" class="admin-input"><option value="unidad">Unidad</option><option value="kg">Kilogramo</option><option value="g">Gramo</option><option value="l">Litro</option><option value="ml">Mililitro</option></select>
+        <input type="number" step="0.01" min="0" name="costo" placeholder="Costo" class="admin-input">
+        <input type="number" step="0.01" min="0" name="precio" placeholder="Precio venta" class="admin-input">
+        <input type="number" step="0.01" min="0" name="stock_actual" placeholder="Existencia" class="admin-input">
+        <input type="number" step="0.01" min="0" name="stock_minimo" placeholder="Mínimo" class="admin-input">
+        <input type="number" step="0.01" min="0" name="stock_maximo" placeholder="Máximo" class="admin-input">
+        <button type="submit" class="btn btn-primary"><i class="fa-solid fa-plus"></i> Agregar producto</button>
       </form>
 
+      <div class="inventario-toolbar">
+        <label class="inventario-search"><i class="fa-solid fa-magnifying-glass"></i><input id="inventario-search" type="search" placeholder="Buscar producto o categoría"></label>
+        <select id="inventario-stock-filter" class="admin-input"><option value="todos">Todos los estados</option><option value="bajo">Stock bajo</option><option value="normal">Stock normal</option></select>
+      </div>
       <div class="admin-table-wrap">
-        <table class="admin-table">
-          <thead>
-            <tr><th>Nombre</th><th>Unidad</th><th>Stock actual</th><th>Stock mínimo</th><th>Activo</th><th></th></tr>
-          </thead>
+        <table class="admin-table inventario-table" id="inventario-table">
+          <thead><tr><th>Producto</th><th>Categoría</th><th>Unidad</th><th>Costo</th><th>Precio venta</th><th>Existencia</th><th>Mínimo</th><th>Máximo</th><th>Estado</th><th>Acciones</th></tr></thead>
           <tbody>
             {% for i in insumos %}
-            <tr class="{% if i.stock_bajo %}admin-row-bajo{% endif %}">
-              <form method="post" action="{% url 'inventario:insumo_editar' i.pk %}">
-                {% csrf_token %}
+            <tr data-inventario-row data-search="{{ i.nombre|lower }} {{ i.categoria.nombre|default:'sin categoría'|lower }}" data-stock-state="{% if i.stock_bajo %}bajo{% else %}normal{% endif %}">
+              <form method="post" action="{% url 'inventario:insumo_editar' i.pk %}">{% csrf_token %}
                 <td><input type="text" name="nombre" value="{{ i.nombre }}" class="admin-input-inline"></td>
-                <td>
-                  <select name="categoria" class="admin-input-inline">
-                    <option value="">Sin categoría</option>
-                    {% for c in categorias %}
-                    <option value="{{ c.id }}" {% if i.categoria and i.categoria.id == c.id %}selected{% endif %}>{{ c.nombre }}</option>
-                    {% endfor %}
-                  </select>
-                </td>
-                <td>
-                  <select name="unidad" class="admin-input-inline">
-                    {% for val, label in i.UNIDAD_CHOICES %}
-                    <option value="{{ val }}" {% if i.unidad == val %}selected{% endif %}>{{ label }}</option>
-                    {% endfor %}
-                  </select>
-                </td>
-                <td><input type="number" step="0.01" name="stock_actual" value="{{ i.stock_actual }}" class="admin-input-inline" style="width:90px"></td>
-                <td><input type="number" step="0.01" name="stock_minimo" value="{{ i.stock_minimo }}" class="admin-input-inline" style="width:90px"></td>
-                <td><input type="number" step="0.01" min="0" name="precio" value="{{ i.precio }}" class="admin-input-inline" style="width:90px"></td>
-                <td style="text-align:center"><input type="checkbox" name="activo" {% if i.activo %}checked{% endif %}></td>
-                <td class="admin-actions">
-                  <button type="submit" class="btn btn-outline btn-sm">Guardar</button>
-              </form>
-              <form method="post" action="{% url 'inventario:insumo_eliminar' i.pk %}" onsubmit="return confirm('¿Eliminar {{ i.nombre|escapejs }}? Esto también borrará su receta asociada.');" style="display:inline">
-                {% csrf_token %}
-                  <button type="submit" class="btn btn-danger btn-sm">Eliminar</button>
-                </td>
-              </form>
+                <td><select name="categoria" class="admin-input-inline"><option value="">Sin categoría</option>{% for c in categorias %}<option value="{{ c.id }}" {% if i.categoria_id == c.id %}selected{% endif %}>{{ c.nombre }}</option>{% endfor %}</select></td>
+                <td><select name="unidad" class="admin-input-inline">{% for val, label in i.UNIDAD_CHOICES %}<option value="{{ val }}" {% if i.unidad == val %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></td>
+                <td><input type="number" step="0.01" min="0" name="costo" value="{{ i.costo|unlocalize }}" class="admin-input-inline"></td>
+                <td><input type="number" step="0.01" min="0" name="precio" value="{{ i.precio|unlocalize }}" class="admin-input-inline"></td>
+                <td><input type="number" step="0.01" name="stock_actual" value="{{ i.stock_actual|unlocalize }}" class="admin-input-inline"></td>
+                <td><input type="number" step="0.01" min="0" name="stock_minimo" value="{{ i.stock_minimo|unlocalize }}" class="admin-input-inline"></td>
+                <td><input type="number" step="0.01" min="0" name="stock_maximo" value="{{ i.stock_maximo|unlocalize }}" class="admin-input-inline"></td>
+                <td><span class="inventario-status {% if i.stock_bajo %}is-low{% else %}is-ok{% endif %}">{% if i.stock_bajo %}Bajo{% else %}Normal{% endif %}</span></td>
+                <td class="admin-actions"><button type="submit" class="btn btn-outline btn-sm" title="Guardar cambios"><i class="fa-solid fa-floppy-disk"></i></button></form><form method="post" action="{% url 'inventario:insumo_eliminar' i.pk %}" onsubmit="return confirm('¿Eliminar {{ i.nombre|escapejs }}?');">{% csrf_token %}<button type="submit" class="btn btn-danger btn-sm" title="Eliminar producto"><i class="fa-solid fa-trash"></i></button></form></td>
             </tr>
-            {% empty %}
-            <tr><td colspan="6" class="admin-empty">Aún no hay insumos registrados.</td></tr>
-            {% endfor %}
+            {% empty %}<tr><td colspan="10" class="admin-empty">Aún no hay insumos registrados.</td></tr>{% endfor %}
           </tbody>
         </table>
       </div>
+    </section>
+
+    <section class="admin-card inventario-panel" id="movimientos-inventario">
+      <div class="turn-card-heading"><div class="turn-section-icon"><i class="fa-solid fa-arrow-right-arrow-left"></i></div><div><p class="panel-kicker">Trazabilidad</p><h2>Historial de movimientos</h2></div><span class="admin-section-count">Últimos {{ movimientos|length }}</span></div>
+      <form method="post" action="{% url 'inventario:movimiento_crear' %}" class="movimiento-form">
+        {% csrf_token %}
+        <select name="insumo_id" class="admin-input" required><option value="">Producto</option>{% for i in insumos %}<option value="{{ i.id }}">{{ i.nombre }}</option>{% endfor %}</select>
+        <select name="tipo" class="admin-input" required><option value="entrada">Entrada</option><option value="salida">Salida</option></select>
+        <input type="number" name="cantidad" step="0.01" min="0.01" placeholder="Cantidad" class="admin-input" required>
+        <input type="text" name="motivo" placeholder="Motivo (opcional)" class="admin-input">
+        <button type="submit" class="btn btn-primary"><i class="fa-solid fa-plus-minus"></i> Registrar movimiento</button>
+      </form>
+      <div class="inventario-toolbar"><label class="inventario-search"><i class="fa-solid fa-magnifying-glass"></i><input id="movimientos-search" type="search" placeholder="Buscar en historial"></label><select id="movimientos-type-filter" class="admin-input"><option value="todos">Entradas y salidas</option><option value="entrada">Entradas</option><option value="salida">Salidas</option></select></div>
+      <div class="admin-table-wrap"><table class="admin-table inventario-table movimientos-table" id="movimientos-table"><thead><tr><th>Fecha y hora</th><th>Producto</th><th>Categoría</th><th>Tipo</th><th>Cantidad</th><th>Antes</th><th>Después</th><th>Responsable</th><th>Motivo</th></tr></thead><tbody>{% for movimiento in movimientos %}<tr data-movimiento-row data-type="{{ movimiento.tipo }}" data-search="{{ movimiento.producto_nombre|lower }} {{ movimiento.categoria_nombre|lower }} {{ movimiento.responsable_nombre|lower }}"><td>{{ movimiento.creado_en|date:'d/m/Y H:i' }}</td><td><strong>{{ movimiento.producto_nombre }}</strong><small>{{ movimiento.get_unidad_display }}</small></td><td>{{ movimiento.categoria_nombre }}</td><td><span class="movimiento-badge movimiento-{{ movimiento.tipo }}">{{ movimiento.get_tipo_display }}</span></td><td>{{ movimiento.cantidad }}</td><td>{{ movimiento.stock_anterior }}</td><td><strong>{{ movimiento.stock_posterior }}</strong></td><td>{{ movimiento.responsable_nombre }}</td><td>{{ movimiento.motivo|default:'—' }}</td></tr>{% empty %}<tr><td colspan="9" class="admin-empty">Todavía no hay movimientos registrados.</td></tr>{% endfor %}</tbody></table></div>
     </section>
 
     <!-- ── TASA DE CAMBIO ───────────────────────────────────── -->
@@ -190,6 +186,25 @@
   </main>
   <div id="toast-container" class="toast-container"></div>
   <script>
+    function filtrarFilas(selector, searchId, filterId, textAttribute, typeAttribute) {
+      const search = document.getElementById(searchId);
+      const filter = document.getElementById(filterId);
+      const aplicar = () => {
+        const query = search.value.trim().toLowerCase();
+        const tipo = filter.value;
+        document.querySelectorAll(selector).forEach(row => {
+          const coincideTexto = !query || (row.dataset[textAttribute] || '').includes(query);
+          const coincideTipo = tipo === 'todos' || row.dataset[typeAttribute] === tipo;
+          row.hidden = !(coincideTexto && coincideTipo);
+        });
+      };
+      search.addEventListener('input', aplicar);
+      filter.addEventListener('change', aplicar);
+    }
+    filtrarFilas('[data-inventario-row]', 'inventario-search', 'inventario-stock-filter', 'search', 'stockState');
+    filtrarFilas('[data-movimiento-row]', 'movimientos-search', 'movimientos-type-filter', 'search', 'type');
+  </script>
+  <script>
     function mostrarVistaAdmin(vista) {
       const esCarta = vista === 'carta';
       document.getElementById('admin-view-carta').classList.toggle('admin-view-hidden', !esCarta);
@@ -213,7 +228,10 @@
       formEliminarPlato.action = `/administrador/plato/${button.dataset.id}/eliminar/`;
       document.getElementById('edit-plato-nombre').value = button.dataset.name;
       document.getElementById('edit-plato-categoria').value = button.dataset.category;
-      document.getElementById('edit-plato-precio').value = button.dataset.price;
+      const precioAtributo = (button.getAttribute('data-price') || '').trim();
+      const precioVisible = precioAtributo || button.closest('.carta-admin-item').querySelector('.carta-admin-price').textContent.replace(/[^0-9,.-]/g, '').trim();
+      const precioNormalizado = precioVisible.replace(',', '.');
+      document.getElementById('edit-plato-precio').value = Number(precioNormalizado || 0).toFixed(2);
       document.getElementById('edit-plato-descripcion').value = button.dataset.description;
       document.getElementById('edit-plato-disponible').checked = button.dataset.available === 'true';
       previewPlato.innerHTML = button.dataset.image ? `<img src="${button.dataset.image}" alt="${button.dataset.name}">` : '<i class="fa-solid fa-utensils"></i>';
