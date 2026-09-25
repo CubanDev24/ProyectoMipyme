@@ -248,6 +248,40 @@ class UsuarioTurnoTests(TestCase):
         self.assertFalse(self.mesera.activo)
         self.assertFalse(self.client.login(username='mesera1', password='123456'))
 
+    def test_admin_puede_editar_datos_rol_y_password_de_un_usuario(self):
+        self.client.force_login(self.admin)
+
+        response = self.client.post(reverse('usuarios:editar_usuario', args=[self.mesera.pk]), {
+            'first_name': 'María',
+            'last_name': 'López',
+            'username': 'mesera_actualizada',
+            'email': 'maria@example.com',
+            'telefono': '55512345',
+            'role': 'cajera',
+            'password': 'nueva-clave-456',
+        })
+
+        self.assertRedirects(response, reverse('usuarios:dashboard'))
+        self.mesera.refresh_from_db()
+        self.assertEqual(self.mesera.get_full_name(), 'María López')
+        self.assertEqual(self.mesera.username, 'mesera_actualizada')
+        self.assertEqual(self.mesera.role, 'cajera')
+        self.assertTrue(self.mesera.check_password('nueva-clave-456'))
+        self.assertTrue(self.client.login(username='mesera_actualizada', password='nueva-clave-456'))
+
+    def test_admin_no_puede_quitarse_su_propio_rol(self):
+        self.client.force_login(self.admin)
+
+        self.client.post(reverse('usuarios:editar_usuario', args=[self.admin.pk]), {
+            'first_name': 'Admin',
+            'last_name': 'Principal',
+            'username': 'admin',
+            'role': 'cocina',
+        })
+
+        self.admin.refresh_from_db()
+        self.assertEqual(self.admin.role, 'administrador')
+
     def test_usuario_autenticado_no_carga_el_formulario_de_login(self):
         self.client.force_login(self.mesera)
 

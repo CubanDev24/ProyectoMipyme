@@ -381,7 +381,8 @@ class MeseraConsumer(AsyncWebsocketConsumer):
             return None, []
         p.estado = 'servido'
         p.save()
-        alertas = descontar_inventario_por_pedido(p)
+        usuario = self.scope.get('user')
+        alertas = descontar_inventario_por_pedido(p, usuario=usuario)
         return serializar_pedido(p), alertas
 
     @database_sync_to_async

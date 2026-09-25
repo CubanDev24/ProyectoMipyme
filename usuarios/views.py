@@ -1,7 +1,7 @@
 from decimal import Decimal
 
 from django.contrib import messages
-from django.contrib.auth import logout, login, authenticate
+from django.contrib.auth import logout, login, authenticate, update_session_auth_hash
 from django.contrib.auth.decorators import login_required
 from django.db.models import Sum
 from django.shortcuts import get_object_or_404, redirect, render
@@ -113,6 +113,45 @@ def cambiar_estado_usuario(request, user_id):
     usuario.save(update_fields=['is_active', 'activo'])
     estado = 'activado' if usuario.is_active else 'desactivado'
     messages.success(request, f'Usuario {usuario.username} {estado}.')
+    return redirect('usuarios:dashboard')
+
+
+@login_required
+@require_http_methods(['POST'])
+def editar_usuario(request, user_id):
+    if request.user.role != 'administrador':
+        messages.error(request, 'Solo el administrador puede gestionar usuarios.')
+        return redirect('usuarios:dashboard')
+
+    usuario = get_object_or_404(Usuario, pk=user_id)
+    username = request.POST.get('username', '').strip()
+    first_name = request.POST.get('first_name', '').strip()
+    last_name = request.POST.get('last_name', '').strip()
+    role = request.POST.get('role')
+    password = request.POST.get('password', '')
+    if not username or not first_name or not last_name or role not in dict(Usuario.ROLE_CHOICES):
+        messages.error(request, 'Completa nombre, apellidos, usuario y rol.')
+        return redirect('usuarios:dashboard')
+
+    if Usuario.objects.filter(username__iexact=username).exclude(pk=usuario.pk).exists():
+        messages.error(request, f'El usuario {username} ya existe.')
+        return redirect('usuarios:dashboard')
+    if usuario == request.user and role != 'administrador':
+        messages.error(request, 'No puedes quitarte el rol de administrador a ti mismo.')
+        return redirect('usuarios:dashboard')
+
+    usuario.username = username
+    usuario.first_name = first_name
+    usuario.last_name = last_name
+    usuario.email = request.POST.get('email', '').strip()
+    usuario.telefono = request.POST.get('telefono', '').strip()
+    usuario.role = role
+    if password:
+        usuario.set_password(password)
+    usuario.save()
+    if usuario == request.user and password:
+        update_session_auth_hash(request, usuario)
+    messages.success(request, f'Usuario {usuario.get_full_name()} actualizado correctamente.')
     return redirect('usuarios:dashboard')
 
 

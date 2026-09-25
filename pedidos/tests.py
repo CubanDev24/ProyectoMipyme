@@ -1,5 +1,6 @@
 from django.test import TestCase
 from django.contrib.auth import get_user_model
+from django.urls import reverse
 
 from carta.models import Categoria, Plato
 from pedidos.consumers import MeseraConsumer, serializar_cuenta, serializar_factura
@@ -75,6 +76,18 @@ class FacturaWorkflowTests(TestCase):
         user = User(username='mesera1')
         self.assertEqual(user.get_full_name(), '')
         self.assertEqual(user.get_full_name() or user.username, 'mesera1')
+
+    def test_vista_mesera_usa_productos_reales_sin_datos_de_demostracion(self):
+        User = get_user_model()
+        mesera = User.objects.create_user(username='mesera_real', password='123456', role='mesera')
+        self.client.force_login(mesera)
+
+        response = self.client.get(reverse('pedidos:mesera'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, self.plato.nombre)
+        self.assertNotContains(response, 'Hamburguesa Gourmet')
+        self.assertNotContains(response, 'Mesa 08')
 
     def test_factura_imprimir_devuelve_pdf_descargable(self):
         factura = Factura.objects.create(
