@@ -25,8 +25,14 @@ def landing(request):
     return render(request, 'usuarios/login.html')
 
 
-@require_http_methods(['POST'])
+@require_http_methods(['GET', 'POST'])
 def login_view(request):
+    if request.user.is_authenticated:
+        return redirect(ROLE_HOME.get(request.user.role, 'usuarios:dashboard'))
+
+    if request.method == 'GET':
+        return redirect('usuarios:landing')
+
     username = request.POST.get('username', '').strip()
     password = request.POST.get('password', '')
     user = authenticate(request, username=username, password=password)
@@ -65,9 +71,11 @@ def crear_usuario(request):
         return redirect('usuarios:dashboard')
 
     username = request.POST.get('username', '').strip()
+    first_name = request.POST.get('first_name', '').strip()
+    last_name = request.POST.get('last_name', '').strip()
     password = request.POST.get('password', '')
     role = request.POST.get('role')
-    if not username or not password or role not in dict(Usuario.ROLE_CHOICES):
+    if not username or not first_name or not last_name or not password or role not in dict(Usuario.ROLE_CHOICES):
         messages.error(request, 'Completa los datos del usuario.')
         return redirect('usuarios:dashboard')
 
@@ -75,8 +83,16 @@ def crear_usuario(request):
         messages.error(request, f'El usuario {username} ya existe.')
         return redirect('usuarios:dashboard')
 
-    Usuario.objects.create_user(username=username, password=password, role=role, is_active=True, activo=True)
-    messages.success(request, f'Usuario {username} creado con rol {dict(Usuario.ROLE_CHOICES)[role]}.')
+    Usuario.objects.create_user(
+        username=username,
+        first_name=first_name,
+        last_name=last_name,
+        password=password,
+        role=role,
+        is_active=True,
+        activo=True,
+    )
+    messages.success(request, f'Usuario {first_name} {last_name} creado con rol {dict(Usuario.ROLE_CHOICES)[role]}.')
     return redirect('usuarios:dashboard')
 
 

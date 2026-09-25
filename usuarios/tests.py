@@ -198,16 +198,44 @@ class UsuarioTurnoTests(TestCase):
 
         response = self.client.post(reverse('usuarios:crear_usuario'), {
             'username': 'cocina_nueva',
+            'first_name': 'Ana',
+            'last_name': 'García Pérez',
             'password': 'clave-segura-123',
             'role': 'cocina',
         })
 
         self.assertRedirects(response, reverse('usuarios:dashboard'))
         usuario = Usuario.objects.get(username='cocina_nueva')
+        self.assertEqual(usuario.get_full_name(), 'Ana García Pérez')
         self.assertEqual(usuario.role, 'cocina')
         self.assertTrue(usuario.is_active)
         self.assertTrue(usuario.check_password('clave-segura-123'))
         self.assertTrue(self.client.login(username='cocina_nueva', password='clave-segura-123'))
+
+    def test_login_registra_al_trabajador_con_nombre_completo_en_el_turno(self):
+        trabajador = Usuario.objects.create_user(
+            username='cocina_turno',
+            first_name='Luis',
+            last_name='Martínez',
+            password='123456',
+            role='cocina',
+        )
+
+        response = self.client.post(reverse('usuarios:login'), {
+            'username': 'cocina_turno',
+            'password': '123456',
+        })
+
+        self.assertRedirects(response, reverse('pedidos:cocina'))
+        turno = get_turno_abierto()
+        self.assertIsNotNone(turno)
+        self.assertIn(trabajador, turno.usuarios.all())
+        self.assertEqual(trabajador.get_full_name(), 'Luis Martínez')
+
+        self.client.force_login(self.admin)
+        response = self.client.get(reverse('usuarios:dashboard'))
+        self.assertContains(response, 'Luis Martínez')
+        self.assertContains(response, 'cocina_turno')
 
     def test_admin_puede_desactivar_usuario_y_se_bloquea_su_login(self):
         self.client.force_login(self.admin)
@@ -219,3 +247,10 @@ class UsuarioTurnoTests(TestCase):
         self.assertFalse(self.mesera.is_active)
         self.assertFalse(self.mesera.activo)
         self.assertFalse(self.client.login(username='mesera1', password='123456'))
+
+    def test_usuario_autenticado_no_carga_el_formulario_de_login(self):
+        self.client.force_login(self.mesera)
+
+        response = self.client.get(reverse('usuarios:login'))
+
+        self.assertRedirects(response, reverse('pedidos:mesera'))

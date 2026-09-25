@@ -73,7 +73,7 @@
           <div><span>Estado</span><strong class="turn-status-value">{{ turno.get_estado_display }}</strong></div>
           <div><span>Fecha</span><strong>{{ turno.fecha }}</strong></div>
           <div><span>Mesas habilitadas</span><strong>{{ turno.cantidad_mesas }}</strong></div>
-          <div><span>Miembros</span><strong>{% for user in turno.usuarios.all %}{{ user.username }}{% if not forloop.last %}, {% endif %}{% empty %}Sin participantes{% endfor %}</strong></div>
+          <div><span>Miembros</span><strong>{% for user in turno.usuarios.all %}{{ user.get_full_name|default:user.username }}{% if not forloop.last %}, {% endif %}{% empty %}Sin participantes{% endfor %}</strong></div>
         </div>
         {% if turno.resumen %}
           <div class="turn-note"><span>Resumen registrado</span><pre class="whitespace-pre-wrap break-words">{{ turno.resumen }}</pre></div>
@@ -88,6 +88,10 @@
       <div class="turn-card-heading"><div class="turn-section-icon" aria-hidden="true"><i class="fa-solid fa-user-plus"></i></div><div><p class="panel-kicker">Equipo</p><h2 id="crear-usuario-heading">Crear usuario</h2></div></div>
       <form method="post" action="{% url 'usuarios:crear_usuario' %}" class="admin-form-row">
         {% csrf_token %}
+        <label for="crear-usuario-first-name" class="sr-only">Nombre</label>
+        <input id="crear-usuario-first-name" type="text" name="first_name" placeholder="Nombre" autocomplete="given-name" required class="admin-input">
+        <label for="crear-usuario-last-name" class="sr-only">Apellidos</label>
+        <input id="crear-usuario-last-name" type="text" name="last_name" placeholder="Apellidos" autocomplete="family-name" required class="admin-input">
         <label for="crear-usuario-username" class="sr-only">Nombre de usuario</label>
         <input id="crear-usuario-username" type="text" name="username" placeholder="Nombre de usuario" autocomplete="username" required class="admin-input">
         <label for="crear-usuario-password" class="sr-only">Contraseña</label>
@@ -106,8 +110,8 @@
         {% for usuario in usuarios %}
           <div class="turn-user-row">
             <div>
-              <strong>{{ usuario.username }}</strong>
-              <span>{{ usuario.get_role_display }}</span>
+              <strong>{{ usuario.get_full_name|default:usuario.username }}</strong>
+              <span>{{ usuario.username }} · {{ usuario.get_role_display }}</span>
             </div>
             <div class="turn-user-actions">
               <span class="turn-user-status {% if usuario.is_active %}is-active{% endif %}">{{ usuario.is_active|yesno:"Activo,Inactivo" }}</span>
