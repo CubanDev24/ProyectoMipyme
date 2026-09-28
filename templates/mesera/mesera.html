@@ -30,6 +30,234 @@
         ::-webkit-scrollbar-thumb:hover {
             background: #94a3b8;
         }
+
+        .receipt-upload-panel {
+            border: 1px solid rgba(148, 163, 184, 0.2);
+            border-radius: 14px;
+            background: rgba(2, 6, 23, 0.55);
+            padding: 14px;
+        }
+
+        .receipt-upload-button {
+            display: inline-flex;
+            min-height: 40px;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            border: 1px solid rgba(52, 211, 153, 0.35);
+            border-radius: 9px;
+            background: rgba(16, 185, 129, 0.1);
+            padding: 0 12px;
+            color: #6ee7b7;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 700;
+            white-space: nowrap;
+        }
+
+        .receipt-upload-button:hover {
+            background: rgba(16, 185, 129, 0.18);
+        }
+
+        .receipt-upload-button:focus-within {
+            outline: 2px solid #6ee7b7;
+            outline-offset: 2px;
+        }
+
+        .call-alert-backdrop {
+            background: rgba(2, 6, 23, 0.82);
+            backdrop-filter: blur(8px);
+        }
+
+        .call-alert-panel {
+            position: relative;
+            width: min(100%, 520px);
+            overflow: hidden;
+            border: 1px solid rgba(251, 191, 36, 0.45);
+            border-radius: 20px;
+            background: #111827;
+            padding: clamp(24px, 6vw, 44px);
+            text-align: center;
+            box-shadow: 0 28px 90px rgba(0, 0, 0, 0.55), 0 0 50px rgba(245, 158, 11, 0.12);
+            animation: call-alert-enter 220ms ease-out both;
+        }
+
+        .call-alert-panel::before {
+            position: absolute;
+            inset: 0 0 auto;
+            height: 4px;
+            background: #fbbf24;
+            content: '';
+        }
+
+        .call-alert-meta {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            padding-bottom: 18px;
+            border-bottom: 1px solid rgba(148, 163, 184, 0.16);
+            color: #fcd34d;
+            font-size: 11px;
+            font-weight: 700;
+            text-align: left;
+            text-transform: uppercase;
+        }
+
+        .call-alert-meta span:first-child {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .call-alert-live {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            border: 1px solid rgba(251, 191, 36, 0.24);
+            border-radius: 999px;
+            background: rgba(251, 191, 36, 0.08);
+            padding: 5px 9px;
+            color: #fde68a;
+            font-size: 9px;
+            white-space: nowrap;
+        }
+
+        .call-alert-live::before {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: #fbbf24;
+            content: '';
+            animation: call-alert-blink 1.2s ease-in-out infinite;
+        }
+
+        .call-alert-icon {
+            display: grid;
+            width: 82px;
+            height: 82px;
+            margin: 28px auto 20px;
+            place-items: center;
+            border: 1px solid rgba(251, 191, 36, 0.45);
+            border-radius: 24px;
+            background: rgba(251, 191, 36, 0.1);
+            color: #fcd34d;
+            font-size: 32px;
+            animation: call-alert-ring 1.8s ease-in-out infinite;
+        }
+
+        .call-alert-eyebrow {
+            margin: 0;
+            color: #fcd34d;
+            font-size: 12px;
+            font-weight: 800;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+        }
+
+        .call-alert-title {
+            margin: 7px 0 0;
+            color: #f8fafc;
+            font-size: clamp(42px, 12vw, 60px);
+            font-weight: 800;
+            line-height: 1;
+        }
+
+        .call-alert-description {
+            margin: 14px 0 0;
+            color: #cbd5e1;
+            font-size: 15px;
+            line-height: 1.5;
+        }
+
+        .call-alert-dismiss {
+            display: inline-flex;
+            min-height: 48px;
+            align-items: center;
+            justify-content: center;
+            gap: 9px;
+            margin-top: 28px;
+            border: 0;
+            border-radius: 10px;
+            background: #fbbf24;
+            padding: 0 22px;
+            color: #111827;
+            font-size: 14px;
+            font-weight: 800;
+            transition: background-color 150ms ease, transform 150ms ease;
+        }
+
+        .call-alert-dismiss:hover {
+            transform: translateY(-1px);
+            background: #fcd34d;
+        }
+
+        .call-alert-dismiss:focus-visible {
+            outline: 3px solid #fff;
+            outline-offset: 3px;
+        }
+
+        .ready-alert-panel {
+            border-color: rgba(52, 211, 153, 0.45);
+            box-shadow: 0 28px 90px rgba(0, 0, 0, 0.55), 0 0 50px rgba(16, 185, 129, 0.12);
+        }
+
+        .ready-alert-panel::before {
+            background: #34d399;
+        }
+
+        .ready-alert-panel .call-alert-meta,
+        .ready-alert-panel .call-alert-eyebrow {
+            color: #6ee7b7;
+        }
+
+        .ready-alert-panel .call-alert-live {
+            border-color: rgba(52, 211, 153, 0.24);
+            background: rgba(16, 185, 129, 0.08);
+            color: #a7f3d0;
+        }
+
+        .ready-alert-panel .call-alert-live::before {
+            background: #34d399;
+        }
+
+        .ready-alert-panel .call-alert-icon {
+            border-color: rgba(52, 211, 153, 0.45);
+            background: rgba(16, 185, 129, 0.1);
+            color: #6ee7b7;
+            animation-name: ready-alert-ring;
+        }
+
+        .ready-alert-panel .call-alert-dismiss {
+            background: #34d399;
+        }
+
+        .ready-alert-panel .call-alert-dismiss:hover {
+            background: #6ee7b7;
+        }
+
+        @keyframes call-alert-enter {
+            from { opacity: 0; transform: translateY(10px) scale(0.98); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+
+        @keyframes call-alert-blink {
+            50% { opacity: 0.35; }
+        }
+
+        @keyframes call-alert-ring {
+            50% { box-shadow: 0 0 0 8px rgba(251, 191, 36, 0.07); }
+        }
+
+        @keyframes ready-alert-ring {
+            50% { box-shadow: 0 0 0 8px rgba(52, 211, 153, 0.08); }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .call-alert-panel, .call-alert-live::before, .call-alert-icon {
+                animation: none;
+            }
+        }
     </style>
 </head>
 <body class="bg-slate-900 text-slate-100 font-sans min-h-screen flex flex-col md:flex-row overflow-x-hidden">
@@ -73,6 +301,11 @@
                     <span class="hidden lg:inline">Pedidos Activos</span>
                     <span id="badge-active-count" class="hidden lg:flex ml-auto bg-emerald-500/20 text-emerald-400 text-xs px-2 py-0.5 rounded-full font-bold">0</span>
                 </button>
+                <button onclick="switchView('bar')" id="nav-bar" class="w-full flex items-center gap-3 px-3 py-3 rounded-xl font-medium text-sm text-slate-400 hover:text-white hover:bg-slate-800/50 transition-all">
+                    <i class="fa-solid fa-martini-glass-citrus text-lg w-6 text-center"></i>
+                    <span class="hidden lg:inline">Barra</span>
+                    <span id="badge-bar-count" class="hidden lg:flex ml-auto bg-amber-500/20 text-amber-300 text-xs px-2 py-0.5 rounded-full font-bold">0</span>
+                </button>
                 <button onclick="switchView('menu')" id="nav-menu" class="w-full flex items-center gap-3 px-3 py-3 rounded-xl font-medium text-sm text-slate-400 hover:text-white hover:bg-slate-800/50 transition-all">
                     <i class="fa-solid fa-book-open text-lg w-6 text-center"></i>
                     <span class="hidden lg:inline">Carta / Menú</span>
@@ -107,6 +340,10 @@
 
             <!-- Estadísticas rápidas superiores -->
             <div class="flex items-center gap-3 text-xs">
+                <button type="button" data-activar-sonido onclick="activarSonido()" class="flex items-center gap-2 px-3 py-2 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-300 hover:bg-amber-500/20 transition-colors" title="Habilitar sonido de alertas">
+                    <i class="fa-solid fa-volume-high"></i>
+                    Activar sonido
+                </button>
                 <div class="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">
                     <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
                     <span class="font-medium">Libres: <strong id="count-free">0</strong></span>
@@ -114,10 +351,6 @@
                 <div class="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-400">
                     <span class="w-2 h-2 rounded-full bg-rose-400"></span>
                     <span class="font-medium">Ocupadas: <strong id="count-busy">0</strong></span>
-                </div>
-                <div class="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-400">
-                    <span class="w-2 h-2 rounded-full bg-amber-400"></span>
-                    <span class="font-medium">Limpieza: <strong id="count-clean">0</strong></span>
                 </div>
             </div>
         </header>
@@ -133,7 +366,6 @@
                         <button onclick="filterTables('all')" class="filter-btn px-4 py-2 rounded-xl text-xs font-semibold transition-all bg-emerald-500 text-slate-950 shadow-md shadow-emerald-500/20" data-filter="all">Todas</button>
                         <button onclick="filterTables('libre')" class="filter-btn px-4 py-2 rounded-xl text-xs font-semibold text-slate-400 hover:text-white hover:bg-slate-800 transition-all" data-filter="libre">Libres</button>
                         <button onclick="filterTables('ocupada')" class="filter-btn px-4 py-2 rounded-xl text-xs font-semibold text-slate-400 hover:text-white hover:bg-slate-800 transition-all" data-filter="ocupada">Ocupadas</button>
-                        <button onclick="filterTables('limpieza')" class="filter-btn px-4 py-2 rounded-xl text-xs font-semibold text-slate-400 hover:text-white hover:bg-slate-800 transition-all" data-filter="limpieza">Por Limpiar</button>
                     </div>
 
                     <div class="relative w-full md:w-64">
@@ -158,6 +390,13 @@
                 </div>
             </section>
 
+            <section id="view-bar" class="hidden space-y-4">
+                <h3 class="text-base font-bold text-white flex items-center gap-2">
+                    <i class="fa-solid fa-martini-glass-citrus text-amber-300"></i> Preparación de barra
+                </h3>
+                <div id="bar-orders-container" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4"></div>
+            </section>
+
             <!-- VISTA: MENÚ/CARTA -->
             <section id="view-menu" class="hidden space-y-4">
                 <h3 class="text-base font-bold text-white flex items-center gap-2">
@@ -170,6 +409,38 @@
 
         </div>
     </main>
+
+    <div id="call-alert" class="call-alert-backdrop hidden fixed inset-0 z-[100] flex items-center justify-center p-4" role="alertdialog" aria-modal="true" aria-labelledby="call-alert-title" aria-describedby="call-alert-description">
+        <div class="call-alert-panel">
+            <div class="call-alert-meta">
+                <span><i class="fa-solid fa-bell"></i> Atención requerida</span>
+                <span class="call-alert-live">En espera</span>
+            </div>
+            <div class="call-alert-icon" aria-hidden="true"><i class="fa-solid fa-bell"></i></div>
+            <p class="call-alert-eyebrow">Llamada de cliente</p>
+            <h2 id="call-alert-title" class="call-alert-title">Mesa --</h2>
+            <p id="call-alert-description" class="call-alert-description">Solicita atención en el salón.</p>
+            <button type="button" id="call-alert-dismiss" onclick="cerrarAlertaLlamada()" class="call-alert-dismiss">
+                <i class="fa-solid fa-check"></i> Atender llamada
+            </button>
+        </div>
+    </div>
+
+    <div id="ready-alert" class="call-alert-backdrop hidden fixed inset-0 z-[100] flex items-center justify-center p-4" role="alertdialog" aria-modal="true" aria-labelledby="ready-alert-title" aria-describedby="ready-alert-description">
+        <div class="call-alert-panel ready-alert-panel">
+            <div class="call-alert-meta">
+                <span><i class="fa-solid fa-kitchen-set"></i> Actualización de cocina</span>
+                <span class="call-alert-live">Listo</span>
+            </div>
+            <div class="call-alert-icon" aria-hidden="true"><i class="fa-solid fa-check"></i></div>
+            <p class="call-alert-eyebrow">Pedido listo</p>
+            <h2 id="ready-alert-title" class="call-alert-title">Mesa --</h2>
+            <p id="ready-alert-description" class="call-alert-description"></p>
+            <button type="button" id="ready-alert-dismiss" onclick="verPedidoListo()" class="call-alert-dismiss">
+                <i class="fa-solid fa-eye"></i> Ver pedido
+            </button>
+        </div>
+    </div>
 
     <div id="modal-factura" class="hidden fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-[60] flex items-center justify-center p-4" hidden>
         <div class="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-md p-6 shadow-2xl">
@@ -285,10 +556,6 @@
                             <span>Subtotal</span>
                             <span id="order-subtotal" class="font-medium text-slate-200">$0.00</span>
                         </div>
-                        <div class="flex justify-between text-xs text-slate-400">
-                            <span>Impuesto (10%)</span>
-                            <span id="order-tax" class="font-medium text-slate-200">$0.00</span>
-                        </div>
                         <div class="flex justify-between text-sm font-bold text-white pt-2 border-t border-slate-800/60">
                             <span>Total</span>
                             <span id="order-total" class="text-emerald-400 text-base">$0.00</span>
@@ -308,6 +575,7 @@
     <!-- MODAL FACTURA / PAGO -->
     <div id="payment-modal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 opacity-0 pointer-events-none transition-all duration-300">
         <form onsubmit="event.preventDefault(); confirmPayment();" class="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-md max-h-[calc(100vh-2rem)] overflow-y-auto p-6 shadow-2xl space-y-6">
+            {% csrf_token %}
             <div class="flex justify-between items-center border-b border-slate-800 pb-4">
                 <h3 class="font-bold text-lg text-white flex items-center gap-2">
                     <i class="fa-solid fa-cash-register text-emerald-400"></i> Procesar Cuenta
@@ -331,7 +599,7 @@
                             <i class="fa-solid fa-money-bill-wave text-base"></i> Efectivo
                         </button>
                         <button type="button" onclick="selectPaymentMethod('transferencia')" class="pay-method-btn p-3 rounded-xl border border-slate-800 bg-slate-950 text-slate-400 font-medium text-xs flex flex-col items-center gap-2 transition-all hover:border-slate-700" data-method="transferencia">
-                            <i class="fa-solid fa-credit-card text-base"></i> Tarjeta
+                            <i class="fa-solid fa-credit-card text-base"></i> Transferencia
                         </button>
                         <button type="button" onclick="selectPaymentMethod('mixto')" class="pay-method-btn p-3 rounded-xl border border-slate-800 bg-slate-950 text-slate-400 font-medium text-xs flex flex-col items-center gap-2 transition-all hover:border-slate-700" data-method="mixto">
                             <i class="fa-solid fa-money-bill-transfer text-base"></i> Mixto
@@ -339,23 +607,39 @@
                         <button type="button" onclick="selectPaymentMethod('usd')" class="pay-method-btn p-3 rounded-xl border border-slate-800 bg-slate-950 text-slate-400 font-medium text-xs flex flex-col items-center gap-2 transition-all hover:border-slate-700" data-method="usd">
                             <i class="fa-solid fa-dollar-sign text-base"></i> USD
                         </button>
-                        <button type="button" onclick="selectPaymentMethod('transferencia')" class="hidden pay-method-btn" data-method="QR">
-                            <i class="fa-solid fa-qrcode text-base"></i> Transf. / QR
-                        </button>
+                        
                     </div>
                     <div id="mesera-tasa-usd" class="hidden mt-3">
                         <label class="text-xs font-semibold text-slate-400">Tasa de cambio (CUP por 1 USD)</label>
                         <input id="mesera-input-tasa" type="number" min="0.01" step="0.01" class="mt-1 w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500">
                     </div>
-                </div>
-
-                <!-- Propina -->
-                <div>
-                    <label class="text-xs font-semibold text-slate-400 mb-2 block">Propina sugerida</label>
-                    <div class="flex gap-2">
-                        <button type="button" onclick="setTip(0)" class="tip-btn flex-1 py-2 rounded-lg bg-slate-950 border border-slate-800 text-xs font-medium text-slate-400">0%</button>
-                        <button type="button" onclick="setTip(10)" class="tip-btn flex-1 py-2 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-xs font-medium text-emerald-400">10%</button>
-                        <button type="button" onclick="setTip(15)" class="tip-btn flex-1 py-2 rounded-lg bg-slate-950 border border-slate-800 text-xs font-medium text-slate-400">15%</button>
+                    <div id="comprobante-transferencia-wrap" class="hidden mt-3 receipt-upload-panel space-y-3">
+                        <div class="flex flex-wrap items-center justify-between gap-3">
+                            <div class="flex items-center gap-3">
+                                <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-300"><i class="fa-regular fa-image"></i></span>
+                                <div>
+                                    <p class="text-xs font-bold text-slate-200">Captura de transferencia</p>
+                                    <p class="mt-1 text-[10px] text-slate-500">Imagen JPG o PNG · máximo 5 MB</p>
+                                </div>
+                            </div>
+                            <label for="comprobante-transferencia" class="receipt-upload-button">
+                                <i class="fa-solid fa-arrow-up-from-bracket"></i> Seleccionar imagen
+                                <input id="comprobante-transferencia" type="file" accept="image/*" class="sr-only">
+                            </label>
+                        </div>
+                        <div id="comprobante-transferencia-preview-wrap" class="hidden flex-wrap items-center justify-between gap-3 border-t border-slate-800 pt-3">
+                            <div class="flex min-w-0 items-center gap-3">
+                                <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-400"><i class="fa-regular fa-image"></i></span>
+                                <div class="min-w-0">
+                                    <p class="text-xs font-semibold text-slate-100">Imagen del pago en transferencia</p>
+                                    <p id="comprobante-transferencia-nombre" class="mt-1 truncate text-[10px] text-slate-400"></p>
+                                </div>
+                            </div>
+                            <a id="comprobante-transferencia-preview-link" class="receipt-upload-button" href="#" target="_blank" rel="noopener noreferrer" title="Ver imagen del comprobante">
+                                <i class="fa-solid fa-arrow-up-right-from-square"></i> Ver imagen
+                            </a>
+                        </div>
+                        <p id="comprobante-transferencia-error" class="hidden mt-2 text-xs text-rose-400"></p>
                     </div>
                 </div>
             </div>
@@ -383,7 +667,7 @@
     <script>
         const menuItems = [
             {% for producto in productos %}
-            { id: {{ producto.id }}, name: "{{ producto.nombre|escapejs }}", category: "{{ producto.categoria.nombre|default:'General'|escapejs }}", price: {{ producto.precio|default:0|unlocalize }}, icon: "fa-utensils", desc: "{{ producto.categoria.nombre|default:'Disponible'|escapejs }}" }{% if not forloop.last %},{% endif %}
+            { id: {{ producto.id }}, name: "{{ producto.nombre|escapejs }}", category: "{{ producto.categoria.nombre|default:'General'|escapejs }}", price: {{ producto.precio|default:0|unlocalize }}, image: "{% if producto.imagen %}{{ producto.imagen.url|escapejs }}{% endif %}", icon: "fa-utensils", desc: "{{ producto.categoria.nombre|default:'Disponible'|escapejs }}" }{% if not forloop.last %},{% endif %}
             {% endfor %}
         ];
 
@@ -394,7 +678,7 @@
         ];
 
         let activeTableId = null;
-        let selectedTipPercent = 10;
+        let pedidoListoMesaId = null;
         const WS_URL = `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws/mesera/`;
         let ws = null;
         let wsReconnectTimer = null;
@@ -402,6 +686,13 @@
         const facturasMostradas = new Set();
         let cuentaEnProceso = null;
         let formaPagoSeleccionada = 'efectivo_cup';
+        let comprobantePreviewObjectUrl = null;
+
+        function escaparHtml(value) {
+            return String(value ?? '').replace(/[&<>"']/g, character => ({
+                '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+            })[character]);
+        }
 
         // INICIALIZACIÓN
         document.addEventListener('DOMContentLoaded', () => {
@@ -411,6 +702,13 @@
             setInterval(updateClock, 30000);
             renderMenuCatalog();
             conectarMesera();
+            document.getElementById('comprobante-transferencia').addEventListener('change', event => {
+                const archivo = event.target.files[0];
+                mostrarEnlaceComprobante(
+                    archivo ? URL.createObjectURL(archivo) : cuentaEnProceso?.comprobante_url,
+                    archivo?.name || 'Captura guardada'
+                );
+            });
         });
 
         function conectarMesera() {
@@ -435,11 +733,25 @@
                     data.pedidos.forEach(aplicarPedidoEnMesa);
                     renderTables();
                     updateHeaderStats();
+                    renderBarView();
                 } else if (data.tipo === 'pedido_nuevo' || data.tipo === 'pedido_actualizado') {
+                    const tablaActual = tables.find(item => item.id === data.pedido.mesa_id);
+                    const pedidoAnterior = tablaActual?.pedidos?.find(item => item.id === data.pedido.id);
+                    const cambioAListo = data.tipo === 'pedido_actualizado'
+                        && data.pedido.estado === 'listo'
+                        && pedidoAnterior?.estado !== 'listo';
                     aplicarPedidoEnMesa(data.pedido);
                     renderTables();
                     updateHeaderStats();
+                    renderBarView();
                     if (activeTableId === data.pedido.mesa_id) openTableModal(activeTableId);
+                    if (data.tipo === 'pedido_nuevo' && data.pedido.estado === 'por_confirmar') {
+                        showToast('Solicitud del cliente', `Mesa ${data.pedido.mesa_numero} espera que envíes su pedido a cocina.`);
+                    }
+                    if (cambioAListo) mostrarAlertaPedidoListo(data.pedido);
+                } else if (data.tipo === 'llamada_mesera') {
+                    mostrarAlertaLlamada(data.mesa_numero);
+                    sonidoMesa();
                 } else if (data.tipo === 'mesa_actualizada') {
                     const table = tables.find(item => item.id === data.mesa.id);
                     if (table) {
@@ -452,6 +764,7 @@
                     }
                     renderTables();
                     updateHeaderStats();
+                    renderBarView();
                     if (activeTableId === data.mesa.id) closeModal();
                     showToast('Mesa actualizada', `Mesa ${data.mesa.numero} ${data.mesa.abierta ? 'abierta' : 'cerrada'}.`);
                 } else if (data.tipo === 'pedido_cerrado') {
@@ -461,12 +774,18 @@
                     });
                     renderTables();
                     updateHeaderStats();
+                    renderBarView();
                 } else if (data.tipo === 'pedido_confirmado') {
                     const table = tables.find(item => item.id === data.pedido.mesa_id);
                     if (table) table.newOrder = [];
                     if (table) aplicarPedidoEnMesa(data.pedido);
                     renderTables();
+                    renderBarView();
                     showToast('Comanda enviada', 'El pedido ha sido transmitido a la cocina.');
+                } else if (data.tipo === 'pedido_enviado_cocina') {
+                    showToast('Comanda enviada', 'El pedido ya está en la bandeja de cocina.');
+                } else if (data.tipo === 'pedido_enviado_barra') {
+                    showToast('Pedido aceptado en barra', 'La bebida aparece en la sección de barra.');
                 } else if (data.tipo === 'factura_solicitada') {
                     const mesa = data.mesa_numero ?? data.factura?.mesa_numero;
                     const table = tables.find(item => item.numero === Number(mesa) || item.name.endsWith(` ${mesa}`));
@@ -544,6 +863,7 @@
                 qty: item.cantidad,
                 note: item.nota || '',
                 pedidoId: pedido.id,
+                destino: pedido.destino,
                 estado: pedido.estado,
                 estadoDisplay: pedido.estado_display
             })));
@@ -551,6 +871,7 @@
 
         function estadoPlato(ord) {
             const labels = {
+                por_confirmar: 'Pendiente de envío',
                 pendiente: 'Pendiente',
                 en_preparacion: 'En preparación',
                 listo: 'Listo',
@@ -581,10 +902,12 @@
         function switchView(viewName) {
             document.getElementById('view-tables').classList.add('hidden');
             document.getElementById('view-orders').classList.add('hidden');
+            document.getElementById('view-bar').classList.add('hidden');
             document.getElementById('view-menu').classList.add('hidden');
 
             document.getElementById('nav-tables').className = "w-full flex items-center gap-3 px-3 py-3 rounded-xl font-medium text-sm text-slate-400 hover:text-white hover:bg-slate-800/50 transition-all";
             document.getElementById('nav-orders').className = "w-full flex items-center gap-3 px-3 py-3 rounded-xl font-medium text-sm text-slate-400 hover:text-white hover:bg-slate-800/50 transition-all";
+            document.getElementById('nav-bar').className = "w-full flex items-center gap-3 px-3 py-3 rounded-xl font-medium text-sm text-slate-400 hover:text-white hover:bg-slate-800/50 transition-all";
             document.getElementById('nav-menu').className = "w-full flex items-center gap-3 px-3 py-3 rounded-xl font-medium text-sm text-slate-400 hover:text-white hover:bg-slate-800/50 transition-all";
 
             const activeClass = "w-full flex items-center gap-3 px-3 py-3 rounded-xl font-medium text-sm transition-all bg-emerald-500/10 text-emerald-400 border border-emerald-500/20";
@@ -598,6 +921,11 @@
                 document.getElementById('nav-orders').className = activeClass;
                 document.getElementById('page-title').innerHTML = `<i class="fa-solid fa-receipt text-emerald-400"></i> Pedidos en Cocina y Atención`;
                 renderActiveOrdersView();
+            } else if (viewName === 'bar') {
+                document.getElementById('view-bar').classList.remove('hidden');
+                document.getElementById('nav-bar').className = activeClass;
+                document.getElementById('page-title').innerHTML = `<i class="fa-solid fa-martini-glass-citrus text-amber-300"></i> Preparación de Barra`;
+                renderBarView();
             } else if (viewName === 'menu') {
                 document.getElementById('view-menu').classList.remove('hidden');
                 document.getElementById('nav-menu').className = activeClass;
@@ -632,11 +960,7 @@
                     statusBadge = `<span class="px-2.5 py-1 rounded-full text-xs font-bold bg-rose-500/10 text-rose-400 border border-rose-500/30">Ocupada</span>`;
                     borderClass = 'border-rose-500/40 hover:border-rose-500';
                     bgGradient = 'from-slate-900 via-slate-900 to-rose-950/20';
-                } else if (t.status === 'limpieza') {
-                    statusBadge = `<span class="px-2.5 py-1 rounded-full text-xs font-bold bg-amber-500/10 text-amber-400 border border-amber-500/30">Limpiar</span>`;
-                    borderClass = 'border-amber-500/40 hover:border-amber-500';
-                    bgGradient = 'from-slate-900 via-slate-900 to-amber-950/20';
-                }
+                } 
 
                 const card = document.createElement('div');
                 card.className = `bg-gradient-to-br ${bgGradient} border ${borderClass} rounded-2xl p-5 cursor-pointer transition-all hover:scale-[1.02] shadow-xl relative overflow-hidden flex flex-col justify-between group`;
@@ -675,12 +999,6 @@
                                     <span>Total:</span>
                                     <span class="text-emerald-400">$${totalAmount.toFixed(2)}</span>
                                 </div>
-                            </div>
-                        ` : t.status === 'limpieza' ? `
-                            <div class="bg-amber-500/5 rounded-xl p-3 border border-amber-500/10 text-center">
-                                <p class="text-xs text-amber-300 flex items-center justify-center gap-2">
-                                    <i class="fa-solid fa-broom"></i> Requiere desinfección
-                                </p>
                             </div>
                         ` : `
                             <div class="bg-slate-950/30 rounded-xl p-3 border border-slate-800/40 text-center">
@@ -740,12 +1058,17 @@
         function updateHeaderStats() {
             const free = tables.filter(t => t.status === 'libre').length;
             const busy = tables.filter(t => t.status === 'ocupada').length;
-            const clean = tables.filter(t => t.status === 'limpieza').length;
+            
 
             document.getElementById('count-free').textContent = free;
             document.getElementById('count-busy').textContent = busy;
-            document.getElementById('count-clean').textContent = clean;
             document.getElementById('badge-active-count').textContent = busy;
+            const pendientesBarra = tables.reduce((total, table) => total + (table.pedidos || []).filter(pedido => (
+                pedido.destino === 'barra' && !['servido', 'cerrado'].includes(pedido.estado)
+            )).length, 0);
+            const badgeBarra = document.getElementById('badge-bar-count');
+            badgeBarra.textContent = pendientesBarra;
+            badgeBarra.classList.toggle('hidden', pendientesBarra === 0);
         }
 
         // CALCULAR TOTAL DE MESA
@@ -756,7 +1079,7 @@
                 const menuItem = menuItems.find(m => m.id === item.itemId);
                 return sum + (menuItem ? menuItem.price * item.qty : 0);
             }, 0);
-            return subtotal * 1.10; // Incluye 10% de impuesto
+            return subtotal ; // Incluye 10% de impuesto
         }
 
         // ABRIR MODAL DE GESTIÓN MESA
@@ -777,7 +1100,7 @@
             if (cuentaSolicitada) statusEl.className = "px-2.5 py-1 rounded-md text-xs font-bold bg-amber-500/10 text-amber-300 border border-amber-500/20";
             else if (table.status === 'libre') statusEl.className = "px-2.5 py-1 rounded-md text-xs font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20";
             else if (table.status === 'ocupada') statusEl.className = "px-2.5 py-1 rounded-md text-xs font-bold bg-rose-500/10 text-rose-400 border border-rose-500/20";
-            else if (table.status === 'limpieza') statusEl.className = "px-2.5 py-1 rounded-md text-xs font-bold bg-amber-500/10 text-amber-400 border border-amber-500/20";
+            
             document.getElementById('modal-account-alert').classList.toggle('hidden', !cuentaSolicitada);
 
             renderMenuItemsList('all');
@@ -814,7 +1137,7 @@
             } else if (table.status === 'ocupada') {
                 footer.innerHTML = `
                     <button onclick="sendOrderToKitchen(${table.id})" class="px-4 py-3 bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold rounded-xl text-xs flex items-center gap-2 transition-all">
-                        <i class="fa-solid fa-paper-plane text-amber-400"></i> Enviar a Cocina
+                        <i class="fa-solid fa-paper-plane text-amber-400"></i> Enviar comanda
                     </button>
                     <button onclick="openPaymentModal()" class="flex-1 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold py-3 rounded-xl transition-all shadow-lg shadow-emerald-500/20 flex items-center justify-center gap-2 text-sm">
                         <i class="fa-solid fa-receipt"></i> Cobrar y Cerrar Cuenta
@@ -860,11 +1183,12 @@
             filtered.forEach(item => {
                 const el = document.createElement('div');
                 el.className = "flex items-center justify-between p-3 rounded-xl bg-slate-950/80 border border-slate-800/80 hover:border-slate-700 transition-all";
+                const imagen = item.image
+                    ? `<img src="${escaparHtml(item.image)}" alt="${escaparHtml(item.name)}" loading="lazy" class="h-10 w-10 shrink-0 rounded-lg object-cover">`
+                    : `<div class="w-10 h-10 shrink-0 rounded-lg bg-slate-900 border border-slate-800 flex items-center justify-center text-slate-300"><i class="fa-solid ${item.icon}"></i></div>`;
                 el.innerHTML = `
                     <div class="flex items-center gap-3">
-                        <div class="w-9 h-9 rounded-lg bg-slate-900 border border-slate-800 flex items-center justify-center text-slate-300">
-                            <i class="fa-solid ${item.icon}"></i>
-                        </div>
+                        ${imagen}
                         <div>
                             <h5 class="text-xs font-bold text-white">${item.name}</h5>
                             <p class="text-[10px] text-slate-400">$${item.price.toFixed(2)}</p>
@@ -943,6 +1267,7 @@
             }
 
             let subtotal = 0;
+            const solicitudesClienteRenderizadas = new Set();
 
             displayOrder.forEach(ord => {
                 const item = menuItems.find(m => m.id === ord.itemId);
@@ -950,6 +1275,8 @@
 
                 const itemTotal = item.price * ord.qty;
                 subtotal += itemTotal;
+                const mostrarEnviarSolicitud = ord.estado === 'por_confirmar' && !solicitudesClienteRenderizadas.has(ord.pedidoId);
+                if (mostrarEnviarSolicitud) solicitudesClienteRenderizadas.add(ord.pedidoId);
 
                 const row = document.createElement('div');
                 row.className = "p-2.5 rounded-xl bg-slate-900 border border-slate-800 space-y-2";
@@ -967,8 +1294,9 @@
                             <span class="font-bold text-white text-xs">${ord.qty}</span>
                             ${ord.pedidoId ? '' : `<button onclick="updateOrderQty(${item.id}, 1)" class="text-slate-400 hover:text-emerald-400"><i class="fa-solid fa-plus text-[10px]"></i></button>`}
                         </div>
-                        <input type="text" placeholder="Nota del pedido" value="${ord.note}" onchange="updateOrderNote(${item.id}, this.value)" class="bg-slate-950 border border-slate-800 text-[10px] text-slate-300 rounded px-2 py-1 focus:outline-none focus:border-emerald-500 w-32">
+                        ${ord.estado === 'pendiente' ? `<input type="text" disabled placeholder="Sin notas" value="${ord.note || ''}" onchange="updateOrderNote(${item.id}, this.value)" class="bg-slate-950 border border-slate-800 text-[10px] text-slate-300 rounded px-2 py-1 focus:outline-none focus:border-emerald-500 w-32">` : `<span class="text-[10px] text-slate-400">${ord.note?.trim() || 'Sin notas'}</span>`}
                     </div>
+                    ${mostrarEnviarSolicitud ? `<button type="button" onclick="aceptarPedidoCliente(${ord.pedidoId})" class="w-full rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-300 hover:bg-amber-400 hover:text-slate-950 py-1.5 text-[10px] font-bold transition-all"><i class="fa-solid ${ord.destino === 'barra' ? 'fa-martini-glass-citrus' : 'fa-paper-plane'}"></i> ${ord.destino === 'barra' ? 'Aceptar pedido en barra' : 'Enviar pedido del cliente a cocina'}</button>` : ''}
                     ${ord.pedidoId && ord.estado === 'listo' ? `<button type="button" onclick="marcarServidoMesera(${ord.pedidoId})" class="w-full rounded-lg bg-sky-500/10 border border-sky-500/20 text-sky-300 hover:bg-sky-500 hover:text-slate-950 py-1.5 text-[10px] font-bold transition-all"><i class="fa-solid fa-hand-holding-heart"></i> Marcar servido</button>` : ''}
                 `;
                 container.appendChild(row);
@@ -985,19 +1313,26 @@
             ws.send(JSON.stringify({ accion: 'marcar_servido', pedido_id: pedidoId }));
         }
 
+        function aceptarPedidoCliente(pedidoId) {
+            if (!ws || ws.readyState !== WebSocket.OPEN) {
+                showToast('Sin conexión', 'No se pudo asignar el pedido a su estación.');
+                return;
+            }
+            ws.send(JSON.stringify({ accion: 'enviar_pedido_a_estacion', pedido_id: pedidoId }));
+        }
+
         function updateOrderNote(itemId, note) {
             const table = tables.find(t => t.id === activeTableId);
             if (!table) return;
-            const ord = table.order.find(o => o.itemId === itemId);
+            const ord = (table.newOrder || []).find(o => o.itemId === itemId)
+                || table.order.find(o => o.itemId === itemId && o.estado === 'pendiente');
             if (ord) ord.note = note;
         }
 
         function updateModalTotals(subtotal) {
-            const tax = subtotal * 0.10;
-            const total = subtotal + tax;
+            const total = subtotal;
 
             document.getElementById('order-subtotal').textContent = `$${subtotal.toFixed(2)}`;
-            document.getElementById('order-tax').textContent = `$${tax.toFixed(2)}`;
             document.getElementById('order-total').textContent = `$${total.toFixed(2)}`;
         }
 
@@ -1031,6 +1366,9 @@
             }
             
             document.getElementById('pay-total-amount').textContent = `$${total.toFixed(2)}`;
+            document.getElementById('comprobante-transferencia').value = '';
+            document.getElementById('comprobante-transferencia-error').classList.add('hidden');
+            mostrarEnlaceComprobante(cuentaEnProceso?.comprobante_url);
             
             const pModal = document.getElementById('payment-modal');
             pModal.classList.remove('opacity-0', 'pointer-events-none');
@@ -1039,6 +1377,24 @@
         function closePaymentModal() {
             const pModal = document.getElementById('payment-modal');
             pModal.classList.add('opacity-0', 'pointer-events-none');
+        }
+
+        function mostrarEnlaceComprobante(url, nombre = 'Captura guardada') {
+            if (comprobantePreviewObjectUrl) {
+                URL.revokeObjectURL(comprobantePreviewObjectUrl);
+                comprobantePreviewObjectUrl = null;
+            }
+            const link = document.getElementById('comprobante-transferencia-preview-link');
+            const preview = document.getElementById('comprobante-transferencia-preview-wrap');
+            if (!url) {
+                preview.classList.add('hidden');
+                return;
+            }
+            if (url.startsWith('blob:')) comprobantePreviewObjectUrl = url;
+            link.href = url;
+            document.getElementById('comprobante-transferencia-nombre').textContent = nombre;
+            preview.classList.remove('hidden');
+            preview.classList.add('flex');
         }
 
         function selectPaymentMethod(method) {
@@ -1051,14 +1407,15 @@
                 }
             });
             document.getElementById('mesera-tasa-usd').classList.toggle('hidden', method !== 'usd');
+            const requiereComprobante = method === 'transferencia' || method === 'mixto';
+            document.getElementById('comprobante-transferencia-wrap').classList.toggle('hidden', !requiereComprobante);
+            if (!requiereComprobante) {
+                document.getElementById('comprobante-transferencia').value = '';
+                mostrarEnlaceComprobante(cuentaEnProceso?.comprobante_url);
+            }
         }
 
-        function setTip(percent) {
-            selectedTipPercent = percent;
-            showToast("Propina Ajustada", `Propina de ${percent}% seleccionada.`);
-        }
-
-        function confirmPayment() {
+        async function confirmPayment() {
             if (!cuentaEnProceso) {
                 return;
             }
@@ -1070,15 +1427,103 @@
                     return;
                 }
             }
+            let comprobanteUrl = null;
+            const archivo = document.getElementById('comprobante-transferencia').files[0];
+            const errorComprobante = document.getElementById('comprobante-transferencia-error');
+            errorComprobante.classList.add('hidden');
+            if ((formaPagoSeleccionada === 'transferencia' || formaPagoSeleccionada === 'mixto') && archivo) {
+                if (archivo.size > 5 * 1024 * 1024) {
+                    errorComprobante.textContent = 'La foto no puede superar 5 MB.';
+                    errorComprobante.classList.remove('hidden');
+                    return;
+                }
+                const formData = new FormData();
+                formData.append('comprobante', archivo);
+                formData.append('mesa_numero', cuentaEnProceso.mesa_numero);
+                const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+                const submitButton = document.querySelector('#payment-modal button[type="submit"]');
+                submitButton.disabled = true;
+                try {
+                    const response = await fetch('{% url "pedidos:subir_comprobante_transferencia" %}', {
+                        method: 'POST',
+                        headers: { 'X-CSRFToken': csrfToken },
+                        body: formData,
+                    });
+                    const result = await response.json();
+                    if (!response.ok) throw new Error(result.error || 'No se pudo subir la foto.');
+                    comprobanteUrl = result.comprobante_url;
+                    cuentaEnProceso.comprobante_url = comprobanteUrl;
+                } catch (error) {
+                    errorComprobante.textContent = error.message || 'No se pudo subir la foto.';
+                    errorComprobante.classList.remove('hidden');
+                    submitButton.disabled = false;
+                    return;
+                }
+                submitButton.disabled = false;
+            }
             enviarMensajeMesera({
                 accion: 'preparar_cobro',
                 mesa_numero: cuentaEnProceso.mesa_numero,
                 forma_pago: formaPagoSeleccionada,
                 tasa_cambio: tasa,
+                comprobante_url: comprobanteUrl,
             });
             closePaymentModal();
             cuentaEnProceso = null;
             showToast('Cuenta enviada a caja', 'La cajera debe aceptar el cobro.');
+        }
+
+        function renderBarView() {
+            const container = document.getElementById('bar-orders-container');
+            if (!container) return;
+            const pedidosBarra = tables.flatMap(table => (table.pedidos || [])
+                .filter(pedido => pedido.destino === 'barra' && !['servido', 'cerrado'].includes(pedido.estado))
+                .map(pedido => ({ ...pedido, mesaNombre: table.name })));
+
+            if (!pedidosBarra.length) {
+                container.innerHTML = `
+                    <div class="col-span-full rounded-xl border border-slate-800 bg-slate-950/60 py-12 text-center text-slate-500">
+                        <i class="fa-solid fa-martini-glass-citrus mb-3 block text-3xl text-slate-700"></i>
+                        <p class="text-sm">No hay bebidas pendientes en barra.</p>
+                    </div>`;
+                return;
+            }
+
+            container.innerHTML = '';
+            pedidosBarra.forEach(pedido => {
+                const card = document.createElement('article');
+                card.className = 'rounded-xl border border-amber-500/20 bg-slate-950 p-4';
+                const items = pedido.items.map(item => {
+                    const imagen = item.imagen_url
+                        ? `<img src="${escaparHtml(item.imagen_url)}" alt="${escaparHtml(item.plato)}" loading="lazy" class="h-14 w-14 shrink-0 rounded-lg object-cover">`
+                        : '<span class="grid h-14 w-14 shrink-0 place-items-center rounded-lg bg-slate-900 text-slate-500"><i class="fa-solid fa-martini-glass-citrus"></i></span>';
+                    return `
+                        <div class="flex items-center gap-3 border-b border-slate-800 py-3 last:border-0">
+                            ${imagen}
+                            <div class="min-w-0 flex-1">
+                                <p class="text-sm font-semibold text-white">${escaparHtml(item.cantidad)}x ${escaparHtml(item.plato)}</p>
+                                <p class="mt-1 text-xs text-slate-400">${item.nota ? `Nota: ${escaparHtml(item.nota)}` : 'Sin notas'}</p>
+                            </div>
+                        </div>`;
+                }).join('');
+                const esperandoAprobacion = pedido.estado === 'por_confirmar';
+                const accion = esperandoAprobacion
+                    ? `<button type="button" onclick="aceptarPedidoCliente(${pedido.id})" class="mt-4 w-full rounded-lg bg-amber-400 px-4 py-2.5 text-sm font-bold text-slate-950 hover:bg-amber-300"><i class="fa-solid fa-check mr-2"></i>Aceptar y preparar</button>`
+                    : `<button type="button" onclick="marcarServidoMesera(${pedido.id})" class="mt-4 w-full rounded-lg bg-emerald-500 px-4 py-2.5 text-sm font-bold text-slate-950 hover:bg-emerald-400"><i class="fa-solid fa-hand-holding-heart mr-2"></i>Marcar servido</button>`;
+
+                card.innerHTML = `
+                    <div class="flex items-start justify-between gap-3 border-b border-slate-800 pb-3">
+                        <div>
+                            <h4 class="text-base font-bold text-white">${escaparHtml(pedido.mesaNombre || `Mesa ${pedido.mesa_numero}`)}</h4>
+                            <p class="mt-1 text-xs text-slate-400">Pedido #${escaparHtml(pedido.id)} · ${escaparHtml(pedido.creado_en || '')}</p>
+                        </div>
+                        <span class="rounded-full border border-amber-400/20 bg-amber-400/10 px-2.5 py-1 text-[10px] font-bold text-amber-200">${esperandoAprobacion ? 'Por aceptar' : 'En barra'}</span>
+                    </div>
+                    <div>${items}</div>
+                    <div class="mt-3 text-right text-sm font-bold text-emerald-300">${escaparHtml(pedido.total)} CUP</div>
+                    ${accion}`;
+                container.appendChild(card);
+            });
         }
 
         // VISTA DE PEDIDOS ACTIVOS EN SEGUIMIENTO
@@ -1139,11 +1584,12 @@
             menuItems.forEach(item => {
                 const card = document.createElement('div');
                 card.className = "bg-slate-950 border border-slate-800 rounded-2xl p-4 flex flex-col justify-between hover:border-slate-700 transition-all";
+                const imagen = item.image
+                    ? `<img src="${escaparHtml(item.image)}" alt="${escaparHtml(item.name)}" loading="lazy" class="mb-3 h-36 w-full rounded-xl object-cover">`
+                    : `<div class="mb-3 flex h-36 w-full items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-400"><i class="fa-solid ${item.icon} text-3xl"></i></div>`;
                 card.innerHTML = `
                     <div>
-                        <div class="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center text-lg mb-3 border border-emerald-500/20">
-                            <i class="fa-solid ${item.icon}"></i>
-                        </div>
+                        ${imagen}
                         <h4 class="font-bold text-white text-sm">${item.name}</h4>
                         <p class="text-xs text-slate-400 mt-1">${item.desc}</p>
                     </div>
@@ -1167,6 +1613,36 @@
             setTimeout(() => {
                 toast.classList.add('translate-y-20', 'opacity-0');
             }, 3000);
+        }
+
+        function mostrarAlertaLlamada(mesaNumero) {
+            const alerta = document.getElementById('call-alert');
+            document.getElementById('call-alert-title').textContent = `Mesa ${mesaNumero}`;
+            alerta.classList.remove('hidden');
+            document.getElementById('call-alert-dismiss').focus();
+        }
+
+        function mostrarAlertaPedidoListo(pedido) {
+            pedidoListoMesaId = pedido.mesa_id;
+            const platos = (pedido.items || []).map(item => `${item.cantidad}x ${item.plato}`).join(', ');
+            document.getElementById('ready-alert-title').textContent = `Mesa ${pedido.mesa_numero}`;
+            document.getElementById('ready-alert-description').textContent = platos
+                ? `Listo para recoger: ${platos}`
+                : 'El pedido está listo para recoger.';
+            document.getElementById('ready-alert').classList.remove('hidden');
+            document.getElementById('ready-alert-dismiss').focus();
+            sonidoPedidoNuevo();
+        }
+
+        function verPedidoListo() {
+            const mesaId = pedidoListoMesaId;
+            document.getElementById('ready-alert').classList.add('hidden');
+            pedidoListoMesaId = null;
+            if (mesaId !== null) openTableModal(mesaId);
+        }
+
+        function cerrarAlertaLlamada() {
+            document.getElementById('call-alert').classList.add('hidden');
         }
     </script>
 </body>

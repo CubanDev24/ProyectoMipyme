@@ -1,8 +1,10 @@
+from datetime import timedelta
 from decimal import Decimal
 
 from django.test import RequestFactory, TestCase
 from django.urls import reverse
 
+from inventario.models import Insumo, MovimientoInventario
 from carta.models import Categoria, Plato
 from pedidos.models import Factura, Mesa, Pedido
 from usuarios.models import Usuario, Notificacion, configurar_turno, get_turno_abierto, registrar_inicio_turno, cerrar_turno, mesas_del_turno
@@ -27,6 +29,133 @@ class UsuarioTurnoTests(TestCase):
         self.assertIsNotNone(turno)
         self.assertEqual(turno.usuarios.count(), 1)
         self.assertIn(self.mesera, turno.usuarios.all())
+
+    def test_dashboard_muestra_facturas_del_turno_y_excluye_las_anteriores(self):
+        turno = registrar_inicio_turno(self.mesera)
+        mesa = Mesa.objects.create(numero=1, abierta=True)
+        pedido_anterior = Pedido.objects.create(mesa=mesa, estado='cerrado')
+        factura_anterior = Factura.objects.create(
+            pedido=pedido_anterior,
+            mesa_numero=mesa.numero,
+            forma_pago='efectivo_cup',
+            total_cup=Decimal('12.00'),
+        )
+        Factura.objects.filter(pk=factura_anterior.pk).update(
+            creado_en=turno.apertura - timedelta(seconds=1)
+        )
+        pedido_turno = Pedido.objects.create(mesa=mesa, estado='cerrado')
+        factura_turno = Factura.objects.create(
+            pedido=pedido_turno,
+            mesa_numero=mesa.numero,
+            forma_pago='efectivo_cup',
+            total_cup=Decimal('25.00'),
+            monto_efectivo_cup=Decimal('25.00'),
+            cajera_nombre='Cajera de prueba',
+            items_snapshot=[{
+                'plato': 'Plato de prueba',
+                'cantidad': 1,
+                'precio_unit': '25.00',
+                'subtotal': '25.00',
+            }],
+        )
+
+        self.client.force_login(self.admin)
+        response = self.client.get(reverse('usuarios:dashboard'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(list(response.context['facturas_turno']), [factura_turno])
+        self.assertContains(response, f'Factura #{factura_turno.pk}')
+        self.assertContains(response, 'Plato de prueba')
+        self.assertContains(response, 'Inventario perpetuo de ventas')
+        self.assertContains(response, 'Saldo inicial')
+        self.assertContains(response, 'Merma rotura')
+        self.assertContains(response, 'setInterval(actualizarInventarioTurno, 5000)')
+        self.assertNotContains(response, f'Factura #{factura_anterior.pk}')
+
+    def test_reporte_inventario_turno_calcula_ventas_entradas_roturas_y_saldos(self):
+        turno = registrar_inicio_turno(self.mesera)
+        insumo = Insumo.objects.create(nombre='Coca-Cola', stock_actual=Decimal('10'), precio=Decimal('12.50'))
+        movimiento_inicial = MovimientoInventario.objects.create(
+            insumo=insumo,
+            producto_nombre=insumo.nombre,
+            tipo='entrada',
+            cantidad=Decimal('10'),
+            stock_anterior=Decimal('0'),
+            stock_posterior=Decimal('10'),
+        )
+        MovimientoInventario.objects.filter(pk=movimiento_inicial.pk).update(
+            creado_en=turno.apertura - timedelta(seconds=1),
+        )
+        MovimientoInventario.objects.create(
+            insumo=insumo,
+            producto_nombre=insumo.nombre,
+            tipo='entrada',
+            cantidad=Decimal('5'),
+            stock_anterior=Decimal('10'),
+            stock_posterior=Decimal('15'),
+        )
+        MovimientoInventario.objects.create(
+            insumo=insumo,
+            producto_nombre=insumo.nombre,
+            tipo='salida',
+            cantidad=Decimal('2'),
+            stock_anterior=Decimal('15'),
+            stock_posterior=Decimal('13'),
+            motivo='Pedido vendido',
+        )
+        MovimientoInventario.objects.create(
+            insumo=insumo,
+            producto_nombre=insumo.nombre,
+            tipo='merma',
+            cantidad=Decimal('1'),
+            stock_anterior=Decimal('13'),
+            stock_posterior=Decimal('12'),
+            motivo='Botella rota',
+        )
+        insumo.stock_actual = Decimal('12')
+        insumo.save(update_fields=['stock_actual', 'actualizado_en'])
+        mesa = Mesa.objects.create(numero=50, abierta=True)
+        pedido = Pedido.objects.create(mesa=mesa, estado='cerrado')
+        plato_sin_inventario = Plato.objects.create(
+            categoria=Categoria.objects.create(nombre='Platos', orden=1),
+            nombre='Plato de carta',
+            precio=Decimal('30.00'),
+        )
+        Factura.objects.create(
+            pedido=pedido,
+            mesa_numero=mesa.numero,
+            forma_pago='efectivo_cup',
+            total_cup=Decimal('25'),
+            items_snapshot=[{
+                'plato': 'Coca-Cola',
+                'cantidad': 2,
+                'precio_unit': '12.50',
+                'subtotal': '25.00',
+            }, {
+                'plato': plato_sin_inventario.nombre,
+                'cantidad': 1,
+                'precio_unit': '30.00',
+                'subtotal': '30.00',
+            }],
+        )
+
+        self.client.force_login(self.mesera)
+        response = self.client.get(reverse('usuarios:inventario_ventas_turno'))
+
+        self.assertEqual(response.status_code, 200)
+        producto = next(row for row in response.json()['productos'] if row['nombre'] == 'Coca-Cola')
+        self.assertEqual(producto['saldo_inicial'], '10.00')
+        self.assertEqual(producto['entradas'], '5.00')
+        self.assertEqual(producto['cantidad_existencia'], '12.00')
+        self.assertEqual(producto['cantidad_vendida'], '2')
+        self.assertEqual(producto['saldo_final'], '12.00')
+        self.assertEqual(producto['precio_venta'], '12.50')
+        self.assertEqual(producto['importe_venta'], '25.00')
+        self.assertEqual(producto['merma_rotura'], '1.00')
+        venta_sin_control = next(row for row in response.json()['productos'] if row['nombre'] == plato_sin_inventario.nombre)
+        self.assertFalse(venta_sin_control['control_existencia'])
+        self.assertEqual(venta_sin_control['cantidad_vendida'], '1')
+        self.assertEqual(venta_sin_control['importe_venta'], '30.00')
 
     def test_cerrar_turno_crea_resumen_y_notifica_al_admin(self):
         turno = registrar_inicio_turno(self.mesera)

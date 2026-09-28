@@ -20,6 +20,94 @@
       outline-offset: 2px;
       border-radius: 8px;
     }
+    .invoice-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      margin-top: .55rem;
+      padding: .8rem .9rem;
+      border: 1px solid rgba(148, 163, 184, .14);
+      border-radius: 10px;
+      background: rgba(2, 6, 23, .38);
+      transition: border-color 150ms ease, background-color 150ms ease;
+    }
+    .invoice-row:hover { border-color: rgba(52, 211, 153, .7); background: rgba(16, 185, 129, .07); }
+    .invoice-row-info { display: grid; gap: .2rem; min-width: 0; }
+    .invoice-row-info strong { color: #f8fafc; font-size: .82rem; }
+    .invoice-row-info span { color: #94a3b8; font-size: .7rem; overflow-wrap: anywhere; }
+    .invoice-row-total { color: #6ee7b7 !important; font-weight: 800; }
+    .invoice-detail-button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: .45rem;
+      flex: none;
+      min-height: 38px;
+      padding: 0 .75rem;
+      border: 1px solid rgba(52, 211, 153, .35);
+      border-radius: 8px;
+      background: rgba(16, 185, 129, .09);
+      color: #6ee7b7;
+      font-size: .72rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: border-color 150ms ease, background-color 150ms ease, color 150ms ease;
+    }
+    .invoice-detail-button:hover { border-color: #34d399; background: #10b981; color: #022c22; }
+    .invoice-modal-backdrop { background: rgba(2, 6, 23, .82); backdrop-filter: blur(7px); }
+    .invoice-modal-panel {
+      width: min(100%, 680px);
+      max-height: min(88vh, 820px);
+      overflow-y: auto;
+      border: 1px solid rgba(52, 211, 153, .42);
+      border-radius: 14px;
+      background: #0f172a;
+      box-shadow: 0 24px 70px rgba(0, 0, 0, .5);
+    }
+    .invoice-modal-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; padding: 1.2rem 1.3rem; border-bottom: 1px solid rgba(52, 211, 153, .2); }
+    .invoice-modal-heading h2 { margin: .2rem 0 0; color: #f8fafc; font-size: 1.1rem; font-weight: 800; }
+    .invoice-modal-kicker { color: #6ee7b7; font-size: .65rem; font-weight: 800; text-transform: uppercase; }
+    .invoice-modal-close { display: grid; width: 36px; height: 36px; place-items: center; flex: none; border: 1px solid rgba(148, 163, 184, .2); border-radius: 8px; background: #1e293b; color: #cbd5e1; cursor: pointer; }
+    .invoice-modal-close:hover { border-color: #34d399; color: #6ee7b7; }
+    .invoice-modal-body { display: grid; gap: 1rem; padding: 1.2rem 1.3rem; }
+    .invoice-detail-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .55rem; }
+    .invoice-detail-cell { min-width: 0; padding: .7rem .8rem; border: 1px solid rgba(52, 211, 153, .18); border-radius: 9px; background: rgba(2, 6, 23, .42); }
+    .invoice-detail-cell span { display: block; margin-bottom: .2rem; color: #94a3b8; font-size: .62rem; font-weight: 700; text-transform: uppercase; }
+    .invoice-detail-cell strong { color: #e2e8f0; font-size: .78rem; overflow-wrap: anywhere; }
+    .invoice-detail-section h3 { margin: 0 0 .55rem; color: #cbd5e1; font-size: .72rem; font-weight: 800; text-transform: uppercase; }
+    .invoice-item-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: .25rem .8rem; margin-top: .4rem; padding: .65rem .75rem; border: 1px solid rgba(52, 211, 153, .26); border-radius: 8px; background: rgba(2, 6, 23, .44); transition: border-color 150ms ease, background-color 150ms ease; }
+    .invoice-item-row:hover { border-color: #34d399; background: rgba(16, 185, 129, .1); }
+    .invoice-item-row strong { color: #f1f5f9; font-size: .76rem; }
+    .invoice-item-row span { color: #94a3b8; font-size: .68rem; }
+    .invoice-item-subtotal { grid-column: 2; grid-row: 1 / span 2; align-self: center; color: #6ee7b7 !important; font-weight: 800; }
+    .invoice-modal-total { display: flex; justify-content: space-between; gap: 1rem; padding-top: .9rem; border-top: 1px solid rgba(52, 211, 153, .24); color: #cbd5e1; font-size: .82rem; font-weight: 700; }
+    .invoice-modal-total strong { color: #6ee7b7; font-size: 1rem; }
+    .inventory-ledger-card { grid-column: 1 / -1; min-width: 0; }
+    .inventory-ledger-meta { color: #94a3b8; font-size: .68rem; }
+    .inventory-ledger-wrap { max-width: 100%; overflow: auto; border: 1px solid rgba(148, 163, 184, .16); border-radius: 10px; }
+    .inventory-ledger { width: 100%; min-width: 1120px; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+    .inventory-ledger th { padding: .75rem .8rem; background: rgba(2, 6, 23, .82); color: #94a3b8; font-size: .62rem; font-weight: 800; text-align: right; text-transform: uppercase; white-space: nowrap; }
+    .inventory-ledger th:first-child, .inventory-ledger td:first-child { position: sticky; left: 0; text-align: left; }
+    .inventory-ledger td { padding: .75rem .8rem; border-top: 1px solid rgba(148, 163, 184, .12); color: #cbd5e1; font-size: .72rem; text-align: right; white-space: nowrap; }
+    .inventory-ledger td:first-child { background: #0f172a; }
+    .inventory-ledger tbody tr:hover td { background: rgba(16, 185, 129, .07); }
+    .inventory-ledger tbody tr:hover td:first-child { background: #10251f; }
+    .inventory-ledger .ledger-product { color: #f8fafc; font-weight: 800; }
+    .inventory-ledger .ledger-muted { display: block; margin-top: .15rem; color: #64748b; font-size: .62rem; }
+    .inventory-ledger .ledger-number { color: #e2e8f0; }
+    .inventory-ledger .ledger-sales { color: #6ee7b7; font-weight: 800; }
+    .inventory-ledger .ledger-loss { color: #fda4af; }
+    .inventory-ledger .ledger-balance { color: #a7f3d0; font-weight: 800; }
+    .inventory-ledger-status { color: #94a3b8; font-size: .68rem; text-align: center; }
+    .inventory-ledger-status.error { color: #fda4af; }
+    @media (max-width: 520px) {
+      .invoice-row { align-items: flex-start; }
+      .invoice-detail-button { width: 38px; padding: 0; font-size: 0; }
+      .invoice-detail-button i { font-size: .85rem; }
+      .invoice-detail-grid { grid-template-columns: 1fr; }
+      .invoice-modal-heading, .invoice-modal-body { padding: 1rem; }
+    }
     @media (prefers-reduced-motion: reduce) {
       *, *::before, *::after {
         animation-duration: 0.001ms !important;
@@ -82,6 +170,67 @@
       {% else %}
         <div class="turn-empty"><i class="fa-regular fa-calendar-xmark" aria-hidden="true"></i><span>No hay turno abierto para hoy.</span></div>
       {% endif %}
+    </section>
+
+    <section class="admin-card turn-dashboard-card carta-admin-card" aria-labelledby="facturas-turno-heading">
+      <div class="turn-card-heading"><div class="turn-section-icon" aria-hidden="true"><i class="fa-solid fa-receipt"></i></div><div><p class="panel-kicker">Actividad</p><h2 id="facturas-turno-heading">Facturas del turno</h2></div><span class="admin-section-count">{{ facturas_turno|length }}</span></div>
+      {% for factura in facturas_turno %}
+        <article class="invoice-row">
+          <div class="invoice-row-info">
+            <strong>Factura #{{ factura.id }} · Mesa {{ factura.mesa_numero }}</strong>
+            <span>{{ factura.creado_en|date:"d/m/Y H:i" }} · {{ factura.get_forma_pago_display }}</span>
+            <span class="invoice-row-total">{{ factura.total_cup }} CUP</span>
+          </div>
+          <button type="button" class="invoice-detail-button" data-factura-id="{{ factura.id }}" aria-label="Ver detalle de la factura {{ factura.id }}">
+            <i class="fa-solid fa-eye" aria-hidden="true"></i> Ver detalle
+          </button>
+        </article>
+        <template id="factura-detalle-{{ factura.id }}">
+          <div class="invoice-detail-grid">
+            <div class="invoice-detail-cell"><span>Factura</span><strong>#{{ factura.id }}</strong></div>
+            <div class="invoice-detail-cell"><span>Mesa</span><strong>{{ factura.mesa_numero }}</strong></div>
+            <div class="invoice-detail-cell"><span>Fecha y hora</span><strong>{{ factura.creado_en|date:"d/m/Y H:i:s" }}</strong></div>
+            <div class="invoice-detail-cell"><span>Método de pago</span><strong>{{ factura.get_forma_pago_display }}</strong></div>
+            <div class="invoice-detail-cell"><span>Mesera</span><strong>{{ factura.mesera_nombre|default:"Sin registrar" }}</strong></div>
+            <div class="invoice-detail-cell"><span>Cajera</span><strong>{{ factura.cajera_nombre|default:"Sin registrar" }}</strong></div>
+            <div class="invoice-detail-cell"><span>Efectivo CUP</span><strong>{{ factura.monto_efectivo_cup }} CUP</strong></div>
+            <div class="invoice-detail-cell"><span>Transferencia CUP</span><strong>{{ factura.monto_transferencia_cup }} CUP</strong></div>
+            <div class="invoice-detail-cell"><span>USD recibido</span><strong>{{ factura.monto_usd }} USD</strong></div>
+            <div class="invoice-detail-cell"><span>Tasa de cambio</span><strong>{% if factura.tasa_cambio %}{{ factura.tasa_cambio }} CUP/USD{% else %}No aplica{% endif %}</strong></div>
+          </div>
+          <section class="invoice-detail-section">
+            <h3>Artículos cobrados</h3>
+            {% for item in factura.items_snapshot %}
+              <div class="invoice-item-row">
+                <strong>{{ item.plato }}</strong>
+                <span>{{ item.cantidad }} × {{ item.precio_unit }} CUP</span>
+                <span class="invoice-item-subtotal">{{ item.subtotal }} CUP</span>
+              </div>
+            {% empty %}
+              <div class="turn-empty">No hay artículos guardados en esta factura.</div>
+            {% endfor %}
+          </section>
+          <div class="invoice-modal-total"><span>Total cobrado</span><strong>{{ factura.total_cup }} CUP</strong></div>
+        </template>
+      {% empty %}
+        <div class="turn-empty"><i class="fa-solid fa-receipt" aria-hidden="true"></i><span>No hay facturas registradas en este turno.</span></div>
+      {% endfor %}
+    </section>
+
+    <section class="admin-card turn-dashboard-card inventory-ledger-card" aria-labelledby="inventory-ledger-heading">
+      <div class="turn-card-heading">
+        <div class="turn-section-icon" aria-hidden="true"><i class="fa-solid fa-scale-balanced"></i></div>
+        <div><p class="panel-kicker">Control de existencias</p><h2 id="inventory-ledger-heading">Inventario perpetuo de ventas</h2></div>
+        <span id="inventory-ledger-updated" class="inventory-ledger-meta" role="status" aria-live="polite">Cargando…</span>
+      </div>
+      <div class="inventory-ledger-wrap">
+        <table class="inventory-ledger">
+          <thead><tr>
+            <th>Producto</th><th>Saldo inicial</th><th>Entradas</th><th>Existencia</th><th>Vendido</th><th>Saldo final</th><th>Precio venta</th><th>Importe ventas</th><th>Merma rotura</th>
+          </tr></thead>
+          <tbody id="inventory-ledger-body"><tr><td colspan="9" class="inventory-ledger-status">Consultando inventario del turno…</td></tr></tbody>
+        </table>
+      </div>
     </section>
 
     {% if user.role == 'administrador' %}
@@ -190,6 +339,15 @@
 </div>
     </div>
   </main>
+  <div id="factura-modal" class="invoice-modal-backdrop hidden fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-6" role="dialog" aria-modal="true" aria-labelledby="factura-modal-title">
+    <div class="invoice-modal-panel">
+      <div class="invoice-modal-heading">
+        <div><span class="invoice-modal-kicker">Detalle del cobro</span><h2 id="factura-modal-title">Factura</h2></div>
+        <button type="button" id="factura-modal-close" class="invoice-modal-close" aria-label="Cerrar detalle de factura"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
+      </div>
+      <div id="factura-modal-content" class="invoice-modal-body"></div>
+    </div>
+  </div>
   <div id="toast-container" class="toast-container"></div>
   <script>
     document.querySelectorAll('.turn-user-edit-form').forEach(form => {
@@ -211,6 +369,99 @@
         button.setAttribute('aria-label', visible ? 'Mostrar contraseña' : 'Ocultar contraseña');
         button.innerHTML = `<i class="fa-solid fa-eye${visible ? '' : '-slash'}"></i>`;
       });
+    });
+  </script>
+  <script>
+    const inventarioVentasUrl = '{% url "usuarios:inventario_ventas_turno" %}';
+    const formatoCantidad = new Intl.NumberFormat('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+    function escaparCelda(valor) {
+      return String(valor ?? '').replace(/[&<>"']/g, caracter => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+      })[caracter]);
+    }
+
+    function formatoNumero(valor) {
+      const numero = Number(valor);
+      return formatoCantidad.format(Number.isFinite(numero) ? numero : 0);
+    }
+
+    function formatoExistencia(valor, controlada) {
+      return controlada ? formatoNumero(valor) : '—';
+    }
+
+    async function actualizarInventarioTurno() {
+      const cuerpo = document.getElementById('inventory-ledger-body');
+      const estado = document.getElementById('inventory-ledger-updated');
+      try {
+        const response = await fetch(inventarioVentasUrl, { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+        if (!response.ok) throw new Error('No se pudo cargar el inventario.');
+        const data = await response.json();
+        if (!data.turno_abierto) {
+          cuerpo.innerHTML = '<tr><td colspan="9" class="inventory-ledger-status">No hay un turno abierto.</td></tr>';
+          estado.textContent = 'Sin turno activo';
+          return;
+        }
+        if (!data.productos.length) {
+          cuerpo.innerHTML = '<tr><td colspan="9" class="inventory-ledger-status">No hay productos activos en el inventario.</td></tr>';
+        } else {
+          cuerpo.innerHTML = data.productos.map(producto => `
+            <tr>
+              <td><span class="ledger-product">${escaparCelda(producto.nombre)}</span><span class="ledger-muted">${escaparCelda(producto.categoria)} · ${escaparCelda(producto.unidad)} · ${producto.control_existencia ? 'Stock controlado' : 'Sin control de stock'}</span></td>
+              <td class="ledger-number">${formatoExistencia(producto.saldo_inicial, producto.control_existencia)}</td>
+              <td class="ledger-number">${formatoExistencia(producto.entradas, producto.control_existencia)}</td>
+              <td class="ledger-number">${formatoExistencia(producto.cantidad_existencia, producto.control_existencia)}</td>
+              <td class="ledger-number">${formatoNumero(producto.cantidad_vendida)}</td>
+              <td class="ledger-balance">${formatoExistencia(producto.saldo_final, producto.control_existencia)}</td>
+              <td class="ledger-number">${formatoNumero(producto.precio_venta)} CUP</td>
+              <td class="ledger-sales">${formatoNumero(producto.importe_venta)} CUP</td>
+              <td class="ledger-loss">${formatoExistencia(producto.merma_rotura, producto.control_existencia)}</td>
+            </tr>`).join('');
+        }
+        estado.textContent = `Actualizado ${data.actualizado_en}`;
+        estado.classList.remove('error');
+      } catch (error) {
+        estado.textContent = error.message || 'No se pudo actualizar.';
+        estado.classList.add('error');
+      }
+    }
+
+    actualizarInventarioTurno();
+    setInterval(actualizarInventarioTurno, 5000);
+
+    const facturaModal = document.getElementById('factura-modal');
+    const facturaModalTitle = document.getElementById('factura-modal-title');
+    const facturaModalContent = document.getElementById('factura-modal-content');
+    const facturaModalClose = document.getElementById('factura-modal-close');
+    let facturaTriggerAnterior = null;
+
+    function cerrarModalFacturaTurno() {
+      facturaModal.classList.add('hidden');
+      facturaModalContent.replaceChildren();
+      document.body.classList.remove('overflow-hidden');
+      facturaTriggerAnterior?.focus();
+    }
+
+    document.querySelectorAll('[data-factura-id]').forEach(button => {
+      button.addEventListener('click', () => {
+        const facturaId = button.dataset.facturaId;
+        const detalle = document.getElementById(`factura-detalle-${facturaId}`);
+        if (!detalle) return;
+        facturaTriggerAnterior = button;
+        facturaModalTitle.textContent = `Factura #${facturaId}`;
+        facturaModalContent.replaceChildren(detalle.content.cloneNode(true));
+        facturaModal.classList.remove('hidden');
+        document.body.classList.add('overflow-hidden');
+        facturaModalClose.focus();
+      });
+    });
+
+    facturaModalClose.addEventListener('click', cerrarModalFacturaTurno);
+    facturaModal.addEventListener('click', event => {
+      if (event.target === facturaModal) cerrarModalFacturaTurno();
+    });
+    document.addEventListener('keydown', event => {
+      if (event.key === 'Escape' && !facturaModal.classList.contains('hidden')) cerrarModalFacturaTurno();
     });
   </script>
   <script>

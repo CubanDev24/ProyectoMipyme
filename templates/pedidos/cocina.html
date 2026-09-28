@@ -112,16 +112,38 @@ function renderCol(id, lista) {
   lista.forEach(p=>el.appendChild(crearCard(p)));
 }
 
+function escaparHtml(value) {
+  return String(value ?? '').replace(/[&<>"']/g, character => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+  })[character]);
+}
+
+function urlImagenProducto(value) {
+  if (!value) return '';
+  try {
+    const url = new URL(value, location.origin);
+    return url.origin === location.origin ? escaparHtml(url.href) : '';
+  } catch (error) {
+    return '';
+  }
+}
+
 function crearCard(p) {
   const div = document.createElement('div');
   div.className='pedido-card';
-  const items = p.items.map(i=>`<li><span><span class="cant-badge">${i.cantidad}</span>${i.plato}</span><span style="color:var(--text-muted)">${i.subtotal} CUP</span></li>`).join('');
+  const items = p.items.map(i=>{
+    const imagen = urlImagenProducto(i.imagen_url);
+    const foto = imagen
+      ? `<img class="cocina-item-imagen" src="${imagen}" alt="${escaparHtml(i.plato)}" loading="lazy">`
+      : '<span class="cocina-item-imagen cocina-item-placeholder" aria-hidden="true"><i class="fa-solid fa-utensils"></i></span>';
+    return `<li><span class="cocina-item-info">${foto}<span class="cocina-item-nombre"><span class="cant-badge">${escaparHtml(i.cantidad)}</span>${escaparHtml(i.plato)}</span></span><span style="color:var(--text-muted)">${escaparHtml(i.subtotal)} CUP</span></li>`;
+  }).join('');
   const cuentaTag = p.cuenta_solicitada ? `<div class="tag-cuenta-cocina"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg> Pide la cuenta</div>` : '';
   const nota = p.nota ? `<div class="nota-cocina">Nota: ${p.nota}</div>` : '';
   let btns='';
   if(p.estado==='pendiente') btns=`<button class="btn btn-orange" onclick="cambiarEstado(${p.id},'en_preparacion')">Preparar</button>`;
   else if(p.estado==='en_preparacion') btns=`<button class="btn btn-success" onclick="cambiarEstado(${p.id},'listo')">Marcar listo</button>`;
-  else if(p.estado==='listo') btns=`<button class="btn btn-blue" onclick="cambiarEstado(${p.id},'servido')">Marcar servido</button>`;
+  else if(p.estado==='listo') btns=`<button class="btn btn-success" onclick="cambiarEstado(${p.id},'servido')">Listo</button>`;
   div.innerHTML=`
     <div class="pedido-card-top">
       <div><div class="pedido-mesa-label">Mesa ${p.mesa_numero}</div><div class="pedido-hora">#${p.id} · ${p.creado_en}</div></div>

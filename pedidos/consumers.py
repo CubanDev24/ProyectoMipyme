@@ -2,6 +2,7 @@ import json
 from decimal import Decimal, ROUND_HALF_UP
 import uuid
 
+from django.db import transaction
 from channels.generic.websocket import AsyncWebsocketConsumer
 from channels.db import database_sync_to_async
 from django.db.models import F
@@ -30,6 +31,7 @@ def serializar_pedido(pedido):
         'id': pedido.pk,
         'mesa_id': pedido.mesa_id,
         'mesa_numero': pedido.mesa.numero,
+        'destino': pedido.destino,
         'estado': pedido.estado,
         'estado_display': pedido.get_estado_display(),
         'nota': pedido.nota,
@@ -43,6 +45,7 @@ def serializar_pedido(pedido):
                 'id': i.pk,
                 'plato_id': i.plato_id,
                 'plato': i.plato.nombre,
+                'imagen_url': i.plato.imagen.url if i.plato.imagen else None,
                 'precio_unit': str(i.plato.precio),
                 'cantidad': i.cantidad,
                 'nota': i.nota,
@@ -51,6 +54,46 @@ def serializar_pedido(pedido):
             for i in pedido.items.all()
         ],
     }
+
+
+@transaction.atomic
+def crear_pedidos_por_destino(mesa, items_data, nota, estado):
+    grupos = {'cocina': [], 'barra': []}
+    for item_data in items_data:
+        if not isinstance(item_data, dict):
+            continue
+        try:
+            plato = Plato.objects.select_related('categoria').get(
+                pk=item_data.get('plato_id'), disponible=True,
+            )
+        except (Plato.DoesNotExist, TypeError, ValueError):
+            continue
+        categoria = (plato.categoria.nombre or '').strip().casefold()
+        destino = 'barra' if categoria.startswith('bebid') else 'cocina'
+        grupos[destino].append((plato, item_data))
+
+    pedidos = []
+    for destino, items in grupos.items():
+        if not items:
+            continue
+        pedido = Pedido.objects.create(
+            mesa=mesa,
+            sesion_id=mesa.sesion_id,
+            nota=nota,
+            estado=estado,
+            destino=destino,
+        )
+        for plato, item_data in items:
+            ItemPedido.objects.create(
+                pedido=pedido,
+                plato=plato,
+                cantidad=item_data.get('cantidad', 1),
+                nota=item_data.get('nota', ''),
+            )
+        pedidos.append(serializar_pedido(
+            Pedido.objects.prefetch_related('items__plato').select_related('mesa').get(pk=pedido.pk)
+        ))
+    return pedidos
 
 
 def serializar_cuenta(pedidos):
@@ -82,6 +125,7 @@ def serializar_cuenta(pedidos):
         'total': str(total),
         'forma_pago': pedidos[0].forma_pago_preseleccionada or None,
         'tasa_cambio': str(pedidos[0].tasa_cambio_preseleccionada) if pedidos[0].tasa_cambio_preseleccionada else None,
+        'comprobante_url': pedidos[0].comprobante_transferencia.url if pedidos[0].comprobante_transferencia else None,
         'items': items,
         'pdf_url': None,
     }
@@ -154,21 +198,43 @@ class MeseraConsumer(AsyncWebsocketConsumer):
         accion = data.get('accion')
 
         if accion == 'crear_pedido':
-            pedido = await self.crear_pedido(
+            pedidos = await self.crear_pedido(
                 data['mesa_id'], data.get('items', []), data.get('nota', '')
             )
-            if pedido:
-                await self.send(text_data=json.dumps({'tipo': 'pedido_confirmado', 'pedido': pedido}))
-                await self.channel_layer.group_send('cocina', {'type': 'pedido_nuevo', 'pedido': pedido})
-                await self.channel_layer.group_send('mesera', {'type': 'pedido_nuevo', 'pedido': pedido})
-                await self.channel_layer.group_send(
-                    f"cliente_{pedido['mesa_numero']}",
-                    {'type': 'pedido_nuevo', 'pedido': pedido},
-                )
+            if pedidos:
+                for pedido in pedidos:
+                    await self.send(text_data=json.dumps({'tipo': 'pedido_confirmado', 'pedido': pedido}))
+                    if pedido['destino'] == 'cocina':
+                        await self.channel_layer.group_send('cocina', {'type': 'pedido_nuevo', 'pedido': pedido})
+                    await self.channel_layer.group_send('mesera', {'type': 'pedido_nuevo', 'pedido': pedido})
+                    await self.channel_layer.group_send(
+                        f"cliente_{pedido['mesa_numero']}",
+                        {'type': 'pedido_nuevo', 'pedido': pedido},
+                    )
             else:
                 await self.send(text_data=json.dumps({
                     'tipo': 'error_pedido',
                     'mensaje': 'No se pudo crear el pedido. Verifica que la mesa esté abierta y los productos disponibles.',
+                }))
+
+        elif accion in ['enviar_pedido_a_estacion', 'enviar_pedido_a_cocina']:
+            pedido = await self.enviar_pedido_a_estacion(data.get('pedido_id'))
+            if pedido:
+                if pedido['destino'] == 'cocina':
+                    await self.channel_layer.group_send('cocina', {'type': 'pedido_nuevo', 'pedido': pedido})
+                await self.channel_layer.group_send('mesera', {'type': 'pedido_actualizado', 'pedido': pedido})
+                await self.channel_layer.group_send(
+                    f"cliente_{pedido['mesa_numero']}",
+                    {'type': 'pedido_actualizado', 'pedido': pedido},
+                )
+                await self.send(text_data=json.dumps({
+                    'tipo': 'pedido_enviado_barra' if pedido['destino'] == 'barra' else 'pedido_enviado_cocina',
+                    'pedido_id': pedido['id'],
+                }))
+            else:
+                await self.send(text_data=json.dumps({
+                    'tipo': 'error_pedido',
+                    'mensaje': 'La solicitud ya no está pendiente o la mesa está cerrada.',
                 }))
 
         elif accion == 'aceptar_factura':
@@ -267,6 +333,12 @@ class MeseraConsumer(AsyncWebsocketConsumer):
     async def pedido_actualizado(self, event):
         await self.send(text_data=json.dumps({'tipo': 'pedido_actualizado', 'pedido': event['pedido']}))
 
+    async def llamada_mesera(self, event):
+        await self.send(text_data=json.dumps({
+            'tipo': 'llamada_mesera',
+            'mesa_numero': event['mesa_numero'],
+        }))
+
     async def factura_solicitada(self, event):
         factura = dict(event['factura'])
         if event.get('mesera_nombre'):
@@ -347,21 +419,25 @@ class MeseraConsumer(AsyncWebsocketConsumer):
         except Mesa.DoesNotExist:
             return None
         if not items_data:
+            return []
+        return crear_pedidos_por_destino(mesa, items_data, nota, estado='pendiente')
+
+    @database_sync_to_async
+    def enviar_pedido_a_estacion(self, pedido_id):
+        try:
+            pedido = Pedido.objects.select_related('mesa').get(
+                pk=pedido_id,
+                estado='por_confirmar',
+                mesa__abierta=True,
+                sesion_id=F('mesa__sesion_id'),
+            )
+        except (Pedido.DoesNotExist, TypeError, ValueError):
             return None
-        pedido = Pedido.objects.create(mesa=mesa, sesion_id=mesa.sesion_id, nota=nota)
-        for item in items_data:
-            try:
-                plato = Plato.objects.get(pk=item['plato_id'], disponible=True)
-                ItemPedido.objects.create(
-                    pedido=pedido, plato=plato,
-                    cantidad=item.get('cantidad', 1), nota=item.get('nota', '')
-                )
-            except Plato.DoesNotExist:
-                pass
-        if not pedido.items.exists():
-            pedido.delete()
-            return None
-        return serializar_pedido(Pedido.objects.prefetch_related('items__plato').select_related('mesa').get(pk=pedido.pk))
+        pedido.estado = 'pendiente'
+        pedido.save(update_fields=['estado', 'actualizado_en'])
+        return serializar_pedido(
+            Pedido.objects.prefetch_related('items__plato').select_related('mesa').get(pk=pedido.pk)
+        )
 
     @database_sync_to_async
     def cambiar_estado(self, pedido_id, estado):
@@ -467,14 +543,20 @@ class CocinaConsumer(AsyncWebsocketConsumer):
 
     @database_sync_to_async
     def get_pedidos_cocina(self):
-        qs = Pedido.objects.filter(estado__in=['pendiente', 'en_preparacion', 'listo']) \
+        qs = Pedido.objects.filter(
+            estado__in=['pendiente', 'en_preparacion', 'listo'],
+            destino='cocina',
+        ) \
             .prefetch_related('items__plato').select_related('mesa')
         return [serializar_pedido(p) for p in qs]
 
     @database_sync_to_async
     def cambiar_estado(self, pedido_id, estado):
         try:
-            p = Pedido.objects.prefetch_related('items__plato').select_related('mesa').get(pk=pedido_id)
+            p = Pedido.objects.prefetch_related('items__plato').select_related('mesa').get(
+                pk=pedido_id,
+                destino='cocina',
+            )
             p.estado = estado
             p.save()
             return serializar_pedido(p)
@@ -771,19 +853,36 @@ class ClienteConsumer(AsyncWebsocketConsumer):
         accion = data.get('accion')
 
         if accion == 'crear_pedido':
-            pedido = await self.crear_pedido(data.get('items', []), data.get('nota', ''))
-            if pedido:
-                await self.channel_layer.group_send(
-                    self.group_name,
-                    {'type': 'pedido_confirmado', 'pedido': pedido},
-                )
-                await self.channel_layer.group_send('cocina', {'type': 'pedido_nuevo', 'pedido': pedido})
-                await self.channel_layer.group_send('mesera', {'type': 'pedido_nuevo', 'pedido': pedido})
+            pedidos = await self.crear_pedido(data.get('items', []), data.get('nota', ''))
+            if pedidos:
+                for pedido in pedidos:
+                    await self.channel_layer.group_send(
+                        self.group_name,
+                        {'type': 'pedido_confirmado', 'pedido': pedido},
+                    )
+                    await self.channel_layer.group_send('mesera', {'type': 'pedido_nuevo', 'pedido': pedido})
             else:
                 await self.send(text_data=json.dumps({
                     'tipo': 'error_pedido',
                     'mensaje': 'No se pudo crear el pedido. Verifica que la mesa esté abierta y los productos disponibles.',
                 }))
+
+        elif accion == 'llamar_camarero':
+            mesa_numero = await self.mesa_abierta_para_llamada()
+            if mesa_numero is None:
+                await self.send(text_data=json.dumps({
+                    'tipo': 'error_llamada_camarero',
+                    'mensaje': 'La mesa está cerrada. No se pudo avisar a la mesera.',
+                }))
+                return
+            await self.channel_layer.group_send('mesera', {
+                'type': 'llamada_mesera',
+                'mesa_numero': mesa_numero,
+            })
+            await self.send(text_data=json.dumps({
+                'tipo': 'llamada_camarero_confirmada',
+                'mesa_numero': mesa_numero,
+            }))
 
         elif accion in ['solicitar_cuenta', 'solicitar_factura']:
             pedidos = await self.solicitar_cuenta(data['pedido_id'])
@@ -844,6 +943,15 @@ class ClienteConsumer(AsyncWebsocketConsumer):
         await self.send(text_data=json.dumps({'tipo': 'mesa_actualizada', 'mesa': event['mesa']}))
 
     @database_sync_to_async
+    def mesa_abierta_para_llamada(self):
+        mesa = Mesa.objects.filter(
+            numero=self.mesa_numero,
+            activa=True,
+            abierta=True,
+        ).values_list('numero', flat=True).first()
+        return mesa
+
+    @database_sync_to_async
     def get_historial_cliente(self):
         mesa = Mesa.objects.filter(numero=self.mesa_numero, activa=True).first()
         if not mesa or not mesa.abierta:
@@ -868,21 +976,8 @@ class ClienteConsumer(AsyncWebsocketConsumer):
         except Mesa.DoesNotExist:
             return None
         if not items_data:
-            return None
-        pedido = Pedido.objects.create(mesa=mesa, sesion_id=mesa.sesion_id, nota=nota)
-        for item in items_data:
-            try:
-                plato = Plato.objects.get(pk=item['plato_id'], disponible=True)
-                ItemPedido.objects.create(
-                    pedido=pedido, plato=plato,
-                    cantidad=item.get('cantidad', 1), nota=item.get('nota', '')
-                )
-            except Plato.DoesNotExist:
-                pass
-        if not pedido.items.exists():
-            pedido.delete()
-            return None
-        return serializar_pedido(Pedido.objects.prefetch_related('items__plato').select_related('mesa').get(pk=pedido.pk))
+            return []
+        return crear_pedidos_por_destino(mesa, items_data, nota, estado='por_confirmar')
 
     @database_sync_to_async
     def solicitar_cuenta(self, pedido_id):

@@ -230,7 +230,7 @@
         </div>
 
         <button type="button" id="btnEnviarPedido" class="cliente-primary-btn" onclick="enviarPedido()" disabled>
-          <i class="fa-solid fa-fire"></i> ENVIAR COMANDA A COCINA
+          <i class="fa-solid fa-paper-plane"></i> SOLICITAR A LA MESERA
         </button>
       </div>
     </section>
@@ -1736,6 +1736,7 @@ const WS_URL = `${WS_PROTOCOL}://${location.host}/ws/cliente/${MESA}/`;
 let carrito = [];
 let pedidoActual = null;
 let ws = null;
+let llamadaMeseraPendiente = false;
 let pedidosCliente = [];
 let filtroActual = 'todos';
 let mesaDisponible = true;
@@ -1954,10 +1955,15 @@ function scrollACat(id, btn) {
 // WEBSOCKET
 // ============================================================
 function conectar() {
+  if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) return;
   ws = new WebSocket(WS_URL);
   
   ws.onopen = () => {
     actualizarDisponibilidadMesa();
+    if (llamadaMeseraPendiente) {
+      ws.send(JSON.stringify({ accion: 'llamar_camarero' }));
+      llamadaMeseraPendiente = false;
+    }
   };
   
   ws.onerror = () => {
@@ -1996,12 +2002,18 @@ function conectar() {
       document.getElementById('notaPedido').value = '';
       renderCartItems();
       mostrarEstado(d.pedido);
-      showToast('¡Comanda Enviada!', 'Tu pedido fue enviado exitosamente a cocina.', 'success');
+      showToast('Solicitud enviada', 'La mesera revisará tu pedido y lo enviará a cocina.', 'success');
       actualizarBadges();
       switchTab('orders');
       
     } else if (d.tipo === 'error_pedido') {
       showToast('Error', d.mensaje || 'No se pudo enviar el pedido.', 'error');
+
+    } else if (d.tipo === 'llamada_camarero_confirmada') {
+      showToast('Mesera avisada', `La mesera recibió tu llamado desde la mesa ${d.mesa_numero}.`, 'success');
+
+    } else if (d.tipo === 'error_llamada_camarero') {
+      showToast('No se pudo avisar', d.mensaje, 'error');
       
     } else if (d.tipo === 'pedido_actualizado') {
       const indice = pedidosCliente.findIndex(p => p.id === d.pedido.id);
@@ -2190,8 +2202,8 @@ function renderHistorialCliente() {
   if (!pedidosCliente.length) {
     lista.innerHTML = `
       <div class="cliente-cart-empty">
-        <i class="fa-solid fa-fire"></i>
-        Aún no has enviado comandas a cocina.
+        <i class="fa-solid fa-paper-plane"></i>
+        Aún no has enviado pedidos a la mesera.
       </div>`;
     return;
   }
@@ -2199,7 +2211,10 @@ function renderHistorialCliente() {
   pedidosCliente.slice().reverse().forEach(pedido => {
     let statusClass = '';
     let statusIcon = '';
-    if (pedido.estado === 'pendiente' || pedido.estado === 'Enviado a cocina') {
+    if (pedido.estado === 'por_confirmar') {
+      statusClass = '';
+      statusIcon = '<i class="fa-regular fa-clock"></i> ';
+    } else if (pedido.estado === 'pendiente' || pedido.estado === 'Enviado a cocina') {
       statusClass = '';
       statusIcon = '<i class="fa-solid fa-paper-plane"></i> ';
     } else if (pedido.estado === 'en_preparacion' || pedido.estado === 'En preparación') {
@@ -2368,10 +2383,17 @@ function solicitarCuentaRapida() {
 // LLAMAR CAMARERO
 // ============================================================
 function llamarCamarero() {
-  showToast('Mesero Notificado', 'El mesero ha recibido una alerta y vendrá a tu mesa.', 'success');
+  if (!mesaDisponible) {
+    showToast('Mesa cerrada', 'No se puede llamar a la mesera desde una mesa cerrada.', 'warning');
+    return;
+  }
   if (ws && ws.readyState === WebSocket.OPEN) {
     ws.send(JSON.stringify({ accion: 'llamar_camarero', mesa: MESA }));
+    return;
   }
+  llamadaMeseraPendiente = true;
+  conectar();
+  showToast('Conectando', 'Enviaremos la llamada cuando se restablezca la conexión.', 'warning');
 }
 
 // ============================================================

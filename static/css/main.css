@@ -221,6 +221,10 @@ body.login-page .topbar{display:none !important}
 .pedido-items-ul{list-style:none;margin-bottom:.65rem}
 .pedido-items-ul li{display:flex;justify-content:space-between;padding:.22rem 0;font-size:.83rem;border-bottom:1px solid var(--border)}
 .pedido-items-ul li:last-child{border-bottom:none}
+.cocina-item-info{display:flex;min-width:0;align-items:center;gap:.65rem}
+.cocina-item-imagen{width:56px;height:56px;flex:none;border-radius:8px;object-fit:cover;background:var(--surface2)}
+.cocina-item-placeholder{display:grid;place-items:center;color:var(--text-muted);font-size:1.1rem}
+.cocina-item-nombre{display:flex;min-width:0;align-items:center;flex-wrap:wrap;gap:.25rem}
 .cant-badge{background:var(--surface2);padding:0 .35rem;border-radius:var(--radius-xs);font-weight:700;font-size:.78rem;margin-right:.4rem}
 .nota-cocina{font-size:.78rem;color:var(--text-muted);font-style:italic;margin-bottom:.65rem}
 .total-cocina{font-size:.82rem;color:var(--text-muted);text-align:right;margin-bottom:.65rem}

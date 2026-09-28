@@ -4,9 +4,14 @@ from django.contrib import messages
 from django.contrib.auth import logout, login, authenticate, update_session_auth_hash
 from django.contrib.auth.decorators import login_required
 from django.db.models import Sum
+from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.utils import timezone
 from django.views.decorators.http import require_http_methods
 
+from carta.models import Plato
+from inventario.models import Insumo, MovimientoInventario
+from pedidos.models import Factura
 from .models import Notificacion, Turno, Usuario, cerrar_turno, configurar_turno, get_turno_abierto, registrar_inicio_turno
 
 
@@ -50,10 +55,150 @@ def dashboard(request):
     turno = get_turno_abierto()
     notificaciones = Notificacion.objects.filter(destinatario=request.user).order_by('-creada_en')[:10]
     usuarios = Usuario.objects.order_by('role', 'username') if request.user.role == 'administrador' else []
+    facturas_turno = Factura.objects.none()
+    if turno:
+        fin_turno = turno.cierre or timezone.now()
+        facturas_turno = Factura.objects.filter(
+            creado_en__gte=turno.apertura,
+            creado_en__lte=fin_turno,
+        ).select_related('pedido__mesa').order_by('-creado_en')
     return render(request, 'usuarios/dashboard.html', {
         'turno': turno,
+        'facturas_turno': facturas_turno,
         'notificaciones': notificaciones,
         'usuarios': usuarios,
+    })
+
+
+def _decimal_o_cero(valor):
+    try:
+        return Decimal(str(valor).replace(',', '.').strip())
+    except (ArithmeticError, TypeError, ValueError, AttributeError):
+        return Decimal('0')
+
+
+@login_required
+def inventario_ventas_turno(request):
+    turno = get_turno_abierto()
+    if turno is None:
+        return JsonResponse({
+            'turno_abierto': False,
+            'productos': [],
+            'actualizado_en': timezone.localtime().strftime('%H:%M:%S'),
+        })
+
+    ahora = timezone.now()
+    insumos = list(Insumo.objects.filter(activo=True).select_related('categoria').order_by('nombre'))
+    insumo_ids = [insumo.pk for insumo in insumos]
+    movimientos = MovimientoInventario.objects.filter(
+        insumo_id__in=insumo_ids,
+        creado_en__lte=ahora,
+    ).only(
+        'insumo_id', 'tipo', 'cantidad', 'stock_anterior', 'stock_posterior', 'motivo', 'creado_en',
+    ).order_by('insumo_id', 'creado_en', 'pk')
+
+    saldo_previo = {}
+    saldo_apertura = {}
+    movimientos_turno = {}
+    for movimiento in movimientos:
+        insumo_id = movimiento.insumo_id
+        if movimiento.creado_en < turno.apertura:
+            saldo_previo[insumo_id] = movimiento.stock_posterior
+            continue
+        saldo_apertura.setdefault(insumo_id, movimiento.stock_anterior)
+        datos = movimientos_turno.setdefault(insumo_id, {
+            'entradas': Decimal('0'),
+            'salidas': Decimal('0'),
+            'merma': Decimal('0'),
+        })
+        if movimiento.tipo == 'entrada':
+            datos['entradas'] += movimiento.cantidad
+        elif movimiento.tipo == 'merma':
+            datos['merma'] += movimiento.cantidad
+            datos['salidas'] += movimiento.cantidad
+        elif movimiento.tipo == 'salida':
+            datos['salidas'] += movimiento.cantidad
+            if 'rotura' in (movimiento.motivo or '').casefold():
+                datos['merma'] += movimiento.cantidad
+
+    insumo_por_nombre = {insumo.nombre.strip().casefold(): insumo.pk for insumo in insumos}
+    ventas = {}
+    facturas = Factura.objects.filter(
+        creado_en__gte=turno.apertura,
+        creado_en__lte=ahora,
+    ).values_list('items_snapshot', flat=True)
+    for snapshot in facturas:
+        for item in snapshot or []:
+            nombre = str(item.get('plato', '')).strip().casefold()
+            if not nombre:
+                continue
+            datos = ventas.setdefault(nombre, {
+                'nombre': str(item.get('plato', '')).strip(),
+                'cantidad': Decimal('0'),
+                'importe': Decimal('0'),
+                'precio_total': Decimal('0'),
+            })
+            cantidad = _decimal_o_cero(item.get('cantidad'))
+            datos['cantidad'] += cantidad
+            datos['importe'] += _decimal_o_cero(item.get('subtotal'))
+            datos['precio_total'] += _decimal_o_cero(item.get('precio_unit')) * cantidad
+
+    platos_por_nombre = {
+        plato.nombre.strip().casefold(): plato
+        for plato in Plato.objects.select_related('categoria').all()
+    }
+    productos = []
+    for insumo in insumos:
+        mov = movimientos_turno.get(insumo.pk, {})
+        nombre_key = insumo.nombre.strip().casefold()
+        venta = ventas.get(nombre_key, {})
+        inicial = saldo_apertura.get(insumo.pk, saldo_previo.get(insumo.pk, insumo.stock_actual))
+        entradas = mov.get('entradas', Decimal('0'))
+        salidas = mov.get('salidas', Decimal('0'))
+        merma = mov.get('merma', Decimal('0'))
+        productos.append({
+            'nombre': insumo.nombre,
+            'categoria': insumo.categoria.nombre if insumo.categoria else 'Sin categoría',
+            'unidad': insumo.get_unidad_display(),
+            'saldo_inicial': str(inicial),
+            'entradas': str(entradas),
+            'cantidad_existencia': str(insumo.stock_actual),
+            'cantidad_vendida': str(venta.get('cantidad', Decimal('0'))),
+            'saldo_final': str(inicial + entradas - salidas),
+            'precio_venta': str(insumo.precio),
+            'importe_venta': str(venta.get('importe', Decimal('0'))),
+            'merma_rotura': str(merma),
+            'control_existencia': True,
+        })
+
+    for nombre_key, venta in ventas.items():
+        if nombre_key in insumo_por_nombre:
+            continue
+        plato = platos_por_nombre.get(nombre_key)
+        cantidad = venta['cantidad']
+        precio_venta = plato.precio if plato else (
+            venta['precio_total'] / cantidad if cantidad else Decimal('0')
+        )
+        productos.append({
+            'nombre': venta['nombre'],
+            'categoria': plato.categoria.nombre if plato and plato.categoria else 'Sin categoría',
+            'unidad': 'Unidad',
+            'saldo_inicial': None,
+            'entradas': None,
+            'cantidad_existencia': None,
+            'cantidad_vendida': str(cantidad),
+            'saldo_final': None,
+            'precio_venta': str(precio_venta),
+            'importe_venta': str(venta['importe']),
+            'merma_rotura': None,
+            'control_existencia': False,
+        })
+    productos.sort(key=lambda producto: producto['nombre'].casefold())
+
+    return JsonResponse({
+        'turno_abierto': True,
+        'actualizado_en': timezone.localtime(ahora).strftime('%H:%M:%S'),
+        'productos': productos,
     })
 
 

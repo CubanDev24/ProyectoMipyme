@@ -47,7 +47,7 @@ class Usuario(AbstractUser):
     @property
     def es_cajera(self):
         return self.role == 'cajera'
-
+    
 
 class Turno(models.Model):
     ESTADO_CHOICES = [

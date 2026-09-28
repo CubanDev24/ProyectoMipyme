@@ -3,9 +3,12 @@ from decimal import Decimal
 from io import BytesIO
 
 from django.contrib.auth.decorators import login_required, user_passes_test
-from django.db.models import Count, Sum
+from django import forms
+from django.db.models import Count, F, Sum
+from django.core.exceptions import ValidationError
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import render, get_object_or_404
+from django.views.decorators.http import require_POST
 from reportlab.lib.pagesizes import A5
 from reportlab.pdfgen import canvas
 from carta.models import Categoria, Plato
@@ -58,6 +61,9 @@ def _rol_permitido(*roles):
         return user.is_authenticated and user.role in roles
     return _check
 
+def en_turno(nombre):
+    turno = get_turno_abierto()
+    return turno.usuarios.filter(username=nombre).exists() if turno is not None else False
 
 @login_required
 @user_passes_test(_rol_permitido('mesera'))
@@ -66,17 +72,48 @@ def mesera(request):
     categorias = Categoria.objects.filter(platos__disponible=True).distinct().order_by('orden', 'nombre')
     turno = get_turno_abierto()
     mesas = mesas_del_turno(turno) if turno else Mesa.objects.none()
+    mesera_en_turno = en_turno(request.user.username)
     return render(request, 'mesera/mesera.html', {
         'productos': productos,
         'categorias': categorias,
         'mesas': mesas,
         'turno': turno,
+        'en_turno': mesera_en_turno,
     })
+
+
+@login_required
+@user_passes_test(_rol_permitido('mesera'))
+@require_POST
+def subir_comprobante_transferencia(request):
+    uploaded = request.FILES.get('comprobante')
+    mesa_numero = request.POST.get('mesa_numero')
+    if not uploaded or not mesa_numero:
+        return JsonResponse({'error': 'Selecciona una foto y una mesa válida.'}, status=400)
+    if uploaded.size > 5 * 1024 * 1024:
+        return JsonResponse({'error': 'La foto no puede superar 5 MB.'}, status=400)
+    try:
+        forms.ImageField().clean(uploaded)
+    except ValidationError:
+        return JsonResponse({'error': 'El archivo debe ser una imagen válida.'}, status=400)
+
+    pedido = Pedido.objects.filter(
+        mesa__numero=mesa_numero,
+        mesa__abierta=True,
+        sesion_id=F('mesa__sesion_id'),
+        cuenta_solicitada=True,
+    ).exclude(estado='cerrado').order_by('-creado_en').first()
+    if not pedido:
+        return JsonResponse({'error': 'No hay una cuenta pendiente para esa mesa.'}, status=404)
+
+    pedido.comprobante_transferencia.save(uploaded.name, uploaded, save=True)
+    return JsonResponse({'comprobante_url': pedido.comprobante_transferencia.url})
 
 @login_required
 @user_passes_test(_rol_permitido('cocina'))
 def cocina(request):
-    return render(request, 'pedidos/cocina.html')
+    cocina_en_turno = en_turno(request.user.username)
+    return render(request, 'pedidos/cocina.html', {'en_turno': cocina_en_turno})
 
 
 @login_required
@@ -84,6 +121,7 @@ def cocina(request):
 def caja(request):
     return render(request, 'caja/caja.html', {
         'tasa_actual': TasaCambio.actual(),
+        'en_turno': en_turno(request.user.username),
     })
 
 
@@ -95,6 +133,7 @@ def caja_estadisticas_pagina(request):
         'recaudacion': payload['recaudacion'],
         'inventario': payload['inventario'],
         'tasa_actual': TasaCambio.actual(),
+        'en_turno': en_turno(request.user.username),
     })
 
 def factura_imprimir(request, pk):

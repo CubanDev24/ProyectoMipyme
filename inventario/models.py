@@ -77,6 +77,7 @@ class MovimientoInventario(models.Model):
     TIPO_CHOICES = [
         ('entrada', 'Entrada'),
         ('salida', 'Salida'),
+        ('merma', 'Merma por rotura'),
     ]
 
     insumo = models.ForeignKey(

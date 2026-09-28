@@ -15,7 +15,12 @@ class Mesa(models.Model):
     def __str__(self): return f'Mesa {self.numero}'
 
 class Pedido(models.Model):
+    DESTINO_CHOICES = [
+        ('cocina', 'Cocina'),
+        ('barra', 'Barra'),
+    ]
     ESTADO_CHOICES = [
+        ('por_confirmar', 'Esperando a la mesera'),
         ('pendiente', 'Pendiente'),
         ('en_preparacion', 'En preparación'),
         ('listo', 'Listo'),
@@ -23,6 +28,7 @@ class Pedido(models.Model):
         ('cerrado', 'Cerrado'),
     ]
     mesa = models.ForeignKey(Mesa, on_delete=models.PROTECT, related_name='pedidos')
+    destino = models.CharField(max_length=10, choices=DESTINO_CHOICES, default='cocina')
     estado = models.CharField(max_length=20, choices=ESTADO_CHOICES, default='pendiente')
     nota = models.TextField(blank=True)
     creado_en = models.DateTimeField(auto_now_add=True)
@@ -33,6 +39,7 @@ class Pedido(models.Model):
     sesion_id = models.UUIDField(null=True, editable=False)
     forma_pago_preseleccionada = models.CharField(max_length=20, blank=True, default='')
     tasa_cambio_preseleccionada = models.DecimalField(max_digits=8, decimal_places=2, null=True, blank=True)
+    comprobante_transferencia = models.ImageField(upload_to='comprobantes_transferencia/%Y/%m/', blank=True, null=True)
 
     class Meta:
         ordering = ['-creado_en']

@@ -149,6 +149,7 @@
                         <ul class="cobro-items-ul" id="cobro-items-ul"></ul>
                         <div class="cobro-total" id="cobro-total">0.00 CUP</div>
                         <div class="cobro-nota" id="cobro-nota"></div>
+                        <div id="cobro-comprobante"></div>
 
                         <div class="pago-box" id="pago-box">
                             <div class="pago-box-titulo" id="pago-box-titulo">Forma de pago</div>
@@ -194,6 +195,12 @@
     let formaPagoSeleccionada = null;
     let ultimaFacturaId = null;
     let alertasInventario = [];
+
+    function escaparHtml(valor) {
+      return String(valor ?? '').replace(/[&<>"']/g, caracter => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+      })[caracter]);
+    }
 
     function cargarHistorialFacturas() {
       fetch('{% url "pedidos:facturas_historial" %}')
@@ -268,6 +275,9 @@
                 mesera_nombre: cuenta.mesera_nombre || d.mesera_nombre || '',
               };
               renderLista();
+              if (pedidoSeleccionado && pedidoSeleccionado.mesa_numero === cuenta.mesa_numero) {
+                seleccionarCuenta(pedidos[pedidoKey]);
+              }
             }
           }
         } else if (d.tipo === 'pedido_cerrado') {
@@ -340,6 +350,7 @@
       document.getElementById('cobro-total').textContent = `${p.total} CUP`;
       const nota = document.getElementById('cobro-nota');
       nota.textContent = p.nota ? `Nota: ${p.nota}` : '';
+      document.getElementById('cobro-comprobante').innerHTML = comprobanteHtml(p);
 
       document.querySelectorAll('input[name="forma_pago"]').forEach(r => r.checked = r.value === formaPagoSeleccionada);
       document.querySelectorAll('.pago-opcion').forEach(el => el.classList.toggle('seleccionada', el.dataset.forma === formaPagoSeleccionada));
@@ -364,6 +375,7 @@
       formaPagoSeleccionada = null;
       ultimaFacturaId = null;
       document.getElementById('cobro-detalle').style.display = 'none';
+      document.getElementById('cobro-comprobante').innerHTML = '';
       document.getElementById('cobro-vacio').style.display = 'flex';
       document.getElementById('pago-formas').style.display = 'grid';
       document.getElementById('pago-box-titulo').textContent = 'Forma de pago';
@@ -406,6 +418,32 @@
           <div class="pago-detalle-linea" style="margin-top:.4rem"><span>A cobrar en USD</span><strong id="monto-usd-calc">—</strong></div>`;
         actualizarMontoUsd();
       }
+    }
+
+    function comprobanteHtml(pedido) {
+      if (!pedido || !pedido.comprobante_url) return '';
+      let url;
+      try {
+        url = new URL(pedido.comprobante_url, window.location.origin);
+      } catch (error) {
+        return '';
+      }
+      if (url.origin !== window.location.origin || !['http:', 'https:'].includes(url.protocol)) return '';
+      const safeUrl = escaparHtml(url.href);
+      const mesa = escaparHtml(pedido.mesa_numero);
+      return `
+        <div class="my-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-700 bg-slate-900 px-3 py-3">
+          <div class="flex min-w-0 items-center gap-3">
+            <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-400"><i class="fa-regular fa-image"></i></span>
+            <div class="min-w-0">
+              <p class="text-xs font-semibold text-slate-100">Imagen del pago en transferencia</p>
+              <p class="mt-1 text-[10px] text-slate-400">Mesa ${mesa}</p>
+            </div>
+          </div>
+          <a href="${safeUrl}" target="_blank" rel="noopener noreferrer" class="inline-flex min-h-9 shrink-0 items-center gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 text-xs font-semibold text-emerald-300 hover:bg-emerald-500/20">
+            <i class="fa-solid fa-arrow-up-right-from-square"></i> Ver imagen
+          </a>
+        </div>`;
     }
 
     function actualizarMontoUsd() {
