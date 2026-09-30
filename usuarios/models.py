@@ -19,7 +19,7 @@ class Usuario(AbstractUser):
         ('cajera', 'Cajera'),
     ]
 
-    role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='mesera')
+    role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='administrador')
     telefono = models.CharField(max_length=30, blank=True)
     activo = models.BooleanField(default=True)
     ultimo_login_turno = models.DateTimeField(null=True, blank=True)

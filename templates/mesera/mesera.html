@@ -9,9 +9,7 @@
     <link rel="stylesheet" href="{% static 'css/tailwind.css' %}">
     <!-- FontAwesome Icons -->
     <link rel="stylesheet" href="{% static 'vendor/fontawesome/css/all.min.css' %}">
-    <!-- Google Fonts -->
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-    <script>
+    <!-- Google Fonts -->    <script>
       
     </script>
     <style>
@@ -306,6 +304,11 @@
                     <span class="hidden lg:inline">Barra</span>
                     <span id="badge-bar-count" class="hidden lg:flex ml-auto bg-amber-500/20 text-amber-300 text-xs px-2 py-0.5 rounded-full font-bold">0</span>
                 </button>
+                <button onclick="switchView('takeaway')" id="nav-takeaway" class="w-full flex items-center gap-3 px-3 py-3 rounded-xl font-medium text-sm text-slate-400 hover:text-white hover:bg-slate-800/50 transition-all">
+                    <i class="fa-solid fa-bag-shopping text-lg w-6 text-center"></i>
+                    <span class="hidden lg:inline">Para llevar</span>
+                    <span id="badge-takeaway-count" class="hidden lg:flex ml-auto bg-sky-500/20 text-sky-300 text-xs px-2 py-0.5 rounded-full font-bold">0</span>
+                </button>
                 <button onclick="switchView('menu')" id="nav-menu" class="w-full flex items-center gap-3 px-3 py-3 rounded-xl font-medium text-sm text-slate-400 hover:text-white hover:bg-slate-800/50 transition-all">
                     <i class="fa-solid fa-book-open text-lg w-6 text-center"></i>
                     <span class="hidden lg:inline">Carta / Menú</span>
@@ -395,6 +398,41 @@
                     <i class="fa-solid fa-martini-glass-citrus text-amber-300"></i> Preparación de barra
                 </h3>
                 <div id="bar-orders-container" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4"></div>
+            </section>
+
+            <section id="view-takeaway" class="hidden space-y-5">
+                <div>
+                    <h3 class="text-base font-bold text-white flex items-center gap-2"><i class="fa-solid fa-bag-shopping text-sky-300"></i> Pedidos para llevar</h3>
+                    <p class="mt-1 text-xs text-slate-400">Crea tickets separados del salón; cuando estén listos, márcalos como entregados.</p>
+                </div>
+                <div class="grid grid-cols-1 xl:grid-cols-[minmax(0,1.15fr)_minmax(340px,.85fr)] gap-5 items-start">
+                    <section class="rounded-xl border border-slate-800 bg-slate-950/60 p-4">
+                        <div class="flex items-center justify-between gap-3 border-b border-slate-800 pb-3">
+                            <h4 class="text-sm font-bold text-white">Carta</h4>
+                            <span class="text-xs text-slate-400">Selecciona productos</span>
+                        </div>
+                        <div id="takeaway-menu" class="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2"></div>
+                        <div class="mt-5 border-t border-slate-800 pt-4">
+                            <div class="flex items-center justify-between"><h4 class="text-sm font-bold text-white">Nuevo ticket</h4><span id="takeaway-cart-total" class="text-sm font-bold text-emerald-300">0.00 CUP</span></div>
+                            <div id="takeaway-cart" class="mt-3 space-y-2"></div>
+                            <label for="takeaway-note" class="mt-4 mb-1 block text-xs font-semibold text-slate-400">Nota del pedido</label>
+                            <textarea id="takeaway-note" rows="2" maxlength="500" class="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white placeholder-slate-500 focus:border-emerald-500 focus:outline-none" placeholder="Indicaciones para cocina o barra"></textarea>
+                            {% if turno %}
+                            <button type="button" id="takeaway-submit" onclick="crearPedidoParaLlevar()" class="mt-3 w-full rounded-lg bg-emerald-500 px-4 py-2.5 text-sm font-bold text-slate-950 hover:bg-emerald-400"><i class="fa-solid fa-paper-plane mr-2"></i>Enviar pedido</button>
+                            {% else %}
+                            <p class="mt-3 rounded-lg border border-amber-400/20 bg-amber-400/10 px-3 py-2 text-xs text-amber-200">El administrador debe abrir el turno para recibir pedidos.</p>
+                            <button type="button" id="takeaway-submit" disabled class="mt-2 w-full cursor-not-allowed rounded-lg bg-slate-700 px-4 py-2.5 text-sm font-bold text-slate-400"><i class="fa-solid fa-lock mr-2"></i>Turno cerrado</button>
+                            {% endif %}
+                        </div>
+                    </section>
+                    <section class="rounded-xl border border-slate-800 bg-slate-950/60 p-4">
+                        <div class="flex items-center justify-between gap-3 border-b border-slate-800 pb-3">
+                            <h4 class="text-sm font-bold text-white">Tickets activos</h4>
+                            <span id="takeaway-active-count" class="rounded-full bg-slate-800 px-2 py-1 text-xs font-bold text-slate-300">0</span>
+                        </div>
+                        <div id="takeaway-orders-container" class="mt-3 space-y-3"></div>
+                    </section>
+                </div>
             </section>
 
             <!-- VISTA: MENÚ/CARTA -->
@@ -679,6 +717,9 @@
 
         let activeTableId = null;
         let pedidoListoMesaId = null;
+        let pedidosParaLlevar = [];
+        let carritoParaLlevar = [];
+        const pagosParaLlevarAbiertos = new Set();
         const WS_URL = `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws/mesera/`;
         let ws = null;
         let wsReconnectTimer = null;
@@ -701,6 +742,8 @@
             updateClock();
             setInterval(updateClock, 30000);
             renderMenuCatalog();
+            renderMenuParaLlevar();
+            renderVistaParaLlevar();
             conectarMesera();
             document.getElementById('comprobante-transferencia').addEventListener('change', event => {
                 const archivo = event.target.files[0];
@@ -730,25 +773,37 @@
                             table.newOrder = [];
                         }
                     });
-                    data.pedidos.forEach(aplicarPedidoEnMesa);
+                    data.pedidos.forEach(pedido => pedido.es_para_llevar
+                        ? actualizarPedidoParaLlevar(pedido)
+                        : aplicarPedidoEnMesa(pedido));
                     renderTables();
                     updateHeaderStats();
                     renderBarView();
+                    renderVistaParaLlevar();
+                    abrirPagoPendienteParaLlevar();
                 } else if (data.tipo === 'pedido_nuevo' || data.tipo === 'pedido_actualizado') {
                     const tablaActual = tables.find(item => item.id === data.pedido.mesa_id);
                     const pedidoAnterior = tablaActual?.pedidos?.find(item => item.id === data.pedido.id);
+                    const pedidoParaLlevarAnterior = pedidosParaLlevar.find(item => item.id === data.pedido.id);
                     const cambioAListo = data.tipo === 'pedido_actualizado'
                         && data.pedido.estado === 'listo'
-                        && pedidoAnterior?.estado !== 'listo';
-                    aplicarPedidoEnMesa(data.pedido);
+                        && pedidoAnterior?.estado !== 'listo'
+                        && pedidoParaLlevarAnterior?.estado !== 'listo';
+                    if (data.pedido.es_para_llevar) actualizarPedidoParaLlevar(data.pedido);
+                    else aplicarPedidoEnMesa(data.pedido);
                     renderTables();
                     updateHeaderStats();
                     renderBarView();
-                    if (activeTableId === data.pedido.mesa_id) openTableModal(activeTableId);
+                    renderVistaParaLlevar();
+                    if (data.pedido.es_para_llevar) {
+                        abrirPagoTicketEntregado(data.pedido.grupo_para_llevar);
+                    }
+                    if (data.pedido.mesa_id && activeTableId === data.pedido.mesa_id) openTableModal(activeTableId);
                     if (data.tipo === 'pedido_nuevo' && data.pedido.estado === 'por_confirmar') {
                         showToast('Solicitud del cliente', `Mesa ${data.pedido.mesa_numero} espera que envíes su pedido a cocina.`);
                     }
-                    if (cambioAListo) mostrarAlertaPedidoListo(data.pedido);
+                    if (cambioAListo && data.pedido.es_para_llevar) showToast('Pedido para llevar listo', `${data.pedido.etiqueta} está listo para entregar.`);
+                    else if (cambioAListo) mostrarAlertaPedidoListo(data.pedido);
                 } else if (data.tipo === 'llamada_mesera') {
                     mostrarAlertaLlamada(data.mesa_numero);
                     sonidoMesa();
@@ -765,6 +820,7 @@
                     renderTables();
                     updateHeaderStats();
                     renderBarView();
+                    renderVistaParaLlevar();
                     if (activeTableId === data.mesa.id) closeModal();
                     showToast('Mesa actualizada', `Mesa ${data.mesa.numero} ${data.mesa.abierta ? 'abierta' : 'cerrada'}.`);
                 } else if (data.tipo === 'pedido_cerrado') {
@@ -772,16 +828,24 @@
                         table.pedidos = (table.pedidos || []).filter(pedido => pedido.id !== data.pedido_id);
                         sincronizarPedidoMesa(table);
                     });
+                    pedidosParaLlevar = pedidosParaLlevar.filter(pedido => pedido.id !== data.pedido_id);
                     renderTables();
                     updateHeaderStats();
                     renderBarView();
+                    renderVistaParaLlevar();
                 } else if (data.tipo === 'pedido_confirmado') {
                     const table = tables.find(item => item.id === data.pedido.mesa_id);
                     if (table) table.newOrder = [];
-                    if (table) aplicarPedidoEnMesa(data.pedido);
+                    if (data.pedido.es_para_llevar) {
+                        actualizarPedidoParaLlevar(data.pedido);
+                        carritoParaLlevar = [];
+                        document.getElementById('takeaway-note').value = '';
+                        renderCarritoParaLlevar();
+                    } else if (table) aplicarPedidoEnMesa(data.pedido);
                     renderTables();
                     renderBarView();
-                    showToast('Comanda enviada', 'El pedido ha sido transmitido a la cocina.');
+                    renderVistaParaLlevar();
+                    showToast('Comanda enviada', data.pedido.es_para_llevar ? `${data.pedido.etiqueta} fue enviado a preparación.` : 'El pedido ha sido transmitido a la cocina.');
                 } else if (data.tipo === 'pedido_enviado_cocina') {
                     showToast('Comanda enviada', 'El pedido ya está en la bandeja de cocina.');
                 } else if (data.tipo === 'pedido_enviado_barra') {
@@ -806,6 +870,8 @@
                         if (activeTableId === table.id) openTableModal(table.id);
                     }
                     showToast('Cuenta enviada a caja', `Mesa ${mesa} quedó marcada como cuenta solicitada.`);
+                } else if (data.tipo === 'cobro_preparado_para_llevar') {
+                    showToast('Cuenta enviada a caja', 'La cajera recibió el pedido para llevar con la forma de pago seleccionada.');
                 } else if (data.tipo === 'error_pedido') {
                     showToast('No se pudo crear el pedido', data.mensaje);
                 } else if (data.tipo === 'error_mesa') {
@@ -892,6 +958,12 @@
             sincronizarPedidoMesa(table);
         }
 
+        function actualizarPedidoParaLlevar(pedido) {
+            const index = pedidosParaLlevar.findIndex(item => item.id === pedido.id);
+            if (index >= 0) pedidosParaLlevar[index] = pedido;
+            else pedidosParaLlevar.push(pedido);
+        }
+
         // REVOLVER RELOJ
         function updateClock() {
             const now = new Date();
@@ -903,11 +975,13 @@
             document.getElementById('view-tables').classList.add('hidden');
             document.getElementById('view-orders').classList.add('hidden');
             document.getElementById('view-bar').classList.add('hidden');
+            document.getElementById('view-takeaway').classList.add('hidden');
             document.getElementById('view-menu').classList.add('hidden');
 
             document.getElementById('nav-tables').className = "w-full flex items-center gap-3 px-3 py-3 rounded-xl font-medium text-sm text-slate-400 hover:text-white hover:bg-slate-800/50 transition-all";
             document.getElementById('nav-orders').className = "w-full flex items-center gap-3 px-3 py-3 rounded-xl font-medium text-sm text-slate-400 hover:text-white hover:bg-slate-800/50 transition-all";
             document.getElementById('nav-bar').className = "w-full flex items-center gap-3 px-3 py-3 rounded-xl font-medium text-sm text-slate-400 hover:text-white hover:bg-slate-800/50 transition-all";
+            document.getElementById('nav-takeaway').className = "w-full flex items-center gap-3 px-3 py-3 rounded-xl font-medium text-sm text-slate-400 hover:text-white hover:bg-slate-800/50 transition-all";
             document.getElementById('nav-menu').className = "w-full flex items-center gap-3 px-3 py-3 rounded-xl font-medium text-sm text-slate-400 hover:text-white hover:bg-slate-800/50 transition-all";
 
             const activeClass = "w-full flex items-center gap-3 px-3 py-3 rounded-xl font-medium text-sm transition-all bg-emerald-500/10 text-emerald-400 border border-emerald-500/20";
@@ -926,6 +1000,12 @@
                 document.getElementById('nav-bar').className = activeClass;
                 document.getElementById('page-title').innerHTML = `<i class="fa-solid fa-martini-glass-citrus text-amber-300"></i> Preparación de Barra`;
                 renderBarView();
+            } else if (viewName === 'takeaway') {
+                document.getElementById('view-takeaway').classList.remove('hidden');
+                document.getElementById('nav-takeaway').className = activeClass;
+                document.getElementById('page-title').innerHTML = `<i class="fa-solid fa-bag-shopping text-sky-300"></i> Pedidos para llevar`;
+                renderMenuParaLlevar();
+                renderVistaParaLlevar();
             } else if (viewName === 'menu') {
                 document.getElementById('view-menu').classList.remove('hidden');
                 document.getElementById('nav-menu').className = activeClass;
@@ -1064,11 +1144,19 @@
             document.getElementById('count-busy').textContent = busy;
             document.getElementById('badge-active-count').textContent = busy;
             const pendientesBarra = tables.reduce((total, table) => total + (table.pedidos || []).filter(pedido => (
-                pedido.destino === 'barra' && !['servido', 'cerrado'].includes(pedido.estado)
+                pedido.destino === 'barra' && !['servido', 'entregado', 'cerrado'].includes(pedido.estado)
             )).length, 0);
+            const ticketsBarraParaLlevar = new Set(pedidosParaLlevar.filter(pedido => (
+                pedido.destino === 'barra' && !['entregado', 'cerrado'].includes(pedido.estado)
+            )).map(pedido => pedido.grupo_para_llevar));
+            const totalPendientesBarra = pendientesBarra + ticketsBarraParaLlevar.size;
             const badgeBarra = document.getElementById('badge-bar-count');
-            badgeBarra.textContent = pendientesBarra;
-            badgeBarra.classList.toggle('hidden', pendientesBarra === 0);
+            badgeBarra.textContent = totalPendientesBarra;
+            badgeBarra.classList.toggle('hidden', totalPendientesBarra === 0);
+            const ticketsParaLlevar = new Set(pedidosParaLlevar.filter(pedido => pedido.estado !== 'cerrado').map(pedido => pedido.grupo_para_llevar));
+            const badgeParaLlevar = document.getElementById('badge-takeaway-count');
+            badgeParaLlevar.textContent = ticketsParaLlevar.size;
+            badgeParaLlevar.classList.toggle('hidden', ticketsParaLlevar.size === 0);
         }
 
         // CALCULAR TOTAL DE MESA
@@ -1377,6 +1465,7 @@
         function closePaymentModal() {
             const pModal = document.getElementById('payment-modal');
             pModal.classList.add('opacity-0', 'pointer-events-none');
+            cuentaEnProceso = null;
         }
 
         function mostrarEnlaceComprobante(url, nombre = 'Captura guardada') {
@@ -1439,7 +1528,11 @@
                 }
                 const formData = new FormData();
                 formData.append('comprobante', archivo);
-                formData.append('mesa_numero', cuentaEnProceso.mesa_numero);
+                if (cuentaEnProceso.es_para_llevar) {
+                    formData.append('grupo_para_llevar', cuentaEnProceso.grupo_para_llevar);
+                } else {
+                    formData.append('mesa_numero', cuentaEnProceso.mesa_numero);
+                }
                 const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
                 const submitButton = document.querySelector('#payment-modal button[type="submit"]');
                 submitButton.disabled = true;
@@ -1462,8 +1555,9 @@
                 submitButton.disabled = false;
             }
             enviarMensajeMesera({
-                accion: 'preparar_cobro',
+                accion: cuentaEnProceso.es_para_llevar ? 'preparar_cobro_para_llevar' : 'preparar_cobro',
                 mesa_numero: cuentaEnProceso.mesa_numero,
+                grupo_para_llevar: cuentaEnProceso.grupo_para_llevar,
                 forma_pago: formaPagoSeleccionada,
                 tasa_cambio: tasa,
                 comprobante_url: comprobanteUrl,
@@ -1473,12 +1567,159 @@
             showToast('Cuenta enviada a caja', 'La cajera debe aceptar el cobro.');
         }
 
+        function renderMenuParaLlevar() {
+            const menu = document.getElementById('takeaway-menu');
+            if (!menu) return;
+            if (!menuItems.length) {
+                menu.innerHTML = '<div class="col-span-full py-6 text-center text-xs text-slate-500">No hay productos disponibles.</div>';
+                return;
+            }
+            menu.innerHTML = menuItems.map(item => `
+                <button type="button" onclick="agregarAlCarritoParaLlevar(${item.id})" class="flex min-h-[68px] items-center justify-between gap-3 rounded-lg border border-slate-800 bg-slate-900 px-3 py-2 text-left hover:border-emerald-500/50">
+                    <span class="min-w-0"><strong class="block truncate text-xs text-white">${escaparHtml(item.name)}</strong><small class="mt-1 block truncate text-[10px] text-slate-500">${escaparHtml(item.category)}</small></span>
+                    <span class="shrink-0 text-xs font-bold text-emerald-300">${Number(item.price).toFixed(2)}</span>
+                </button>`).join('');
+        }
+
+        function agregarAlCarritoParaLlevar(itemId) {
+            const linea = carritoParaLlevar.find(item => item.itemId === itemId);
+            if (linea) linea.cantidad += 1;
+            else carritoParaLlevar.push({ itemId, cantidad: 1 });
+            renderCarritoParaLlevar();
+        }
+
+        function cambiarCantidadParaLlevar(itemId, cambio) {
+            const linea = carritoParaLlevar.find(item => item.itemId === itemId);
+            if (!linea) return;
+            linea.cantidad += cambio;
+            if (linea.cantidad <= 0) carritoParaLlevar = carritoParaLlevar.filter(item => item.itemId !== itemId);
+            renderCarritoParaLlevar();
+        }
+
+        function renderCarritoParaLlevar() {
+            const container = document.getElementById('takeaway-cart');
+            const totalElement = document.getElementById('takeaway-cart-total');
+            if (!container || !totalElement) return;
+            const total = carritoParaLlevar.reduce((sum, linea) => {
+                const item = menuItems.find(producto => producto.id === linea.itemId);
+                return sum + (item ? Number(item.price) * linea.cantidad : 0);
+            }, 0);
+            totalElement.textContent = `${total.toFixed(2)} CUP`;
+            if (!carritoParaLlevar.length) {
+                container.innerHTML = '<p class="py-3 text-center text-xs text-slate-500">Agrega productos para crear el ticket.</p>';
+                return;
+            }
+            container.innerHTML = carritoParaLlevar.map(linea => {
+                const item = menuItems.find(producto => producto.id === linea.itemId);
+                if (!item) return '';
+                return `<div class="flex items-center justify-between gap-2 rounded-lg border border-slate-800 bg-slate-900 px-3 py-2"><span class="min-w-0 truncate text-xs font-semibold text-slate-200">${escaparHtml(item.name)}</span><span class="flex shrink-0 items-center gap-2"><button type="button" onclick="cambiarCantidadParaLlevar(${item.id}, -1)" aria-label="Quitar una unidad" class="grid h-7 w-7 place-items-center rounded border border-slate-700 text-slate-300 hover:text-rose-300"><i class="fa-solid fa-minus text-[10px]"></i></button><strong class="w-4 text-center text-xs">${linea.cantidad}</strong><button type="button" onclick="cambiarCantidadParaLlevar(${item.id}, 1)" aria-label="Agregar una unidad" class="grid h-7 w-7 place-items-center rounded border border-slate-700 text-slate-300 hover:text-emerald-300"><i class="fa-solid fa-plus text-[10px]"></i></button></span></div>`;
+            }).join('');
+        }
+
+        function crearPedidoParaLlevar() {
+            if (!carritoParaLlevar.length) {
+                showToast('Ticket vacío', 'Agrega al menos un producto.');
+                return;
+            }
+            enviarMensajeMesera({
+                accion: 'crear_pedido_para_llevar',
+                items: carritoParaLlevar.map(linea => ({ plato_id: linea.itemId, cantidad: linea.cantidad })),
+                nota: document.getElementById('takeaway-note').value.trim(),
+            });
+        }
+
+        function renderVistaParaLlevar() {
+            const container = document.getElementById('takeaway-orders-container');
+            const count = document.getElementById('takeaway-active-count');
+            if (!container || !count) return;
+            const grupos = new Map();
+            pedidosParaLlevar.filter(pedido => pedido.estado !== 'cerrado').forEach(pedido => {
+                const ticketId = pedido.grupo_para_llevar;
+                if (!grupos.has(ticketId)) grupos.set(ticketId, []);
+                grupos.get(ticketId).push(pedido);
+            });
+            count.textContent = grupos.size;
+            if (!grupos.size) {
+                container.innerHTML = '<div class="py-10 text-center text-slate-500"><i class="fa-solid fa-bag-shopping mb-3 block text-2xl text-slate-700"></i><p class="text-xs">No hay tickets para llevar activos.</p></div>';
+                return;
+            }
+            container.innerHTML = [...grupos.values()].map(partes => {
+                const ticket = partes[0];
+                const cuentaSolicitada = partes.some(pedido => pedido.cuenta_solicitada);
+                const listoParaEntrega = partes.every(pedido => pedido.estado === 'listo');
+                const listoParaCaja = partes.every(pedido => pedido.estado === 'entregado');
+                const total = partes.reduce((sum, pedido) => sum + Number(pedido.total || 0), 0);
+                const lineas = partes.map(pedido => `
+                    <div class="rounded-lg border border-slate-800 bg-slate-900 p-3">
+                        <div class="mb-2 flex items-center justify-between gap-2"><span class="text-[10px] font-bold uppercase text-slate-500">${pedido.destino === 'barra' ? 'Barra' : 'Cocina'}</span><span class="text-[10px] font-semibold ${pedido.estado === 'entregado' ? 'text-sky-300' : pedido.estado === 'listo' ? 'text-emerald-300' : 'text-amber-300'}">${escaparHtml(pedido.estado_display)}</span></div>
+                        ${pedido.items.map(item => `<div class="flex justify-between gap-2 py-1 text-xs"><span class="text-slate-200">${escaparHtml(item.cantidad)}x ${escaparHtml(item.plato)}</span><span class="shrink-0 text-slate-400">${escaparHtml(item.subtotal)} CUP</span></div>`).join('')}
+                        ${pedido.nota ? `<p class="mt-2 text-[10px] text-slate-400">Nota: ${escaparHtml(pedido.nota)}</p>` : ''}
+                    </div>`).join('');
+                const entregaAction = listoParaCaja
+                    ? '<div class="mt-3 rounded-lg border border-sky-400/20 bg-sky-400/10 px-3 py-2 text-center text-xs font-semibold text-sky-200"><i class="fa-solid fa-bag-shopping mr-1"></i>Ticket entregado</div>'
+                    : listoParaEntrega
+                        ? `<button type="button" onclick="marcarTicketParaLlevarEntregado('${ticket.grupo_para_llevar}')" class="mt-3 w-full rounded-lg bg-sky-500 px-3 py-2 text-xs font-bold text-white hover:bg-sky-400"><i class="fa-solid fa-bag-shopping mr-1"></i>Marcar ticket completo como entregado</button>`
+                        : '<p class="mt-3 text-center text-[10px] text-slate-500">La entrega conjunta estará disponible cuando cocina y barra estén listas.</p>';
+                const cuentaAction = cuentaSolicitada
+                    ? '<div class="mt-3 rounded-lg border border-amber-400/20 bg-amber-400/10 px-3 py-2 text-center text-xs font-semibold text-amber-200"><i class="fa-solid fa-cash-register mr-1"></i>Cuenta enviada a caja</div>'
+                    : listoParaCaja
+                        ? `<button type="button" onclick="iniciarPagoParaLlevar('${ticket.grupo_para_llevar}')" class="mt-3 w-full rounded-lg border border-emerald-300 bg-emerald-500 px-4 py-3 text-sm font-extrabold text-slate-950 shadow-lg shadow-emerald-500/20 transition-colors hover:border-emerald-200 hover:bg-emerald-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-300"><i class="fa-solid fa-cash-register mr-2"></i>Elegir forma de pago y enviar a caja</button>`
+                        : '<p class="mt-3 text-center text-[10px] text-slate-500">La cuenta estará disponible cuando el ticket esté entregado.</p>';
+                return `<article class="rounded-xl border border-sky-500/20 bg-slate-950 p-4"><div class="mb-3 flex items-start justify-between gap-3 border-b border-slate-800 pb-3"><div><h5 class="text-sm font-bold text-white">${escaparHtml(ticket.etiqueta)}</h5><p class="mt-1 text-[10px] text-slate-500">${escaparHtml(ticket.creado_en)} · ${partes.length} ${partes.length === 1 ? 'comanda' : 'comandas'}</p></div><span class="text-sm font-bold text-emerald-300">${total.toFixed(2)} CUP</span></div><div class="space-y-2">${lineas}</div>${entregaAction}${cuentaAction}</article>`;
+            }).join('');
+        }
+
+        function marcarTicketParaLlevarEntregado(grupoParaLlevar) {
+            enviarMensajeMesera({ accion: 'marcar_ticket_entregado', grupo_para_llevar: grupoParaLlevar });
+        }
+
+        function marcarPedidoParaLlevarListo(pedidoId) {
+            enviarMensajeMesera({ accion: 'marcar_listo_para_llevar', pedido_id: pedidoId });
+        }
+
+        function iniciarPagoParaLlevar(grupoParaLlevar) {
+            const partes = pedidosParaLlevar.filter(pedido => pedido.grupo_para_llevar === grupoParaLlevar);
+            if (!partes.length || !partes.every(pedido => pedido.estado === 'entregado')) return;
+            const total = partes.reduce((sum, pedido) => sum + Number(pedido.total || 0), 0);
+            cuentaEnProceso = {
+                es_para_llevar: true,
+                grupo_para_llevar: grupoParaLlevar,
+                etiqueta: partes[0].etiqueta,
+                total: total.toFixed(2),
+                total_cup: total.toFixed(2),
+                comprobante_url: partes.find(pedido => pedido.comprobante_url)?.comprobante_url || null,
+            };
+            pagosParaLlevarAbiertos.add(grupoParaLlevar);
+            formaPagoSeleccionada = 'efectivo_cup';
+            selectPaymentMethod(formaPagoSeleccionada);
+            openPaymentModal();
+        }
+
+        function abrirPagoTicketEntregado(grupoParaLlevar) {
+            if (!grupoParaLlevar || pagosParaLlevarAbiertos.has(grupoParaLlevar)) return;
+            const partes = pedidosParaLlevar.filter(pedido => pedido.grupo_para_llevar === grupoParaLlevar);
+            if (!partes.length || partes.some(pedido => pedido.cuenta_solicitada || pedido.estado !== 'entregado')) return;
+            const modal = document.getElementById('payment-modal');
+            if (!modal.classList.contains('pointer-events-none')) return;
+            iniciarPagoParaLlevar(grupoParaLlevar);
+        }
+
+        function abrirPagoPendienteParaLlevar() {
+            const grupos = new Set(pedidosParaLlevar.map(pedido => pedido.grupo_para_llevar));
+            grupos.forEach(abrirPagoTicketEntregado);
+        }
+
         function renderBarView() {
             const container = document.getElementById('bar-orders-container');
             if (!container) return;
-            const pedidosBarra = tables.flatMap(table => (table.pedidos || [])
-                .filter(pedido => pedido.destino === 'barra' && !['servido', 'cerrado'].includes(pedido.estado))
-                .map(pedido => ({ ...pedido, mesaNombre: table.name })));
+            const pedidosBarra = [
+                ...tables.flatMap(table => (table.pedidos || [])
+                    .filter(pedido => pedido.destino === 'barra' && !['servido', 'cerrado'].includes(pedido.estado))
+                    .map(pedido => ({ ...pedido, mesaNombre: table.name }))),
+                ...pedidosParaLlevar
+                    .filter(pedido => pedido.destino === 'barra' && !['entregado', 'cerrado'].includes(pedido.estado))
+                    .map(pedido => ({ ...pedido, mesaNombre: pedido.etiqueta })),
+            ];
 
             if (!pedidosBarra.length) {
                 container.innerHTML = `
@@ -1509,7 +1750,11 @@
                 const esperandoAprobacion = pedido.estado === 'por_confirmar';
                 const accion = esperandoAprobacion
                     ? `<button type="button" onclick="aceptarPedidoCliente(${pedido.id})" class="mt-4 w-full rounded-lg bg-amber-400 px-4 py-2.5 text-sm font-bold text-slate-950 hover:bg-amber-300"><i class="fa-solid fa-check mr-2"></i>Aceptar y preparar</button>`
-                    : `<button type="button" onclick="marcarServidoMesera(${pedido.id})" class="mt-4 w-full rounded-lg bg-emerald-500 px-4 py-2.5 text-sm font-bold text-slate-950 hover:bg-emerald-400"><i class="fa-solid fa-hand-holding-heart mr-2"></i>Marcar servido</button>`;
+                    : pedido.es_para_llevar
+                        ? pedido.estado === 'listo'
+                            ? `<button type="button" onclick="switchView('takeaway')" class="mt-4 w-full rounded-lg bg-sky-500 px-4 py-2.5 text-sm font-bold text-slate-950 hover:bg-sky-400"><i class="fa-solid fa-bag-shopping mr-2"></i>Revisar entrega del ticket</button>`
+                            : `<button type="button" onclick="marcarPedidoParaLlevarListo(${pedido.id})" class="mt-4 w-full rounded-lg bg-amber-400 px-4 py-2.5 text-sm font-bold text-slate-950 hover:bg-amber-300"><i class="fa-solid fa-check mr-2"></i>Marcar listo</button>`
+                        : `<button type="button" onclick="marcarServidoMesera(${pedido.id})" class="mt-4 w-full rounded-lg bg-emerald-500 px-4 py-2.5 text-sm font-bold text-slate-950 hover:bg-emerald-400"><i class="fa-solid fa-hand-holding-heart mr-2"></i>Marcar servido</button>`;
 
                 card.innerHTML = `
                     <div class="flex items-start justify-between gap-3 border-b border-slate-800 pb-3">

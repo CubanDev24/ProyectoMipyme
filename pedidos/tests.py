@@ -1,4 +1,5 @@
 import json
+import uuid
 from io import BytesIO
 from tempfile import TemporaryDirectory
 from unittest.mock import AsyncMock
@@ -12,7 +13,8 @@ from PIL import Image
 
 from carta.models import Categoria, Plato
 from asgiref.sync import async_to_sync
-from pedidos.consumers import ClienteConsumer, CocinaConsumer, MeseraConsumer, serializar_cuenta, serializar_factura, serializar_pedido
+from inventario.models import Insumo, RecetaItem
+from pedidos.consumers import CajaConsumer, ClienteConsumer, CocinaConsumer, MeseraConsumer, serializar_cuenta, serializar_factura, serializar_pedido
 from pedidos.models import Factura, ItemPedido, Mesa, Pedido
 from pedidos.views import en_turno
 from usuarios.models import Turno, registrar_inicio_turno
@@ -38,7 +40,7 @@ class FacturaWorkflowTests(TestCase):
 
         self.assertIsNotNone(cuenta)
         self.assertEqual(cuenta['mesa_numero'], self.mesa.numero)
-        self.assertEqual(cuenta['total'], '50.00')
+        self.assertEqual(cuenta['total'], '57.00')
         self.assertEqual(cuenta['items'][0]['plato'], self.plato.nombre)
 
     def test_pedido_serializado_incluye_imagen_opcional_del_plato(self):
@@ -153,6 +155,172 @@ class FacturaWorkflowTests(TestCase):
         self.assertIn(pedido_cocina['id'], ids_cocina)
         self.assertNotIn(pedido_barra['id'], ids_cocina)
 
+    def test_pedido_para_llevar_separa_cocina_y_barra_sin_asignar_mesa(self):
+        Turno.objects.create()
+        categoria_bebidas = Categoria.objects.create(nombre='Bebidas para llevar', orden=2)
+        bebida = Plato.objects.create(categoria=categoria_bebidas, nombre='Agua', precio='5.00', disponible=True)
+        mesera = MeseraConsumer()
+
+        pedidos = async_to_sync(mesera.crear_pedido_para_llevar)([
+            {'plato_id': self.plato.pk, 'cantidad': 1},
+            {'plato_id': bebida.pk, 'cantidad': 2},
+        ], 'Sin azúcar')
+
+        self.assertEqual({pedido['destino'] for pedido in pedidos}, {'cocina', 'barra'})
+        self.assertEqual({pedido['modalidad'] for pedido in pedidos}, {'para_llevar'})
+        self.assertEqual({pedido['mesa_id'] for pedido in pedidos}, {None})
+        self.assertEqual(len({pedido['grupo_para_llevar'] for pedido in pedidos}), 1)
+        self.assertTrue(all(pedido['etiqueta'].startswith('Para llevar #') for pedido in pedidos))
+        pedido_barra = next(pedido for pedido in pedidos if pedido['destino'] == 'barra')
+        pedido_listo = async_to_sync(mesera.marcar_listo_para_llevar)(pedido_barra['id'])
+        self.assertEqual(pedido_listo['estado'], 'listo')
+        pedidos_activos = async_to_sync(mesera.get_pedidos_activos)()
+        self.assertTrue(all(pedido['id'] in {item['id'] for item in pedidos_activos} for pedido in pedidos))
+
+    def test_websocket_mesera_marca_listo_un_pedido_para_llevar_de_barra(self):
+        Turno.objects.create()
+        categoria_bebidas = Categoria.objects.create(nombre='Bebidas de barra', orden=2)
+        bebida = Plato.objects.create(categoria=categoria_bebidas, nombre='Limonada', precio='7.00', disponible=True)
+        mesera = MeseraConsumer()
+        mesera.scope = {'user': None}
+        pedido = async_to_sync(mesera.crear_pedido_para_llevar)([
+            {'plato_id': bebida.pk, 'cantidad': 1},
+        ], '')[0]
+        mesera.channel_layer = AsyncMock()
+        mesera.send = AsyncMock()
+
+        async_to_sync(mesera.receive)(json.dumps({
+            'accion': 'marcar_listo_para_llevar',
+            'pedido_id': pedido['id'],
+        }))
+
+        pedido_db = Pedido.objects.get(pk=pedido['id'])
+        self.assertEqual(pedido_db.estado, 'listo')
+        self.assertTrue(any(
+            call.args[0] == 'mesera' and call.args[1]['pedido']['estado'] == 'listo'
+            for call in mesera.channel_layer.group_send.await_args_list
+        ))
+
+        async_to_sync(mesera.receive)(json.dumps({
+            'accion': 'marcar_ticket_entregado',
+            'grupo_para_llevar': pedido['grupo_para_llevar'],
+        }))
+
+        pedido_db.refresh_from_db()
+        self.assertEqual(pedido_db.estado, 'entregado')
+
+    def test_websocket_prepara_cobro_para_llevar_con_pago_elegido_por_mesera(self):
+        grupo = uuid.uuid4()
+        pedido = Pedido.objects.create(
+            modalidad='para_llevar',
+            grupo_para_llevar=grupo,
+            estado='entregado',
+        )
+        ItemPedido.objects.create(pedido=pedido, plato=self.plato, cantidad=1)
+        mesera = MeseraConsumer()
+        mesera.scope = {'user': None}
+        mesera.channel_layer = AsyncMock()
+        mesera.send = AsyncMock()
+
+        async_to_sync(mesera.receive)(json.dumps({
+            'accion': 'preparar_cobro_para_llevar',
+            'grupo_para_llevar': str(grupo),
+            'forma_pago': 'usd',
+            'tasa_cambio': '42.00',
+        }))
+
+        pedido.refresh_from_db()
+        self.assertTrue(pedido.cuenta_solicitada)
+        self.assertEqual(pedido.forma_pago_preseleccionada, 'usd')
+        self.assertEqual(pedido.tasa_cambio_preseleccionada, 42)
+        factura_evento = next(
+            call.args[1]['factura']
+            for call in mesera.channel_layer.group_send.await_args_list
+            if call.args[0] == 'caja' and call.args[1]['type'] == 'factura_solicitada'
+        )
+        self.assertEqual(factura_evento['forma_pago'], 'usd')
+        self.assertEqual(factura_evento['tasa_cambio'], '42.00')
+
+    def test_no_se_crea_pedido_para_llevar_sin_turno_abierto(self):
+        mesera = MeseraConsumer()
+
+        pedidos = async_to_sync(mesera.crear_pedido_para_llevar)([
+            {'plato_id': self.plato.pk, 'cantidad': 1},
+        ], '')
+
+        self.assertEqual(pedidos, [])
+        self.assertFalse(Pedido.objects.filter(modalidad='para_llevar').exists())
+
+    def test_entregar_y_cobrar_ticket_para_llevar_descuenta_stock_y_factura_sin_mesa(self):
+        Turno.objects.create()
+        insumo = Insumo.objects.create(nombre='Queso de ticket', categoria=self.categoria, stock_actual='10.00')
+        categoria_bebidas = Categoria.objects.create(nombre='Bebidas para el ticket', orden=2)
+        bebida = Plato.objects.create(categoria=categoria_bebidas, nombre='Limonada del ticket', precio='7.00', disponible=True)
+        insumo_bebida = Insumo.objects.create(nombre='Limón de ticket', categoria=categoria_bebidas, stock_actual='8.00')
+        RecetaItem.objects.create(plato=self.plato, insumo=insumo, cantidad='0.50')
+        RecetaItem.objects.create(plato=bebida, insumo=insumo_bebida, cantidad='1.00')
+        mesera = MeseraConsumer()
+        mesera.scope = {'user': None}
+        pedidos = async_to_sync(mesera.crear_pedido_para_llevar)([
+            {'plato_id': self.plato.pk, 'cantidad': 2},
+            {'plato_id': bebida.pk, 'cantidad': 1},
+        ], '')
+        grupo_para_llevar = pedidos[0]['grupo_para_llevar']
+        pedido_id = next(pedido['id'] for pedido in pedidos if pedido['destino'] == 'cocina')
+        pedido_bebida_id = next(pedido['id'] for pedido in pedidos if pedido['destino'] == 'barra')
+        Pedido.objects.filter(pk=pedido_id).update(estado='listo')
+
+        pedidos_entregados, alertas = async_to_sync(mesera.marcar_ticket_entregado)(grupo_para_llevar)
+
+        self.assertEqual(pedidos_entregados, [])
+        self.assertEqual(Pedido.objects.get(pk=pedido_id).estado, 'listo')
+        self.assertEqual(Pedido.objects.get(pk=pedido_bebida_id).estado, 'pendiente')
+        self.assertFalse(alertas)
+
+        Pedido.objects.filter(pk=pedido_bebida_id).update(estado='listo')
+        pedidos_entregados, alertas = async_to_sync(mesera.marcar_ticket_entregado)(grupo_para_llevar)
+
+        self.assertEqual({pedido['estado'] for pedido in pedidos_entregados}, {'entregado'})
+        self.assertEqual(Pedido.objects.filter(grupo_para_llevar=grupo_para_llevar, estado='entregado').count(), 2)
+        self.assertFalse(alertas)
+        insumo.refresh_from_db()
+        self.assertEqual(str(insumo.stock_actual), '9.00')
+        insumo_bebida.refresh_from_db()
+        self.assertEqual(str(insumo_bebida.stock_actual), '7.00')
+        pedidos_actualizados, cuenta = async_to_sync(mesera.preparar_cobro_para_llevar)(
+            grupo_para_llevar,
+            'usd',
+            '40.00',
+        )
+        self.assertTrue(cuenta['es_para_llevar'])
+        self.assertIsNone(cuenta['mesa_numero'])
+        self.assertEqual(cuenta['total'], '57.00')
+        self.assertEqual(cuenta['forma_pago'], 'usd')
+        self.assertEqual(cuenta['tasa_cambio'], '40.00')
+        self.assertTrue(pedidos_actualizados[0]['cuenta_solicitada'])
+        self.assertTrue(all(pedido['forma_pago'] == 'usd' for pedido in pedidos_actualizados))
+        cuentas_caja = async_to_sync(CajaConsumer().get_cuentas_caja)()
+        cuenta_en_caja = next(item for item in cuentas_caja if item['grupo_para_llevar'] == grupo_para_llevar)
+        self.assertEqual(cuenta_en_caja['etiqueta'], cuenta['etiqueta'])
+
+        factura_data, error = async_to_sync(CajaConsumer().cerrar_pedido_con_pago)(
+            pedido_id, 'usd', '40.00', mesera_nombre='Ana', cajera_nombre='Celia',
+        )
+
+        self.assertIsNone(error)
+        self.assertTrue(factura_data['es_para_llevar'])
+        self.assertIsNone(factura_data['mesa_numero'])
+        factura = Factura.objects.get(pedido_id=pedido_id)
+        self.assertIsNone(factura.mesa_numero)
+        self.assertEqual(factura.total_cup, 57)
+        self.assertEqual(factura.forma_pago, 'usd')
+        self.assertEqual(factura.tasa_cambio, 40)
+        response = self.client.get(reverse('pedidos:factura_imprimir_web', args=[factura.pk]))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Para llevar')
+        historial = self.client.get(reverse('pedidos:facturas_historial')).json()['facturas']
+        self.assertTrue(historial[0]['etiqueta'].startswith('Para llevar #'))
+
     def test_llamada_cliente_se_notifica_a_mesera_con_numero_de_mesa(self):
         cliente = ClienteConsumer()
         cliente.mesa_numero = str(self.mesa.numero)
@@ -207,6 +375,14 @@ class FacturaWorkflowTests(TestCase):
         self.assertContains(response, 'id="nav-bar"')
         self.assertContains(response, 'id="view-bar"')
         self.assertContains(response, 'function renderBarView()')
+        self.assertContains(response, 'id="nav-takeaway"')
+        self.assertContains(response, 'id="view-takeaway"')
+        self.assertContains(response, 'El administrador debe abrir el turno para recibir pedidos.')
+        self.assertContains(response, 'function renderVistaParaLlevar()')
+        self.assertContains(response, 'function marcarPedidoParaLlevarListo(pedidoId)')
+        self.assertContains(response, 'function abrirPagoTicketEntregado(grupoParaLlevar)')
+        self.assertContains(response, 'abrirPagoTicketEntregado(data.pedido.grupo_para_llevar)')
+        self.assertContains(response, 'abrirPagoPendienteParaLlevar();')
         self.assertContains(response, 'id="comprobante-transferencia-preview-wrap"')
         self.assertContains(response, 'Imagen del pago en transferencia')
         self.assertContains(response, 'Ver imagen')
@@ -274,6 +450,41 @@ class FacturaWorkflowTests(TestCase):
 
             self.assertTrue(self.pedido.comprobante_transferencia)
             self.assertEqual(response.json()['comprobante_url'], cuenta['comprobante_url'])
+
+    def test_mesera_puede_subir_comprobante_para_ticket_para_llevar_entregado(self):
+        mesera = get_user_model().objects.create_user(username='mesera_ticket_comprobante', role='mesera')
+        self.client.force_login(mesera)
+        grupo = uuid.uuid4()
+        pedido_comida = Pedido.objects.create(
+            modalidad='para_llevar', grupo_para_llevar=grupo, estado='entregado',
+        )
+        pedido_bebida = Pedido.objects.create(
+            modalidad='para_llevar', grupo_para_llevar=grupo, destino='barra', estado='listo',
+        )
+        image_bytes = BytesIO()
+        Image.new('RGB', (2, 2), color='white').save(image_bytes, format='PNG')
+
+        with TemporaryDirectory() as media_root, override_settings(MEDIA_ROOT=media_root):
+            upload_pendiente = SimpleUploadedFile('comprobante.png', image_bytes.getvalue(), content_type='image/png')
+            response_pendiente = self.client.post(reverse('pedidos:subir_comprobante_transferencia'), {
+                'grupo_para_llevar': str(grupo),
+                'comprobante': upload_pendiente,
+            })
+            self.assertEqual(response_pendiente.status_code, 404)
+
+            pedido_bebida.estado = 'entregado'
+            pedido_bebida.save(update_fields=['estado'])
+            image_bytes.seek(0)
+            upload_entregado = SimpleUploadedFile('comprobante.png', image_bytes.getvalue(), content_type='image/png')
+            response_entregado = self.client.post(reverse('pedidos:subir_comprobante_transferencia'), {
+                'grupo_para_llevar': str(grupo),
+                'comprobante': upload_entregado,
+            })
+
+            self.assertEqual(response_entregado.status_code, 200)
+            pedido_comida.refresh_from_db()
+            self.assertTrue(pedido_comida.comprobante_transferencia)
+            self.assertEqual(response_entregado.json()['comprobante_url'], pedido_comida.comprobante_transferencia.url)
 
     def test_factura_imprimir_devuelve_pdf_descargable(self):
         factura = Factura.objects.create(

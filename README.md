@@ -120,17 +120,10 @@ con el botón **Imprimir QR**.
 
 
 ## por hacer:
-- cambiar la forma de pago para asociarla a las facturas y no a los pedidos.
-
 - pedir agregos a un plato o un trago.
 - Adicionar mesas exteriores.
-
 - corregir los permisos de los usuarios para las vistas. 
 - no permitir mas de una sesion activa por usuario.
 - cuando se cierre el turno se desloguee todos los usuarios en el sistema que no sean admins.
 - Agregar un delay a la llamada de la mesera. 
-
-
-que en la seccion de detalle del turno de cada usuario se vaya mostrando en tiempo real la tabla del inventario perpetuo  de venta  con la descripcion de las ventas del dia con el nombre del producto, el saldo incial , las ennyradas, cantidad en existencia, cantidad vendida, saldo final, precio de venta del producto, importe de las venta y merma por rotura. que salga una tabla bien bonita como los ipv profesionales de economia
-
-
+- Al agregar un pedido para llevar si tiene algun producto de cocina, agregar un termopad a la compra.

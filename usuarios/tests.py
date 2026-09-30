@@ -3,12 +3,13 @@ from decimal import Decimal
 
 from django.test import RequestFactory, TestCase
 from django.urls import reverse
+from django.utils import timezone
 
 from inventario.models import Insumo, MovimientoInventario
 from carta.models import Categoria, Plato
 from pedidos.models import Factura, Mesa, Pedido
-from usuarios.models import Usuario, Notificacion, configurar_turno, get_turno_abierto, registrar_inicio_turno, cerrar_turno, mesas_del_turno
-from usuarios.views import historial_turnos_view, historial_turno_detalle_view
+from usuarios.models import Usuario, Notificacion, Turno, configurar_turno, get_turno_abierto, registrar_inicio_turno, cerrar_turno, mesas_del_turno
+from usuarios.views import historial_turnos_view, historial_turno_detalle_view, ipv_turno
 
 
 class UsuarioTurnoTests(TestCase):
@@ -29,6 +30,25 @@ class UsuarioTurnoTests(TestCase):
         self.assertIsNotNone(turno)
         self.assertEqual(turno.usuarios.count(), 1)
         self.assertIn(self.mesera, turno.usuarios.all())
+
+    def test_administrador_abre_el_turno_del_dia_expresamente(self):
+        self.client.force_login(self.admin)
+
+        response = self.client.post(reverse('usuarios:abrir_turno'))
+
+        self.assertRedirects(response, reverse('usuarios:dashboard'))
+        turno = Turno.objects.get(fecha=timezone.localdate())
+        self.assertEqual(turno.estado, 'abierto')
+        self.assertIn(self.admin, turno.usuarios.all())
+
+    def test_iniciar_sesion_no_abre_un_turno_automaticamente(self):
+        response = self.client.post(reverse('usuarios:login'), {
+            'username': self.mesera.username,
+            'password': '123456',
+        })
+
+        self.assertRedirects(response, reverse('pedidos:mesera'))
+        self.assertFalse(Turno.objects.filter(fecha=timezone.localdate()).exists())
 
     def test_dashboard_muestra_facturas_del_turno_y_excluye_las_anteriores(self):
         turno = registrar_inicio_turno(self.mesera)
@@ -71,6 +91,48 @@ class UsuarioTurnoTests(TestCase):
         self.assertContains(response, 'Merma rotura')
         self.assertContains(response, 'setInterval(actualizarInventarioTurno, 5000)')
         self.assertNotContains(response, f'Factura #{factura_anterior.pk}')
+
+    def test_dashboard_admin_sin_turno_muestra_fecha_apertura_y_turno_anterior(self):
+        turno_anterior = Turno.objects.create(
+            fecha=timezone.localdate() - timedelta(days=1),
+            estado='cerrado',
+            cierre=timezone.now(),
+            resumen='Cierre anterior de prueba',
+        )
+        self.client.force_login(self.admin)
+
+        response = self.client.get(reverse('usuarios:dashboard'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Abrir turno de hoy')
+        self.assertContains(response, 'El turno anterior fue el')
+        self.assertContains(response, reverse('usuarios:historial_turno_detalle', args=[turno_anterior.pk]))
+        self.assertNotContains(response, 'Crear usuario')
+
+    def test_dashboard_admin_con_turno_cerrado_muestra_detalle_e_historial(self):
+        turno = Turno.objects.create(
+            fecha=timezone.localdate(),
+            estado='cerrado',
+            cierre=timezone.now(),
+        )
+        self.client.force_login(self.admin)
+
+        response = self.client.get(reverse('usuarios:dashboard'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Cerrado')
+        self.assertContains(response, reverse('usuarios:historial_turno_detalle', args=[turno.pk]))
+        self.assertContains(response, reverse('usuarios:historial_turnos'))
+        self.assertNotContains(response, 'Abrir turno de hoy')
+
+    def test_admin_tiene_seccion_separada_para_gestionar_usuarios(self):
+        self.client.force_login(self.admin)
+
+        response = self.client.get(reverse('usuarios:gestion_usuarios'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Crear usuario')
+        self.assertContains(response, 'Usuarios registrados')
 
     def test_reporte_inventario_turno_calcula_ventas_entradas_roturas_y_saldos(self):
         turno = registrar_inicio_turno(self.mesera)
@@ -322,6 +384,48 @@ class UsuarioTurnoTests(TestCase):
         self.assertContains(response, 'IPV')
         self.assertContains(response, '400.00')
 
+    def test_ipv_muestra_existencia_despues_de_restar_salidas(self):
+        turno = registrar_inicio_turno(self.mesera)
+        insumo = Insumo.objects.create(nombre='Producto IPV', stock_actual=Decimal('13'))
+        movimiento_inicial = MovimientoInventario.objects.create(
+            insumo=insumo,
+            producto_nombre=insumo.nombre,
+            tipo='entrada',
+            cantidad=Decimal('10'),
+            stock_anterior=Decimal('0'),
+            stock_posterior=Decimal('10'),
+        )
+        MovimientoInventario.objects.filter(pk=movimiento_inicial.pk).update(
+            creado_en=turno.apertura - timedelta(seconds=1),
+        )
+        MovimientoInventario.objects.create(
+            insumo=insumo,
+            producto_nombre=insumo.nombre,
+            tipo='entrada',
+            cantidad=Decimal('5'),
+            stock_anterior=Decimal('10'),
+            stock_posterior=Decimal('15'),
+        )
+        MovimientoInventario.objects.create(
+            insumo=insumo,
+            producto_nombre=insumo.nombre,
+            tipo='salida',
+            cantidad=Decimal('2'),
+            stock_anterior=Decimal('15'),
+            stock_posterior=Decimal('13'),
+            motivo='Pedido vendido',
+        )
+
+        self.client.force_login(self.admin)
+        response = self.client.get(reverse('usuarios:ipv_turno', args=[turno.pk]))
+
+        self.assertEqual(response.status_code, 200)
+        producto = next(row for row in response.json()['filas'] if row['nombre'] == insumo.nombre)
+        self.assertEqual(producto['entradas'], '5.00')
+        self.assertEqual(producto['cantidad_existencia'], '13.00')
+        self.assertIsNone(producto['saldo_inicial'])
+        self.assertIsNone(producto['saldo_final'])
+
     def test_admin_puede_crear_usuario_con_rol_y_password_autenticable(self):
         self.client.force_login(self.admin)
 
@@ -333,7 +437,7 @@ class UsuarioTurnoTests(TestCase):
             'role': 'cocina',
         })
 
-        self.assertRedirects(response, reverse('usuarios:dashboard'))
+        self.assertRedirects(response, reverse('usuarios:gestion_usuarios'))
         usuario = Usuario.objects.get(username='cocina_nueva')
         self.assertEqual(usuario.get_full_name(), 'Ana García Pérez')
         self.assertEqual(usuario.role, 'cocina')
@@ -349,6 +453,9 @@ class UsuarioTurnoTests(TestCase):
             password='123456',
             role='cocina',
         )
+        self.client.force_login(self.admin)
+        self.client.post(reverse('usuarios:abrir_turno'))
+        self.client.logout()
 
         response = self.client.post(reverse('usuarios:login'), {
             'username': 'cocina_turno',
@@ -364,14 +471,16 @@ class UsuarioTurnoTests(TestCase):
         self.client.force_login(self.admin)
         response = self.client.get(reverse('usuarios:dashboard'))
         self.assertContains(response, 'Luis Martínez')
-        self.assertContains(response, 'cocina_turno')
+        self.assertNotContains(response, 'cocina_turno')
+        response_usuarios = self.client.get(reverse('usuarios:gestion_usuarios'))
+        self.assertContains(response_usuarios, 'cocina_turno')
 
     def test_admin_puede_desactivar_usuario_y_se_bloquea_su_login(self):
         self.client.force_login(self.admin)
 
         response = self.client.post(reverse('usuarios:cambiar_estado_usuario', args=[self.mesera.pk]))
 
-        self.assertRedirects(response, reverse('usuarios:dashboard'))
+        self.assertRedirects(response, reverse('usuarios:gestion_usuarios'))
         self.mesera.refresh_from_db()
         self.assertFalse(self.mesera.is_active)
         self.assertFalse(self.mesera.activo)
@@ -390,7 +499,7 @@ class UsuarioTurnoTests(TestCase):
             'password': 'nueva-clave-456',
         })
 
-        self.assertRedirects(response, reverse('usuarios:dashboard'))
+        self.assertRedirects(response, reverse('usuarios:gestion_usuarios'))
         self.mesera.refresh_from_db()
         self.assertEqual(self.mesera.get_full_name(), 'María López')
         self.assertEqual(self.mesera.username, 'mesera_actualizada')

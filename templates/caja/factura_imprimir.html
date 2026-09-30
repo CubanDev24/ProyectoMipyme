@@ -5,10 +5,6 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Factura #{{ factura.pk }}</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
-  
   <style>
     * {
       box-sizing: border-box;
@@ -188,7 +184,7 @@
       </div>
       <div class="meta-info">
         <span>Mesa</span>
-        <span><strong>{{ factura.mesa_numero }}</strong></span>
+        <span><strong>{% if factura.mesa_numero %}Mesa {{ factura.mesa_numero }}{% else %}Para llevar{% endif %}</strong></span>
       </div>
       <div class="meta-info">
         <span>Fecha</span>

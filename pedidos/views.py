@@ -88,8 +88,9 @@ def mesera(request):
 def subir_comprobante_transferencia(request):
     uploaded = request.FILES.get('comprobante')
     mesa_numero = request.POST.get('mesa_numero')
-    if not uploaded or not mesa_numero:
-        return JsonResponse({'error': 'Selecciona una foto y una mesa válida.'}, status=400)
+    grupo_para_llevar = request.POST.get('grupo_para_llevar')
+    if not uploaded or (not mesa_numero and not grupo_para_llevar):
+        return JsonResponse({'error': 'Selecciona una foto y una cuenta válida.'}, status=400)
     if uploaded.size > 5 * 1024 * 1024:
         return JsonResponse({'error': 'La foto no puede superar 5 MB.'}, status=400)
     try:
@@ -97,12 +98,22 @@ def subir_comprobante_transferencia(request):
     except ValidationError:
         return JsonResponse({'error': 'El archivo debe ser una imagen válida.'}, status=400)
 
-    pedido = Pedido.objects.filter(
-        mesa__numero=mesa_numero,
-        mesa__abierta=True,
-        sesion_id=F('mesa__sesion_id'),
-        cuenta_solicitada=True,
-    ).exclude(estado='cerrado').order_by('-creado_en').first()
+    if grupo_para_llevar:
+        pedidos = Pedido.objects.filter(
+            modalidad='para_llevar',
+            grupo_para_llevar=grupo_para_llevar,
+        ).order_by('pk')
+        if not pedidos.exists() or pedidos.exclude(estado='entregado').exists():
+            pedido = None
+        else:
+            pedido = pedidos.first()
+    else:
+        pedido = Pedido.objects.filter(
+            mesa__numero=mesa_numero,
+            mesa__abierta=True,
+            sesion_id=F('mesa__sesion_id'),
+            cuenta_solicitada=True,
+        ).exclude(estado='cerrado').order_by('-creado_en').first()
     if not pedido:
         return JsonResponse({'error': 'No hay una cuenta pendiente para esa mesa.'}, status=404)
 
@@ -150,7 +161,8 @@ def factura_imprimir(request, pk):
     pdf.setFont('Helvetica', 9)
     pdf.drawString(30, height - 52, 'Factura de consumo')
     pdf.drawString(30, height - 70, f'Factura: #{factura.pk}')
-    pdf.drawString(30, height - 82, f'Mesa: {factura.mesa_numero}')
+    referencia = f'Mesa: {factura.mesa_numero}' if factura.mesa_numero is not None else 'Pedido para llevar'
+    pdf.drawString(30, height - 82, referencia)
     pdf.drawString(30, height - 94, f'Fecha: {factura.creado_en.strftime("%d/%m/%Y %H:%M")}')
     if factura.cajera_nombre:
         pdf.drawString(30, height - 106, f'Cajera: {factura.cajera_nombre}')
@@ -196,12 +208,18 @@ def factura_imprimir_web(request, pk):
     return render(request, 'caja/factura_imprimir_web.html', {'factura': factura})
 
 def facturas_historial(request):
-    facturas = Factura.objects.order_by('-creado_en')
+    facturas = Factura.objects.select_related('pedido').order_by('-creado_en')
     return JsonResponse({
         'facturas': [
             {
                 'id': factura.id,
                 'mesa_numero': factura.mesa_numero,
+                'es_para_llevar': factura.pedido.modalidad == 'para_llevar',
+                'etiqueta': (
+                    f'Para llevar #{factura.pedido.grupo_para_llevar.hex[:8].upper()}'
+                    if factura.pedido.modalidad == 'para_llevar' and factura.pedido.grupo_para_llevar
+                    else f'Mesa {factura.mesa_numero}'
+                ),
                 'forma_pago_display': factura.get_forma_pago_display(),
                 'total_cup': str(factura.total_cup),
                 'creado_en': factura.creado_en.strftime('%d/%m/%Y %H:%M'),

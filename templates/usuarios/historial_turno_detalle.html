@@ -7,50 +7,499 @@
   <title>Detalle del turno - GourmetControl</title>
   <link rel="stylesheet" href="{% static 'css/tailwind.css' %}">
   <link rel="stylesheet" href="{% static 'vendor/fontawesome/css/all.min.css' %}">
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="{% static 'css/main.css' %}?v=20260902-role-shell">
+  <link rel="stylesheet" href="{% static 'css/main.css' %}?v=20260929-ipv">
+  <style>
+    /* ── IPV table ───────────────────────────────────────────────────── */
+    .ipv-wrapper {
+      overflow-x: auto;
+      border-radius: 14px;
+      border: 1px solid rgba(148,163,184,.18);
+      background: rgba(2,6,23,.55);
+    }
+    .ipv-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: .73rem;
+      white-space: nowrap;
+    }
+    /* caption / header block */
+    .ipv-caption {
+      padding: 1rem 1.25rem .6rem;
+      border-bottom: 2px solid rgba(52,211,153,.28);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: .75rem;
+      flex-wrap: wrap;
+    }
+    .ipv-caption-title {
+      font-size: .85rem;
+      font-weight: 700;
+      color: #f8fafc;
+      letter-spacing: -.01em;
+    }
+    .ipv-caption-sub {
+      font-size: .67rem;
+      color: #64748b;
+      margin-top: .15rem;
+    }
+    .ipv-badge-live {
+      display: inline-flex;
+      align-items: center;
+      gap: .35rem;
+      font-size: .65rem;
+      font-weight: 700;
+      color: #6ee7b7;
+      background: rgba(52,211,153,.08);
+      border: 1px solid rgba(52,211,153,.22);
+      border-radius: 999px;
+      padding: .28rem .6rem;
+    }
+    .ipv-badge-live .dot {
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: #34d399;
+      animation: blink 1.4s ease-in-out infinite;
+    }
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:.3} }
+    /* column groups */
+    .ipv-table thead tr.ipv-group th {
+      font-size: .6rem;
+      font-weight: 700;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+      padding: .5rem .75rem .25rem;
+      color: #94a3b8;
+      border-bottom: 1px solid rgba(148,163,184,.1);
+    }
+    .ipv-table thead tr.ipv-group th.g-id      { color: #94a3b8; }
+    .ipv-table thead tr.ipv-group th.g-stock   { background: rgba(52,211,153,.05); color: #6ee7b7; border-radius: 6px 6px 0 0; }
+    .ipv-table thead tr.ipv-group th.g-ventas  { background: rgba(250,204,21,.05);  color: #fcd34d; border-radius: 6px 6px 0 0; }
+    .ipv-table thead tr.ipv-group th.g-fin     { background: rgba(99,102,241,.05);  color: #a5b4fc; border-radius: 6px 6px 0 0; }
+    /* col headers */
+    .ipv-table thead tr.ipv-cols th {
+      padding: .4rem .75rem .55rem;
+      font-size: .62rem;
+      font-weight: 700;
+      letter-spacing: .06em;
+      text-transform: uppercase;
+      color: #64748b;
+      background: rgba(15,23,42,.6);
+      border-bottom: 2px solid rgba(148,163,184,.14);
+    }
+    .ipv-table thead tr.ipv-cols th.g-stock  { background: rgba(52,211,153,.04); }
+    .ipv-table thead tr.ipv-cols th.g-ventas { background: rgba(250,204,21,.04); }
+    .ipv-table thead tr.ipv-cols th.g-fin    { background: rgba(99,102,241,.04); }
+    /* rows */
+    .ipv-table tbody tr {
+      border-bottom: 1px solid rgba(148,163,184,.07);
+      transition: background .12s;
+    }
+    .ipv-table tbody tr:last-child { border-bottom: none; }
+    .ipv-table tbody tr:hover { background: rgba(148,163,184,.05); }
+    .ipv-table tbody tr.ipv-no-stock { opacity: .72; }
+    .ipv-table td {
+      padding: .55rem .75rem;
+      vertical-align: middle;
+      color: #cbd5e1;
+    }
+    .ipv-table td.col-nombre {
+      font-weight: 600;
+      color: #f1f5f9;
+      min-width: 150px;
+      max-width: 220px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .ipv-table td.col-cat {
+      color: #64748b;
+      font-size: .68rem;
+      min-width: 90px;
+    }
+    /* stock group */
+    .ipv-table td.g-stock { background: rgba(52,211,153,.025); color: #a7f3d0; text-align: right; }
+    .ipv-table td.g-stock.zero { color: #475569; }
+    /* ventas group */
+    .ipv-table td.g-ventas { background: rgba(250,204,21,.025); color: #fef08a; text-align: right; }
+    .ipv-table td.g-ventas.zero { color: #475569; }
+    .ipv-table td.g-ventas.importe { font-weight: 700; color: #fcd34d; font-size: .78rem; }
+    /* fin group */
+    .ipv-table td.g-fin { background: rgba(99,102,241,.025); color: #c7d2fe; text-align: right; }
+    .ipv-table td.g-fin.merma { color: #f87171; }
+    .ipv-table td.g-fin.merma.zero { color: #475569; }
+    .ipv-table td.col-na { color: #334155; text-align: right; font-style: italic; font-size: .68rem; }
+    /* totals row */
+    .ipv-table tfoot tr { border-top: 2px solid rgba(52,211,153,.22); }
+    .ipv-table tfoot td {
+      padding: .65rem .75rem;
+      font-weight: 700;
+      font-size: .78rem;
+    }
+    .ipv-table tfoot td.lbl { color: #94a3b8; }
+    .ipv-table tfoot td.g-ventas.importe { color: #fcd34d; font-size: .9rem; }
+    /* estado / update bar */
+    .ipv-update-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: .55rem 1.25rem;
+      border-top: 1px solid rgba(148,163,184,.1);
+      font-size: .65rem;
+      color: #475569;
+      gap: .5rem;
+      flex-wrap: wrap;
+    }
+    /* skeleton loading */
+    .ipv-skeleton {
+      padding: 2rem 1.5rem;
+      text-align: center;
+      color: #475569;
+      font-size: .8rem;
+    }
+    .ipv-skeleton-bar {
+      height: 10px;
+      background: rgba(148,163,184,.1);
+      border-radius: 4px;
+      margin: .5rem 0;
+      animation: pulse 1.4s ease-in-out infinite;
+    }
+    @keyframes pulse { 0%,100%{opacity:.5} 50%{opacity:1} }
+    .ipv-error {
+      padding: 1.5rem;
+      color: #f87171;
+      font-size: .8rem;
+      text-align: center;
+    }
+  </style>
 </head>
 <body class="bg-slate-900 text-slate-100 font-sans min-h-screen flex flex-col md:flex-row overflow-x-hidden">
-  <aside class="w-full md:w-20 lg:w-64 bg-slate-950 border-r border-slate-800 flex flex-col justify-between shrink-0"><div><div class="p-4 lg:p-6 flex items-center justify-between border-b border-slate-800/80"><div class="flex items-center gap-3"><div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-500 to-teal-400 flex items-center justify-center text-slate-950 font-black text-xl shadow-lg shadow-emerald-500/20"><i class="fa-solid fa-utensils"></i></div><div class="hidden lg:block"><h1 class="font-bold text-lg tracking-tight leading-none text-white">GourmetControl</h1><span class="text-xs text-slate-400 font-medium">Detalle del turno</span></div></div></div><div class="p-4 border-b border-slate-800/50 hidden lg:flex items-center gap-3 bg-slate-900/40"><div class="w-10 h-10 rounded-full bg-emerald-500/15 border-2 border-emerald-500 flex items-center justify-center text-emerald-400"><i class="fa-solid fa-user-shield"></i></div><div><p class="text-sm font-semibold text-white leading-tight">{{ request.user.get_full_name|default:request.user.username }}</p><p class="text-xs text-emerald-400 font-medium">Administrador • Activo</p></div></div><nav class="p-3 space-y-1"><a href="{% url 'inventario:administrador' %}" class="w-full flex items-center gap-3 px-3 py-3 rounded-xl font-medium text-sm text-slate-400 hover:text-white hover:bg-slate-800/50 transition-all"><i class="fa-solid fa-sliders text-lg w-6 text-center"></i><span class="hidden lg:inline">Configuración</span></a><a href="{% url 'usuarios:historial_turnos' %}" class="w-full flex items-center gap-3 px-3 py-3 rounded-xl font-medium text-sm text-slate-400 hover:text-white hover:bg-slate-800/50 transition-all"><i class="fa-solid fa-clock-rotate-left text-lg w-6 text-center"></i><span class="hidden lg:inline">Historial de turnos</span></a></nav></div><div class="p-3 border-t border-slate-800/80"><a href="{% url 'usuarios:logout' %}" class="w-full flex items-center justify-center lg:justify-start gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold text-rose-400 hover:bg-rose-500/10 transition-all"><i class="fa-solid fa-right-from-bracket text-base"></i><span class="hidden lg:inline">Cerrar sesión</span></a></div></aside>
-  <main class="flex-1 flex flex-col h-screen overflow-hidden"><header class="h-16 border-b border-slate-800 bg-slate-950/60 backdrop-blur px-6 flex items-center justify-between shrink-0"><div class="flex items-center gap-4"><h2 class="text-lg font-bold text-white flex items-center gap-2 leading-none"><i class="fa-solid fa-clock-rotate-left text-emerald-400 text-base"></i><span>Detalle del turno</span></h2><span class="text-[11px] bg-slate-800 text-slate-300 px-2.5 py-1 rounded-full border border-slate-700 font-medium tracking-wide" id="clock-display">12:00 PM</span></div><div class="flex items-center gap-3 text-[11px]"><div class="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400"><span class="w-2 h-2 rounded-full bg-emerald-400"></span><span class="font-medium">Resumen histórico</span></div></div></header><div class="flex-1 overflow-y-auto"><div class="admin-body">
-  <div class="turn-page-heading"><div><p class="panel-kicker">Rendimiento</p><h1 class="admin-h1">Detalle del turno</h1><p class="turn-page-subtitle">Resumen completo del turno del {{ turno.fecha|date:'d/m/Y' }}.</p></div><span class="turn-live-badge"><span></span> {{ turno.get_estado_display }}</span></div>
-
-  <div class="admin-grid">
-    <section class="admin-card turn-summary-card turn-dashboard-card">
-      <div class="turn-card-heading"><div class="turn-section-icon"><i class="fa-solid fa-calendar-day"></i></div><div><p class="panel-kicker">Información operativa</p><h2>{{ turno.fecha|date:'d/m/Y' }}</h2></div></div>
-      <div class="turn-info-grid">
-        <div><span>Estado</span><strong class="turn-status-value">{{ turno.get_estado_display }}</strong></div>
-        <div><span>Mesas</span><strong>{{ turno.cantidad_mesas }}</strong></div>
-        <div><span>Fecha de apertura</span><strong>{{ turno.apertura }}</strong></div>
-        <div><span>Fecha de cierre</span><strong>{{ turno.cierre|default:'Sin cierre' }}</strong></div>
-        <div><span>Participantes</span><strong>{% for user in turno.usuarios.all %}{{ user.username }}{% if not forloop.last %}, {% endif %}{% empty %}Sin participantes{% endfor %}</strong></div>
+  <!-- Sidebar -->
+  <aside class="w-full md:w-20 lg:w-64 bg-slate-950 border-r border-slate-800 flex flex-col justify-between shrink-0">
+    <div>
+      <div class="p-4 lg:p-6 flex items-center justify-between border-b border-slate-800/80">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-500 to-teal-400 flex items-center justify-center text-slate-950 font-black text-xl shadow-lg shadow-emerald-500/20">
+            <i class="fa-solid fa-utensils"></i>
+          </div>
+          <div class="hidden lg:block">
+            <h1 class="font-bold text-lg tracking-tight leading-none text-white">GourmetControl</h1>
+            <span class="text-xs text-slate-400 font-medium">Detalle del turno</span>
+          </div>
+        </div>
       </div>
-    </section>
-
-    <section class="admin-card turn-summary-card turn-dashboard-card">
-      <div class="turn-card-heading"><div class="turn-section-icon"><i class="fa-solid fa-chart-column"></i></div><div><p class="panel-kicker">Resultados</p><h2>Resumen financiero</h2></div></div>
-      <div class="turn-metric-grid">
-        <div><span>Facturas</span><strong>{{ detalles.cantidad_facturas }}</strong></div>
-        <div><span>Total general</span><strong>{{ detalles.total_general_cup }} CUP</strong></div>
-        <div><span>Efectivo CUP</span><strong>{{ detalles.total_efectivo_cup }} CUP</strong></div>
-        <div><span>Transferencia CUP</span><strong>{{ detalles.total_transferencia_cup }} CUP</strong></div>
-        <div><span>Total USD</span><strong>{{ detalles.total_usd }} USD</strong></div>
-        <div><span>IPV</span><strong>{{ detalles.ipv }} CUP</strong></div>
-        <div><span>Horas abiertas</span><strong>{{ detalles.horas_abiertas }}</strong></div>
-        <div><span>Rendimiento por hora</span><strong>{{ detalles.rendimiento_por_hora_cup }} CUP/h</strong></div>
+      <div class="p-4 border-b border-slate-800/50 hidden lg:flex items-center gap-3 bg-slate-900/40">
+        <div class="w-10 h-10 rounded-full bg-emerald-500/15 border-2 border-emerald-500 flex items-center justify-center text-emerald-400">
+          <i class="fa-solid fa-user-shield"></i>
+        </div>
+        <div>
+          <p class="text-sm font-semibold text-white leading-tight">{{ request.user.get_full_name|default:request.user.username }}</p>
+          <p class="text-xs text-emerald-400 font-medium">Administrador &bull; Activo</p>
+        </div>
       </div>
-    </section>
+      <nav class="p-3 space-y-1">
+        <a href="{% url 'inventario:administrador' %}" class="w-full flex items-center gap-3 px-3 py-3 rounded-xl font-medium text-sm text-slate-400 hover:text-white hover:bg-slate-800/50 transition-all">
+          <i class="fa-solid fa-sliders text-lg w-6 text-center"></i><span class="hidden lg:inline">Configuración</span>
+        </a>
+        <a href="{% url 'usuarios:historial_turnos' %}" class="w-full flex items-center gap-3 px-3 py-3 rounded-xl font-medium text-sm bg-slate-800/60 text-white transition-all">
+          <i class="fa-solid fa-clock-rotate-left text-lg w-6 text-center text-emerald-400"></i><span class="hidden lg:inline">Historial de turnos</span>
+        </a>
+      </nav>
+    </div>
+    <div class="p-3 border-t border-slate-800/80">
+      <a href="{% url 'usuarios:logout' %}" class="w-full flex items-center justify-center lg:justify-start gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold text-rose-400 hover:bg-rose-500/10 transition-all">
+        <i class="fa-solid fa-right-from-bracket text-base"></i><span class="hidden lg:inline">Cerrar sesión</span>
+      </a>
+    </div>
+  </aside>
 
-    <section class="admin-card turn-dashboard-card">
-      <div class="turn-card-heading"><div class="turn-section-icon"><i class="fa-solid fa-file-lines"></i></div><div><p class="panel-kicker">Registro</p><h2>Cierre del turno</h2></div></div>
-      {% if turno.resumen %}
-        <pre>{{ turno.resumen }}</pre>
-      {% else %}
-        <p>No hay resumen guardado para este turno.</p>
-      {% endif %}
-    </section>
-  </div>
-</div></div></main>
-  <script>function actualizarReloj(){document.getElementById('clock-display').textContent=new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});}actualizarReloj();setInterval(actualizarReloj,30000);</script>
+  <!-- Main -->
+  <main class="flex-1 flex flex-col h-screen overflow-hidden">
+    <header class="h-16 border-b border-slate-800 bg-slate-950/60 backdrop-blur px-6 flex items-center justify-between shrink-0">
+      <div class="flex items-center gap-4">
+        <a href="{% url 'usuarios:historial_turnos' %}" class="text-slate-400 hover:text-white transition-colors mr-1" title="Volver al historial">
+          <i class="fa-solid fa-arrow-left text-sm"></i>
+        </a>
+        <h2 class="text-lg font-bold text-white flex items-center gap-2 leading-none">
+          <i class="fa-solid fa-clock-rotate-left text-emerald-400 text-base"></i>
+          <span>Detalle del turno</span>
+        </h2>
+        <span class="text-[11px] bg-slate-800 text-slate-300 px-2.5 py-1 rounded-full border border-slate-700 font-medium tracking-wide" id="clock-display">--:--</span>
+      </div>
+      <div class="flex items-center gap-3 text-[11px]">
+        {% if turno.estado == 'abierto' %}
+        <div class="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">
+          <span class="w-2 h-2 rounded-full bg-emerald-400" style="animation:blink 1.4s ease-in-out infinite"></span>
+          <span class="font-medium">Turno en curso</span>
+        </div>
+        {% else %}
+        <div class="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-700/40 border border-slate-600/30 text-slate-400">
+          <span class="w-2 h-2 rounded-full bg-slate-500"></span>
+          <span class="font-medium">Turno cerrado</span>
+        </div>
+        {% endif %}
+      </div>
+    </header>
+
+    <div class="flex-1 overflow-y-auto">
+      <div class="admin-body">
+
+        <!-- Page heading -->
+        <div class="turn-page-heading">
+          <div>
+            <p class="panel-kicker">Rendimiento</p>
+            <h1 class="admin-h1">Detalle del turno</h1>
+            <p class="turn-page-subtitle">Resumen completo del turno del {{ turno.fecha|date:'d/m/Y' }}.</p>
+          </div>
+          <span class="turn-live-badge">
+            <span {% if turno.estado == 'abierto' %}style="animation:blink 1.4s ease-in-out infinite"{% endif %}></span>
+            {{ turno.get_estado_display }}
+          </span>
+        </div>
+
+        <!-- Summary cards row -->
+        <div class="admin-grid" style="margin-bottom:1.5rem">
+          <!-- Información operativa -->
+          <section class="admin-card turn-summary-card turn-dashboard-card">
+            <div class="turn-card-heading">
+              <div class="turn-section-icon"><i class="fa-solid fa-calendar-day"></i></div>
+              <div><p class="panel-kicker">Información operativa</p><h2>{{ turno.fecha|date:'d/m/Y' }}</h2></div>
+            </div>
+            <div class="turn-info-grid">
+              <div><span>Estado</span><strong class="turn-status-value">{{ turno.get_estado_display }}</strong></div>
+              <div><span>Mesas</span><strong>{{ turno.cantidad_mesas }}</strong></div>
+              <div><span>Apertura</span><strong>{{ turno.apertura|date:'d/m/Y H:i' }}</strong></div>
+              <div><span>Cierre</span><strong>{{ turno.cierre|date:'d/m/Y H:i'|default:'—' }}</strong></div>
+              <div style="grid-column:1/-1"><span>Participantes</span><strong>{% for u in turno.usuarios.all %}{{ u.get_full_name|default:u.username }}{% if not forloop.last %}, {% endif %}{% empty %}Sin participantes{% endfor %}</strong></div>
+            </div>
+          </section>
+
+          <!-- Resumen financiero -->
+          <section class="admin-card turn-summary-card turn-dashboard-card">
+            <div class="turn-card-heading">
+              <div class="turn-section-icon"><i class="fa-solid fa-chart-column"></i></div>
+              <div><p class="panel-kicker">Resultados</p><h2>Resumen financiero</h2></div>
+            </div>
+            <div class="turn-metric-grid">
+              <div><span>Facturas</span><strong>{{ detalles.cantidad_facturas }}</strong></div>
+              <div><span>Total general</span><strong>{{ detalles.total_general_cup }} CUP</strong></div>
+              <div><span>Efectivo CUP</span><strong>{{ detalles.total_efectivo_cup }} CUP</strong></div>
+              <div><span>Transferencia</span><strong>{{ detalles.total_transferencia_cup }} CUP</strong></div>
+              <div><span>Total USD</span><strong>{{ detalles.total_usd }} USD</strong></div>
+              <div><span>IPV (prom/factura)</span><strong>{{ detalles.ipv }} CUP</strong></div>
+              <div><span>Horas abiertas</span><strong>{{ detalles.horas_abiertas|floatformat:1 }} h</strong></div>
+              <div><span>Rendim./hora</span><strong>{{ detalles.rendimiento_por_hora_cup }} CUP/h</strong></div>
+            </div>
+          </section>
+
+          <!-- Cierre / resumen -->
+          {% if turno.resumen %}
+          <section class="admin-card turn-dashboard-card">
+            <div class="turn-card-heading">
+              <div class="turn-section-icon"><i class="fa-solid fa-file-lines"></i></div>
+              <div><p class="panel-kicker">Registro</p><h2>Notas del cierre</h2></div>
+            </div>
+            <pre>{{ turno.resumen }}</pre>
+          </section>
+          {% endif %}
+        </div>
+
+        <!-- ── IPV Perpetuo de Ventas ──────────────────────────────────── -->
+        <section class="admin-card" style="padding:0;overflow:hidden">
+          <div class="ipv-wrapper">
+            <!-- Caption / header bar -->
+            <div class="ipv-caption">
+              <div>
+                <div class="ipv-caption-title">
+                  <i class="fa-solid fa-table-list" style="color:#6ee7b7;margin-right:.4rem"></i>
+                  Inventario Perpetuo de Ventas (IPV)
+                </div>
+                <div class="ipv-caption-sub">
+                  Turno {{ turno.fecha|date:'d/m/Y' }}
+                  &nbsp;&bull;&nbsp; {{ turno.apertura|date:'H:i' }}
+                  {% if turno.cierre %} — {{ turno.cierre|date:'H:i' }}{% endif %}
+                </div>
+              </div>
+              {% if turno.estado == 'abierto' %}
+              <div class="ipv-badge-live">
+                <span class="dot"></span> Actualizando en tiempo real
+              </div>
+              {% endif %}
+            </div>
+
+            <!-- Table container -->
+            <div id="ipv-container">
+              <!-- Skeleton inicial -->
+              <div class="ipv-skeleton" id="ipv-loading">
+                <div style="color:#475569;margin-bottom:.75rem">
+                  <i class="fa-solid fa-circle-notch fa-spin" style="margin-right:.4rem"></i>
+                  Cargando inventario perpetuo…
+                </div>
+                {% for i in "123456" %}
+                <div class="ipv-skeleton-bar" style="width:{% cycle '100%' '88%' '95%' '80%' '92%' '75%' %}"></div>
+                {% endfor %}
+              </div>
+            </div>
+
+            <!-- Update bar -->
+            <div class="ipv-update-bar" id="ipv-update-bar" style="display:none">
+              <span id="ipv-update-text">—</span>
+              {% if turno.estado == 'abierto' %}
+              <span style="color:#334155">Actualización automática cada 30 s</span>
+              {% endif %}
+            </div>
+          </div>
+        </section>
+
+      </div><!-- /admin-body -->
+    </div><!-- /overflow-y-auto -->
+  </main>
+
+  <script>
+  // ── Reloj ──────────────────────────────────────────────────────────────────
+  (function(){
+    function tick(){
+      document.getElementById('clock-display').textContent =
+        new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+    }
+    tick();
+    setInterval(tick, 30000);
+  })();
+
+  // ── IPV perpetuo ──────────────────────────────────────────────────────────
+  (function(){
+    var TURNO_ID   = {{ turno.pk }};
+    var TURNO_EST  = '{{ turno.estado }}';
+    var URL_IPV    = "{% url 'usuarios:ipv_turno' turno.pk %}";
+    var INTERVALO  = 30000; // 30 s
+
+    var container  = document.getElementById('ipv-container');
+    var updateBar  = document.getElementById('ipv-update-bar');
+    var updateText = document.getElementById('ipv-update-text');
+    var timer      = null;
+
+    function fmt(val, dec) {
+      if (val === null || val === undefined) return null;
+      var n = parseFloat(val);
+      if (isNaN(n)) return '—';
+      return n.toLocaleString('es-CU', {
+        minimumFractionDigits: dec !== undefined ? dec : 2,
+        maximumFractionDigits: dec !== undefined ? dec : 2,
+      });
+    }
+
+    function buildTable(data) {
+      var filas = data.filas || [];
+
+      if (!filas.length) {
+        return '<div class="ipv-skeleton" style="color:#475569">Sin movimientos registrados en este turno.</div>';
+      }
+
+      var totalImporte = parseFloat(data.total_importe || 0);
+
+      var html = '<table class="ipv-table">';
+
+      // Grupo de columnas
+      html += '<thead>';
+      html += '<tr class="ipv-group">';
+      html += '<th colspan="2" class="g-id" style="text-align:left">Producto</th>';
+      html += '<th colspan="4" class="g-stock" style="text-align:center">Control de existencia</th>';
+      html += '<th colspan="3" class="g-ventas" style="text-align:center">Ventas del día</th>';
+      html += '<th colspan="1" class="g-fin" style="text-align:center">Merma</th>';
+      html += '</tr>';
+
+      // Encabezados de columnas
+      html += '<tr class="ipv-cols">';
+      html += '<th style="text-align:left">Descripción</th>';
+      html += '<th style="text-align:left">Categoría</th>';
+      html += '<th class="g-stock">Saldo inicial</th>';
+      html += '<th class="g-stock">Entradas</th>';
+      html += '<th class="g-stock">En existencia</th>';
+      html += '<th class="g-stock">Saldo final</th>';
+      html += '<th class="g-ventas">Cant. vendida</th>';
+      html += '<th class="g-ventas">Precio venta</th>';
+      html += '<th class="g-ventas">Importe</th>';
+      html += '<th class="g-fin">Merma / rotura</th>';
+      html += '</tr>';
+      html += '</thead>';
+
+      html += '<tbody>';
+      filas.forEach(function(f) {
+        var noStock = !f.control_existencia;
+        html += '<tr class="' + (noStock ? 'ipv-no-stock' : '') + '">';
+
+        // Descripción
+        html += '<td class="col-nombre" title="' + f.nombre + '">' + f.nombre + '</td>';
+        html += '<td class="col-cat">' + f.categoria + '</td>';
+
+        if (f.control_existencia) {
+          var en   = parseFloat(f.entradas);
+          var ex   = parseFloat(f.cantidad_existencia);
+          html += '<td class="g-stock zero">-</td>';
+          html += '<td class="g-stock' + (en===0?' zero':'') + '">' + fmt(f.entradas) + '</td>';
+          html += '<td class="g-stock' + (ex===0?' zero':'') + '">' + fmt(f.cantidad_existencia) + '</td>';
+          html += '<td class="g-stock zero">-</td>';
+        } else {
+          html += '<td class="col-na">—</td>';
+          html += '<td class="col-na">—</td>';
+          html += '<td class="col-na">—</td>';
+          html += '<td class="col-na">—</td>';
+        }
+
+        var cv  = parseFloat(f.cantidad_vendida);
+        var pv  = parseFloat(f.precio_venta);
+        var imp = parseFloat(f.importe_venta);
+        html += '<td class="g-ventas' + (cv===0?' zero':'') + '">' + fmt(f.cantidad_vendida, 0) + '</td>';
+        html += '<td class="g-ventas' + (pv===0?' zero':'') + '">' + fmt(f.precio_venta) + '</td>';
+        html += '<td class="g-ventas importe' + (imp===0?' zero':'') + '">' + fmt(f.importe_venta) + '</td>';
+
+        if (f.control_existencia) {
+          var mr = parseFloat(f.merma_rotura);
+          html += '<td class="g-fin merma' + (mr===0?' zero':'') + '">' + fmt(f.merma_rotura) + '</td>';
+        } else {
+          html += '<td class="col-na">—</td>';
+        }
+
+        html += '</tr>';
+      });
+      html += '</tbody>';
+
+      // Totales
+      html += '<tfoot><tr>';
+      html += '<td colspan="8" class="lbl" style="text-align:right;letter-spacing:.05em;font-size:.7rem;text-transform:uppercase">Total importe de ventas</td>';
+      html += '<td class="g-ventas importe" style="font-size:.9rem">' + fmt(String(totalImporte)) + '</td>';
+      html += '<td></td>';
+      html += '</tr></tfoot>';
+
+      html += '</table>';
+      return html;
+    }
+
+    function cargar() {
+      fetch(URL_IPV, {headers: {'X-Requested-With': 'XMLHttpRequest'}})
+        .then(function(r){ return r.json(); })
+        .then(function(data){
+          var loading = document.getElementById('ipv-loading');
+          if (loading) loading.remove();
+
+          container.innerHTML = buildTable(data);
+          updateBar.style.display = 'flex';
+          updateText.textContent = 'Última actualización: ' + data.actualizado_en;
+        })
+        .catch(function(){
+          var loading = document.getElementById('ipv-loading');
+          if (loading) loading.remove();
+          container.innerHTML = '<div class="ipv-error"><i class="fa-solid fa-triangle-exclamation" style="margin-right:.4rem"></i>Error al cargar el IPV. Recargue la página.</div>';
+        });
+    }
+
+    // Carga inicial
+    cargar();
+
+    // Solo actualizar en tiempo real si el turno está abierto
+    if (TURNO_EST === 'abierto') {
+      timer = setInterval(cargar, INTERVALO);
+    }
+  })();
+  </script>
 </body>
 </html>

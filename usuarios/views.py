@@ -12,7 +12,7 @@ from django.views.decorators.http import require_http_methods
 from carta.models import Plato
 from inventario.models import Insumo, MovimientoInventario
 from pedidos.models import Factura
-from .models import Notificacion, Turno, Usuario, cerrar_turno, configurar_turno, get_turno_abierto, registrar_inicio_turno
+from .models import Notificacion, Turno, Usuario, cerrar_turno, configurar_turno, crear_mesas_del_turno, get_turno_abierto
 
 
 ROLE_HOME = {
@@ -46,15 +46,25 @@ def login_view(request):
         return redirect('usuarios:landing')
 
     login(request, user)
-    registrar_inicio_turno(user)
+    turno = get_turno_abierto()
+    if turno:
+        turno.usuarios.add(user)
+        user.ultimo_login_turno = timezone.now()
+        user.save(update_fields=['ultimo_login_turno'])
     return redirect(ROLE_HOME.get(user.role, 'usuarios:landing'))
 
 
 @login_required
 def dashboard(request):
+    hoy = timezone.localdate()
     turno = get_turno_abierto()
+    turno_anterior = None
+    turno_abierto_pendiente = None
+    if request.user.role == 'administrador':
+        turno = Turno.objects.filter(fecha=hoy).prefetch_related('usuarios').order_by('-apertura').first()
+        turno_anterior = Turno.objects.filter(fecha__lt=hoy).prefetch_related('usuarios').order_by('-fecha', '-apertura').first()
+        turno_abierto_pendiente = Turno.objects.filter(estado='abierto', fecha__lt=hoy).order_by('-fecha', '-apertura').first()
     notificaciones = Notificacion.objects.filter(destinatario=request.user).order_by('-creada_en')[:10]
-    usuarios = Usuario.objects.order_by('role', 'username') if request.user.role == 'administrador' else []
     facturas_turno = Factura.objects.none()
     if turno:
         fin_turno = turno.cierre or timezone.now()
@@ -64,10 +74,48 @@ def dashboard(request):
         ).select_related('pedido__mesa').order_by('-creado_en')
     return render(request, 'usuarios/dashboard.html', {
         'turno': turno,
+        'hoy': hoy,
+        'turno_anterior': turno_anterior,
+        'resumen_turno_anterior': turno_anterior.resumen_financiero if turno_anterior else None,
+        'resumen_turno': turno.resumen_financiero if turno else None,
+        'turno_abierto_pendiente': turno_abierto_pendiente,
         'facturas_turno': facturas_turno,
         'notificaciones': notificaciones,
-        'usuarios': usuarios,
     })
+
+
+@login_required
+def gestion_usuarios_view(request):
+    if request.user.role != 'administrador':
+        messages.error(request, 'Solo el administrador puede gestionar usuarios.')
+        return redirect('usuarios:dashboard')
+    return render(request, 'usuarios/gestion_usuarios.html', {
+        'usuarios': Usuario.objects.order_by('role', 'username'),
+    })
+
+
+@login_required
+@require_http_methods(['POST'])
+def abrir_turno_view(request):
+    if request.user.role != 'administrador':
+        messages.error(request, 'Solo el administrador puede abrir el turno.')
+        return redirect('usuarios:dashboard')
+
+    hoy = timezone.localdate()
+    if Turno.objects.filter(fecha=hoy).exists():
+        messages.error(request, 'Ya existe un turno registrado para hoy.')
+        return redirect('usuarios:dashboard')
+    if Turno.objects.filter(estado='abierto').exists():
+        messages.error(request, 'Hay un turno anterior abierto. Debe cerrarse antes de abrir uno nuevo.')
+        return redirect('usuarios:dashboard')
+
+    turno = Turno.objects.create(fecha=hoy, estado='abierto')
+    turno.usuarios.add(request.user)
+    request.user.ultimo_login_turno = timezone.now()
+    request.user.save(update_fields=['ultimo_login_turno'])
+    crear_mesas_del_turno(turno)
+    messages.success(request, f'Turno del {hoy:%d/%m/%Y} abierto correctamente.')
+    return redirect('usuarios:dashboard')
 
 
 def _decimal_o_cero(valor):
@@ -222,11 +270,11 @@ def crear_usuario(request):
     role = request.POST.get('role')
     if not username or not first_name or not last_name or not password or role not in dict(Usuario.ROLE_CHOICES):
         messages.error(request, 'Completa los datos del usuario.')
-        return redirect('usuarios:dashboard')
+        return redirect('usuarios:gestion_usuarios')
 
     if Usuario.objects.filter(username__iexact=username).exists():
         messages.error(request, f'El usuario {username} ya existe.')
-        return redirect('usuarios:dashboard')
+        return redirect('usuarios:gestion_usuarios')
 
     Usuario.objects.create_user(
         username=username,
@@ -238,7 +286,7 @@ def crear_usuario(request):
         activo=True,
     )
     messages.success(request, f'Usuario {first_name} {last_name} creado con rol {dict(Usuario.ROLE_CHOICES)[role]}.')
-    return redirect('usuarios:dashboard')
+    return redirect('usuarios:gestion_usuarios')
 
 
 @login_required
@@ -246,19 +294,19 @@ def crear_usuario(request):
 def cambiar_estado_usuario(request, user_id):
     if request.user.role != 'administrador':
         messages.error(request, 'Solo el administrador puede gestionar usuarios.')
-        return redirect('usuarios:dashboard')
+        return redirect('usuarios:gestion_usuarios')
 
     usuario = get_object_or_404(Usuario, pk=user_id)
     if usuario == request.user:
         messages.error(request, 'No puedes desactivar tu propio usuario.')
-        return redirect('usuarios:dashboard')
+        return redirect('usuarios:gestion_usuarios')
 
     usuario.is_active = not usuario.is_active
     usuario.activo = usuario.is_active
     usuario.save(update_fields=['is_active', 'activo'])
     estado = 'activado' if usuario.is_active else 'desactivado'
     messages.success(request, f'Usuario {usuario.username} {estado}.')
-    return redirect('usuarios:dashboard')
+    return redirect('usuarios:gestion_usuarios')
 
 
 @login_required
@@ -266,7 +314,7 @@ def cambiar_estado_usuario(request, user_id):
 def editar_usuario(request, user_id):
     if request.user.role != 'administrador':
         messages.error(request, 'Solo el administrador puede gestionar usuarios.')
-        return redirect('usuarios:dashboard')
+        return redirect('usuarios:gestion_usuarios')
 
     usuario = get_object_or_404(Usuario, pk=user_id)
     username = request.POST.get('username', '').strip()
@@ -276,14 +324,14 @@ def editar_usuario(request, user_id):
     password = request.POST.get('password', '')
     if not username or not first_name or not last_name or role not in dict(Usuario.ROLE_CHOICES):
         messages.error(request, 'Completa nombre, apellidos, usuario y rol.')
-        return redirect('usuarios:dashboard')
+        return redirect('usuarios:gestion_usuarios')
 
     if Usuario.objects.filter(username__iexact=username).exclude(pk=usuario.pk).exists():
         messages.error(request, f'El usuario {username} ya existe.')
-        return redirect('usuarios:dashboard')
+        return redirect('usuarios:gestion_usuarios')
     if usuario == request.user and role != 'administrador':
         messages.error(request, 'No puedes quitarte el rol de administrador a ti mismo.')
-        return redirect('usuarios:dashboard')
+        return redirect('usuarios:gestion_usuarios')
 
     usuario.username = username
     usuario.first_name = first_name
@@ -297,7 +345,7 @@ def editar_usuario(request, user_id):
     if usuario == request.user and password:
         update_session_auth_hash(request, usuario)
     messages.success(request, f'Usuario {usuario.get_full_name()} actualizado correctamente.')
-    return redirect('usuarios:dashboard')
+    return redirect('usuarios:gestion_usuarios')
 
 
 @login_required
@@ -309,7 +357,8 @@ def configurar_mesas_turno_view(request):
 
     turno = get_turno_abierto()
     if turno is None:
-        turno = registrar_inicio_turno(request.user)
+        messages.error(request, 'Primero debes abrir el turno del día.')
+        return redirect('usuarios:dashboard')
 
     cantidad_mesas = request.POST.get('cantidad_mesas', '').strip()
     if not cantidad_mesas:
@@ -405,3 +454,163 @@ def historial_turno_detalle_view(request, turno_id):
         'resumen': turno.resumen or 'Sin resumen registrado.',
     }
     return render(request, 'usuarios/historial_turno_detalle.html', context)
+
+
+@login_required
+def ipv_turno(request, turno_id):
+    """
+    Devuelve el inventario perpetuo de ventas (IPV) de un turno concreto.
+    Funciona tanto para turnos cerrados (histórico) como para el turno abierto (tiempo real).
+    """
+    if request.user.role != 'administrador':
+        return JsonResponse({'error': 'Sin permiso'}, status=403)
+
+    turno = get_object_or_404(Turno, pk=turno_id)
+
+    apertura = turno.apertura
+    # Para turno cerrado usamos el cierre exacto; para el abierto, ahora mismo.
+    cierre = turno.cierre if turno.estado == 'cerrado' else timezone.now()
+
+    # ── Movimientos de inventario ──────────────────────────────────────────────
+    insumos = list(
+        Insumo.objects.filter(activo=True)
+        .select_related('categoria')
+        .order_by('nombre')
+    )
+    insumo_ids = [insumo.pk for insumo in insumos]
+
+    movimientos = (
+        MovimientoInventario.objects.filter(
+            insumo_id__in=insumo_ids,
+            creado_en__lte=cierre,
+        )
+        .only(
+            'insumo_id', 'tipo', 'cantidad',
+            'stock_anterior', 'stock_posterior', 'motivo', 'creado_en',
+        )
+        .order_by('insumo_id', 'creado_en', 'pk')
+    )
+
+    existencia_por_insumo = {}
+    movimientos_turno = {}
+
+    for movimiento in movimientos:
+        iid = movimiento.insumo_id
+        existencia_por_insumo[iid] = movimiento.stock_posterior
+        if movimiento.creado_en < apertura:
+            continue
+        datos = movimientos_turno.setdefault(iid, {
+            'entradas': Decimal('0'),
+            'salidas': Decimal('0'),
+            'merma': Decimal('0'),
+        })
+        if movimiento.tipo == 'entrada':
+            datos['entradas'] += movimiento.cantidad
+        elif movimiento.tipo == 'merma':
+            datos['merma'] += movimiento.cantidad
+            datos['salidas'] += movimiento.cantidad
+        elif movimiento.tipo == 'salida':
+            datos['salidas'] += movimiento.cantidad
+            if 'rotura' in (movimiento.motivo or '').casefold():
+                datos['merma'] += movimiento.cantidad
+
+    # ── Ventas de facturas ─────────────────────────────────────────────────────
+    insumo_por_nombre = {
+        insumo.nombre.strip().casefold(): insumo.pk for insumo in insumos
+    }
+    ventas = {}
+    facturas = Factura.objects.filter(
+        creado_en__gte=apertura,
+        creado_en__lte=cierre,
+    ).values_list('items_snapshot', flat=True)
+
+    for snapshot in facturas:
+        for item in snapshot or []:
+            nombre = str(item.get('plato', '')).strip().casefold()
+            if not nombre:
+                continue
+            datos = ventas.setdefault(nombre, {
+                'nombre': str(item.get('plato', '')).strip(),
+                'cantidad': Decimal('0'),
+                'importe': Decimal('0'),
+                'precio_total_acum': Decimal('0'),
+            })
+            cantidad = _decimal_o_cero(item.get('cantidad'))
+            datos['cantidad'] += cantidad
+            datos['importe'] += _decimal_o_cero(item.get('subtotal'))
+            datos['precio_total_acum'] += _decimal_o_cero(item.get('precio_unit')) * cantidad
+
+    from carta.models import Plato
+    platos_por_nombre = {
+        plato.nombre.strip().casefold(): plato
+        for plato in Plato.objects.select_related('categoria').all()
+    }
+
+    # ── Construcción de filas del IPV ──────────────────────────────────────────
+    filas = []
+    total_importe = Decimal('0')
+
+    for insumo in insumos:
+        mov = movimientos_turno.get(insumo.pk, {})
+        nombre_key = insumo.nombre.strip().casefold()
+        venta = ventas.get(nombre_key, {})
+        entradas = mov.get('entradas', Decimal('0'))
+        salidas = mov.get('salidas', Decimal('0'))
+        merma = mov.get('merma', Decimal('0'))
+        cantidad_vendida = venta.get('cantidad', Decimal('0'))
+        importe_venta = venta.get('importe', Decimal('0'))
+        existencia = existencia_por_insumo.get(insumo.pk, insumo.stock_actual)
+
+        total_importe += importe_venta
+
+        filas.append({
+            'nombre': insumo.nombre,
+            'categoria': insumo.categoria.nombre if insumo.categoria else 'Sin categoría',
+            'unidad': insumo.get_unidad_display(),
+            'saldo_inicial': None,
+            'entradas': str(entradas),
+            'cantidad_existencia': str(existencia),
+            'cantidad_vendida': str(cantidad_vendida),
+            'saldo_final': None,
+            'precio_venta': str(insumo.precio),
+            'importe_venta': str(importe_venta),
+            'merma_rotura': str(merma),
+            'control_existencia': True,
+        })
+
+    # Productos vendidos sin insumo en inventario (platos sin stock tracking)
+    for nombre_key, venta in ventas.items():
+        if nombre_key in insumo_por_nombre:
+            continue
+        plato = platos_por_nombre.get(nombre_key)
+        cantidad = venta['cantidad']
+        precio_venta = plato.precio if plato else (
+            venta['precio_total_acum'] / cantidad if cantidad else Decimal('0')
+        )
+        importe_venta = venta['importe']
+        total_importe += importe_venta
+        filas.append({
+            'nombre': venta['nombre'],
+            'categoria': plato.categoria.nombre if plato and plato.categoria else 'Sin categoría',
+            'unidad': 'Unidad',
+            'saldo_inicial': None,
+            'entradas': None,
+            'cantidad_existencia': None,
+            'cantidad_vendida': str(cantidad),
+            'saldo_final': None,
+            'precio_venta': str(precio_venta),
+            'importe_venta': str(importe_venta),
+            'merma_rotura': None,
+            'control_existencia': False,
+        })
+
+    filas.sort(key=lambda f: f['nombre'].casefold())
+
+    return JsonResponse({
+        'turno_id': turno_id,
+        'estado': turno.estado,
+        'fecha': turno.fecha.strftime('%d/%m/%Y'),
+        'actualizado_en': timezone.localtime(cierre).strftime('%H:%M:%S'),
+        'total_importe': str(total_importe),
+        'filas': filas,
+    })

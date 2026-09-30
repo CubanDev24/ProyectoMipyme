@@ -15,6 +15,10 @@ class Mesa(models.Model):
     def __str__(self): return f'Mesa {self.numero}'
 
 class Pedido(models.Model):
+    MODALIDAD_CHOICES = [
+        ('mesa', 'Mesa'),
+        ('para_llevar', 'Para llevar'),
+    ]
     DESTINO_CHOICES = [
         ('cocina', 'Cocina'),
         ('barra', 'Barra'),
@@ -25,9 +29,12 @@ class Pedido(models.Model):
         ('en_preparacion', 'En preparación'),
         ('listo', 'Listo'),
         ('servido', 'Servido'),
+        ('entregado', 'Entregado'),
         ('cerrado', 'Cerrado'),
     ]
-    mesa = models.ForeignKey(Mesa, on_delete=models.PROTECT, related_name='pedidos')
+    mesa = models.ForeignKey(Mesa, on_delete=models.PROTECT, related_name='pedidos', null=True, blank=True)
+    modalidad = models.CharField(max_length=12, choices=MODALIDAD_CHOICES, default='mesa')
+    grupo_para_llevar = models.UUIDField(null=True, blank=True, db_index=True)
     destino = models.CharField(max_length=10, choices=DESTINO_CHOICES, default='cocina')
     estado = models.CharField(max_length=20, choices=ESTADO_CHOICES, default='pendiente')
     nota = models.TextField(blank=True)
@@ -70,7 +77,7 @@ class Factura(models.Model):
         ('usd', 'USD'),
     ]
     pedido = models.OneToOneField(Pedido, on_delete=models.PROTECT, related_name='factura')
-    mesa_numero = models.PositiveIntegerField()
+    mesa_numero = models.PositiveIntegerField(null=True, blank=True)
     forma_pago = models.CharField(max_length=20, choices=FORMA_PAGO_CHOICES)
     total_cup = models.DecimalField(max_digits=10, decimal_places=2)
     monto_efectivo_cup = models.DecimalField(max_digits=10, decimal_places=2, default=0)
