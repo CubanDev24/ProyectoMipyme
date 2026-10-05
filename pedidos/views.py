@@ -161,15 +161,25 @@ def factura_imprimir(request, pk):
     pdf.setFont('Helvetica', 9)
     pdf.drawString(30, height - 52, 'Factura de consumo')
     pdf.drawString(30, height - 70, f'Factura: #{factura.pk}')
-    referencia = f'Mesa: {factura.mesa_numero}' if factura.mesa_numero is not None else 'Pedido para llevar'
+    referencia = (
+        factura.pedido.mesa.etiqueta
+        if factura.pedido.mesa_id
+        else 'Pedido para llevar'
+    )
     pdf.drawString(30, height - 82, referencia)
     pdf.drawString(30, height - 94, f'Fecha: {factura.creado_en.strftime("%d/%m/%Y %H:%M")}')
+    y_datos = height - 106
+    if factura.pedido.modalidad == 'para_llevar':
+        pdf.drawString(30, y_datos, f'Cliente: {factura.pedido.nombre_cliente}')
+        pdf.drawString(30, y_datos - 12, f'Teléfono: {factura.pedido.telefono_cliente}')
+        y_datos -= 24
     if factura.cajera_nombre:
-        pdf.drawString(30, height - 106, f'Cajera: {factura.cajera_nombre}')
+        pdf.drawString(30, y_datos, f'Cajera: {factura.cajera_nombre}')
+        y_datos -= 12
     if factura.mesera_nombre:
-        pdf.drawString(30, height - 118, f'Mesera: {factura.mesera_nombre}')
+        pdf.drawString(30, y_datos, f'Mesera: {factura.mesera_nombre}')
 
-    y = height - 138
+    y = min(y_datos - 20, height - 138)
     pdf.setFont('Helvetica-Bold', 9)
     pdf.drawString(30, y, 'ITEM')
     pdf.drawRightString(width - 30, y, 'SUBTOTAL')
@@ -208,7 +218,7 @@ def factura_imprimir_web(request, pk):
     return render(request, 'caja/factura_imprimir_web.html', {'factura': factura})
 
 def facturas_historial(request):
-    facturas = Factura.objects.select_related('pedido').order_by('-creado_en')
+    facturas = Factura.objects.select_related('pedido__mesa').order_by('-creado_en')
     return JsonResponse({
         'facturas': [
             {
@@ -216,9 +226,11 @@ def facturas_historial(request):
                 'mesa_numero': factura.mesa_numero,
                 'es_para_llevar': factura.pedido.modalidad == 'para_llevar',
                 'etiqueta': (
-                    f'Para llevar #{factura.pedido.grupo_para_llevar.hex[:8].upper()}'
-                    if factura.pedido.modalidad == 'para_llevar' and factura.pedido.grupo_para_llevar
-                    else f'Mesa {factura.mesa_numero}'
+                    factura.pedido.mesa.etiqueta
+                    if factura.pedido.mesa_id
+                    else f'Para llevar #{factura.pedido.grupo_para_llevar.hex[:8].upper()}'
+                    if factura.pedido.grupo_para_llevar
+                    else 'Para llevar'
                 ),
                 'forma_pago_display': factura.get_forma_pago_display(),
                 'total_cup': str(factura.total_cup),

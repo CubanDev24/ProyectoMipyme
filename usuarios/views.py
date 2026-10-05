@@ -361,21 +361,32 @@ def configurar_mesas_turno_view(request):
         return redirect('usuarios:dashboard')
 
     cantidad_mesas = request.POST.get('cantidad_mesas', '').strip()
+    cantidad_mesas_exteriores = request.POST.get('cantidad_mesas_exteriores', '0').strip()
     if not cantidad_mesas:
         messages.error(request, 'Debes indicar la cantidad de mesas.')
         return redirect('usuarios:dashboard')
 
     try:
         cantidad = int(cantidad_mesas)
+        cantidad_exteriores = int(cantidad_mesas_exteriores)
     except ValueError:
-        messages.error(request, 'La cantidad de mesas debe ser un número entero.')
+        messages.error(request, 'Las cantidades de mesas deben ser números enteros.')
+        return redirect('usuarios:dashboard')
+
+    if cantidad_exteriores < 0:
+        messages.error(request, 'La cantidad de mesas exteriores no puede ser negativa.')
         return redirect('usuarios:dashboard')
 
     turno.cantidad_mesas = max(cantidad, 1)
-    turno.save(update_fields=['cantidad_mesas'])
+    turno.cantidad_mesas_exteriores = cantidad_exteriores
+    turno.save(update_fields=['cantidad_mesas', 'cantidad_mesas_exteriores'])
     from usuarios.models import crear_mesas_del_turno
     crear_mesas_del_turno(turno)
-    messages.success(request, f'Cantidad de mesas del turno actualizada a {turno.cantidad_mesas}.')
+    messages.success(
+        request,
+        f'Mesas actualizadas: {turno.cantidad_mesas} de salón y '
+        f'{turno.cantidad_mesas_exteriores} exteriores.',
+    )
     return redirect('usuarios:dashboard')
 
 

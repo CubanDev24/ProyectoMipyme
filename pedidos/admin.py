@@ -3,7 +3,8 @@ from .models import Mesa, Pedido, ItemPedido, Factura
 
 @admin.register(Mesa)
 class MesaAdmin(admin.ModelAdmin):
-    list_display = ['numero', 'activa']
+    list_display = ['etiqueta', 'zona', 'numero', 'activa']
+    list_filter = ['zona', 'activa']
     list_editable = ['activa']
 
 class ItemInline(admin.TabularInline):

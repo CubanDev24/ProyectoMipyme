@@ -2,7 +2,7 @@
 {% load static %}
 {% load l10n %}
 
-{% block title %}Mesa {{ mesa_id }} — Carta Digital Las Cuquis{% endblock %}
+{% block title %}{{ mesa_etiqueta }} — Carta Digital Las Cuquis{% endblock %}
 
 {% block topbar %}{% endblock %}
 
@@ -18,7 +18,7 @@
       <div class="cliente-header-info">
         <h1 class="cliente-titulo">
           Las Cuquis
-          <span class="cliente-mesa-chip" id="mesaBadge">Mesa {{ mesa_id }}</span>
+          <span class="cliente-mesa-chip" id="mesaBadge">{{ mesa_etiqueta }}</span>
         </h1>
         <p class="cliente-subtitulo">Restaurante · Bar · Cafetería</p>
       </div>
@@ -239,7 +239,7 @@
     <section id="view-orders" class="cliente-view hidden-view">
       <div class="cliente-section-header">
         <h2><i class="fa-solid fa-clock-rotate-left"></i> Historial de Comandas</h2>
-        <span class="cliente-mesa-label">Mesa {{ mesa_id }}</span>
+        <span class="cliente-mesa-label">{{ mesa_etiqueta }}</span>
       </div>
 
       <div id="placedOrdersList" class="cliente-orders-list">
@@ -1730,6 +1730,7 @@
 // VARIABLES GLOBALES
 // ============================================================
 const MESA = {{ mesa_id }};
+const MESA_ETIQUETA = "{{ mesa_etiqueta|escapejs }}";
 const WS_PROTOCOL = location.protocol === 'https:' ? 'wss' : 'ws';
 const WS_URL = `${WS_PROTOCOL}://${location.host}/ws/cliente/${MESA}/`;
 
@@ -2470,7 +2471,7 @@ function descargarPDF() {
 function actualizarDisponibilidadMesa() {
   const badge = document.getElementById('mesaBadge');
   if (badge) {
-    badge.textContent = mesaDisponible ? `Mesa ${MESA}` : `Mesa ${MESA} · Cerrada`;
+    badge.textContent = mesaDisponible ? MESA_ETIQUETA : `${MESA_ETIQUETA} · Cerrada`;
   }
   const btnEnviar = document.getElementById('btnEnviarPedido');
   if (btnEnviar) btnEnviar.disabled = !mesaDisponible || carrito.length === 0;

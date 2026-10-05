@@ -37,7 +37,9 @@ def serializar_pedido(pedido):
         'es_para_llevar': es_para_llevar,
         'grupo_para_llevar': str(pedido.grupo_para_llevar) if pedido.grupo_para_llevar else None,
         'codigo_para_llevar': codigo_para_llevar,
-        'etiqueta': f'Para llevar #{codigo_para_llevar}' if es_para_llevar else f'Mesa {pedido.mesa.numero}',
+        'etiqueta': f'Para llevar #{codigo_para_llevar}' if es_para_llevar else pedido.mesa.etiqueta,
+        'nombre_cliente': pedido.nombre_cliente,
+        'telefono_cliente': pedido.telefono_cliente,
         'destino': pedido.destino,
         'estado': pedido.estado,
         'estado_display': pedido.get_estado_display(),
@@ -65,7 +67,16 @@ def serializar_pedido(pedido):
 
 
 @transaction.atomic
-def crear_pedidos_por_destino(mesa, items_data, nota, estado, modalidad='mesa', grupo_para_llevar=None):
+def crear_pedidos_por_destino(
+    mesa,
+    items_data,
+    nota,
+    estado,
+    modalidad='mesa',
+    grupo_para_llevar=None,
+    nombre_cliente='',
+    telefono_cliente='',
+):
     grupos = {'cocina': [], 'barra': []}
     for item_data in items_data:
         if not isinstance(item_data, dict):
@@ -89,6 +100,8 @@ def crear_pedidos_por_destino(mesa, items_data, nota, estado, modalidad='mesa', 
             sesion_id=mesa.sesion_id if mesa else None,
             modalidad=modalidad,
             grupo_para_llevar=grupo_para_llevar,
+            nombre_cliente=nombre_cliente,
+            telefono_cliente=telefono_cliente,
             nota=nota,
             estado=estado,
             destino=destino,
@@ -133,7 +146,9 @@ def serializar_cuenta(pedidos):
         'es_para_llevar': es_para_llevar,
         'grupo_para_llevar': str(pedidos[0].grupo_para_llevar) if pedidos[0].grupo_para_llevar else None,
         'codigo_para_llevar': codigo_para_llevar,
-        'etiqueta': f'Para llevar #{codigo_para_llevar}' if es_para_llevar else f'Mesa {pedidos[0].mesa.numero}',
+        'etiqueta': f'Para llevar #{codigo_para_llevar}' if es_para_llevar else pedidos[0].mesa.etiqueta,
+        'nombre_cliente': pedidos[0].nombre_cliente,
+        'telefono_cliente': pedidos[0].telefono_cliente,
         'cuenta_solicitada': True,
         'estado': 'servido',
         'estado_display': 'Factura solicitada',
@@ -155,6 +170,9 @@ def serializar_factura(factura):
     data = {
         'id': factura.id,
         'mesa_numero': factura.mesa_numero,
+        'etiqueta': factura.pedido.mesa.etiqueta if factura.pedido.mesa_id else 'Para llevar',
+        'nombre_cliente': factura.pedido.nombre_cliente,
+        'telefono_cliente': factura.pedido.telefono_cliente,
         'pedido_ids': [factura.pedido_id],
         'forma_pago': factura.forma_pago,
         'forma_pago_display': formas_validas[factura.forma_pago],
@@ -216,8 +234,25 @@ class MeseraConsumer(AsyncWebsocketConsumer):
 
         if accion in ['crear_pedido', 'crear_pedido_para_llevar']:
             if accion == 'crear_pedido_para_llevar':
+                nombre_cliente = str(data.get('nombre_cliente', '')).strip()
+                telefono_cliente = str(data.get('telefono_cliente', '')).strip()
+                if not nombre_cliente or not telefono_cliente:
+                    await self.send(text_data=json.dumps({
+                        'tipo': 'error_pedido',
+                        'mensaje': 'Indica el nombre y el teléfono de la persona que solicita el ticket.',
+                    }))
+                    return
+                if len(nombre_cliente) > 120 or len(telefono_cliente) > 30:
+                    await self.send(text_data=json.dumps({
+                        'tipo': 'error_pedido',
+                        'mensaje': 'El nombre o el teléfono supera la longitud permitida.',
+                    }))
+                    return
                 pedidos = await self.crear_pedido_para_llevar(
-                    data.get('items', []), data.get('nota', '')
+                    data.get('items', []),
+                    data.get('nota', ''),
+                    nombre_cliente,
+                    telefono_cliente,
                 )
             else:
                 pedidos = await self.crear_pedido(
@@ -476,7 +511,14 @@ class MeseraConsumer(AsyncWebsocketConsumer):
             return []
         from usuarios.models import mesas_del_turno
         return [
-            {'id': m.id, 'numero': m.numero, 'abierta': m.abierta}
+            {
+                'id': m.id,
+                'numero': m.numero,
+                'numero_zona': m.numero_zona or m.numero,
+                'zona': m.zona,
+                'etiqueta': m.etiqueta,
+                'abierta': m.abierta,
+            }
             for m in mesas_del_turno(turno)
         ]
 
@@ -491,7 +533,14 @@ class MeseraConsumer(AsyncWebsocketConsumer):
         mesa.abierta = True
         mesa.sesion_id = uuid.uuid4()
         mesa.save(update_fields=['abierta', 'sesion_id'])
-        return {'id': mesa.id, 'numero': mesa.numero, 'abierta': mesa.abierta}, None
+        return {
+            'id': mesa.id,
+            'numero': mesa.numero,
+            'numero_zona': mesa.numero_zona or mesa.numero,
+            'zona': mesa.zona,
+            'etiqueta': mesa.etiqueta,
+            'abierta': mesa.abierta,
+        }, None
 
     @database_sync_to_async
     def cerrar_mesa(self, mesa_id):
@@ -507,7 +556,14 @@ class MeseraConsumer(AsyncWebsocketConsumer):
             return None, 'Cobra y cierra primero los pedidos activos de esta mesa.'
         mesa.abierta = False
         mesa.save(update_fields=['abierta'])
-        return {'id': mesa.id, 'numero': mesa.numero, 'abierta': mesa.abierta}, None
+        return {
+            'id': mesa.id,
+            'numero': mesa.numero,
+            'numero_zona': mesa.numero_zona or mesa.numero,
+            'zona': mesa.zona,
+            'etiqueta': mesa.etiqueta,
+            'abierta': mesa.abierta,
+        }, None
 
     @database_sync_to_async
     def crear_pedido(self, mesa_id, items_data, nota):
@@ -520,8 +576,17 @@ class MeseraConsumer(AsyncWebsocketConsumer):
         return crear_pedidos_por_destino(mesa, items_data, nota, estado='pendiente')
 
     @database_sync_to_async
-    def crear_pedido_para_llevar(self, items_data, nota):
-        if not items_data or get_turno_abierto() is None:
+    def crear_pedido_para_llevar(self, items_data, nota, nombre_cliente='', telefono_cliente=''):
+        nombre_cliente = nombre_cliente.strip()
+        telefono_cliente = telefono_cliente.strip()
+        if (
+            not items_data
+            or not nombre_cliente
+            or not telefono_cliente
+            or len(nombre_cliente) > 120
+            or len(telefono_cliente) > 30
+            or get_turno_abierto() is None
+        ):
             return []
         return crear_pedidos_por_destino(
             None,
@@ -530,6 +595,8 @@ class MeseraConsumer(AsyncWebsocketConsumer):
             estado='pendiente',
             modalidad='para_llevar',
             grupo_para_llevar=uuid.uuid4(),
+            nombre_cliente=nombre_cliente,
+            telefono_cliente=telefono_cliente,
         )
 
     @database_sync_to_async
@@ -1056,6 +1123,8 @@ class CajaConsumer(AsyncWebsocketConsumer):
             'modalidad': principal.modalidad,
             'es_para_llevar': principal.modalidad == 'para_llevar',
             'etiqueta': serializar_pedido(principal)['etiqueta'],
+            'nombre_cliente': principal.nombre_cliente,
+            'telefono_cliente': principal.telefono_cliente,
             'pedido_ids': [pedido.pk for pedido in pedidos],
             'forma_pago': factura.forma_pago,
             'forma_pago_display': formas_validas[factura.forma_pago],

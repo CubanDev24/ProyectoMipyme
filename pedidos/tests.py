@@ -51,6 +51,27 @@ class FacturaWorkflowTests(TestCase):
 
         self.assertTrue(pedido['items'][0]['imagen_url'].endswith('/media/carta/pizza.png'))
 
+    def test_pedido_de_exteriores_conserva_mesa_y_etiqueta_de_zona(self):
+        mesa_exterior = Mesa.objects.create(
+            numero=80,
+            zona='exteriores',
+            numero_zona=1,
+            abierta=True,
+        )
+        pedidos = async_to_sync(MeseraConsumer().crear_pedido)(
+            mesa_exterior.id,
+            [{'plato_id': self.plato.pk, 'cantidad': 1}],
+            '',
+        )
+        pedido = Pedido.objects.get(pk=pedidos[0]['id'])
+        cuenta = serializar_cuenta([pedido])
+
+        self.assertEqual(pedido.mesa_id, mesa_exterior.id)
+        self.assertEqual(pedidos[0]['mesa_id'], mesa_exterior.id)
+        self.assertEqual(pedidos[0]['etiqueta'], 'Exteriores 1')
+        self.assertEqual(cuenta['mesa_id'], mesa_exterior.id)
+        self.assertEqual(cuenta['etiqueta'], 'Exteriores 1')
+
     def test_cocina_renderiza_miniaturas_para_los_platos(self):
         User = get_user_model()
         cocina = User.objects.create_user(username='cocina_imagenes', password='123456', role='cocina')
@@ -164,13 +185,20 @@ class FacturaWorkflowTests(TestCase):
         pedidos = async_to_sync(mesera.crear_pedido_para_llevar)([
             {'plato_id': self.plato.pk, 'cantidad': 1},
             {'plato_id': bebida.pk, 'cantidad': 2},
-        ], 'Sin azúcar')
+        ], 'Sin azúcar', 'María Pérez', '55512345')
 
         self.assertEqual({pedido['destino'] for pedido in pedidos}, {'cocina', 'barra'})
         self.assertEqual({pedido['modalidad'] for pedido in pedidos}, {'para_llevar'})
         self.assertEqual({pedido['mesa_id'] for pedido in pedidos}, {None})
         self.assertEqual(len({pedido['grupo_para_llevar'] for pedido in pedidos}), 1)
         self.assertTrue(all(pedido['etiqueta'].startswith('Para llevar #') for pedido in pedidos))
+        self.assertTrue(all(pedido['nombre_cliente'] == 'María Pérez' for pedido in pedidos))
+        self.assertTrue(all(pedido['telefono_cliente'] == '55512345' for pedido in pedidos))
+        self.assertEqual(
+            set(Pedido.objects.filter(grupo_para_llevar=pedidos[0]['grupo_para_llevar'])
+                .values_list('nombre_cliente', 'telefono_cliente')),
+            {('María Pérez', '55512345')},
+        )
         pedido_barra = next(pedido for pedido in pedidos if pedido['destino'] == 'barra')
         pedido_listo = async_to_sync(mesera.marcar_listo_para_llevar)(pedido_barra['id'])
         self.assertEqual(pedido_listo['estado'], 'listo')
@@ -185,7 +213,7 @@ class FacturaWorkflowTests(TestCase):
         mesera.scope = {'user': None}
         pedido = async_to_sync(mesera.crear_pedido_para_llevar)([
             {'plato_id': bebida.pk, 'cantidad': 1},
-        ], '')[0]
+        ], '', 'Carlos', '55500001')[0]
         mesera.channel_layer = AsyncMock()
         mesera.send = AsyncMock()
 
@@ -251,6 +279,21 @@ class FacturaWorkflowTests(TestCase):
         self.assertEqual(pedidos, [])
         self.assertFalse(Pedido.objects.filter(modalidad='para_llevar').exists())
 
+    def test_websocket_rechaza_ticket_para_llevar_sin_datos_de_contacto(self):
+        Turno.objects.create()
+        mesera = MeseraConsumer()
+        mesera.send = AsyncMock()
+
+        async_to_sync(mesera.receive)(json.dumps({
+            'accion': 'crear_pedido_para_llevar',
+            'items': [{'plato_id': self.plato.pk, 'cantidad': 1}],
+        }))
+
+        self.assertFalse(Pedido.objects.filter(modalidad='para_llevar').exists())
+        respuesta = json.loads(mesera.send.await_args.kwargs['text_data'])
+        self.assertEqual(respuesta['tipo'], 'error_pedido')
+        self.assertIn('nombre y el teléfono', respuesta['mensaje'])
+
     def test_entregar_y_cobrar_ticket_para_llevar_descuenta_stock_y_factura_sin_mesa(self):
         Turno.objects.create()
         insumo = Insumo.objects.create(nombre='Queso de ticket', categoria=self.categoria, stock_actual='10.00')
@@ -264,7 +307,7 @@ class FacturaWorkflowTests(TestCase):
         pedidos = async_to_sync(mesera.crear_pedido_para_llevar)([
             {'plato_id': self.plato.pk, 'cantidad': 2},
             {'plato_id': bebida.pk, 'cantidad': 1},
-        ], '')
+        ], '', 'Ana López', '55500002')
         grupo_para_llevar = pedidos[0]['grupo_para_llevar']
         pedido_id = next(pedido['id'] for pedido in pedidos if pedido['destino'] == 'cocina')
         pedido_bebida_id = next(pedido['id'] for pedido in pedidos if pedido['destino'] == 'barra')
@@ -297,11 +340,15 @@ class FacturaWorkflowTests(TestCase):
         self.assertEqual(cuenta['total'], '57.00')
         self.assertEqual(cuenta['forma_pago'], 'usd')
         self.assertEqual(cuenta['tasa_cambio'], '40.00')
+        self.assertEqual(cuenta['nombre_cliente'], 'Ana López')
+        self.assertEqual(cuenta['telefono_cliente'], '55500002')
         self.assertTrue(pedidos_actualizados[0]['cuenta_solicitada'])
         self.assertTrue(all(pedido['forma_pago'] == 'usd' for pedido in pedidos_actualizados))
         cuentas_caja = async_to_sync(CajaConsumer().get_cuentas_caja)()
         cuenta_en_caja = next(item for item in cuentas_caja if item['grupo_para_llevar'] == grupo_para_llevar)
         self.assertEqual(cuenta_en_caja['etiqueta'], cuenta['etiqueta'])
+        self.assertEqual(cuenta_en_caja['nombre_cliente'], 'Ana López')
+        self.assertEqual(cuenta_en_caja['telefono_cliente'], '55500002')
 
         factura_data, error = async_to_sync(CajaConsumer().cerrar_pedido_con_pago)(
             pedido_id, 'usd', '40.00', mesera_nombre='Ana', cajera_nombre='Celia',
@@ -310,6 +357,8 @@ class FacturaWorkflowTests(TestCase):
         self.assertIsNone(error)
         self.assertTrue(factura_data['es_para_llevar'])
         self.assertIsNone(factura_data['mesa_numero'])
+        self.assertEqual(factura_data['nombre_cliente'], 'Ana López')
+        self.assertEqual(factura_data['telefono_cliente'], '55500002')
         factura = Factura.objects.get(pedido_id=pedido_id)
         self.assertIsNone(factura.mesa_numero)
         self.assertEqual(factura.total_cup, 57)
@@ -318,6 +367,8 @@ class FacturaWorkflowTests(TestCase):
         response = self.client.get(reverse('pedidos:factura_imprimir_web', args=[factura.pk]))
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'Para llevar')
+        self.assertContains(response, 'Ana López')
+        self.assertContains(response, '55500002')
         historial = self.client.get(reverse('pedidos:facturas_historial')).json()['facturas']
         self.assertTrue(historial[0]['etiqueta'].startswith('Para llevar #'))
 
@@ -376,6 +427,10 @@ class FacturaWorkflowTests(TestCase):
         self.assertContains(response, 'id="view-bar"')
         self.assertContains(response, 'function renderBarView()')
         self.assertContains(response, 'id="nav-takeaway"')
+        self.assertContains(response, 'id="takeaway-customer-name"')
+        self.assertContains(response, 'id="takeaway-customer-phone"')
+        self.assertContains(response, 'nombre_cliente: nombreCliente')
+        self.assertContains(response, 'telefono_cliente: telefonoCliente')
         self.assertContains(response, 'id="view-takeaway"')
         self.assertContains(response, 'El administrador debe abrir el turno para recibir pedidos.')
         self.assertContains(response, 'function renderVistaParaLlevar()')
@@ -389,6 +444,18 @@ class FacturaWorkflowTests(TestCase):
         self.assertNotContains(response, '<img id="comprobante-transferencia-preview"')
         self.assertContains(response, 'Seleccionar imagen')
         self.assertContains(response, '/media/carta/pizza.png')
+
+    def test_vista_mesera_muestra_exteriores_configurados(self):
+        User = get_user_model()
+        mesera = User.objects.create_user(username='mesera_exteriores', password='123456', role='mesera')
+        Turno.objects.create(cantidad_mesas=2, cantidad_mesas_exteriores=1)
+        self.client.force_login(mesera)
+
+        response = self.client.get(reverse('pedidos:mesera'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'id="nav-exteriors"')
+        self.assertContains(response, 'name: "Exteriores 1"')
         self.assertNotContains(response, 'Hamburguesa Gourmet')
         self.assertNotContains(response, 'Mesa 08')
 

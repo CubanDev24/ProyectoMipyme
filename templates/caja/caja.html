@@ -9,7 +9,8 @@
     <link rel="stylesheet" href="{% static 'vendor/fontawesome/css/all.min.css' %}">    <script>
    
     </script>
-    <link rel="stylesheet" href="{% static 'css/main.css' %}?v=20260901-restyle-emerald">
+    <link rel="stylesheet" href="{% static 'css/main.css' %}?v=20261001-responsive-sidebar-logout">
+    <script src="{% static 'js/responsive-sidebar.js' %}?v=20261001-sidebar-logout" defer></script>
 </head>
 <body class="bg-slate-900 text-slate-100 font-sans min-h-screen flex flex-col md:flex-row overflow-x-hidden">
     <aside class="w-full md:w-20 lg:w-64 bg-slate-950 border-r border-slate-800 flex flex-col justify-between shrink-0">
@@ -330,6 +331,7 @@
             <div class="caja-mesa">${escaparHtml(etiquetaPedido(p))}</div>
             <div class="caja-hora">#${p.id} · ${p.creado_en}</div>
           </div>
+          ${p.es_para_llevar ? `<div class="caja-hora">Cliente: ${escaparHtml(p.nombre_cliente || 'Sin nombre')} · Teléfono: ${escaparHtml(p.telefono_cliente || 'Sin teléfono')}</div>` : ''}
           <ul class="caja-items-ul">${items}</ul>
           <div class="caja-total-row"><span>Total</span><span class="caja-total-val">${p.total} CUP</span></div>`;
         lista.appendChild(card);
@@ -344,6 +346,13 @@
       document.getElementById('cobro-vacio').style.display = 'none';
       document.getElementById('cobro-detalle').style.display = 'block';
       document.getElementById('cobro-mesa-label').textContent = etiquetaPedido(p);
+      const contactoParaLlevar = p.es_para_llevar
+        ? `Cliente: ${p.nombre_cliente || 'Sin nombre'} · Teléfono: ${p.telefono_cliente || 'Sin teléfono'}`
+        : '';
+      document.getElementById('cobro-nota').textContent = [
+        contactoParaLlevar,
+        p.nota ? `Nota: ${p.nota}` : '',
+      ].filter(Boolean).join(' · ');
       const ul = document.getElementById('cobro-items-ul');
       ul.innerHTML = p.items.map(i => `
         <li>
@@ -351,8 +360,6 @@
           <span>${i.subtotal} CUP</span>
         </li>`).join('');
       document.getElementById('cobro-total').textContent = `${p.total} CUP`;
-      const nota = document.getElementById('cobro-nota');
-      nota.textContent = p.nota ? `Nota: ${p.nota}` : '';
       document.getElementById('cobro-comprobante').innerHTML = comprobanteHtml(p);
 
       document.querySelectorAll('input[name="forma_pago"]').forEach(r => r.checked = r.value === formaPagoSeleccionada);
@@ -530,4 +537,3 @@
     </script>
 </body>
 </html>
-

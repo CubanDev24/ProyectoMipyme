@@ -318,6 +318,51 @@ class UsuarioTurnoTests(TestCase):
         self.assertEqual(list(mesas.values_list('numero', flat=True)), [1, 2, 3, 4, 5])
         self.assertEqual(Mesa.objects.filter(activa=True).count(), 5)
 
+    def test_configurar_turno_crea_mesas_exteriores_separadas_y_etiquetadas(self):
+        turno = registrar_inicio_turno(self.admin)
+        configurar_turno(turno, cantidad_mesas=2, platos=[], cantidad_mesas_exteriores=3)
+
+        mesas = mesas_del_turno(turno)
+        mesas_salon = [mesa for mesa in mesas if mesa.zona == 'salon']
+        mesas_exteriores = [mesa for mesa in mesas if mesa.zona == 'exteriores']
+
+        self.assertEqual([mesa.etiqueta for mesa in mesas_salon], ['Mesa 1', 'Mesa 2'])
+        self.assertEqual(
+            [mesa.etiqueta for mesa in mesas_exteriores],
+            ['Exteriores 1', 'Exteriores 2', 'Exteriores 3'],
+        )
+        self.assertEqual(len({mesa.numero for mesa in mesas}), 5)
+
+    def test_aumentar_mesas_de_salon_no_reutiliza_ids_de_mesas_exteriores(self):
+        turno = registrar_inicio_turno(self.admin)
+        configurar_turno(turno, cantidad_mesas=1, platos=[], cantidad_mesas_exteriores=2)
+        configurar_turno(turno, cantidad_mesas=3, cantidad_mesas_exteriores=2)
+
+        mesas = mesas_del_turno(turno)
+        mesas_salon = [mesa for mesa in mesas if mesa.zona == 'salon']
+        mesas_exteriores = [mesa for mesa in mesas if mesa.zona == 'exteriores']
+
+        self.assertEqual([mesa.etiqueta for mesa in mesas_salon], ['Mesa 1', 'Mesa 2', 'Mesa 3'])
+        self.assertEqual([mesa.etiqueta for mesa in mesas_exteriores], ['Exteriores 1', 'Exteriores 2'])
+        self.assertEqual(len({mesa.numero for mesa in mesas}), 5)
+
+    def test_administrador_configura_la_cantidad_de_mesas_exteriores(self):
+        turno = registrar_inicio_turno(self.admin)
+        self.client.force_login(self.admin)
+
+        response = self.client.post(
+            reverse('usuarios:configurar_mesas_turno'),
+            {'cantidad_mesas': '2', 'cantidad_mesas_exteriores': '2'},
+        )
+
+        self.assertRedirects(response, reverse('usuarios:dashboard'))
+        turno.refresh_from_db()
+        self.assertEqual(turno.cantidad_mesas_exteriores, 2)
+        self.assertEqual(
+            list(Mesa.objects.filter(zona='exteriores').values_list('numero_zona', flat=True)),
+            [1, 2],
+        )
+
     def test_turno_expone_metricas_historicas_y_vista_admin(self):
         turno = registrar_inicio_turno(self.mesera)
         registrar_inicio_turno(self.cajera)
