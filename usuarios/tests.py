@@ -1,7 +1,7 @@
 from datetime import timedelta
 from decimal import Decimal
 
-from django.test import RequestFactory, TestCase
+from django.test import Client, RequestFactory, TestCase
 from django.urls import reverse
 from django.utils import timezone
 
@@ -571,3 +571,41 @@ class UsuarioTurnoTests(TestCase):
         response = self.client.get(reverse('usuarios:login'))
 
         self.assertRedirects(response, reverse('pedidos:mesera'))
+        self.assertIn('no-store', response['Cache-Control'])
+
+    def test_login_no_se_guarda_en_cache_y_se_recarga_al_volver_con_atras(self):
+        response = self.client.get(reverse('usuarios:landing'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('no-store', response['Cache-Control'])
+        self.assertContains(response, "if (event.persisted) window.location.reload();")
+
+        response_login = self.client.get(reverse('usuarios:login'))
+        self.assertIn('no-store', response_login['Cache-Control'])
+
+    def test_post_de_login_con_csrf_viejo_redirige_a_la_sesion_activa(self):
+        client = Client(enforce_csrf_checks=True)
+        client.get(reverse('usuarios:landing'))
+        token_viejo = client.cookies['csrftoken'].value
+
+        login_response = client.post(reverse('usuarios:login'), {
+            'username': self.mesera.username,
+            'password': '123456',
+            'csrfmiddlewaretoken': token_viejo,
+        })
+
+        self.assertEqual(login_response.status_code, 302)
+        token_actual = client.cookies['csrftoken'].value
+        self.assertNotEqual(token_actual, token_viejo)
+        respuesta_token_viejo = client.post(reverse('usuarios:login'), {
+            'username': self.admin.username,
+            'password': '123456',
+            'csrfmiddlewaretoken': token_viejo,
+        })
+
+        self.assertEqual(respuesta_token_viejo.status_code, 403)
+        self.assertContains(respuesta_token_viejo, 'Formulario vencido', status_code=403)
+        self.assertContains(respuesta_token_viejo, 'Tu sesión actual sigue activa', status_code=403)
+        self.assertContains(respuesta_token_viejo, reverse('pedidos:mesera'), status_code=403)
+        self.assertIn('no-store', respuesta_token_viejo['Cache-Control'])
+        self.assertTrue(client.session.get('_auth_user_id'))

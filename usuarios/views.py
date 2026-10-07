@@ -1,13 +1,16 @@
 from decimal import Decimal
 
 from django.contrib import messages
-from django.contrib.auth import logout, login, authenticate, update_session_auth_hash
+from django.contrib.auth import logout, login, authenticate, get_user, update_session_auth_hash
 from django.contrib.auth.decorators import login_required
 from django.db.models import Sum
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.utils import timezone
+from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_http_methods
+from django.views.csrf import csrf_failure as django_csrf_failure
 
 from carta.models import Plato
 from inventario.models import Insumo, MovimientoInventario
@@ -23,6 +26,24 @@ ROLE_HOME = {
 }
 
 
+@never_cache
+def csrf_failure(request, reason=''):
+    if request.path != reverse('usuarios:login') or request.method != 'POST':
+        return django_csrf_failure(request, reason=reason)
+
+    user = get_user(request)
+    autenticado = user.is_authenticated
+    if autenticado:
+        destino = reverse(ROLE_HOME.get(user.role, 'usuarios:dashboard'))
+    else:
+        destino = reverse('usuarios:landing')
+    return render(request, 'usuarios/csrf_failure.html', {
+        'autenticado': autenticado,
+        'destino': destino,
+    }, status=403)
+
+
+@never_cache
 def landing(request):
     if request.user.is_authenticated:
         url = ROLE_HOME.get(request.user.role, 'carta:index')
@@ -30,6 +51,7 @@ def landing(request):
     return render(request, 'usuarios/login.html')
 
 
+@never_cache
 @require_http_methods(['GET', 'POST'])
 def login_view(request):
     if request.user.is_authenticated:
