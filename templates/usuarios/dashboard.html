@@ -6,7 +6,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Detalle del turno - GourmetControl</title>
   <link rel="stylesheet" href="{% static 'css/tailwind.css' %}">
-  <link rel="stylesheet" href="{% static 'vendor/fontawesome/css/all.min.css' %}">  <link rel="stylesheet" href="{% static 'css/main.css' %}?v=20260902-role-shell">
+  <link rel="stylesheet" href="{% static 'vendor/fontawesome/css/all.min.css' %}">  <link rel="stylesheet" href="{% static 'css/main.css' %}?v=20261001-responsive-sidebar-logout">
+  <script src="{% static 'js/responsive-sidebar.js' %}?v=20261001-sidebar-logout" defer></script>
   <style>
     /* Visible keyboard focus for every interactive element (additive, doesn't touch main.css) */
     a:focus-visible,
@@ -160,6 +161,7 @@
           <div><span>Estado</span><strong class="turn-status-value">{{ turno.get_estado_display }}</strong></div>
           <div><span>Fecha</span><strong>{{ turno.fecha|date:"d/m/Y" }}</strong></div>
           <div><span>Mesas habilitadas</span><strong>{{ turno.cantidad_mesas }}</strong></div>
+          <div><span>Mesas exteriores</span><strong>{{ turno.cantidad_mesas_exteriores }}</strong></div>
           <div><span>Miembros</span><strong>{% for user in turno.usuarios.all %}{{ user.get_full_name|default:user.username }}{% if not forloop.last %}, {% endif %}{% empty %}Sin participantes{% endfor %}</strong></div>
         </div>
         {% if resumen_turno %}
@@ -208,7 +210,7 @@
       {% for factura in facturas_turno %}
         <article class="invoice-row">
           <div class="invoice-row-info">
-            <strong>Factura #{{ factura.id }} · {% if factura.mesa_numero %}Mesa {{ factura.mesa_numero }}{% else %}Para llevar{% endif %}</strong>
+            <strong>Factura #{{ factura.id }} · {% if factura.pedido.mesa_id %}{{ factura.pedido.mesa.etiqueta }}{% else %}Para llevar{% endif %}</strong>
             <span>{{ factura.creado_en|date:"d/m/Y H:i" }} · {{ factura.get_forma_pago_display }}</span>
             <span class="invoice-row-total">{{ factura.total_cup }} CUP</span>
           </div>
@@ -219,7 +221,7 @@
         <template id="factura-detalle-{{ factura.id }}">
           <div class="invoice-detail-grid">
             <div class="invoice-detail-cell"><span>Factura</span><strong>#{{ factura.id }}</strong></div>
-            <div class="invoice-detail-cell"><span>Servicio</span><strong>{% if factura.mesa_numero %}Mesa {{ factura.mesa_numero }}{% else %}Para llevar{% endif %}</strong></div>
+            <div class="invoice-detail-cell"><span>Servicio</span><strong>{% if factura.pedido.mesa_id %}{{ factura.pedido.mesa.etiqueta }}{% else %}Para llevar{% endif %}</strong></div>
             <div class="invoice-detail-cell"><span>Fecha y hora</span><strong>{{ factura.creado_en|date:"d/m/Y H:i:s" }}</strong></div>
             <div class="invoice-detail-cell"><span>Método de pago</span><strong>{{ factura.get_forma_pago_display }}</strong></div>
             <div class="invoice-detail-cell"><span>Mesera</span><strong>{{ factura.mesera_nombre|default:"Sin registrar" }}</strong></div>
@@ -280,6 +282,8 @@
         {% csrf_token %}
         <label for="cantidad-mesas">Cantidad de mesas</label>
         <input id="cantidad-mesas" type="number" name="cantidad_mesas" min="1" value="{{ turno.cantidad_mesas|default:10 }}" required class="admin-input">
+        <label for="cantidad-mesas-exteriores">Mesas exteriores</label>
+        <input id="cantidad-mesas-exteriores" type="number" name="cantidad_mesas_exteriores" min="0" value="{{ turno.cantidad_mesas_exteriores }}" required class="admin-input">
         <button type="submit" class="btn btn-primary btn-sm turn-action-btn"><i class="fa-solid fa-check" aria-hidden="true"></i> Guardar mesas</button>
       </form>
     </section>

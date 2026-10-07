@@ -91,8 +91,8 @@
     <div class="mesas-grid-idx">
       {% for mesa in mesas %}
       <article class="mesa-qr-card">
-        <div class="mesa-qr-title">Mesa {{ mesa.numero }}</div>
-        <img src="{{ mesa.qr_data }}" alt="Código QR para la mesa {{ mesa.numero }}" class="mesa-qr-img">
+        <div class="mesa-qr-title">{{ mesa.etiqueta }}</div>
+        <img src="{{ mesa.qr_data }}" alt="Código QR para {{ mesa.etiqueta }}" class="mesa-qr-img">
         <a href="{% url 'carta:carta' mesa.numero %}" class="btn-mesa-idx">Abrir carta</a>
       </article>
       {% empty %}

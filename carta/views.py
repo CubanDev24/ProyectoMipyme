@@ -45,7 +45,9 @@ def qr_mesa(request, mesa_numero):
 def carta_cliente(request, mesa_id):
     categorias = Categoria.objects.prefetch_related('platos').all()
     categorias_con_platos = [c for c in categorias if c.platos.filter(disponible=True).exists()]
+    mesa = Mesa.objects.filter(numero=mesa_id, activa=True).first()
     return render(request, 'carta/carta.html', {
         'categorias': categorias_con_platos,
         'mesa_id': mesa_id,
+        'mesa_etiqueta': mesa.etiqueta if mesa else f'Mesa {mesa_id}',
     })
