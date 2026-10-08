@@ -112,8 +112,8 @@ def subir_comprobante_transferencia(request):
             mesa__numero=mesa_numero,
             mesa__abierta=True,
             sesion_id=F('mesa__sesion_id'),
-            cuenta_solicitada=True,
-        ).exclude(estado='cerrado').order_by('-creado_en').first()
+            estado__in=['pendiente', 'en_preparacion', 'listo', 'servido'],
+        ).order_by('-creado_en').first()
     if not pedido:
         return JsonResponse({'error': 'No hay una cuenta pendiente para esa mesa.'}, status=404)
 
