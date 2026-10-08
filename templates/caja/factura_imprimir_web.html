@@ -5,10 +5,6 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Factura #{{ factura.pk }}</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
-  
   <style>
     * {
       box-sizing: border-box;
@@ -87,6 +83,27 @@
       margin-bottom: 5px;
     }
 
+    .store-address {
+      margin: 7px auto 0;
+      color: #555;
+      font-size: 10px;
+      font-weight: 600;
+      line-height: 1.45;
+      text-align: center;
+    }
+
+    .store-address-label {
+      margin-bottom: 2px;
+      color: #777;
+      font-size: 9px;
+      font-weight: 800;
+      text-transform: uppercase;
+    }
+
+    .store-address span {
+      display: block;
+    }
+
     .item-list, .totals {
       width: 100%;
       border-collapse: collapse;
@@ -123,6 +140,14 @@
       padding: 6px 0;
     }
 
+    .thank-you1 {
+      text-align: center;
+      font-size: 16px;
+      font-weight: 800;
+      letter-spacing: 1px;
+      margin: 22px 0;
+      color: #333333;
+    }
     .thank-you {
       text-align: center;
       font-size: 22px;
@@ -157,6 +182,15 @@
         #333 13px,
         #333 16px
       );
+    }
+
+    .visit-message {
+      margin-top: 14px;
+      color: #333;
+      font-size: 11px;
+      font-weight: 700;
+      line-height: 1.45;
+      text-align: center;
     }
     
     .meta-info {
@@ -220,6 +254,11 @@
         <div class="divider-double"></div>
         <div class="title">LAS CUQUIS</div>
         <div class="sub-title">FACTURA DE CONSUMO</div>
+        <div class="store-address">
+          <div class="store-address-label"><i class="fa-solid fa-location-dot"></i> Visítanos</div>
+          <span>Calle 100 entre 117 y 123</span>
+          <span>Reparto Puente Nuevo, Marianao</span>
+        </div>
         <div class="divider-double"></div>
         
         <div class="meta-info">
@@ -228,12 +267,22 @@
         </div>
         <div class="meta-info">
           <span>Mesa</span>
-          <span><strong>{{ factura.mesa_numero }}</strong></span>
+          <span><strong>{% if factura.pedido.mesa_id %}{{ factura.pedido.mesa.etiqueta }}{% else %}Para llevar{% endif %}</strong></span>
         </div>
         <div class="meta-info">
           <span>Fecha</span>
           <span><strong>{{ factura.creado_en|date:"d/m/Y H:i" }}</strong></span>
         </div>
+        {% if factura.pedido.modalidad == 'para_llevar' %}
+        <div class="meta-info">
+          <span>Cliente</span>
+          <span><strong>{{ factura.pedido.nombre_cliente }}</strong></span>
+        </div>
+        <div class="meta-info">
+          <span>Teléfono</span>
+          <span><strong>{{ factura.pedido.telefono_cliente }}</strong></span>
+        </div>
+        {% endif %}
         {% if factura.cajera_nombre %}
         <div class="meta-info">
           <span>Cajera</span>
@@ -287,13 +336,15 @@
 
         <div class="divider"></div>
 
-        <div class="thank-you">¡GRACIAS!</div>
+        <div class="thank-you1">El ingrediente secreto siempre es tu visita. <span class="thank-you">¡Vuelve pronto!</span></div>
 
         <div class="divider"></div>
 
         <div class="barcode-container">
           <div class="barcode"></div>
         </div>
+
+        
 
       </div>
     </div>

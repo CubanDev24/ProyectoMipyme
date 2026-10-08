@@ -104,18 +104,26 @@ con el botón **Imprimir QR**.
 
 ## hecho
 - Correccion del error de csrf token y las sesiones de usuario.
-- corregido el inventario del administrador.
+- corregido el inventario del administrador. 
 - Corregida la creacion y edicion de usuarios por el administrador.
 - Se agrego la opcion para modificar las imagenes del inventario y la carta.
 - Se eliminaron los datos de prueba que habia en la vista de la mesera con respecto a los pedidos.
+- Se agrego la imagen del pago por transferencia
+- Se corrigio el flujo para que el cliente no envie pedido a la cocina sino a la mesera.
+- Se corrigio para que salgan bien los precios de todos los platos al cliente y la mesera.
+- Se corrigio la funcion de llamada a la mesera 
+- que salga el historial depedidos.
+- Cuando el plato esta listo ya notifica a la mesera.
+- La imagen de cada plato sale en la cocina.
+- Se le agrego una frase a la factura.
+- Se cambio el flujo y se agrego una seccion de barra a la mesera para que las bebidas pudiera manejarlas desde el mismo panel y no salieran en cocina.
+
 
 ## por hacer:
-- la parte de la captura de pantalla del pago al recibir un pago en transferencia
-- pedir agregos a un plato
-- modificar la comanda para cancelar algun pedido, actualizar 
-- que las notas de un pedido le salgan a la mesara y a la cocina asi como al cliente junto con el plato
-- no funciona el boton de llamar a la mesera 
-- que a la cajera le salga un resumen de todos los pedidos hechos en el dia 
-- que salgan bien los precios de todos los platos al cliente y la mesera 
-- que salga el historial depedidos
-- corregir los permisos de los usuarios para las vistas 
+- pedir agregos a un plato o un trago.
+- Adicionar mesas exteriores.
+- corregir los permisos de los usuarios para las vistas. 
+- no permitir mas de una sesion activa por usuario.
+- cuando se cierre el turno se desloguee todos los usuarios en el sistema que no sean admins.
+- Agregar un delay a la llamada de la mesera. 
+- Al agregar un pedido para llevar si tiene algun producto de cocina, agregar un termopad a la compra.

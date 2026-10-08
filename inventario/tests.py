@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 from django.contrib.auth import get_user_model
 from django.test import TestCase
 from django.urls import reverse
@@ -121,6 +123,23 @@ class InventarioFlowTests(TestCase):
         self.assertEqual(movimiento.stock_anterior, 10)
         self.assertEqual(movimiento.stock_posterior, 14.50)
 
+    def test_admin_puede_registrar_merma_por_rotura(self):
+        response = self.client.post(reverse('inventario:movimiento_crear'), {
+            'insumo_id': self.insumo_1.id,
+            'tipo': 'merma',
+            'cantidad': '1.25',
+            'motivo': 'Botella rota',
+        })
+
+        self.assertEqual(response.status_code, 302)
+        self.insumo_1.refresh_from_db()
+        self.assertEqual(self.insumo_1.stock_actual, Decimal('8.75'))
+        movimiento = MovimientoInventario.objects.get(insumo=self.insumo_1)
+        self.assertEqual(movimiento.tipo, 'merma')
+        self.assertEqual(movimiento.stock_anterior, Decimal('10'))
+        self.assertEqual(movimiento.stock_posterior, Decimal('8.75'))
+        self.assertEqual(movimiento.motivo, 'Botella rota')
+
     def test_salida_automatica_guarda_antes_despues_y_responsable(self):
         plato = Plato.objects.create(
             categoria=self.categoria,
@@ -144,3 +163,16 @@ class InventarioFlowTests(TestCase):
         self.assertEqual(movimiento.stock_posterior, 9)
         self.assertEqual(movimiento.usuario, self.admin)
         self.assertIn(f'Pedido #{pedido.pk}', movimiento.motivo)
+
+    def test_venta_de_producto_sin_receta_descuenta_su_stock_directamente(self):
+        mesa = Mesa.objects.create(numero=2)
+        pedido = Pedido.objects.create(mesa=mesa)
+        ItemPedido.objects.create(pedido=pedido, plato=self.insumo_1.plato, cantidad=3)
+
+        descontar_inventario_por_pedido(pedido, usuario=self.admin)
+
+        self.insumo_1.refresh_from_db()
+        self.assertEqual(self.insumo_1.stock_actual, Decimal('7'))
+        movimiento = MovimientoInventario.objects.get(insumo=self.insumo_1)
+        self.assertEqual(movimiento.cantidad, Decimal('3'))
+        self.assertEqual(movimiento.tipo, 'salida')

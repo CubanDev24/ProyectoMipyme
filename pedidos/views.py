@@ -3,9 +3,12 @@ from decimal import Decimal
 from io import BytesIO
 
 from django.contrib.auth.decorators import login_required, user_passes_test
-from django.db.models import Count, Sum
+from django import forms
+from django.db.models import Count, F, Sum
+from django.core.exceptions import ValidationError
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import render, get_object_or_404
+from django.views.decorators.http import require_POST
 from reportlab.lib.pagesizes import A5
 from reportlab.pdfgen import canvas
 from carta.models import Categoria, Plato
@@ -58,6 +61,9 @@ def _rol_permitido(*roles):
         return user.is_authenticated and user.role in roles
     return _check
 
+def en_turno(nombre):
+    turno = get_turno_abierto()
+    return turno.usuarios.filter(username=nombre).exists() if turno is not None else False
 
 @login_required
 @user_passes_test(_rol_permitido('mesera'))
@@ -66,17 +72,59 @@ def mesera(request):
     categorias = Categoria.objects.filter(platos__disponible=True).distinct().order_by('orden', 'nombre')
     turno = get_turno_abierto()
     mesas = mesas_del_turno(turno) if turno else Mesa.objects.none()
+    mesera_en_turno = en_turno(request.user.username)
     return render(request, 'mesera/mesera.html', {
         'productos': productos,
         'categorias': categorias,
         'mesas': mesas,
         'turno': turno,
+        'en_turno': mesera_en_turno,
     })
+
+
+@login_required
+@user_passes_test(_rol_permitido('mesera'))
+@require_POST
+def subir_comprobante_transferencia(request):
+    uploaded = request.FILES.get('comprobante')
+    mesa_numero = request.POST.get('mesa_numero')
+    grupo_para_llevar = request.POST.get('grupo_para_llevar')
+    if not uploaded or (not mesa_numero and not grupo_para_llevar):
+        return JsonResponse({'error': 'Selecciona una foto y una cuenta válida.'}, status=400)
+    if uploaded.size > 5 * 1024 * 1024:
+        return JsonResponse({'error': 'La foto no puede superar 5 MB.'}, status=400)
+    try:
+        forms.ImageField().clean(uploaded)
+    except ValidationError:
+        return JsonResponse({'error': 'El archivo debe ser una imagen válida.'}, status=400)
+
+    if grupo_para_llevar:
+        pedidos = Pedido.objects.filter(
+            modalidad='para_llevar',
+            grupo_para_llevar=grupo_para_llevar,
+        ).order_by('pk')
+        if not pedidos.exists() or pedidos.exclude(estado='entregado').exists():
+            pedido = None
+        else:
+            pedido = pedidos.first()
+    else:
+        pedido = Pedido.objects.filter(
+            mesa__numero=mesa_numero,
+            mesa__abierta=True,
+            sesion_id=F('mesa__sesion_id'),
+            cuenta_solicitada=True,
+        ).exclude(estado='cerrado').order_by('-creado_en').first()
+    if not pedido:
+        return JsonResponse({'error': 'No hay una cuenta pendiente para esa mesa.'}, status=404)
+
+    pedido.comprobante_transferencia.save(uploaded.name, uploaded, save=True)
+    return JsonResponse({'comprobante_url': pedido.comprobante_transferencia.url})
 
 @login_required
 @user_passes_test(_rol_permitido('cocina'))
 def cocina(request):
-    return render(request, 'pedidos/cocina.html')
+    cocina_en_turno = en_turno(request.user.username)
+    return render(request, 'pedidos/cocina.html', {'en_turno': cocina_en_turno})
 
 
 @login_required
@@ -84,6 +132,7 @@ def cocina(request):
 def caja(request):
     return render(request, 'caja/caja.html', {
         'tasa_actual': TasaCambio.actual(),
+        'en_turno': en_turno(request.user.username),
     })
 
 
@@ -95,6 +144,7 @@ def caja_estadisticas_pagina(request):
         'recaudacion': payload['recaudacion'],
         'inventario': payload['inventario'],
         'tasa_actual': TasaCambio.actual(),
+        'en_turno': en_turno(request.user.username),
     })
 
 def factura_imprimir(request, pk):
@@ -111,14 +161,25 @@ def factura_imprimir(request, pk):
     pdf.setFont('Helvetica', 9)
     pdf.drawString(30, height - 52, 'Factura de consumo')
     pdf.drawString(30, height - 70, f'Factura: #{factura.pk}')
-    pdf.drawString(30, height - 82, f'Mesa: {factura.mesa_numero}')
+    referencia = (
+        factura.pedido.mesa.etiqueta
+        if factura.pedido.mesa_id
+        else 'Pedido para llevar'
+    )
+    pdf.drawString(30, height - 82, referencia)
     pdf.drawString(30, height - 94, f'Fecha: {factura.creado_en.strftime("%d/%m/%Y %H:%M")}')
+    y_datos = height - 106
+    if factura.pedido.modalidad == 'para_llevar':
+        pdf.drawString(30, y_datos, f'Cliente: {factura.pedido.nombre_cliente}')
+        pdf.drawString(30, y_datos - 12, f'Teléfono: {factura.pedido.telefono_cliente}')
+        y_datos -= 24
     if factura.cajera_nombre:
-        pdf.drawString(30, height - 106, f'Cajera: {factura.cajera_nombre}')
+        pdf.drawString(30, y_datos, f'Cajera: {factura.cajera_nombre}')
+        y_datos -= 12
     if factura.mesera_nombre:
-        pdf.drawString(30, height - 118, f'Mesera: {factura.mesera_nombre}')
+        pdf.drawString(30, y_datos, f'Mesera: {factura.mesera_nombre}')
 
-    y = height - 138
+    y = min(y_datos - 20, height - 138)
     pdf.setFont('Helvetica-Bold', 9)
     pdf.drawString(30, y, 'ITEM')
     pdf.drawRightString(width - 30, y, 'SUBTOTAL')
@@ -157,12 +218,20 @@ def factura_imprimir_web(request, pk):
     return render(request, 'caja/factura_imprimir_web.html', {'factura': factura})
 
 def facturas_historial(request):
-    facturas = Factura.objects.order_by('-creado_en')
+    facturas = Factura.objects.select_related('pedido__mesa').order_by('-creado_en')
     return JsonResponse({
         'facturas': [
             {
                 'id': factura.id,
                 'mesa_numero': factura.mesa_numero,
+                'es_para_llevar': factura.pedido.modalidad == 'para_llevar',
+                'etiqueta': (
+                    factura.pedido.mesa.etiqueta
+                    if factura.pedido.mesa_id
+                    else f'Para llevar #{factura.pedido.grupo_para_llevar.hex[:8].upper()}'
+                    if factura.pedido.grupo_para_llevar
+                    else 'Para llevar'
+                ),
                 'forma_pago_display': factura.get_forma_pago_display(),
                 'total_cup': str(factura.total_cup),
                 'creado_en': factura.creado_en.strftime('%d/%m/%Y %H:%M'),

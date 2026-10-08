@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+{% load static %}
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Usuarios - GourmetControl</title>
+  <link rel="stylesheet" href="{% static 'css/tailwind.css' %}">
+  <link rel="stylesheet" href="{% static 'vendor/fontawesome/css/all.min.css' %}">
+  <link rel="stylesheet" href="{% static 'css/main.css' %}?v=20261005-centered-user-edit-v2">
+  <script src="{% static 'js/responsive-sidebar.js' %}?v=20261001-sidebar-logout" defer></script>
+</head>
+<body class="bg-slate-900 text-slate-100 font-sans min-h-screen flex flex-col md:flex-row overflow-x-hidden">
+  <aside class="w-full md:w-20 lg:w-64 bg-slate-950 border-r border-slate-800 flex flex-col justify-between shrink-0">
+    <div>
+      <div class="p-4 lg:p-6 flex items-center gap-3 border-b border-slate-800/80">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-500 to-teal-400 flex items-center justify-center text-slate-950 text-xl"><i class="fa-solid fa-utensils"></i></div>
+        <div class="hidden lg:block"><h1 class="font-bold text-lg leading-none text-white">GourmetControl</h1><span class="text-xs text-slate-400">Administración</span></div>
+      </div>
+      <nav class="p-3 space-y-1" aria-label="Navegación del administrador">
+        <a href="{% url 'inventario:administrador' %}" class="w-full flex items-center gap-3 px-3 py-3 rounded-xl text-sm text-slate-400 hover:text-white hover:bg-slate-800/50"><i class="fa-solid fa-sliders w-6 text-center"></i><span class="hidden lg:inline">Configuración</span></a>
+        <a href="{% url 'inventario:administrador' %}#carta-publicada" class="w-full flex items-center gap-3 px-3 py-3 rounded-xl text-sm text-slate-400 hover:text-white hover:bg-slate-800/50"><i class="fa-solid fa-book-open w-6 text-center"></i><span class="hidden lg:inline">Carta</span></a>
+        <a href="{% url 'usuarios:dashboard' %}" class="w-full flex items-center gap-3 px-3 py-3 rounded-xl text-sm text-slate-400 hover:text-white hover:bg-slate-800/50"><i class="fa-solid fa-calendar-day w-6 text-center"></i><span class="hidden lg:inline">Detalle del turno</span></a>
+        <a href="{% url 'usuarios:gestion_usuarios' %}" aria-current="page" class="w-full flex items-center gap-3 px-3 py-3 rounded-xl text-sm bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"><i class="fa-solid fa-users w-6 text-center"></i><span class="hidden lg:inline">Usuarios</span></a>
+        <a href="{% url 'usuarios:historial_turnos' %}" class="w-full flex items-center gap-3 px-3 py-3 rounded-xl text-sm text-slate-400 hover:text-white hover:bg-slate-800/50"><i class="fa-solid fa-clock-rotate-left w-6 text-center"></i><span class="hidden lg:inline">Historial</span></a>
+      </nav>
+    </div>
+    <div class="p-3 border-t border-slate-800/80"><a href="{% url 'usuarios:logout' %}" class="w-full flex items-center gap-3 px-3 py-2.5 text-xs font-semibold text-rose-400 hover:bg-rose-500/10"><i class="fa-solid fa-right-from-bracket"></i><span class="hidden lg:inline">Cerrar sesión</span></a></div>
+  </aside>
+  <main class="flex-1 min-w-0">
+    <header class="h-16 border-b border-slate-800 bg-slate-950/60 px-6 flex items-center"><h2 class="text-lg font-bold text-white"><i class="fa-solid fa-users text-emerald-400 mr-2"></i>Gestión de usuarios</h2></header>
+    <div class="admin-body">
+      {% if messages %}<div role="status" aria-live="polite">{% for message in messages %}<div class="admin-flash {% if message.tags == 'error' %}admin-flash-error{% else %}admin-flash-ok{% endif %}">{{ message }}</div>{% endfor %}</div>{% endif %}
+      <div class="turn-page-heading"><div><p class="panel-kicker">Administración</p><h1 class="admin-h1">Usuarios</h1><p class="turn-page-subtitle">Crea cuentas y administra el acceso del equipo.</p></div><span class="admin-section-count">{{ usuarios|length }} cuentas</span></div>
+      <div class="admin-grid">
+        <section class="admin-card turn-dashboard-card" aria-labelledby="crear-usuario-heading">
+          <div class="turn-card-heading"><div class="turn-section-icon"><i class="fa-solid fa-user-plus"></i></div><div><p class="panel-kicker">Equipo</p><h2 id="crear-usuario-heading">Crear usuario</h2></div></div>
+          <form method="post" action="{% url 'usuarios:crear_usuario' %}" class="admin-form-row">
+            {% csrf_token %}
+            <input type="text" name="first_name" placeholder="Nombre" autocomplete="given-name" required class="admin-input" aria-label="Nombre">
+            <input type="text" name="last_name" placeholder="Apellidos" autocomplete="family-name" required class="admin-input" aria-label="Apellidos">
+            <input type="text" name="username" placeholder="Nombre de usuario" autocomplete="username" required class="admin-input" aria-label="Nombre de usuario">
+            <input type="password" name="password" placeholder="Contraseña" autocomplete="new-password" required class="admin-input" aria-label="Contraseña">
+            <select name="role" required class="admin-input" aria-label="Rol"><option value="" disabled selected>Seleccionar rol</option>{% for value, label in user.ROLE_CHOICES %}<option value="{{ value }}">{{ label }}</option>{% endfor %}</select>
+            <button type="submit" class="btn btn-primary btn-sm turn-action-btn"><i class="fa-solid fa-plus"></i> Crear usuario</button>
+          </form>
+        </section>
+        <section class="admin-card turn-dashboard-card" aria-labelledby="usuarios-heading">
+          <div class="turn-card-heading"><div class="turn-section-icon"><i class="fa-solid fa-address-book"></i></div><div><p class="panel-kicker">Equipo</p><h2 id="usuarios-heading">Usuarios registrados</h2></div></div>
+          <div class="turn-user-list">
+            {% for usuario in usuarios %}
+            <div class="turn-user-row">
+              <div><strong>{{ usuario.get_full_name|default:usuario.username }}</strong><span>{{ usuario.username }} · {{ usuario.get_role_display }}</span></div>
+              <div class="turn-user-actions">
+                <span class="turn-user-status {% if usuario.is_active %}is-active{% endif %}">{{ usuario.is_active|yesno:"Activo,Inactivo" }}</span>
+                <details class="turn-user-edit">
+                  <summary class="btn btn-outline btn-sm"><i class="fa-solid fa-pen"></i> Editar</summary>
+                  <form method="post" action="{% url 'usuarios:editar_usuario' usuario.id %}" class="turn-user-edit-form">
+                    {% csrf_token %}
+                    <div class="turn-user-edit-header"><h2>Editar usuario</h2><button type="button" class="btn btn-outline btn-sm" data-close-user-edit><i class="fa-solid fa-xmark"></i> Cerrar</button></div>
+                    <div><label>Nombre</label><input type="text" name="first_name" value="{{ usuario.first_name }}" class="admin-input" required disabled></div>
+                    <div><label>Apellidos</label><input type="text" name="last_name" value="{{ usuario.last_name }}" class="admin-input" required disabled></div>
+                    <div><label>Usuario</label><input type="text" name="username" value="{{ usuario.username }}" class="admin-input" required disabled></div>
+                    <div><label>Correo</label><input type="email" name="email" value="{{ usuario.email }}" class="admin-input" disabled></div>
+                    <div><label>Teléfono</label><input type="text" name="telefono" value="{{ usuario.telefono }}" class="admin-input" disabled></div>
+                    <div><label>Rol</label><select name="role" class="admin-input" required disabled>{% for value, label in usuario.ROLE_CHOICES %}<option value="{{ value }}" {% if usuario.role == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></div>
+                    <div class="turn-user-password-status"><label>Contraseña actual</label><span>Protegida</span></div>
+                    <div class="turn-user-password-field"><label for="user-password-{{ usuario.id }}">Nueva contraseña</label><div class="turn-user-password-input"><input id="user-password-{{ usuario.id }}" type="password" name="password" placeholder="Dejar vacía para conservarla" autocomplete="new-password" class="admin-input" disabled><button type="button" class="password-toggle" data-toggle-password="user-password-{{ usuario.id }}" aria-label="Mostrar contraseña"><i class="fa-solid fa-eye"></i></button></div></div>
+                    <div class="turn-user-edit-actions"><button type="button" class="btn btn-outline btn-sm" data-enable-user-edit><i class="fa-solid fa-pen"></i> Editar datos</button><button type="submit" class="btn btn-primary btn-sm" data-save-user-edit disabled><i class="fa-solid fa-floppy-disk"></i> Guardar cambios</button></div>
+                  </form>
+                </details>
+                {% if usuario != request.user %}<form method="post" action="{% url 'usuarios:cambiar_estado_usuario' usuario.id %}">{% csrf_token %}<button type="submit" class="btn btn-sm {% if usuario.is_active %}btn-orange{% else %}btn-primary{% endif %}">{{ usuario.is_active|yesno:"Desactivar,Activar" }}</button></form>{% endif %}
+              </div>
+            </div>
+            {% empty %}<div class="turn-empty">No hay usuarios registrados.</div>{% endfor %}
+          </div>
+        </section>
+      </div>
+    </div>
+  </main>
+  <script>
+    document.querySelectorAll('.turn-user-edit-form').forEach(form => {
+      const fields = form.querySelectorAll('input:not([type="hidden"]), select');
+      const editButton = form.querySelector('[data-enable-user-edit]');
+      const saveButton = form.querySelector('[data-save-user-edit]');
+      form.querySelector('[data-close-user-edit]').addEventListener('click', () => { form.closest('details').open = false; });
+      editButton.addEventListener('click', () => { fields.forEach(field => { field.disabled = false; }); editButton.hidden = true; saveButton.disabled = false; fields[0].focus(); });
+    });
+    document.querySelectorAll('[data-toggle-password]').forEach(button => {
+      button.addEventListener('click', () => { const field = document.getElementById(button.dataset.togglePassword); const visible = field.type === 'text'; field.type = visible ? 'password' : 'text'; button.setAttribute('aria-label', visible ? 'Mostrar contraseña' : 'Ocultar contraseña'); button.innerHTML = `<i class="fa-solid fa-eye${visible ? '' : '-slash'}"></i>`; });
+    });
+  </script>
+</body>
+</html>

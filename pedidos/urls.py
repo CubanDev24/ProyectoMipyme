@@ -3,6 +3,7 @@ from . import views
 app_name = 'pedidos'
 urlpatterns = [
     path('mesera/', views.mesera, name='mesera'),
+    path('mesera/comprobante/', views.subir_comprobante_transferencia, name='subir_comprobante_transferencia'),
     path('cocina/', views.cocina, name='cocina'),
     path('caja/', views.caja, name='caja'),
     path('caja/estadisticas/pagina/', views.caja_estadisticas_pagina, name='caja_estadisticas_pagina'),

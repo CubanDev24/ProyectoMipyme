@@ -6,12 +6,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Caja - GourmetControl</title>
     <link rel="stylesheet" href="{% static 'css/tailwind.css' %}">
-    <link rel="stylesheet" href="{% static 'vendor/fontawesome/css/all.min.css' %}">
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-    <script>
+    <link rel="stylesheet" href="{% static 'vendor/fontawesome/css/all.min.css' %}">    <script>
    
     </script>
-    <link rel="stylesheet" href="{% static 'css/main.css' %}?v=20260901-restyle-emerald">
+    <link rel="stylesheet" href="{% static 'css/main.css' %}?v=20261001-responsive-sidebar-logout">
+    <script src="{% static 'js/responsive-sidebar.js' %}?v=20261001-sidebar-logout" defer></script>
 </head>
 <body class="bg-slate-900 text-slate-100 font-sans min-h-screen flex flex-col md:flex-row overflow-x-hidden">
     <aside class="w-full md:w-20 lg:w-64 bg-slate-950 border-r border-slate-800 flex flex-col justify-between shrink-0">
@@ -149,6 +148,7 @@
                         <ul class="cobro-items-ul" id="cobro-items-ul"></ul>
                         <div class="cobro-total" id="cobro-total">0.00 CUP</div>
                         <div class="cobro-nota" id="cobro-nota"></div>
+                        <div id="cobro-comprobante"></div>
 
                         <div class="pago-box" id="pago-box">
                             <div class="pago-box-titulo" id="pago-box-titulo">Forma de pago</div>
@@ -195,6 +195,16 @@
     let ultimaFacturaId = null;
     let alertasInventario = [];
 
+    function escaparHtml(valor) {
+      return String(valor ?? '').replace(/[&<>"']/g, caracter => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+      })[caracter]);
+    }
+
+    function etiquetaPedido(pedido) {
+      return pedido.etiqueta || (pedido.mesa_numero != null ? `Mesa ${pedido.mesa_numero}` : 'Para llevar');
+    }
+
     function cargarHistorialFacturas() {
       fetch('{% url "pedidos:facturas_historial" %}')
         .then(response => response.json())
@@ -218,7 +228,7 @@
         <div class="caja-factura-row">
           <div>
             <strong>Factura #${factura.id}</strong>
-            <span>Mesa ${factura.mesa_numero} · ${factura.creado_en}</span>
+            <span>${escaparHtml(factura.etiqueta || (factura.mesa_numero != null ? `Mesa ${factura.mesa_numero}` : 'Para llevar'))} · ${escaparHtml(factura.creado_en)}</span>
           </div>
           <div class="caja-factura-pago">
             <span>${factura.forma_pago_display}</span>
@@ -247,27 +257,31 @@
           if (d.pedido.cuenta_solicitada) {
             pedidos[d.pedido.id] = d.pedido;
             renderLista();
-            if (!pedidoSeleccionado) toast(`Mesa ${d.pedido.mesa_numero} solicitó la factura`, 'red');
+            if (!pedidoSeleccionado) toast(`${etiquetaPedido(d.pedido)} solicitó la factura`, 'red');
             sonidoAlerta(660);
           } else {
             sonidoCambioEstado();
           }
         } else if (d.tipo === 'factura_solicitada') {
-          const mesa = d.mesa_numero ?? d.factura?.mesa_numero;
-          toast(`Mesa ${mesa} solicitó la factura`, 'orange');
+          const etiqueta = d.factura?.etiqueta || (d.mesa_numero != null ? `Mesa ${d.mesa_numero}` : 'Pedido para llevar');
+          toast(`${etiqueta} solicitó la factura`, 'orange');
           sonidoAlerta(660);
           if (d.factura) {
             const cuenta = d.factura;
-            if (cuenta && cuenta.mesa_numero) {
+            if (cuenta && (cuenta.es_para_llevar || cuenta.mesa_numero != null)) {
               const pedidoKey = cuenta.id || `mesa-${cuenta.mesa_numero}`;
               pedidos[pedidoKey] = {
                 ...cuenta,
                 cuenta_solicitada: true,
                 mesa_numero: cuenta.mesa_numero,
+                etiqueta: cuenta.etiqueta,
                 id: pedidoKey,
                 mesera_nombre: cuenta.mesera_nombre || d.mesera_nombre || '',
               };
               renderLista();
+              if (pedidoSeleccionado && pedidoSeleccionado.id === pedidoKey) {
+                seleccionarCuenta(pedidos[pedidoKey]);
+              }
             }
           }
         } else if (d.tipo === 'pedido_cerrado') {
@@ -278,7 +292,7 @@
           renderLista();
           sonidoCambioEstado();
         } else if (d.tipo === 'alerta_inventario') {
-          recibirAlertasInventario(d.alertas, d.mesa_numero);
+          recibirAlertasInventario(d.alertas, d.mesa_numero, d.etiqueta_pedido);
         } else if (d.tipo === 'factura_registrada') {
           onFacturaRegistrada(d.factura);
         } else if (d.tipo === 'error_cobro') {
@@ -314,9 +328,10 @@
         const items = p.items.map(i => `<li><span>${i.cantidad}x ${i.plato}</span><span>${i.subtotal} CUP</span></li>`).join('');
         card.innerHTML = `
           <div class="caja-card-top">
-            <div class="caja-mesa">Mesa ${p.mesa_numero}</div>
+            <div class="caja-mesa">${escaparHtml(etiquetaPedido(p))}</div>
             <div class="caja-hora">#${p.id} · ${p.creado_en}</div>
           </div>
+          ${p.es_para_llevar ? `<div class="caja-hora">Cliente: ${escaparHtml(p.nombre_cliente || 'Sin nombre')} · Teléfono: ${escaparHtml(p.telefono_cliente || 'Sin teléfono')}</div>` : ''}
           <ul class="caja-items-ul">${items}</ul>
           <div class="caja-total-row"><span>Total</span><span class="caja-total-val">${p.total} CUP</span></div>`;
         lista.appendChild(card);
@@ -330,7 +345,14 @@
       renderLista();
       document.getElementById('cobro-vacio').style.display = 'none';
       document.getElementById('cobro-detalle').style.display = 'block';
-      document.getElementById('cobro-mesa-label').textContent = `Mesa ${p.mesa_numero}`;
+      document.getElementById('cobro-mesa-label').textContent = etiquetaPedido(p);
+      const contactoParaLlevar = p.es_para_llevar
+        ? `Cliente: ${p.nombre_cliente || 'Sin nombre'} · Teléfono: ${p.telefono_cliente || 'Sin teléfono'}`
+        : '';
+      document.getElementById('cobro-nota').textContent = [
+        contactoParaLlevar,
+        p.nota ? `Nota: ${p.nota}` : '',
+      ].filter(Boolean).join(' · ');
       const ul = document.getElementById('cobro-items-ul');
       ul.innerHTML = p.items.map(i => `
         <li>
@@ -338,8 +360,7 @@
           <span>${i.subtotal} CUP</span>
         </li>`).join('');
       document.getElementById('cobro-total').textContent = `${p.total} CUP`;
-      const nota = document.getElementById('cobro-nota');
-      nota.textContent = p.nota ? `Nota: ${p.nota}` : '';
+      document.getElementById('cobro-comprobante').innerHTML = comprobanteHtml(p);
 
       document.querySelectorAll('input[name="forma_pago"]').forEach(r => r.checked = r.value === formaPagoSeleccionada);
       document.querySelectorAll('.pago-opcion').forEach(el => el.classList.toggle('seleccionada', el.dataset.forma === formaPagoSeleccionada));
@@ -364,6 +385,7 @@
       formaPagoSeleccionada = null;
       ultimaFacturaId = null;
       document.getElementById('cobro-detalle').style.display = 'none';
+      document.getElementById('cobro-comprobante').innerHTML = '';
       document.getElementById('cobro-vacio').style.display = 'flex';
       document.getElementById('pago-formas').style.display = 'grid';
       document.getElementById('pago-box-titulo').textContent = 'Forma de pago';
@@ -408,6 +430,32 @@
       }
     }
 
+    function comprobanteHtml(pedido) {
+      if (!pedido || !pedido.comprobante_url) return '';
+      let url;
+      try {
+        url = new URL(pedido.comprobante_url, window.location.origin);
+      } catch (error) {
+        return '';
+      }
+      if (url.origin !== window.location.origin || !['http:', 'https:'].includes(url.protocol)) return '';
+      const safeUrl = escaparHtml(url.href);
+      const mesa = escaparHtml(etiquetaPedido(pedido));
+      return `
+        <div class="my-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-700 bg-slate-900 px-3 py-3">
+          <div class="flex min-w-0 items-center gap-3">
+            <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-400"><i class="fa-regular fa-image"></i></span>
+            <div class="min-w-0">
+              <p class="text-xs font-semibold text-slate-100">Imagen del pago en transferencia</p>
+              <p class="mt-1 text-[10px] text-slate-400">${mesa}</p>
+            </div>
+          </div>
+          <a href="${safeUrl}" target="_blank" rel="noopener noreferrer" class="inline-flex min-h-9 shrink-0 items-center gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 text-xs font-semibold text-emerald-300 hover:bg-emerald-500/20">
+            <i class="fa-solid fa-arrow-up-right-from-square"></i> Ver imagen
+          </a>
+        </div>`;
+    }
+
     function actualizarMontoUsd() {
       const input = document.getElementById('input-tasa-usd');
       const out = document.getElementById('monto-usd-calc');
@@ -439,7 +487,7 @@
 
     function onFacturaRegistrada(factura) {
       ultimaFacturaId = factura.id;
-      toast(`Mesa ${factura.mesa_numero} — factura #${factura.id} registrada (${factura.forma_pago_display})`, 'green');
+      toast(`${etiquetaPedido(factura)} — factura #${factura.id} registrada (${factura.forma_pago_display})`, 'green');
       document.getElementById('btn-cobrar').style.display = 'none';
       document.getElementById('btn-imprimir').style.display = 'block';
       cargarHistorialFacturas();
@@ -451,10 +499,10 @@
       imprimirFactura(ultimaFacturaId);
     }
 
-    function recibirAlertasInventario(alertas, mesaNumero) {
+    function recibirAlertasInventario(alertas, mesaNumero, etiquetaPedido = '') {
       alertas.forEach(a => {
-        alertasInventario.unshift({...a, mesa_numero: mesaNumero});
-        toast(`Mesa ${mesaNumero} — ${a.mensaje}`, a.nivel === 'critico' ? 'red' : 'orange');
+        alertasInventario.unshift({...a, mesa_numero: mesaNumero, etiqueta_pedido: etiquetaPedido});
+        toast(`${etiquetaPedido || (mesaNumero != null ? `Mesa ${mesaNumero}` : 'Pedido para llevar')} — ${a.mensaje}`, a.nivel === 'critico' ? 'red' : 'orange');
         sonidoAlerta(a.nivel === 'critico' ? 440 : 550);
       });
       alertasInventario = alertasInventario.slice(0, 20);
@@ -467,7 +515,7 @@
       cont.innerHTML = alertasInventario.map(a => `
         <div class="alerta-item nivel-${a.nivel}">
           <span>${a.nivel === 'critico' ? '⛔' : '⚠️'}</span>
-          <span>Mesa ${a.mesa_numero} — ${a.mensaje}</span>
+          <span>${escaparHtml(a.etiqueta_pedido || (a.mesa_numero != null ? `Mesa ${a.mesa_numero}` : 'Inventario'))} — ${escaparHtml(a.mensaje)}</span>
         </div>`).join('');
       if (alertasInventario.length) {
         cnt.style.display = 'inline-block';
@@ -489,4 +537,3 @@
     </script>
 </body>
 </html>
-

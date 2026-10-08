@@ -6,9 +6,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Detalle del turno - GourmetControl</title>
   <link rel="stylesheet" href="{% static 'css/tailwind.css' %}">
-  <link rel="stylesheet" href="{% static 'vendor/fontawesome/css/all.min.css' %}">
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="{% static 'css/main.css' %}?v=20260902-role-shell">
+  <link rel="stylesheet" href="{% static 'vendor/fontawesome/css/all.min.css' %}">  <link rel="stylesheet" href="{% static 'css/main.css' %}?v=20261001-responsive-sidebar-logout">
+  <script src="{% static 'js/responsive-sidebar.js' %}?v=20261001-sidebar-logout" defer></script>
   <style>
     /* Visible keyboard focus for every interactive element (additive, doesn't touch main.css) */
     a:focus-visible,
@@ -19,6 +18,94 @@
       outline: 2px solid #34d399;
       outline-offset: 2px;
       border-radius: 8px;
+    }
+    .invoice-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      margin-top: .55rem;
+      padding: .8rem .9rem;
+      border: 1px solid rgba(148, 163, 184, .14);
+      border-radius: 10px;
+      background: rgba(2, 6, 23, .38);
+      transition: border-color 150ms ease, background-color 150ms ease;
+    }
+    .invoice-row:hover { border-color: rgba(52, 211, 153, .7); background: rgba(16, 185, 129, .07); }
+    .invoice-row-info { display: grid; gap: .2rem; min-width: 0; }
+    .invoice-row-info strong { color: #f8fafc; font-size: .82rem; }
+    .invoice-row-info span { color: #94a3b8; font-size: .7rem; overflow-wrap: anywhere; }
+    .invoice-row-total { color: #6ee7b7 !important; font-weight: 800; }
+    .invoice-detail-button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: .45rem;
+      flex: none;
+      min-height: 38px;
+      padding: 0 .75rem;
+      border: 1px solid rgba(52, 211, 153, .35);
+      border-radius: 8px;
+      background: rgba(16, 185, 129, .09);
+      color: #6ee7b7;
+      font-size: .72rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: border-color 150ms ease, background-color 150ms ease, color 150ms ease;
+    }
+    .invoice-detail-button:hover { border-color: #34d399; background: #10b981; color: #022c22; }
+    .invoice-modal-backdrop { background: rgba(2, 6, 23, .82); backdrop-filter: blur(7px); }
+    .invoice-modal-panel {
+      width: min(100%, 680px);
+      max-height: min(88vh, 820px);
+      overflow-y: auto;
+      border: 1px solid rgba(52, 211, 153, .42);
+      border-radius: 14px;
+      background: #0f172a;
+      box-shadow: 0 24px 70px rgba(0, 0, 0, .5);
+    }
+    .invoice-modal-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; padding: 1.2rem 1.3rem; border-bottom: 1px solid rgba(52, 211, 153, .2); }
+    .invoice-modal-heading h2 { margin: .2rem 0 0; color: #f8fafc; font-size: 1.1rem; font-weight: 800; }
+    .invoice-modal-kicker { color: #6ee7b7; font-size: .65rem; font-weight: 800; text-transform: uppercase; }
+    .invoice-modal-close { display: grid; width: 36px; height: 36px; place-items: center; flex: none; border: 1px solid rgba(148, 163, 184, .2); border-radius: 8px; background: #1e293b; color: #cbd5e1; cursor: pointer; }
+    .invoice-modal-close:hover { border-color: #34d399; color: #6ee7b7; }
+    .invoice-modal-body { display: grid; gap: 1rem; padding: 1.2rem 1.3rem; }
+    .invoice-detail-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .55rem; }
+    .invoice-detail-cell { min-width: 0; padding: .7rem .8rem; border: 1px solid rgba(52, 211, 153, .18); border-radius: 9px; background: rgba(2, 6, 23, .42); }
+    .invoice-detail-cell span { display: block; margin-bottom: .2rem; color: #94a3b8; font-size: .62rem; font-weight: 700; text-transform: uppercase; }
+    .invoice-detail-cell strong { color: #e2e8f0; font-size: .78rem; overflow-wrap: anywhere; }
+    .invoice-detail-section h3 { margin: 0 0 .55rem; color: #cbd5e1; font-size: .72rem; font-weight: 800; text-transform: uppercase; }
+    .invoice-item-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: .25rem .8rem; margin-top: .4rem; padding: .65rem .75rem; border: 1px solid rgba(52, 211, 153, .26); border-radius: 8px; background: rgba(2, 6, 23, .44); transition: border-color 150ms ease, background-color 150ms ease; }
+    .invoice-item-row:hover { border-color: #34d399; background: rgba(16, 185, 129, .1); }
+    .invoice-item-row strong { color: #f1f5f9; font-size: .76rem; }
+    .invoice-item-row span { color: #94a3b8; font-size: .68rem; }
+    .invoice-item-subtotal { grid-column: 2; grid-row: 1 / span 2; align-self: center; color: #6ee7b7 !important; font-weight: 800; }
+    .invoice-modal-total { display: flex; justify-content: space-between; gap: 1rem; padding-top: .9rem; border-top: 1px solid rgba(52, 211, 153, .24); color: #cbd5e1; font-size: .82rem; font-weight: 700; }
+    .invoice-modal-total strong { color: #6ee7b7; font-size: 1rem; }
+    .inventory-ledger-card { grid-column: 1 / -1; min-width: 0; }
+    .inventory-ledger-meta { color: #94a3b8; font-size: .68rem; }
+    .inventory-ledger-wrap { max-width: 100%; overflow: auto; border: 1px solid rgba(148, 163, 184, .16); border-radius: 10px; }
+    .inventory-ledger { width: 100%; min-width: 1120px; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+    .inventory-ledger th { padding: .75rem .8rem; background: rgba(2, 6, 23, .82); color: #94a3b8; font-size: .62rem; font-weight: 800; text-align: right; text-transform: uppercase; white-space: nowrap; }
+    .inventory-ledger th:first-child, .inventory-ledger td:first-child { position: sticky; left: 0; text-align: left; }
+    .inventory-ledger td { padding: .75rem .8rem; border-top: 1px solid rgba(148, 163, 184, .12); color: #cbd5e1; font-size: .72rem; text-align: right; white-space: nowrap; }
+    .inventory-ledger td:first-child { background: #0f172a; }
+    .inventory-ledger tbody tr:hover td { background: rgba(16, 185, 129, .07); }
+    .inventory-ledger tbody tr:hover td:first-child { background: #10251f; }
+    .inventory-ledger .ledger-product { color: #f8fafc; font-weight: 800; }
+    .inventory-ledger .ledger-muted { display: block; margin-top: .15rem; color: #64748b; font-size: .62rem; }
+    .inventory-ledger .ledger-number { color: #e2e8f0; }
+    .inventory-ledger .ledger-sales { color: #6ee7b7; font-weight: 800; }
+    .inventory-ledger .ledger-loss { color: #fda4af; }
+    .inventory-ledger .ledger-balance { color: #a7f3d0; font-weight: 800; }
+    .inventory-ledger-status { color: #94a3b8; font-size: .68rem; text-align: center; }
+    .inventory-ledger-status.error { color: #fda4af; }
+    @media (max-width: 520px) {
+      .invoice-row { align-items: flex-start; }
+      .invoice-detail-button { width: 38px; padding: 0; font-size: 0; }
+      .invoice-detail-button i { font-size: .85rem; }
+      .invoice-detail-grid { grid-template-columns: 1fr; }
+      .invoice-modal-heading, .invoice-modal-body { padding: 1rem; }
     }
     @media (prefers-reduced-motion: reduce) {
       *, *::before, *::after {
@@ -33,13 +120,13 @@
   <aside class="w-full md:w-20 lg:w-64 bg-slate-950 border-r border-slate-800 flex flex-col justify-between shrink-0">
     <div>
       <div class="p-4 lg:p-6 flex items-center justify-between border-b border-slate-800/80"><div class="flex items-center gap-3"><div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-500 to-teal-400 flex items-center justify-center text-slate-950 font-black text-xl shadow-lg shadow-emerald-500/20" aria-hidden="true"><i class="fa-solid fa-utensils"></i></div><div class="hidden lg:block"><h1 class="font-bold text-lg tracking-tight leading-none text-white">GourmetControl</h1><span class="text-xs text-slate-400 font-medium">Detalle del turno</span></div></div></div>
-      <div class="p-4 border-b border-slate-800/50 hidden lg:flex items-center gap-3 bg-slate-900/40"><div class="relative"><div class="w-10 h-10 rounded-full bg-emerald-500/15 border-2 border-emerald-500 flex items-center justify-center text-emerald-400" aria-hidden="true"><i class="fa-solid fa-user"></i></div><span class="absolute bottom-0 right-0 w-3 h-3 bg-emerald-500 border-2 border-slate-950 rounded-full"></span></div><div><p class="text-sm font-semibold text-white leading-tight">{{ request.user.get_full_name|default:request.user.username }}</p><p class="text-xs text-emerald-400 font-medium">{{ request.user.get_role_display }} • Turno activo</p></div></div>
+      <div class="p-4 border-b border-slate-800/50 hidden lg:flex items-center gap-3 bg-slate-900/40"><div class="relative"><div class="w-10 h-10 rounded-full bg-emerald-500/15 border-2 border-emerald-500 flex items-center justify-center text-emerald-400" aria-hidden="true"><i class="fa-solid fa-user"></i></div><span class="absolute bottom-0 right-0 w-3 h-3 bg-emerald-500 border-2 border-slate-950 rounded-full"></span></div><div><p class="text-sm font-semibold text-white leading-tight">{{ request.user.get_full_name|default:request.user.username }}</p><p class="text-xs text-emerald-400 font-medium">{{ request.user.get_role_display }} · {{ turno.get_estado_display|default:"Sin turno" }}</p></div></div>
       <nav class="p-3 space-y-1" aria-label="Navegación">
         {% if user.role == 'mesera' %}<a href="{% url 'pedidos:mesera' %}" class="w-full flex items-center gap-3 px-3 py-3 rounded-xl font-medium text-sm text-slate-400 hover:text-white hover:bg-slate-800/50 transition-all"><i class="fa-solid fa-chair text-lg w-6 text-center" aria-hidden="true"></i><span class="hidden lg:inline">Mesas y Salón</span></a>{% endif %}
         {% if user.role == 'cocina' %}<a href="{% url 'pedidos:cocina' %}" class="w-full flex items-center gap-3 px-3 py-3 rounded-xl font-medium text-sm text-slate-400 hover:text-white hover:bg-slate-800/50 transition-all"><i class="fa-solid fa-fire-burner text-lg w-6 text-center" aria-hidden="true"></i><span class="hidden lg:inline">Pedidos</span></a>{% endif %}
         {% if user.role == 'cajera' %}<a href="{% url 'pedidos:caja' %}" class="w-full flex items-center gap-3 px-3 py-3 rounded-xl font-medium text-sm text-slate-400 hover:text-white hover:bg-slate-800/50 transition-all"><i class="fa-solid fa-cash-register text-lg w-6 text-center" aria-hidden="true"></i><span class="hidden lg:inline">Caja</span></a>
         <a href="{% url 'pedidos:caja_estadisticas_pagina' %}" class="w-full flex items-center gap-3 px-3 py-3 rounded-xl font-medium text-sm text-slate-400 hover:text-white hover:bg-slate-800/50 transition-all"><i class="fa-solid fa-chart-column text-lg w-6 text-center"></i><span class="hidden lg:inline">Estadísticas</span></a>{% endif %}
-        {% if user.role == 'administrador' %}<a href="{% url 'inventario:administrador' %}" class="w-full flex items-center gap-3 px-3 py-3 rounded-xl font-medium text-sm text-slate-400 hover:text-white hover:bg-slate-800/50 transition-all"><i class="fa-solid fa-sliders text-lg w-6 text-center" aria-hidden="true"></i><span class="hidden lg:inline">Configuración</span></a><a href="{% url 'inventario:administrador' %}#carta-publicada" class="w-full flex items-center gap-3 px-3 py-3 rounded-xl font-medium text-sm text-slate-400 hover:text-white hover:bg-slate-800/50 transition-all"><i class="fa-solid fa-book-open text-lg w-6 text-center" aria-hidden="true"></i><span class="hidden lg:inline">Carta</span></a>{% endif %}
+        {% if user.role == 'administrador' %}<a href="{% url 'inventario:administrador' %}" class="w-full flex items-center gap-3 px-3 py-3 rounded-xl font-medium text-sm text-slate-400 hover:text-white hover:bg-slate-800/50 transition-all"><i class="fa-solid fa-sliders text-lg w-6 text-center" aria-hidden="true"></i><span class="hidden lg:inline">Configuración</span></a><a href="{% url 'inventario:administrador' %}#carta-publicada" class="w-full flex items-center gap-3 px-3 py-3 rounded-xl font-medium text-sm text-slate-400 hover:text-white hover:bg-slate-800/50 transition-all"><i class="fa-solid fa-book-open text-lg w-6 text-center" aria-hidden="true"></i><span class="hidden lg:inline">Carta</span></a><a href="{% url 'usuarios:gestion_usuarios' %}" class="w-full flex items-center gap-3 px-3 py-3 rounded-xl font-medium text-sm text-slate-400 hover:text-white hover:bg-slate-800/50 transition-all"><i class="fa-solid fa-users text-lg w-6 text-center" aria-hidden="true"></i><span class="hidden lg:inline">Usuarios</span></a><a href="{% url 'usuarios:historial_turnos' %}" class="w-full flex items-center gap-3 px-3 py-3 rounded-xl font-medium text-sm text-slate-400 hover:text-white hover:bg-slate-800/50 transition-all"><i class="fa-solid fa-clock-rotate-left text-lg w-6 text-center" aria-hidden="true"></i><span class="hidden lg:inline">Historial</span></a>{% endif %}
         <button type="button" class="w-full flex items-center gap-3 px-3 py-3 rounded-xl font-medium text-sm transition-all bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" aria-current="page"><i class="fa-solid fa-clock-rotate-left text-lg w-6 text-center" aria-hidden="true"></i><span class="hidden lg:inline">Detalle del turno</span></button>
       </nav>
     </div>
@@ -53,7 +140,7 @@
     <div>
       <p class="panel-kicker">Operación</p>
       <h1 class="admin-h1">Panel de turno</h1>
-      <p class="turn-page-subtitle">Consulta el estado actual y gestiona las acciones del turno.</p>
+      <p class="turn-page-subtitle">Estado y resumen del turno correspondiente a la fecha.</p>
     </div>
     {% if turno %}<span class="turn-live-badge"><span aria-hidden="true"></span> Turno {{ turno.get_estado_display }}</span>{% endif %}
   </div>
@@ -68,98 +155,139 @@
 
   <div class="admin-grid">
     <section class="admin-card turn-dashboard-card turn-current-card" aria-labelledby="turno-actual-heading">
-      <div class="turn-card-heading"><div class="turn-section-icon" aria-hidden="true"><i class="fa-solid fa-calendar-day"></i></div><div><p class="panel-kicker">Resumen operativo</p><h2 id="turno-actual-heading">Turno actual</h2></div></div>
+      <div class="turn-card-heading"><div class="turn-section-icon" aria-hidden="true"><i class="fa-solid fa-calendar-day"></i></div><div><p class="panel-kicker">{{ hoy|date:"d/m/Y" }}</p><h2 id="turno-actual-heading">{% if turno %}Turno del día{% else %}Turno de hoy{% endif %}</h2></div></div>
       {% if turno %}
         <div class="turn-info-grid">
           <div><span>Estado</span><strong class="turn-status-value">{{ turno.get_estado_display }}</strong></div>
-          <div><span>Fecha</span><strong>{{ turno.fecha }}</strong></div>
+          <div><span>Fecha</span><strong>{{ turno.fecha|date:"d/m/Y" }}</strong></div>
           <div><span>Mesas habilitadas</span><strong>{{ turno.cantidad_mesas }}</strong></div>
+          <div><span>Mesas exteriores</span><strong>{{ turno.cantidad_mesas_exteriores }}</strong></div>
           <div><span>Miembros</span><strong>{% for user in turno.usuarios.all %}{{ user.get_full_name|default:user.username }}{% if not forloop.last %}, {% endif %}{% empty %}Sin participantes{% endfor %}</strong></div>
         </div>
+        {% if resumen_turno %}
+          <div class="turn-info-grid mt-3">
+            <div><span>Ventas totales</span><strong>{{ resumen_turno.total_general_cup|floatformat:2 }} CUP</strong></div>
+            <div><span>Facturas</span><strong>{{ resumen_turno.cantidad_facturas }}</strong></div>
+            <div><span>Efectivo</span><strong>{{ resumen_turno.total_efectivo_cup|floatformat:2 }} CUP</strong></div>
+            <div><span>Transferencia</span><strong>{{ resumen_turno.total_transferencia_cup|floatformat:2 }} CUP</strong></div>
+          </div>
+        {% endif %}
         {% if turno.resumen %}
           <div class="turn-note"><span>Resumen registrado</span><pre class="whitespace-pre-wrap break-words">{{ turno.resumen }}</pre></div>
         {% endif %}
+        {% if user.role == 'administrador' %}
+          <div class="flex flex-wrap gap-2 mt-4">
+            <a href="{% url 'usuarios:historial_turno_detalle' turno.pk %}" class="btn btn-outline btn-sm"><i class="fa-solid fa-eye"></i> Ver detalle del turno</a>
+            <a href="{% url 'usuarios:historial_turnos' %}" class="btn btn-primary btn-sm"><i class="fa-solid fa-clock-rotate-left"></i> Historial</a>
+          </div>
+        {% endif %}
       {% else %}
-        <div class="turn-empty"><i class="fa-regular fa-calendar-xmark" aria-hidden="true"></i><span>No hay turno abierto para hoy.</span></div>
+        <div class="turn-info-grid"><div><span>Fecha de hoy</span><strong>{{ hoy|date:"d/m/Y" }}</strong></div><div><span>Estado</span><strong>Sin abrir</strong></div></div>
+        {% if user.role == 'administrador' %}
+          {% if turno_abierto_pendiente %}
+            <div class="turn-note"><span>Turno anterior pendiente</span><p>El turno del {{ turno_abierto_pendiente.fecha|date:"d/m/Y" }} sigue abierto. Debe cerrarse antes de abrir el turno de hoy.</p></div>
+            <a href="{% url 'usuarios:historial_turno_detalle' turno_abierto_pendiente.pk %}" class="btn btn-outline btn-sm mt-3"><i class="fa-solid fa-eye"></i> Ver turno pendiente</a>
+          {% else %}
+            <form method="post" action="{% url 'usuarios:abrir_turno' %}" class="mt-4">
+              {% csrf_token %}
+              <button type="submit" class="btn btn-primary turn-action-btn"><i class="fa-solid fa-lock-open"></i> Abrir turno de hoy</button>
+            </form>
+          {% endif %}
+          <a href="{% url 'usuarios:historial_turnos' %}" class="btn btn-outline btn-sm mt-3"><i class="fa-solid fa-clock-rotate-left"></i> Historial de turnos</a>
+        {% else %}
+          <div class="turn-empty"><i class="fa-regular fa-calendar-xmark" aria-hidden="true"></i><span>No hay turno abierto para hoy.</span></div>
+        {% endif %}
+        {% if turno_anterior %}
+          <div class="turn-note mt-4"><span>Turno anterior</span><p>El turno anterior fue el {{ turno_anterior.fecha|date:"d/m/Y" }} y quedó {{ turno_anterior.get_estado_display|lower }}. Ventas: {{ resumen_turno_anterior.total_general_cup|floatformat:2 }} CUP en {{ resumen_turno_anterior.cantidad_facturas }} facturas.</p><a href="{% url 'usuarios:historial_turno_detalle' turno_anterior.pk %}" class="btn btn-outline btn-sm mt-2"><i class="fa-solid fa-eye"></i> Ver detalles del turno anterior</a></div>
+        {% else %}
+          <div class="turn-note mt-4"><span>Turnos anteriores</span><p>No hay turnos anteriores registrados.</p></div>
+        {% endif %}
       {% endif %}
     </section>
 
-    {% if user.role == 'administrador' %}
-    <section class="admin-card turn-dashboard-card" aria-labelledby="crear-usuario-heading">
-      <div class="turn-card-heading"><div class="turn-section-icon" aria-hidden="true"><i class="fa-solid fa-user-plus"></i></div><div><p class="panel-kicker">Equipo</p><h2 id="crear-usuario-heading">Crear usuario</h2></div></div>
-      <form method="post" action="{% url 'usuarios:crear_usuario' %}" class="admin-form-row">
-        {% csrf_token %}
-        <label for="crear-usuario-first-name" class="sr-only">Nombre</label>
-        <input id="crear-usuario-first-name" type="text" name="first_name" placeholder="Nombre" autocomplete="given-name" required class="admin-input">
-        <label for="crear-usuario-last-name" class="sr-only">Apellidos</label>
-        <input id="crear-usuario-last-name" type="text" name="last_name" placeholder="Apellidos" autocomplete="family-name" required class="admin-input">
-        <label for="crear-usuario-username" class="sr-only">Nombre de usuario</label>
-        <input id="crear-usuario-username" type="text" name="username" placeholder="Nombre de usuario" autocomplete="username" required class="admin-input">
-        <label for="crear-usuario-password" class="sr-only">Contraseña</label>
-        <input id="crear-usuario-password" type="password" name="password" placeholder="Contraseña" autocomplete="new-password" required class="admin-input">
-        <label for="crear-usuario-role" class="sr-only">Rol</label>
-        <select id="crear-usuario-role" name="role" required class="admin-input">
-          <option value="" disabled selected>Seleccionar rol</option>
-          {% for value, label in user.ROLE_CHOICES %}
-            <option value="{{ value }}">{{ label }}</option>
-          {% endfor %}
-        </select>
-        <button type="submit" class="btn btn-primary btn-sm turn-action-btn"><i class="fa-solid fa-plus" aria-hidden="true"></i> Crear usuario</button>
-      </form>
-      <div class="turn-user-list">
-        <p class="panel-kicker">Usuarios registrados</p>
-        {% for usuario in usuarios %}
-          <div class="turn-user-row">
-            <div>
-              <strong>{{ usuario.get_full_name|default:usuario.username }}</strong>
-              <span>{{ usuario.username }} · {{ usuario.get_role_display }}</span>
-            </div>
-            <div class="turn-user-actions">
-              <span class="turn-user-status {% if usuario.is_active %}is-active{% endif %}">{{ usuario.is_active|yesno:"Activo,Inactivo" }}</span>
-              <details class="turn-user-edit">
-                <summary class="btn btn-outline btn-sm"><i class="fa-solid fa-pen"></i> Editar</summary>
-                <form method="post" action="{% url 'usuarios:editar_usuario' usuario.id %}" class="turn-user-edit-form">
-                  {% csrf_token %}
-                  <div><label>Nombre</label><input type="text" name="first_name" value="{{ usuario.first_name }}" class="admin-input" required disabled></div>
-                  <div><label>Apellidos</label><input type="text" name="last_name" value="{{ usuario.last_name }}" class="admin-input" required disabled></div>
-                  <div><label>Usuario</label><input type="text" name="username" value="{{ usuario.username }}" class="admin-input" required disabled></div>
-                  <div><label>Correo</label><input type="email" name="email" value="{{ usuario.email }}" class="admin-input" disabled></div>
-                  <div><label>Teléfono</label><input type="text" name="telefono" value="{{ usuario.telefono }}" class="admin-input" disabled></div>
-                  <div><label>Rol</label><select name="role" class="admin-input" required disabled>{% for value, label in usuario.ROLE_CHOICES %}<option value="{{ value }}" {% if usuario.role == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></div>
-                  <div class="turn-user-password-status"><label>Contraseña actual</label><span>•••••••• · protegida</span></div>
-                  <div class="turn-user-password-field"><label for="user-password-{{ usuario.id }}">Nueva contraseña</label><div class="turn-user-password-input"><input id="user-password-{{ usuario.id }}" type="password" name="password" placeholder="Dejar vacía para conservarla" autocomplete="new-password" class="admin-input" disabled><button type="button" class="password-toggle" data-toggle-password="user-password-{{ usuario.id }}" aria-label="Mostrar contraseña"><i class="fa-solid fa-eye"></i></button></div></div>
-                  <div class="turn-user-edit-actions"><button type="button" class="btn btn-outline btn-sm" data-enable-user-edit><i class="fa-solid fa-pen"></i> Editar datos</button><button type="submit" class="btn btn-primary btn-sm" data-save-user-edit disabled><i class="fa-solid fa-floppy-disk"></i> Guardar cambios</button></div>
-                </form>
-              </details>
-              {% if usuario != request.user %}
-                <form method="post" action="{% url 'usuarios:cambiar_estado_usuario' usuario.id %}">
-                  {% csrf_token %}
-                  <button type="submit" class="btn btn-sm {% if usuario.is_active %}btn-orange{% else %}btn-primary{% endif %}">{{ usuario.is_active|yesno:"Desactivar,Activar" }}</button>
-                </form>
-              {% endif %}
-            </div>
+    <section class="admin-card turn-dashboard-card carta-admin-card" aria-labelledby="facturas-turno-heading">
+      <div class="turn-card-heading"><div class="turn-section-icon" aria-hidden="true"><i class="fa-solid fa-receipt"></i></div><div><p class="panel-kicker">Actividad</p><h2 id="facturas-turno-heading">Facturas del turno</h2></div><span class="admin-section-count">{{ facturas_turno|length }}</span></div>
+      {% for factura in facturas_turno %}
+        <article class="invoice-row">
+          <div class="invoice-row-info">
+            <strong>Factura #{{ factura.id }} · {% if factura.pedido.mesa_id %}{{ factura.pedido.mesa.etiqueta }}{% else %}Para llevar{% endif %}</strong>
+            <span>{{ factura.creado_en|date:"d/m/Y H:i" }} · {{ factura.get_forma_pago_display }}</span>
+            <span class="invoice-row-total">{{ factura.total_cup }} CUP</span>
           </div>
-        {% empty %}
-          <div class="turn-empty"><span>No hay usuarios registrados.</span></div>
-        {% endfor %}
-      </div>
+          <button type="button" class="invoice-detail-button" data-factura-id="{{ factura.id }}" aria-label="Ver detalle de la factura {{ factura.id }}">
+            <i class="fa-solid fa-eye" aria-hidden="true"></i> Ver detalle
+          </button>
+        </article>
+        <template id="factura-detalle-{{ factura.id }}">
+          <div class="invoice-detail-grid">
+            <div class="invoice-detail-cell"><span>Factura</span><strong>#{{ factura.id }}</strong></div>
+            <div class="invoice-detail-cell"><span>Servicio</span><strong>{% if factura.pedido.mesa_id %}{{ factura.pedido.mesa.etiqueta }}{% else %}Para llevar{% endif %}</strong></div>
+            <div class="invoice-detail-cell"><span>Fecha y hora</span><strong>{{ factura.creado_en|date:"d/m/Y H:i:s" }}</strong></div>
+            <div class="invoice-detail-cell"><span>Método de pago</span><strong>{{ factura.get_forma_pago_display }}</strong></div>
+            <div class="invoice-detail-cell"><span>Mesera</span><strong>{{ factura.mesera_nombre|default:"Sin registrar" }}</strong></div>
+            <div class="invoice-detail-cell"><span>Cajera</span><strong>{{ factura.cajera_nombre|default:"Sin registrar" }}</strong></div>
+            <div class="invoice-detail-cell"><span>Efectivo CUP</span><strong>{{ factura.monto_efectivo_cup }} CUP</strong></div>
+            <div class="invoice-detail-cell"><span>Transferencia CUP</span><strong>{{ factura.monto_transferencia_cup }} CUP</strong></div>
+            <div class="invoice-detail-cell"><span>USD recibido</span><strong>{{ factura.monto_usd }} USD</strong></div>
+            <div class="invoice-detail-cell"><span>Tasa de cambio</span><strong>{% if factura.tasa_cambio %}{{ factura.tasa_cambio }} CUP/USD{% else %}No aplica{% endif %}</strong></div>
+          </div>
+          <section class="invoice-detail-section">
+            <h3>Artículos cobrados</h3>
+            {% for item in factura.items_snapshot %}
+              <div class="invoice-item-row">
+                <strong>{{ item.plato }}</strong>
+                <span>{{ item.cantidad }} × {{ item.precio_unit }} CUP</span>
+                <span class="invoice-item-subtotal">{{ item.subtotal }} CUP</span>
+              </div>
+            {% empty %}
+              <div class="turn-empty">No hay artículos guardados en esta factura.</div>
+            {% endfor %}
+          </section>
+          <div class="invoice-modal-total"><span>Total cobrado</span><strong>{{ factura.total_cup }} CUP</strong></div>
+        </template>
+      {% empty %}
+        <div class="turn-empty"><i class="fa-solid fa-receipt" aria-hidden="true"></i><span>No hay facturas registradas en este turno.</span></div>
+      {% endfor %}
     </section>
 
+    {% if turno and turno.estado == 'abierto' or user.role != 'administrador' %}
+    <section class="admin-card turn-dashboard-card inventory-ledger-card" aria-labelledby="inventory-ledger-heading">
+      <div class="turn-card-heading">
+        <div class="turn-section-icon" aria-hidden="true"><i class="fa-solid fa-scale-balanced"></i></div>
+        <div><p class="panel-kicker">Control de existencias</p><h2 id="inventory-ledger-heading">Inventario perpetuo de ventas</h2></div>
+        <span id="inventory-ledger-updated" class="inventory-ledger-meta" role="status" aria-live="polite">Cargando…</span>
+      </div>
+      <div class="inventory-ledger-wrap">
+        <table class="inventory-ledger">
+          <thead><tr>
+            <th>Producto</th><th>Saldo inicial</th><th>Entradas</th><th>Existencia</th><th>Vendido</th><th>Saldo final</th><th>Precio venta</th><th>Importe ventas</th><th>Merma rotura</th>
+          </tr></thead>
+          <tbody id="inventory-ledger-body"><tr><td colspan="9" class="inventory-ledger-status">Consultando inventario del turno…</td></tr></tbody>
+        </table>
+      </div>
+    </section>
+    {% endif %}
+
+    {% if user.role == 'administrador' %}
     <section class="admin-card turn-dashboard-card turn-action-card" aria-labelledby="historial-heading">
       <div class="turn-card-heading"><div class="turn-section-icon" aria-hidden="true"><i class="fa-solid fa-chart-line"></i></div><div><p class="panel-kicker">Rendimiento</p><h2 id="historial-heading">Historial de turnos</h2></div></div>
       <p>Consulta el rendimiento histórico, el IPV y el cierre de cada turno.</p>
       <a href="{% url 'usuarios:historial_turnos' %}" class="btn btn-primary turn-action-btn"><i class="fa-solid fa-arrow-right" aria-hidden="true"></i> Ver historial</a>
     </section>
 
+    {% if turno and turno.estado == 'abierto' %}
     <section class="admin-card turn-dashboard-card" aria-labelledby="configurar-mesas-heading">
       <div class="turn-card-heading"><div class="turn-section-icon" aria-hidden="true"><i class="fa-solid fa-border-all"></i></div><div><p class="panel-kicker">Configuración</p><h2 id="configurar-mesas-heading">Configurar mesas del turno</h2></div></div>
       <form method="post" action="{% url 'usuarios:configurar_mesas_turno' %}" class="turn-inline-form">
         {% csrf_token %}
         <label for="cantidad-mesas">Cantidad de mesas</label>
         <input id="cantidad-mesas" type="number" name="cantidad_mesas" min="1" value="{{ turno.cantidad_mesas|default:10 }}" required class="admin-input">
+        <label for="cantidad-mesas-exteriores">Mesas exteriores</label>
+        <input id="cantidad-mesas-exteriores" type="number" name="cantidad_mesas_exteriores" min="0" value="{{ turno.cantidad_mesas_exteriores }}" required class="admin-input">
         <button type="submit" class="btn btn-primary btn-sm turn-action-btn"><i class="fa-solid fa-check" aria-hidden="true"></i> Guardar mesas</button>
       </form>
     </section>
+    {% endif %}
 
     {% endif %}
 
@@ -190,27 +318,108 @@
 </div>
     </div>
   </main>
+  <div id="factura-modal" class="invoice-modal-backdrop hidden fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-6" role="dialog" aria-modal="true" aria-labelledby="factura-modal-title">
+    <div class="invoice-modal-panel">
+      <div class="invoice-modal-heading">
+        <div><span class="invoice-modal-kicker">Detalle del cobro</span><h2 id="factura-modal-title">Factura</h2></div>
+        <button type="button" id="factura-modal-close" class="invoice-modal-close" aria-label="Cerrar detalle de factura"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
+      </div>
+      <div id="factura-modal-content" class="invoice-modal-body"></div>
+    </div>
+  </div>
   <div id="toast-container" class="toast-container"></div>
   <script>
-    document.querySelectorAll('.turn-user-edit-form').forEach(form => {
-      const fields = form.querySelectorAll('input:not([type="hidden"]), select');
-      const editButton = form.querySelector('[data-enable-user-edit]');
-      const saveButton = form.querySelector('[data-save-user-edit]');
-      editButton.addEventListener('click', () => {
-        fields.forEach(field => { field.disabled = false; });
-        editButton.hidden = true;
-        saveButton.disabled = false;
-        fields[0].focus();
+    const inventarioVentasUrl = '{% url "usuarios:inventario_ventas_turno" %}';
+    const formatoCantidad = new Intl.NumberFormat('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+    function escaparCelda(valor) {
+      return String(valor ?? '').replace(/[&<>"']/g, caracter => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+      })[caracter]);
+    }
+
+    function formatoNumero(valor) {
+      const numero = Number(valor);
+      return formatoCantidad.format(Number.isFinite(numero) ? numero : 0);
+    }
+
+    function formatoExistencia(valor, controlada) {
+      return controlada ? formatoNumero(valor) : '—';
+    }
+
+    async function actualizarInventarioTurno() {
+      const cuerpo = document.getElementById('inventory-ledger-body');
+      const estado = document.getElementById('inventory-ledger-updated');
+      if (!cuerpo || !estado) return;
+      try {
+        const response = await fetch(inventarioVentasUrl, { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+        if (!response.ok) throw new Error('No se pudo cargar el inventario.');
+        const data = await response.json();
+        if (!data.turno_abierto) {
+          cuerpo.innerHTML = '<tr><td colspan="9" class="inventory-ledger-status">No hay un turno abierto.</td></tr>';
+          estado.textContent = 'Sin turno activo';
+          return;
+        }
+        if (!data.productos.length) {
+          cuerpo.innerHTML = '<tr><td colspan="9" class="inventory-ledger-status">No hay productos activos en el inventario.</td></tr>';
+        } else {
+          cuerpo.innerHTML = data.productos.map(producto => `
+            <tr>
+              <td><span class="ledger-product">${escaparCelda(producto.nombre)}</span><span class="ledger-muted">${escaparCelda(producto.categoria)} · ${escaparCelda(producto.unidad)} · ${producto.control_existencia ? 'Stock controlado' : 'Sin control de stock'}</span></td>
+              <td class="ledger-number">${formatoExistencia(producto.saldo_inicial, producto.control_existencia)}</td>
+              <td class="ledger-number">${formatoExistencia(producto.entradas, producto.control_existencia)}</td>
+              <td class="ledger-number">${formatoExistencia(producto.cantidad_existencia, producto.control_existencia)}</td>
+              <td class="ledger-number">${formatoNumero(producto.cantidad_vendida)}</td>
+              <td class="ledger-balance">${formatoExistencia(producto.saldo_final, producto.control_existencia)}</td>
+              <td class="ledger-number">${formatoNumero(producto.precio_venta)} CUP</td>
+              <td class="ledger-sales">${formatoNumero(producto.importe_venta)} CUP</td>
+              <td class="ledger-loss">${formatoExistencia(producto.merma_rotura, producto.control_existencia)}</td>
+            </tr>`).join('');
+        }
+        estado.textContent = `Actualizado ${data.actualizado_en}`;
+        estado.classList.remove('error');
+      } catch (error) {
+        estado.textContent = error.message || 'No se pudo actualizar.';
+        estado.classList.add('error');
+      }
+    }
+
+    actualizarInventarioTurno();
+    setInterval(actualizarInventarioTurno, 5000);
+
+    const facturaModal = document.getElementById('factura-modal');
+    const facturaModalTitle = document.getElementById('factura-modal-title');
+    const facturaModalContent = document.getElementById('factura-modal-content');
+    const facturaModalClose = document.getElementById('factura-modal-close');
+    let facturaTriggerAnterior = null;
+
+    function cerrarModalFacturaTurno() {
+      facturaModal.classList.add('hidden');
+      facturaModalContent.replaceChildren();
+      document.body.classList.remove('overflow-hidden');
+      facturaTriggerAnterior?.focus();
+    }
+
+    document.querySelectorAll('[data-factura-id]').forEach(button => {
+      button.addEventListener('click', () => {
+        const facturaId = button.dataset.facturaId;
+        const detalle = document.getElementById(`factura-detalle-${facturaId}`);
+        if (!detalle) return;
+        facturaTriggerAnterior = button;
+        facturaModalTitle.textContent = `Factura #${facturaId}`;
+        facturaModalContent.replaceChildren(detalle.content.cloneNode(true));
+        facturaModal.classList.remove('hidden');
+        document.body.classList.add('overflow-hidden');
+        facturaModalClose.focus();
       });
     });
-    document.querySelectorAll('[data-toggle-password]').forEach(button => {
-      button.addEventListener('click', () => {
-        const field = document.getElementById(button.dataset.togglePassword);
-        const visible = field.type === 'text';
-        field.type = visible ? 'password' : 'text';
-        button.setAttribute('aria-label', visible ? 'Mostrar contraseña' : 'Ocultar contraseña');
-        button.innerHTML = `<i class="fa-solid fa-eye${visible ? '' : '-slash'}"></i>`;
-      });
+
+    facturaModalClose.addEventListener('click', cerrarModalFacturaTurno);
+    facturaModal.addEventListener('click', event => {
+      if (event.target === facturaModal) cerrarModalFacturaTurno();
+    });
+    document.addEventListener('keydown', event => {
+      if (event.key === 'Escape' && !facturaModal.classList.contains('hidden')) cerrarModalFacturaTurno();
     });
   </script>
   <script>

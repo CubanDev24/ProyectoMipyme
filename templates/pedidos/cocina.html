@@ -6,9 +6,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Cocina - GourmetControl</title>
   <link rel="stylesheet" href="{% static 'css/tailwind.css' %}">
-  <link rel="stylesheet" href="{% static 'vendor/fontawesome/css/all.min.css' %}">
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="{% static 'css/main.css' %}?v=20260902-role-shell">
+  <link rel="stylesheet" href="{% static 'vendor/fontawesome/css/all.min.css' %}">  <link rel="stylesheet" href="{% static 'css/main.css' %}?v=20261001-responsive-sidebar-logout">
+  <script src="{% static 'js/responsive-sidebar.js' %}?v=20261001-sidebar-logout" defer></script>
 </head>
 <body class="bg-slate-900 text-slate-100 font-sans min-h-screen flex flex-col md:flex-row overflow-x-hidden">
   <aside class="w-full md:w-20 lg:w-64 bg-slate-950 border-r border-slate-800 flex flex-col justify-between shrink-0">
@@ -72,7 +71,7 @@ function conectar() {
   ws.onmessage = e => {
     const d = JSON.parse(e.data);
     if (d.tipo==='estado_inicial') { pedidos={}; d.pedidos.forEach(p=>pedidos[p.id]=p); renderTodo(); }
-    else if (d.tipo==='pedido_nuevo') { pedidos[d.pedido.id]=d.pedido; renderTodo(); toast(`Nuevo pedido — Mesa ${d.pedido.mesa_numero}`,'orange'); sonidoPedidoNuevo(); }
+    else if (d.tipo==='pedido_nuevo') { pedidos[d.pedido.id]=d.pedido; renderTodo(); toast(`Nuevo pedido — ${d.pedido.etiqueta || `Mesa ${d.pedido.mesa_numero}`}`,'orange'); sonidoPedidoNuevo(); }
     else if (d.tipo==='pedido_actualizado') {
       const anterior = pedidos[d.pedido.id];
       pedidos[d.pedido.id]=d.pedido;
@@ -112,22 +111,48 @@ function renderCol(id, lista) {
   lista.forEach(p=>el.appendChild(crearCard(p)));
 }
 
+function escaparHtml(value) {
+  return String(value ?? '').replace(/[&<>"']/g, character => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+  })[character]);
+}
+
+function urlImagenProducto(value) {
+  if (!value) return '';
+  try {
+    const url = new URL(value, location.origin);
+    return url.origin === location.origin ? escaparHtml(url.href) : '';
+  } catch (error) {
+    return '';
+  }
+}
+
 function crearCard(p) {
   const div = document.createElement('div');
   div.className='pedido-card';
-  const items = p.items.map(i=>`<li><span><span class="cant-badge">${i.cantidad}</span>${i.plato}</span><span style="color:var(--text-muted)">${i.subtotal} CUP</span></li>`).join('');
+  const items = p.items.map(i=>{
+    const imagen = urlImagenProducto(i.imagen_url);
+    const foto = imagen
+      ? `<img class="cocina-item-imagen" src="${imagen}" alt="${escaparHtml(i.plato)}" loading="lazy">`
+      : '<span class="cocina-item-imagen cocina-item-placeholder" aria-hidden="true"><i class="fa-solid fa-utensils"></i></span>';
+    return `<li><span class="cocina-item-info">${foto}<span class="cocina-item-nombre"><span class="cant-badge">${escaparHtml(i.cantidad)}</span>${escaparHtml(i.plato)}</span></span><span style="color:var(--text-muted)">${escaparHtml(i.subtotal)} CUP</span></li>`;
+  }).join('');
   const cuentaTag = p.cuenta_solicitada ? `<div class="tag-cuenta-cocina"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg> Pide la cuenta</div>` : '';
   const nota = p.nota ? `<div class="nota-cocina">Nota: ${p.nota}</div>` : '';
+  const contacto = p.es_para_llevar
+    ? `<div class="nota-cocina">Cliente: ${escaparHtml(p.nombre_cliente || 'Sin nombre')} · Teléfono: ${escaparHtml(p.telefono_cliente || 'Sin teléfono')}</div>`
+    : '';
   let btns='';
   if(p.estado==='pendiente') btns=`<button class="btn btn-orange" onclick="cambiarEstado(${p.id},'en_preparacion')">Preparar</button>`;
   else if(p.estado==='en_preparacion') btns=`<button class="btn btn-success" onclick="cambiarEstado(${p.id},'listo')">Marcar listo</button>`;
-  else if(p.estado==='listo') btns=`<button class="btn btn-blue" onclick="cambiarEstado(${p.id},'servido')">Marcar servido</button>`;
+  else if(p.estado==='listo') btns=`<button class="btn btn-success" onclick="cambiarEstado(${p.id},'servido')">Listo</button>`;
   div.innerHTML=`
     <div class="pedido-card-top">
-      <div><div class="pedido-mesa-label">Mesa ${p.mesa_numero}</div><div class="pedido-hora">#${p.id} · ${p.creado_en}</div></div>
+      <div><div class="pedido-mesa-label">${p.etiqueta || `Mesa ${p.mesa_numero}`}</div><div class="pedido-hora">#${p.id} · ${p.creado_en}</div></div>
     </div>
     ${cuentaTag}
     <ul class="pedido-items-ul">${items}</ul>
+    ${contacto}
     ${nota}
     <div class="total-cocina">Total: <span>${p.total} CUP</span></div>
     <div class="cocina-btns">${btns}</div>`;

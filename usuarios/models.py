@@ -5,7 +5,7 @@ from decimal import Decimal
 from django.conf import settings
 from django.contrib.auth.models import AbstractUser
 from django.db import models
-from django.db.models import Sum
+from django.db.models import Q, Sum
 from django.utils import timezone
 
 from carta.models import Plato
@@ -19,7 +19,7 @@ class Usuario(AbstractUser):
         ('cajera', 'Cajera'),
     ]
 
-    role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='mesera')
+    role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='administrador')
     telefono = models.CharField(max_length=30, blank=True)
     activo = models.BooleanField(default=True)
     ultimo_login_turno = models.DateTimeField(null=True, blank=True)
@@ -47,7 +47,7 @@ class Usuario(AbstractUser):
     @property
     def es_cajera(self):
         return self.role == 'cajera'
-
+    
 
 class Turno(models.Model):
     ESTADO_CHOICES = [
@@ -61,6 +61,7 @@ class Turno(models.Model):
     estado = models.CharField(max_length=20, choices=ESTADO_CHOICES, default='abierto')
     usuarios = models.ManyToManyField(settings.AUTH_USER_MODEL, related_name='turnos', blank=True)
     cantidad_mesas = models.PositiveIntegerField(default=10)
+    cantidad_mesas_exteriores = models.PositiveIntegerField(default=0)
     platos = models.ManyToManyField(Plato, related_name='turnos', blank=True)
     resumen = models.TextField(blank=True, default='')
     observaciones = models.TextField(blank=True, default='')
@@ -163,11 +164,47 @@ def crear_mesas_del_turno(turno):
         return []
     from pedidos.models import Mesa
     cantidad = max(int(turno.cantidad_mesas), 1)
-    existentes = set(Mesa.objects.filter(numero__lte=cantidad).values_list('numero', flat=True))
-    for numero in range(1, cantidad + 1):
-        if numero not in existentes:
-            Mesa.objects.create(numero=numero, activa=True, abierta=False)
-    return Mesa.objects.filter(activa=True, numero__lte=cantidad).order_by('numero')
+    mesas_salon = list(Mesa.objects.filter(zona='salon'))
+    existentes_salon = {mesa.numero_zona or mesa.numero for mesa in mesas_salon}
+    siguiente_numero = (Mesa.objects.order_by('-numero').values_list('numero', flat=True).first() or 0) + 1
+    for numero_zona in range(1, cantidad + 1):
+        if numero_zona not in existentes_salon:
+            numero = numero_zona
+            if Mesa.objects.filter(numero=numero).exists():
+                while Mesa.objects.filter(numero=siguiente_numero).exists():
+                    siguiente_numero += 1
+                numero = siguiente_numero
+                siguiente_numero += 1
+            Mesa.objects.create(
+                numero=numero,
+                zona='salon',
+                numero_zona=numero_zona,
+                activa=True,
+                abierta=False,
+            )
+
+    cantidad_exteriores = int(turno.cantidad_mesas_exteriores)
+    exteriores_existentes = set(
+        Mesa.objects.filter(zona='exteriores').values_list('numero_zona', flat=True)
+    )
+    for numero_zona in range(1, cantidad_exteriores + 1):
+        if numero_zona not in exteriores_existentes:
+            while Mesa.objects.filter(numero=siguiente_numero).exists():
+                siguiente_numero += 1
+            Mesa.objects.create(
+                numero=siguiente_numero,
+                zona='exteriores',
+                numero_zona=numero_zona,
+                activa=True,
+                abierta=False,
+            )
+            siguiente_numero += 1
+
+    return Mesa.objects.filter(
+        Q(activa=True, zona='salon', numero_zona__lte=cantidad)
+        | Q(activa=True, zona='salon', numero_zona__isnull=True, numero__lte=cantidad)
+        | Q(activa=True, zona='exteriores', numero_zona__lte=cantidad_exteriores)
+    ).order_by('zona', 'numero_zona')
 
 
 def mesas_del_turno(turno=None):
@@ -193,14 +230,16 @@ def registrar_inicio_turno(usuario):
     return turno
 
 
-def configurar_turno(turno, cantidad_mesas=None, platos=None):
+def configurar_turno(turno, cantidad_mesas=None, platos=None, cantidad_mesas_exteriores=None):
     if turno is None:
         return None
     if cantidad_mesas is not None:
         turno.cantidad_mesas = max(int(cantidad_mesas), 1)
+    if cantidad_mesas_exteriores is not None:
+        turno.cantidad_mesas_exteriores = max(int(cantidad_mesas_exteriores), 0)
     if platos is not None:
         turno.platos.set(platos)
-    turno.save(update_fields=['cantidad_mesas'])
+    turno.save(update_fields=['cantidad_mesas', 'cantidad_mesas_exteriores'])
     return turno
 
 

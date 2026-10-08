@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+{% load static %}
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="refresh" content="3;url={{ destino }}">
+  <title>Formulario vencido</title>
+  <link rel="stylesheet" href="{% static 'css/main.css' %}?v=20260901-restyle-emerald">
+  <script>
+    window.setTimeout(() => window.location.replace("{{ destino|escapejs }}"), 3000);
+  </script>
+</head>
+<body class="login-page">
+  <main class="auth-page">
+    <section class="auth-panel">
+      <div class="auth-form-wrap">
+        <div class="auth-header">
+          <span class="auth-eyebrow">Seguridad de la sesión</span>
+          <h1>Formulario vencido</h1>
+        </div>
+        {% if autenticado %}
+          <p>El formulario de inicio de sesión ya no es válido y no se envió ninguna cuenta nueva. Tu sesión actual sigue activa.</p>
+          <p>Te llevaremos de vuelta a tu panel en unos segundos.</p>
+        {% else %}
+          <p>El formulario ya no es válido, por lo que la solicitud fue bloqueada. Vuelve al inicio de sesión y carga un formulario nuevo.</p>
+        {% endif %}
+        <p><a class="btn btn-primary auth-submit" href="{{ destino }}">Continuar</a></p>
+      </div>
+    </section>
+  </main>
+</body>
+</html>
