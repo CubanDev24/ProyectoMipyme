@@ -127,3 +127,12 @@ con el botón **Imprimir QR**.
 - cuando se cierre el turno se desloguee todos los usuarios en el sistema que no sean admins.
 - Agregar un delay a la llamada de la mesera. 
 - Al agregar un pedido para llevar si tiene algun producto de cocina, agregar un termopad a la compra.
+
+- Las modales no se abra una detras de la otra
+- que no puedas cobrar ntes de enviar un pedido a cocina
+
+
+
+## Notas
+quiero que cojas aqui y elimines el main css y que cada html tenga sus estilos en su mismo archivo para que no haya conflicto
+
