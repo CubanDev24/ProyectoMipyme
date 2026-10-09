@@ -498,8 +498,6 @@ class FacturaWorkflowTests(TestCase):
         User = get_user_model()
         mesera = User.objects.create_user(username='mesera_comprobante', password='123456', role='mesera')
         self.client.force_login(mesera)
-        self.pedido.cuenta_solicitada = True
-        self.pedido.save(update_fields=['cuenta_solicitada'])
 
         image_bytes = BytesIO()
         Image.new('RGB', (2, 2), color='white').save(image_bytes, format='PNG')
@@ -517,6 +515,7 @@ class FacturaWorkflowTests(TestCase):
 
             self.assertTrue(self.pedido.comprobante_transferencia)
             self.assertEqual(response.json()['comprobante_url'], cuenta['comprobante_url'])
+            self.assertFalse(self.pedido.cuenta_solicitada)
 
     def test_mesera_puede_subir_comprobante_para_ticket_para_llevar_entregado(self):
         mesera = get_user_model().objects.create_user(username='mesera_ticket_comprobante', role='mesera')
