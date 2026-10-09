@@ -20,6 +20,9 @@ class UsuarioTurnoTests(TestCase):
         self.mesera = Usuario.objects.create_user(
             username='mesera1', password='123456', role='mesera'
         )
+        self.cocina = Usuario.objects.create_user(
+            username='cocina1', password='123456', role='cocina'
+        )
         self.cajera = Usuario.objects.create_user(
             username='cajera1', password='123456', role='cajera'
         )
@@ -133,6 +136,71 @@ class UsuarioTurnoTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'Crear usuario')
         self.assertContains(response, 'Usuarios registrados')
+
+    def test_sidebar_del_administrador_se_mantiene_completo_en_sus_secciones(self):
+        turno = Turno.objects.create(
+            fecha=timezone.localdate() - timedelta(days=1),
+            estado='cerrado',
+            cierre=timezone.now(),
+        )
+        self.client.force_login(self.admin)
+        paginas = [
+            reverse('usuarios:gestion_usuarios'),
+            reverse('usuarios:historial_turnos'),
+            reverse('usuarios:historial_turno_detalle', args=[turno.pk]),
+        ]
+        enlaces_sidebar = [
+            f'href="{reverse("inventario:administrador")}#configuracion"',
+            f'href="{reverse("inventario:administrador")}#carta"',
+            f'href="{reverse("usuarios:gestion_usuarios")}"',
+            f'href="{reverse("usuarios:dashboard")}"',
+            f'href="{reverse("usuarios:historial_turnos")}"',
+        ]
+
+        for pagina in paginas:
+            with self.subTest(pagina=pagina):
+                response = self.client.get(pagina)
+
+                self.assertEqual(response.status_code, 200)
+                for enlace in enlaces_sidebar:
+                    self.assertContains(response, enlace)
+                if pagina == reverse('usuarios:gestion_usuarios'):
+                    self.assertContains(response, 'admin')
+                    self.assertContains(response, 'Administrador &bull; Activo')
+
+    def test_detalle_diario_muestra_navegacion_segun_el_rol(self):
+        roles = (
+            (self.mesera, 'Mesera', reverse('pedidos:mesera')),
+            (self.cocina, 'Cocina', reverse('pedidos:cocina')),
+            (self.admin, 'Administrador', reverse('inventario:administrador')),
+        )
+
+        for usuario, etiqueta_rol, enlace_rol in roles:
+            with self.subTest(rol=usuario.role):
+                self.client.force_login(usuario)
+                response = self.client.get(reverse('usuarios:dashboard'))
+
+                self.assertEqual(response.status_code, 200)
+                self.assertContains(response, enlace_rol)
+                self.assertContains(response, f'{etiqueta_rol} &bull; Activo')
+                self.assertNotContains(response, 'Sin turno')
+                if usuario.role == 'mesera':
+                    for seccion in (
+                        'tables',
+                        'exterior-tables',
+                        'active-orders',
+                        'bar',
+                        'takeaway',
+                        'menu',
+                    ):
+                        self.assertContains(
+                            response,
+                            f'href="{reverse("pedidos:mesera")}#{seccion}"',
+                        )
+                if usuario.role != 'administrador':
+                    self.assertNotContains(response, f'href="{reverse("inventario:administrador")}#configuracion"')
+                    self.assertNotContains(response, f'href="{reverse("usuarios:gestion_usuarios")}"')
+                    self.assertNotContains(response, f'href="{reverse("usuarios:historial_turnos")}"')
 
     def test_reporte_inventario_turno_calcula_ventas_entradas_roturas_y_saldos(self):
         turno = registrar_inicio_turno(self.mesera)

@@ -750,6 +750,9 @@
 
         // INICIALIZACIÓN
         document.addEventListener('DOMContentLoaded', () => {
+            const vistasDisponibles = ['tables', 'exterior-tables', 'active-orders', 'bar', 'takeaway', 'menu'];
+            const vistaInicial = location.hash.slice(1);
+            switchView(vistasDisponibles.includes(vistaInicial) ? vistaInicial : 'tables');
             renderTables();
             updateHeaderStats();
             updateClock();
