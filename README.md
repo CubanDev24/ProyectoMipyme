@@ -121,6 +121,7 @@ con el botón **Imprimir QR**.
 - Se cambio el flujo y se agrego una seccion de barra a la mesera para que las bebidas pudiera manejarlas desde el mismo panel y no salieran en cocina.
 - Se agrego la funcionalidad de editar categorias en el panel de administracion.
 - Se agregaron las mesas ecteriores.
+- Se corrigio para que las modales en la administracion no salgan por encima de otras
 
 
 ## por hacer:
@@ -129,7 +130,6 @@ con el botón **Imprimir QR**.
 - Agregar un delay a la llamada de la mesera. 
 - Al agregar un pedido para llevar si tiene algun producto de cocina, agregar un termopad a la compra.
 
-- Las modales no se abra una detras de la otra
 - que no puedas cobrar antes de enviar un pedido a cocina
 
 -Cambiar para que la carta no se genere automaticamente, sino que la cree el admin a partir de los productos disponibles en el inventario de la cocina.

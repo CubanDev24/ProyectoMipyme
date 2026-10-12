@@ -137,6 +137,15 @@ class UsuarioTurnoTests(TestCase):
         self.assertContains(response, 'Crear usuario')
         self.assertContains(response, 'Usuarios registrados')
 
+    def test_editores_de_usuario_solo_permiten_una_modal_abierta(self):
+        self.client.force_login(self.admin)
+
+        response = self.client.get(reverse('usuarios:gestion_usuarios'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, '<details class="turn-user-edit" name="user-edit">')
+        self.assertContains(response, "otherDialog.open = false")
+
     def test_sidebar_del_administrador_se_mantiene_completo_en_sus_secciones(self):
         turno = Turno.objects.create(
             fecha=timezone.localdate() - timedelta(days=1),

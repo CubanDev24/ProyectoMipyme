@@ -57,7 +57,7 @@
               <div><strong>{{ usuario.get_full_name|default:usuario.username }}</strong><span>{{ usuario.username }} · {{ usuario.get_role_display }}</span></div>
               <div class="turn-user-actions">
                 <span class="turn-user-status {% if usuario.is_active %}is-active{% endif %}">{{ usuario.is_active|yesno:"Activo,Inactivo" }}</span>
-                <details class="turn-user-edit">
+                <details class="turn-user-edit" name="user-edit">
                   <summary class="btn btn-outline btn-sm"><i class="fa-solid fa-pen"></i> Editar</summary>
                   <form method="post" action="{% url 'usuarios:editar_usuario' usuario.id %}" class="turn-user-edit-form">
                     {% csrf_token %}
@@ -83,6 +83,15 @@
     </div>
   </main>
   <script>
+    const userEditDialogs = document.querySelectorAll('.turn-user-edit');
+    userEditDialogs.forEach(dialog => {
+      dialog.addEventListener('toggle', () => {
+        if (!dialog.open) return;
+        userEditDialogs.forEach(otherDialog => {
+          if (otherDialog !== dialog) otherDialog.open = false;
+        });
+      });
+    });
     document.querySelectorAll('.turn-user-edit-form').forEach(form => {
       const fields = form.querySelectorAll('input:not([type="hidden"]), select');
       const editButton = form.querySelector('[data-enable-user-edit]');

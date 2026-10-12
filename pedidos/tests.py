@@ -142,6 +142,48 @@ class FacturaWorkflowTests(TestCase):
         pedidos_cocina = async_to_sync(CocinaConsumer().get_pedidos_cocina)()
         self.assertIn(solicitud_id, [pedido['id'] for pedido in pedidos_cocina])
 
+    def test_mesera_envia_toda_la_comanda_y_separa_cocina_de_barra(self):
+        categoria_bebidas = Categoria.objects.create(nombre='Bebidas para enviar', orden=2)
+        bebida = Plato.objects.create(
+            categoria=categoria_bebidas,
+            nombre='Jugo para enviar',
+            precio='10.00',
+            disponible=True,
+        )
+        mesera = MeseraConsumer()
+        mesera.scope = {'user': None}
+        mesera.channel_layer = AsyncMock()
+        mesera.send = AsyncMock()
+
+        async_to_sync(mesera.receive)(json.dumps({
+            'accion': 'crear_pedido',
+            'mesa_id': self.mesa.pk,
+            'request_id': 'comanda-prueba',
+            'items': [
+                {'plato_id': self.plato.pk, 'cantidad': 2},
+                {'plato_id': bebida.pk, 'cantidad': 3},
+            ],
+        }))
+
+        pedidos = list(
+            Pedido.objects.filter(mesa=self.mesa, sesion_id=self.mesa.sesion_id)
+            .exclude(pk=self.pedido.pk)
+        )
+        self.assertEqual({pedido.destino for pedido in pedidos}, {'cocina', 'barra'})
+        self.assertEqual(sum(item.cantidad for pedido in pedidos for item in pedido.items.all()), 5)
+        self.assertEqual(
+            sum(
+                len(json.loads(call.kwargs['text_data'])['pedido']['items'])
+                for call in mesera.send.await_args_list
+            ),
+            2,
+        )
+        self.assertTrue(all(
+            json.loads(call.kwargs['text_data'])['request_id'] == 'comanda-prueba'
+            for call in mesera.send.await_args_list
+        ))
+        self.assertTrue(all(pedido.estado == 'pendiente' for pedido in pedidos))
+
     def test_pedido_mixto_separa_bebidas_a_barra_y_no_a_cocina(self):
         categoria_bebidas = Categoria.objects.create(nombre='Bebidas', orden=2)
         bebida = Plato.objects.create(
@@ -268,6 +310,101 @@ class FacturaWorkflowTests(TestCase):
         )
         self.assertEqual(factura_evento['forma_pago'], 'usd')
         self.assertEqual(factura_evento['tasa_cambio'], '42.00')
+
+    def test_websocket_mesera_rechaza_cobro_de_mesa_con_pedidos_no_servidos(self):
+        mesera = MeseraConsumer()
+        mesera.scope = {'user': None}
+        mesera.channel_layer = AsyncMock()
+        mesera.send = AsyncMock()
+
+        async_to_sync(mesera.receive)(json.dumps({
+            'accion': 'preparar_cobro',
+            'mesa_numero': self.mesa.numero,
+            'forma_pago': 'efectivo_cup',
+        }))
+
+        respuesta = json.loads(mesera.send.await_args.kwargs['text_data'])
+        self.assertEqual(respuesta['tipo'], 'error_cobro')
+        self.assertIn('todos los pedidos', respuesta['mensaje'])
+        self.assertFalse(self.pedido.cuenta_solicitada)
+        mesera.channel_layer.group_send.assert_not_awaited()
+
+    def test_websocket_mesera_prepara_cobro_cuando_todos_los_pedidos_estan_servidos(self):
+        self.pedido.estado = 'servido'
+        self.pedido.save(update_fields=['estado'])
+        mesera = MeseraConsumer()
+        mesera.scope = {'user': None}
+        mesera.channel_layer = AsyncMock()
+        mesera.send = AsyncMock()
+
+        async_to_sync(mesera.receive)(json.dumps({
+            'accion': 'preparar_cobro',
+            'mesa_numero': self.mesa.numero,
+            'forma_pago': 'efectivo_cup',
+        }))
+
+        self.pedido.refresh_from_db()
+        self.assertTrue(self.pedido.cuenta_solicitada)
+        respuesta = json.loads(mesera.send.await_args.kwargs['text_data'])
+        self.assertEqual(respuesta['tipo'], 'cobro_preparado')
+        self.assertTrue(any(
+            call.args[0] == 'caja' and call.args[1]['type'] == 'factura_solicitada'
+            for call in mesera.channel_layer.group_send.await_args_list
+        ))
+
+    def test_caja_rechaza_cobrar_mesa_con_pedido_no_servido(self):
+        self.pedido.cuenta_solicitada = True
+        self.pedido.save(update_fields=['cuenta_solicitada'])
+
+        resultado, error = async_to_sync(CajaConsumer().cerrar_pedido_con_pago)(
+            self.pedido.pk,
+            'efectivo_cup',
+            None,
+        )
+
+        self.assertIsNone(resultado)
+        self.assertIn('todos los pedidos', error)
+        self.assertFalse(Factura.objects.filter(pedido=self.pedido).exists())
+        self.mesa.refresh_from_db()
+        self.assertTrue(self.mesa.abierta)
+
+    def test_caja_rechaza_cobrar_ticket_para_llevar_no_entregado(self):
+        grupo = uuid.uuid4()
+        pedido = Pedido.objects.create(
+            modalidad='para_llevar',
+            grupo_para_llevar=grupo,
+            estado='listo',
+            cuenta_solicitada=True,
+        )
+        ItemPedido.objects.create(pedido=pedido, plato=self.plato, cantidad=1)
+
+        resultado, error = async_to_sync(CajaConsumer().cerrar_pedido_con_pago)(
+            pedido.pk,
+            'efectivo_cup',
+            None,
+        )
+
+        self.assertIsNone(resultado)
+        self.assertIn('entregados', error)
+        self.assertFalse(Factura.objects.filter(pedido=pedido).exists())
+
+    def test_mesera_no_puede_marcar_servido_un_pedido_no_listo(self):
+        self.pedido.estado = 'en_preparacion'
+        self.pedido.save(update_fields=['estado'])
+        mesera = MeseraConsumer()
+        mesera.scope = {'user': None}
+        mesera.channel_layer = AsyncMock()
+        mesera.send = AsyncMock()
+
+        async_to_sync(mesera.receive)(json.dumps({
+            'accion': 'marcar_servido',
+            'pedido_id': self.pedido.pk,
+        }))
+
+        self.pedido.refresh_from_db()
+        self.assertEqual(self.pedido.estado, 'en_preparacion')
+        respuesta = json.loads(mesera.send.await_args.kwargs['text_data'])
+        self.assertEqual(respuesta['tipo'], 'error_servicio')
 
     def test_no_se_crea_pedido_para_llevar_sin_turno_abierto(self):
         mesera = MeseraConsumer()
@@ -426,6 +563,9 @@ class FacturaWorkflowTests(TestCase):
         self.assertContains(response, 'id="nav-bar"')
         self.assertContains(response, 'id="view-bar"')
         self.assertContains(response, 'function renderBarView()')
+        self.assertContains(response, 'id="send-order-${table.id}"')
+        self.assertContains(response, 'function actualizarEstadoBotonEnviarComanda(table)')
+        self.assertContains(response, 'table.comandaEnviandose || !(table.newOrder || []).some(item => item.qty > 0)')
         self.assertContains(response, 'id="nav-takeaway"')
         self.assertContains(response, 'id="takeaway-customer-name"')
         self.assertContains(response, 'id="takeaway-customer-phone"')
