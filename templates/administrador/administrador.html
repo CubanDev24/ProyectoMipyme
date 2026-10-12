@@ -90,14 +90,24 @@
     </div>
 
     <div id="admin-view-configuracion" class="admin-view">
-    <section class="admin-card categoria-panel">
-      <div class="turn-card-heading"><div class="turn-section-icon"><i class="fa-solid fa-tags"></i></div><div><p class="panel-kicker">Clasificación</p><h2>Nueva categoría</h2></div></div>
+    <section class="admin-card categoria-panel" id="categorias">
+      <div class="turn-card-heading"><div class="turn-section-icon"><i class="fa-solid fa-tags"></i></div><div><p class="panel-kicker">Clasificación</p><h2>Gestionar categorías</h2></div><span class="admin-section-count">{{ categorias|length }} categorías</span></div>
       <form method="post" action="{% url 'inventario:categoria_crear' %}" class="categoria-create-form">
         {% csrf_token %}
         <label for="nueva-categoria" class="sr-only">Nombre de la categoría</label>
         <input id="nueva-categoria" type="text" name="nombre" placeholder="Ej. Bebidas, Carnes, Postres" class="admin-input" required maxlength="100">
         <button type="submit" class="btn btn-primary"><i class="fa-solid fa-plus"></i> Agregar categoría</button>
       </form>
+      <div class="categoria-admin-list">
+        {% for categoria in categorias %}
+        <form method="post" action="{% url 'inventario:categoria_editar' categoria.pk %}" class="categoria-edit-form">
+          {% csrf_token %}
+          <label class="sr-only" for="categoria-{{ categoria.pk }}">Nombre de {{ categoria.nombre }}</label>
+          <input id="categoria-{{ categoria.pk }}" type="text" name="nombre" value="{{ categoria.nombre }}" class="admin-input" required maxlength="100">
+          <button type="submit" class="btn btn-outline btn-sm" title="Guardar categoría"><i class="fa-solid fa-floppy-disk"></i> Guardar</button>
+        </form>
+        {% empty %}<p class="admin-empty">Todavía no hay categorías creadas.</p>{% endfor %}
+      </div>
     </section>
 
     <!-- ── INSUMOS / INVENTARIO ─────────────────────────────── -->

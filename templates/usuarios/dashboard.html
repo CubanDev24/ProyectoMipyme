@@ -168,8 +168,8 @@
         <div class="turn-info-grid">
           <div><span>Estado</span><strong class="turn-status-value">{{ turno.get_estado_display }}</strong></div>
           <div><span>Fecha</span><strong>{{ turno.fecha|date:"d/m/Y" }}</strong></div>
-          <div><span>Mesas habilitadas</span><strong>{{ turno.cantidad_mesas }}</strong></div>
-          <div><span>Mesas exteriores</span><strong>{{ turno.cantidad_mesas_exteriores }}</strong></div>
+          <div><span>Mesas de salón activas</span><strong>{{ mesas_activas_salon }}</strong></div>
+          <div><span>Mesas exteriores activas</span><strong>{{ mesas_activas_exteriores }}</strong></div>
           <div><span>Miembros</span><strong>{% for user in turno.usuarios.all %}{{ user.get_full_name|default:user.username }}{% if not forloop.last %}, {% endif %}{% empty %}Sin participantes{% endfor %}</strong></div>
         </div>
         {% if resumen_turno %}
@@ -284,31 +284,64 @@
     </section>
 
     {% if turno and turno.estado == 'abierto' %}
-    <section class="admin-card turn-dashboard-card" aria-labelledby="configurar-mesas-heading">
-      <div class="turn-card-heading"><div class="turn-section-icon" aria-hidden="true"><i class="fa-solid fa-border-all"></i></div><div><p class="panel-kicker">Configuración</p><h2 id="configurar-mesas-heading">Configurar mesas del turno</h2></div></div>
-      <form method="post" action="{% url 'usuarios:configurar_mesas_turno' %}" class="turn-inline-form">
-        {% csrf_token %}
-        <label for="cantidad-mesas">Cantidad de mesas</label>
-        <input id="cantidad-mesas" type="number" name="cantidad_mesas" min="1" value="{{ turno.cantidad_mesas|default:10 }}" required class="admin-input">
-        <label for="cantidad-mesas-exteriores">Mesas exteriores</label>
-        <input id="cantidad-mesas-exteriores" type="number" name="cantidad_mesas_exteriores" min="0" value="{{ turno.cantidad_mesas_exteriores }}" required class="admin-input">
-        <button type="submit" class="btn btn-primary btn-sm turn-action-btn"><i class="fa-solid fa-check" aria-hidden="true"></i> Guardar mesas</button>
-      </form>
+    <section class="admin-card turn-dashboard-card turn-tables-card" aria-labelledby="configurar-mesas-heading">
+      <div class="turn-card-heading"><div class="turn-section-icon" aria-hidden="true"><i class="fa-solid fa-border-all"></i></div><div><p class="panel-kicker">Configuración</p><h2 id="configurar-mesas-heading">Mesas y códigos QR</h2></div><span class="admin-section-count">{{ mesas_activas_salon|add:mesas_activas_exteriores }} activas</span></div>
+      <p class="admin-hint">Activa o desactiva cada mesa por separado. El QR de cada una abre directamente la carta correspondiente.</p>
+      <div class="turn-table-add-actions">
+        <form method="post" action="{% url 'usuarios:agregar_mesa_turno' %}">
+          {% csrf_token %}<input type="hidden" name="zona" value="salon">
+          <button type="submit" class="btn btn-primary btn-sm"><i class="fa-solid fa-plus" aria-hidden="true"></i> Agregar mesa</button>
+        </form>
+        <form method="post" action="{% url 'usuarios:agregar_mesa_turno' %}">
+          {% csrf_token %}<input type="hidden" name="zona" value="exteriores">
+          <button type="submit" class="btn btn-outline btn-sm"><i class="fa-solid fa-plus" aria-hidden="true"></i> Agregar exterior</button>
+        </form>
+      </div>
+      {% regroup mesas_admin by zona as mesas_por_zona %}
+      <div class="turn-table-groups">
+        {% for grupo in mesas_por_zona %}
+        <section class="turn-table-group" aria-labelledby="mesas-zona-{{ grupo.grouper }}">
+          <h3 id="mesas-zona-{{ grupo.grouper }}">{% if grupo.grouper == 'exteriores' %}Mesas exteriores{% else %}Mesas de salón{% endif %}</h3>
+          <div class="turn-table-grid">
+            {% for mesa in grupo.list %}
+            <article class="turn-table-card {% if not mesa.activa %}is-inactive{% endif %}">
+              <img class="turn-table-qr" src="{{ mesa.qr_data }}" alt="Código QR de {{ mesa.etiqueta }}">
+              <div class="turn-table-details">
+                <strong>{{ mesa.etiqueta }}</strong>
+                <span class="turn-table-state">{% if mesa.activa %}Activa{% else %}Inactiva{% endif %}</span>
+                {% if mesa.activa %}<a href="{% url 'carta:qr_mesa' mesa.numero %}" target="_blank" rel="noopener"><i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i> Abrir / imprimir QR</a>{% endif %}
+                <form method="post" action="{% url 'usuarios:cambiar_estado_mesa_turno' mesa.pk %}">
+                  {% csrf_token %}
+                  <input type="hidden" name="activa" value="{% if mesa.activa %}0{% else %}1{% endif %}">
+                  <button type="submit" class="btn btn-sm {% if mesa.activa %}btn-outline{% else %}btn-primary{% endif %}">
+                    <i class="fa-solid {% if mesa.activa %}fa-ban{% else %}fa-check{% endif %}" aria-hidden="true"></i>
+                    {% if mesa.activa %}Desactivar{% else %}Activar{% endif %}
+                  </button>
+                </form>
+              </div>
+            </article>
+            {% empty %}<p class="admin-hint">Todavía no hay mesas en esta zona.</p>{% endfor %}
+          </div>
+        </section>
+        {% empty %}<p class="admin-hint">Todavía no hay mesas creadas.</p>{% endfor %}
+      </div>
     </section>
     {% endif %}
 
     {% endif %}
 
-    {% if user.role == 'cajera' %}
+    {% if turno and turno.estado == 'abierto' %}
+    {% if user.role == 'cajera' or user.role == 'administrador' %}
     <section class="admin-card turn-dashboard-card turn-close-card" aria-labelledby="cierre-turno-heading">
       <div class="turn-card-heading"><div class="turn-section-icon turn-close-icon" aria-hidden="true"><i class="fa-solid fa-lock"></i></div><div><p class="panel-kicker">Finalización</p><h2 id="cierre-turno-heading">Cierre de turno</h2></div></div>
       <form method="post" action="{% url 'usuarios:cerrar_turno' %}" class="turn-close-form" onsubmit="return confirm('¿Confirmas el cierre de este turno? Esta acción no se puede deshacer.');">
         {% csrf_token %}
         <label for="observaciones-cierre">Observaciones</label>
         <textarea id="observaciones-cierre" name="observaciones" rows="4" placeholder="Observaciones del cierre" class="admin-input"></textarea>
-        <button type="submit" class="btn btn-orange turn-action-btn"><i class="fa-solid fa-lock" aria-hidden="true"></i> Marcar cierre del turno</button>
+        <button type="submit" class="btn btn-orange turn-action-btn"><i class="fa-solid fa-lock" aria-hidden="true"></i> Cerrar turno</button>
       </form>
     </section>
+    {% endif %}
     {% endif %}
 
     <section class="admin-card turn-dashboard-card" aria-labelledby="notificaciones-heading">

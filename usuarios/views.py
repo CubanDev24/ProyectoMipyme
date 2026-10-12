@@ -3,7 +3,8 @@ from decimal import Decimal
 from django.contrib import messages
 from django.contrib.auth import logout, login, authenticate, get_user, update_session_auth_hash
 from django.contrib.auth.decorators import login_required
-from django.db.models import Sum
+from django.db.models import Max, Sum
+from django.db.models.functions import Coalesce
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
@@ -13,8 +14,9 @@ from django.views.decorators.http import require_http_methods
 from django.views.csrf import csrf_failure as django_csrf_failure
 
 from carta.models import Plato
+from carta.qr import generar_qr_mesa
 from inventario.models import Insumo, MovimientoInventario
-from pedidos.models import Factura
+from pedidos.models import Factura, Mesa, Pedido
 from .models import Notificacion, Turno, Usuario, cerrar_turno, configurar_turno, crear_mesas_del_turno, get_turno_abierto
 
 
@@ -86,6 +88,22 @@ def dashboard(request):
         turno = Turno.objects.filter(fecha=hoy).prefetch_related('usuarios').order_by('-apertura').first()
         turno_anterior = Turno.objects.filter(fecha__lt=hoy).prefetch_related('usuarios').order_by('-fecha', '-apertura').first()
         turno_abierto_pendiente = Turno.objects.filter(estado='abierto', fecha__lt=hoy).order_by('-fecha', '-apertura').first()
+    mesas_admin = []
+    mesas_activas_salon = 0
+    mesas_activas_exteriores = 0
+    if turno:
+        if request.user.role == 'administrador' and turno.estado == 'abierto':
+            crear_mesas_del_turno(turno)
+        mesas_activas = Mesa.objects.filter(activa=True).values_list('zona', flat=True)
+        for zona in mesas_activas:
+            if zona == 'exteriores':
+                mesas_activas_exteriores += 1
+            else:
+                mesas_activas_salon += 1
+        if request.user.role == 'administrador' and turno.estado == 'abierto':
+            mesas_admin = list(Mesa.objects.order_by('zona', 'numero_zona', 'numero'))
+        for mesa in mesas_admin:
+            mesa.qr_url, mesa.qr_data = generar_qr_mesa(request, mesa)
     notificaciones = Notificacion.objects.filter(destinatario=request.user).order_by('-creada_en')[:10]
     facturas_turno = Factura.objects.none()
     if turno:
@@ -101,6 +119,9 @@ def dashboard(request):
         'resumen_turno_anterior': turno_anterior.resumen_financiero if turno_anterior else None,
         'resumen_turno': turno.resumen_financiero if turno else None,
         'turno_abierto_pendiente': turno_abierto_pendiente,
+        'mesas_admin': mesas_admin,
+        'mesas_activas_salon': mesas_activas_salon,
+        'mesas_activas_exteriores': mesas_activas_exteriores,
         'facturas_turno': facturas_turno,
         'notificaciones': notificaciones,
     })
@@ -414,9 +435,78 @@ def configurar_mesas_turno_view(request):
 
 @login_required
 @require_http_methods(['POST'])
+def agregar_mesa_turno_view(request):
+    if request.user.role != 'administrador':
+        messages.error(request, 'Solo el administrador puede gestionar las mesas del turno.')
+        return redirect('usuarios:dashboard')
+
+    turno = get_turno_abierto()
+    if turno is None:
+        messages.error(request, 'Primero debes abrir el turno del día.')
+        return redirect('usuarios:dashboard')
+
+    zona = request.POST.get('zona', '')
+    if zona not in ('salon', 'exteriores'):
+        messages.error(request, 'Selecciona una zona válida para la mesa.')
+        return redirect('usuarios:dashboard')
+
+    siguiente_numero_zona = (
+        Mesa.objects.filter(zona=zona).aggregate(
+            ultimo=Max(Coalesce('numero_zona', 'numero')),
+        )['ultimo'] or 0
+    ) + 1
+    siguiente_numero = (Mesa.objects.aggregate(ultimo=Max('numero'))['ultimo'] or 0) + 1
+    mesa = Mesa.objects.create(
+        numero=siguiente_numero,
+        zona=zona,
+        numero_zona=siguiente_numero_zona,
+        activa=True,
+        abierta=False,
+    )
+    if zona == 'exteriores':
+        turno.cantidad_mesas_exteriores = max(turno.cantidad_mesas_exteriores, siguiente_numero_zona)
+        turno.save(update_fields=['cantidad_mesas_exteriores'])
+    else:
+        turno.cantidad_mesas = max(turno.cantidad_mesas, siguiente_numero_zona)
+        turno.save(update_fields=['cantidad_mesas'])
+    messages.success(request, f'{mesa.etiqueta} agregada y activada.')
+    return redirect('usuarios:dashboard')
+
+
+@login_required
+@require_http_methods(['POST'])
+def cambiar_estado_mesa_turno_view(request, mesa_id):
+    if request.user.role != 'administrador':
+        messages.error(request, 'Solo el administrador puede gestionar las mesas del turno.')
+        return redirect('usuarios:dashboard')
+
+    if get_turno_abierto() is None:
+        messages.error(request, 'Primero debes abrir el turno del día.')
+        return redirect('usuarios:dashboard')
+
+    mesa = get_object_or_404(Mesa, pk=mesa_id)
+    estado = request.POST.get('activa')
+    if estado not in ('0', '1'):
+        messages.error(request, 'El estado indicado para la mesa no es válido.')
+        return redirect('usuarios:dashboard')
+
+    activar = estado == '1'
+    if not activar and (mesa.abierta or Pedido.objects.filter(mesa=mesa).exclude(estado='cerrado').exists()):
+        messages.error(request, f'No se puede desactivar {mesa.etiqueta} mientras tenga una cuenta abierta.')
+        return redirect('usuarios:dashboard')
+
+    mesa.activa = activar
+    mesa.save(update_fields=['activa'])
+    estado_texto = 'activada' if activar else 'desactivada'
+    messages.success(request, f'{mesa.etiqueta} {estado_texto}.')
+    return redirect('usuarios:dashboard')
+
+
+@login_required
+@require_http_methods(['POST'])
 def cerrar_turno_view(request):
-    if request.user.role != 'cajera':
-        messages.error(request, 'Solo la cajera puede cerrar el turno.')
+    if request.user.role not in ('cajera', 'administrador'):
+        messages.error(request, 'Solo caja o el administrador pueden cerrar el turno.')
         return redirect('usuarios:dashboard')
 
     try:
