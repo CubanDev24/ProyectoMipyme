@@ -307,6 +307,38 @@ class UsuarioTurnoTests(TestCase):
         self.assertIn('250.00', turno_cerrado.resumen)
         self.assertTrue(Notificacion.objects.filter(destinatario=self.admin).exists())
 
+    def test_administrador_puede_cerrar_turno_desde_el_panel(self):
+        turno = registrar_inicio_turno(self.admin)
+        self.client.force_login(self.admin)
+
+        dashboard = self.client.get(reverse('usuarios:dashboard'))
+        self.assertContains(dashboard, 'Cerrar turno')
+
+        response = self.client.post(reverse('usuarios:cerrar_turno'), {
+            'observaciones': 'Cierre realizado por administración',
+        })
+
+        self.assertRedirects(response, reverse('usuarios:dashboard'))
+        turno.refresh_from_db()
+        self.assertEqual(turno.estado, 'cerrado')
+        self.assertEqual(turno.observaciones, 'Cierre realizado por administración')
+        self.assertTrue(Notificacion.objects.filter(
+            destinatario=self.admin,
+            mensaje__contains='Administrador admin cerró el turno',
+        ).exists())
+
+    def test_otros_roles_no_pueden_cerrar_turno(self):
+        registrar_inicio_turno(self.mesera)
+        self.client.force_login(self.mesera)
+
+        response = self.client.post(
+            reverse('usuarios:cerrar_turno'),
+            follow=True,
+        )
+
+        self.assertContains(response, 'Solo caja o el administrador pueden cerrar el turno')
+        self.assertEqual(Turno.objects.get(estado='abierto').estado, 'abierto')
+
     def test_configurar_turno_define_mesas_y_carta_del_turno(self):
         categoria = Categoria.objects.create(nombre='Entradas', orden=1)
         plato = Plato.objects.create(categoria=categoria, nombre='Croquetas', descripcion='Caseras', precio=Decimal('5.00'))
@@ -355,7 +387,22 @@ class UsuarioTurnoTests(TestCase):
         self.assertIn('Total general', turno_cerrado.resumen)
         self.assertIn('900.00', turno_cerrado.resumen)
 
-    def test_mesas_del_turno_limitan_las_mesas_disponibles_para_la_mesera(self):
+    def test_mesas_del_turno_respeta_el_estado_individual_de_cada_mesa(self):
+        for numero in range(1, 15):
+            Mesa.objects.get_or_create(numero=numero, defaults={'activa': True})
+
+        turno = registrar_inicio_turno(self.admin)
+        configurar_turno(turno, cantidad_mesas=5, platos=[])
+        Mesa.objects.filter(numero__in=[2, 4]).update(activa=False)
+
+        mesas = mesas_del_turno(turno)
+
+        self.assertEqual(
+            list(mesas.values_list('numero', flat=True)),
+            [1, 3, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14],
+        )
+
+    def test_mesas_activas_fuera_del_rango_anterior_siguen_disponibles(self):
         for numero in range(1, 15):
             Mesa.objects.get_or_create(numero=numero, defaults={'activa': True})
 
@@ -364,18 +411,7 @@ class UsuarioTurnoTests(TestCase):
 
         mesas = mesas_del_turno(turno)
 
-        self.assertEqual(list(mesas.values_list('numero', flat=True)), [1, 2, 3, 4, 5])
-
-    def test_mesas_del_turno_respecta_el_rango_1_al_n_configurado(self):
-        for numero in range(1, 15):
-            Mesa.objects.get_or_create(numero=numero, defaults={'activa': True})
-
-        turno = registrar_inicio_turno(self.admin)
-        configurar_turno(turno, cantidad_mesas=5, platos=[])
-
-        mesas = mesas_del_turno(turno)
-
-        self.assertEqual(list(mesas.values_list('numero', flat=True)), [1, 2, 3, 4, 5])
+        self.assertEqual(list(mesas.values_list('numero', flat=True)), list(range(1, 15)))
 
     def test_configurar_turno_crea_las_mesas_faltantes_hasta_la_cantidad(self):
         turno = registrar_inicio_turno(self.admin)
@@ -430,6 +466,72 @@ class UsuarioTurnoTests(TestCase):
             list(Mesa.objects.filter(zona='exteriores').values_list('numero_zona', flat=True)),
             [1, 2],
         )
+
+    def test_panel_admin_muestra_un_qr_y_estado_por_mesa(self):
+        registrar_inicio_turno(self.admin)
+        self.client.force_login(self.admin)
+
+        response = self.client.get(reverse('usuarios:dashboard'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Mesas y códigos QR')
+        self.assertContains(response, 'Código QR de Mesa 1')
+        self.assertContains(response, reverse('usuarios:agregar_mesa_turno'))
+        self.assertNotContains(response, 'cantidad-mesas')
+        self.assertEqual(len(response.context['mesas_admin']), 10)
+
+    def test_admin_puede_desactivar_y_activar_una_mesa_individualmente(self):
+        turno = registrar_inicio_turno(self.admin)
+        mesa = Mesa.objects.create(numero=80, activa=True)
+        self.client.force_login(self.admin)
+
+        response = self.client.post(
+            reverse('usuarios:cambiar_estado_mesa_turno', args=[mesa.pk]),
+            {'activa': '0'},
+        )
+
+        self.assertRedirects(response, reverse('usuarios:dashboard'))
+        mesa.refresh_from_db()
+        self.assertFalse(mesa.activa)
+        self.assertNotIn(mesa, mesas_del_turno(turno))
+
+        self.client.post(
+            reverse('usuarios:cambiar_estado_mesa_turno', args=[mesa.pk]),
+            {'activa': '1'},
+        )
+        mesa.refresh_from_db()
+        self.assertTrue(mesa.activa)
+        self.assertIn(mesa, mesas_del_turno(turno))
+
+    def test_mesa_con_cuenta_abierta_no_puede_desactivarse(self):
+        registrar_inicio_turno(self.admin)
+        mesa = Mesa.objects.create(numero=81, activa=True, abierta=True)
+        self.client.force_login(self.admin)
+
+        response = self.client.post(
+            reverse('usuarios:cambiar_estado_mesa_turno', args=[mesa.pk]),
+            {'activa': '0'},
+            follow=True,
+        )
+
+        mesa.refresh_from_db()
+        self.assertTrue(mesa.activa)
+        self.assertContains(response, 'mientras tenga una cuenta abierta')
+
+    def test_admin_puede_agregar_una_mesa_exterior(self):
+        turno = registrar_inicio_turno(self.admin)
+        self.client.force_login(self.admin)
+
+        response = self.client.post(
+            reverse('usuarios:agregar_mesa_turno'),
+            {'zona': 'exteriores'},
+        )
+
+        self.assertRedirects(response, reverse('usuarios:dashboard'))
+        mesa = Mesa.objects.get(zona='exteriores', numero_zona=1)
+        self.assertTrue(mesa.activa)
+        turno.refresh_from_db()
+        self.assertEqual(turno.cantidad_mesas_exteriores, 1)
 
     def test_turno_expone_metricas_historicas_y_vista_admin(self):
         turno = registrar_inicio_turno(self.mesera)

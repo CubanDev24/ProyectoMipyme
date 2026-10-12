@@ -65,7 +65,26 @@ def categoria_crear(request):
         else:
             Categoria.objects.create(nombre=nombre, orden=Categoria.objects.count() + 1)
             messages.success(request, f'Categoría "{nombre}" creada.')
-    return redirect('/administrador/#inventario')
+    return redirect('/administrador/#categorias')
+
+
+@login_required
+@user_passes_test(_es_admin)
+def categoria_editar(request, pk):
+    categoria = get_object_or_404(Categoria, pk=pk)
+    if request.method == 'POST':
+        nombre = request.POST.get('nombre', '').strip()
+        if not nombre:
+            messages.error(request, 'La categoría necesita un nombre.')
+        elif len(nombre) > Categoria._meta.get_field('nombre').max_length:
+            messages.error(request, 'El nombre de la categoría no puede superar los 100 caracteres.')
+        elif Categoria.objects.filter(nombre__iexact=nombre).exclude(pk=categoria.pk).exists():
+            messages.error(request, f'La categoría "{nombre}" ya existe.')
+        else:
+            categoria.nombre = nombre
+            categoria.save(update_fields=['nombre'])
+            messages.success(request, f'Categoría actualizada a "{nombre}".')
+    return redirect('/administrador/#categorias')
 
 
 @login_required

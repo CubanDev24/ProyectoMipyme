@@ -29,6 +29,31 @@ class InventarioFlowTests(TestCase):
         self.assertEqual(response.status_code, 302)
         self.assertTrue(Categoria.objects.filter(nombre='Bebidas').exists())
 
+    def test_admin_can_rename_a_category(self):
+        response = self.client.post(
+            reverse('inventario:categoria_editar', args=[self.categoria.pk]),
+            {'nombre': 'Entrantes'},
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.categoria.refresh_from_db()
+        self.assertEqual(self.categoria.nombre, 'Entrantes')
+
+    def test_category_rename_rejects_empty_or_duplicate_names(self):
+        otra_categoria = Categoria.objects.create(nombre='Bebidas', orden=2)
+
+        for nombre in ('', '  ', 'BEBIDAS'):
+            with self.subTest(nombre=nombre):
+                response = self.client.post(
+                    reverse('inventario:categoria_editar', args=[self.categoria.pk]),
+                    {'nombre': nombre},
+                )
+                self.assertEqual(response.status_code, 302)
+                self.categoria.refresh_from_db()
+                self.assertEqual(self.categoria.nombre, 'Platos principales')
+
+        self.assertEqual(otra_categoria.nombre, 'Bebidas')
+
     def test_carta_usa_el_precio_de_venta_del_inventario(self):
         self.insumo_1.precio = '18.50'
         self.insumo_1.save()
