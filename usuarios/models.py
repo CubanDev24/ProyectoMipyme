@@ -212,8 +212,8 @@ def mesas_del_turno(turno=None):
     if turno is None:
         return Mesa.objects.none()
     from pedidos.models import Mesa
-    cantidad = max(turno.cantidad_mesas, 1)
-    return crear_mesas_del_turno(turno)
+    crear_mesas_del_turno(turno)
+    return Mesa.objects.filter(activa=True).order_by('zona', 'numero_zona', 'numero')
 
 
 def registrar_inicio_turno(usuario):
@@ -244,8 +244,8 @@ def configurar_turno(turno, cantidad_mesas=None, platos=None, cantidad_mesas_ext
 
 
 def cerrar_turno(usuario, observaciones=''):
-    if usuario is None or getattr(usuario, 'role', None) != 'cajera':
-        raise PermissionError('Solo la cajera puede cerrar el turno.')
+    if usuario is None or getattr(usuario, 'role', None) not in ('cajera', 'administrador'):
+        raise PermissionError('Solo caja o el administrador pueden cerrar el turno.')
 
     turno = get_turno_abierto()
     if turno is None:
@@ -282,7 +282,7 @@ def cerrar_turno(usuario, observaciones=''):
         Notificacion.objects.create(
             destinatario=admin,
             asunto='Cierre de turno realizado',
-            mensaje=f'La cajera {usuario.username} cerró el turno del {turno.fecha:%d/%m/%Y}.\n\n{turno.resumen}',
+            mensaje=f'{usuario.get_role_display()} {usuario.username} cerró el turno del {turno.fecha:%d/%m/%Y}.\n\n{turno.resumen}',
             turno=turno,
         )
     return turno

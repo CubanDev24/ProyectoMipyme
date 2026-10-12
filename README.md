@@ -31,7 +31,7 @@ con el botón **Imprimir QR**.
 | `/pedidos/cocina/` | **Cocina** | Ve pedidos en tiempo real, cambia estado |
 | `/pedidos/caja/` | **Caja** | Verifica inventario, cobra y cierra cuentas |
 | `/mesa/<N>/` | **Cliente** | Ve carta, pide, solicita cuenta |
-| `/administrador/` | **Administrador** | Insumos de inventario, recetas y tasa de cambio |
+| `/administrador/` | **Administrador** | Mesas del turno y sus QR, inventario, recetas y tasa de cambio |
 | `/admin/` | Admin Django | Gestión de datos (opcional, mismo modelo) |
 
 ## Flujo completo
@@ -39,9 +39,11 @@ con el botón **Imprimir QR**.
 1. **Administrador** en `/administrador/` da de alta los insumos de inventario (nombre,
    unidad, stock actual y mínimo) y, por cada plato de la carta, indica qué insumos
    consume y en qué cantidad (la "receta"). También configura la tasa de cambio
-   CUP/USD vigente.
+   CUP/USD vigente. En el panel de turno puede activar o desactivar cada mesa por
+   separado, ver su QR y agregar mesas de salón o exteriores.
 2. **Mesera** abre `/pedidos/mesera/`, selecciona mesa, agrega platos y envía a cocina
    - También puede el **cliente** desde `/mesa/<N>/`
+   - **Caja o el administrador** pueden cerrar el turno desde el panel de turno.
 3. **Cocina** en `/pedidos/cocina/` recibe el pedido → lo pasa a "En preparación" → "Listo"
 4. **Mesera** ve que el plato está listo y lo recoge → lo marca como "Servido".
    En este momento el sistema descuenta automáticamente el inventario según la
@@ -117,13 +119,26 @@ con el botón **Imprimir QR**.
 - La imagen de cada plato sale en la cocina.
 - Se le agrego una frase a la factura.
 - Se cambio el flujo y se agrego una seccion de barra a la mesera para que las bebidas pudiera manejarlas desde el mismo panel y no salieran en cocina.
+- Se agrego la funcionalidad de editar categorias en el panel de administracion.
+- Se agregaron las mesas ecteriores.
 
 
 ## por hacer:
 - pedir agregos a un plato o un trago.
-- Adicionar mesas exteriores.
 - corregir los permisos de los usuarios para las vistas. 
-- no permitir mas de una sesion activa por usuario.
-- cuando se cierre el turno se desloguee todos los usuarios en el sistema que no sean admins.
 - Agregar un delay a la llamada de la mesera. 
 - Al agregar un pedido para llevar si tiene algun producto de cocina, agregar un termopad a la compra.
+
+- Las modales no se abra una detras de la otra
+- que no puedas cobrar antes de enviar un pedido a cocina
+
+-Cambiar para que la carta no se genere automaticamente, sino que la cree el admin a partir de los productos disponibles en el inventario de la cocina.
+-mejorar las tablas de administracion con funcionalidades de excel.
+-poner un inventario para la cocina y uno para el restaurante
+-crear nuevos roles con permisos definidos para el admin
+
+
+
+
+## Notas
+eliminar el main css y que cada html tenga sus estilos en su mismo archivo para que no haya conflicto

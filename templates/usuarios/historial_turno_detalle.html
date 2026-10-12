@@ -197,14 +197,7 @@
           <p class="text-xs text-emerald-400 font-medium">Administrador &bull; Activo</p>
         </div>
       </div>
-      <nav class="p-3 space-y-1">
-        <a href="{% url 'inventario:administrador' %}" class="w-full flex items-center gap-3 px-3 py-3 rounded-xl font-medium text-sm text-slate-400 hover:text-white hover:bg-slate-800/50 transition-all">
-          <i class="fa-solid fa-sliders text-lg w-6 text-center"></i><span class="hidden lg:inline">Configuración</span>
-        </a>
-        <a href="{% url 'usuarios:historial_turnos' %}" class="w-full flex items-center gap-3 px-3 py-3 rounded-xl font-medium text-sm bg-slate-800/60 text-white transition-all">
-          <i class="fa-solid fa-clock-rotate-left text-lg w-6 text-center text-emerald-400"></i><span class="hidden lg:inline">Historial de turnos</span>
-        </a>
-      </nav>
+      {% include "usuarios/_admin_sidebar_nav.html" with seccion_activa="historial" %}
     </div>
     <div class="p-3 border-t border-slate-800/80">
       <a href="{% url 'usuarios:logout' %}" class="w-full flex items-center justify-center lg:justify-start gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold text-rose-400 hover:bg-rose-500/10 transition-all">
