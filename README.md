@@ -132,10 +132,11 @@ con el botón **Imprimir QR**.
 - Las modales no se abra una detras de la otra
 - que no puedas cobrar antes de enviar un pedido a cocina
 
--Cambiar para que la carta no se genere automaticamente, sino que la cree el admin a partir de los productos disponibles en el inventario de la cocina.
--mejorar las tablas de administracion con funcionalidades de excel.
--poner un inventario para la cocina y uno para el restaurante
--crear nuevos roles con permisos definidos para el admin
+- Cambiar para que la carta no se genere automaticamente, sino que la cree el admin a partir de los productos disponibles en el inventario de la cocina.
+
+- mejorar las tablas de administracion con funcionalidades de excel.
+- poner un inventario para la cocina y uno para el restaurante
+- crear nuevos roles con permisos definidos para el admin
 
 
 
