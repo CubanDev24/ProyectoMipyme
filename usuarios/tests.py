@@ -328,14 +328,55 @@ class UsuarioTurnoTests(TestCase):
 
         response = self.client.post(reverse('usuarios:cerrar_turno'), {
             'observaciones': 'Cierre realizado por administración',
-        })
+        }, follow=True)
 
-        self.assertRedirects(response, reverse('usuarios:dashboard'))
+        self.assertRedirects(
+            response,
+            reverse('usuarios:historial_turno_detalle', args=[turno.pk]),
+        )
+        self.assertContains(response, 'Turno cerrado')
+        self.assertContains(response, 'Cierre realizado por administración')
         turno.refresh_from_db()
         self.assertEqual(turno.estado, 'cerrado')
         self.assertEqual(turno.observaciones, 'Cierre realizado por administración')
         self.assertTrue(Notificacion.objects.filter(
             destinatario=self.admin,
+            mensaje__contains='Administrador admin cerró el turno',
+        ).exists())
+
+    def test_administrador_puede_cerrar_turno_abierto_del_dia_anterior(self):
+        turno_anterior = Turno.objects.create(
+            fecha=timezone.localdate() - timedelta(days=1),
+            estado='abierto',
+        )
+        turno_hoy = Turno.objects.create(fecha=timezone.localdate(), estado='abierto')
+        self.client.force_login(self.admin)
+
+        dashboard = self.client.get(reverse('usuarios:dashboard'))
+
+        self.assertContains(dashboard, 'Turno anterior pendiente')
+        self.assertContains(dashboard, 'Cerrar turno pendiente')
+        self.assertContains(dashboard, f'name="turno_id" value="{turno_anterior.pk}"')
+
+        response = self.client.post(reverse('usuarios:cerrar_turno'), {
+            'turno_id': turno_anterior.pk,
+            'observaciones': 'Cierre del turno atrasado',
+        }, follow=True)
+
+        self.assertRedirects(
+            response,
+            reverse('usuarios:historial_turno_detalle', args=[turno_anterior.pk]),
+        )
+        self.assertContains(response, 'Turno cerrado')
+        self.assertContains(response, 'Cierre del turno atrasado')
+        turno_anterior.refresh_from_db()
+        turno_hoy.refresh_from_db()
+        self.assertEqual(turno_anterior.estado, 'cerrado')
+        self.assertEqual(turno_anterior.observaciones, 'Cierre del turno atrasado')
+        self.assertEqual(turno_hoy.estado, 'abierto')
+        self.assertTrue(Notificacion.objects.filter(
+            destinatario=self.admin,
+            turno=turno_anterior,
             mensaje__contains='Administrador admin cerró el turno',
         ).exists())
 

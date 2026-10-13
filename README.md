@@ -137,15 +137,15 @@ con el botón **Imprimir QR**.
 - Se corrigio para que no pueda cobrar antes de que el pedido este servido.
 - Se separo el inventario en Cocina y Restaurante, con categorías independientes y
   clasificación manual segura para los productos anteriores.
+- La carta se genera a partir de los productos que decida el administrador del inventario.
 
 
 ## por hacer:
 - pedir agregos a un plato o un trago.
 - corregir los permisos de los usuarios para las vistas. 
-- Agregar un delay a la llamada de la mesera. 
 - Al agregar un pedido para llevar si tiene algun producto de cocina, agregar un termopad a la compra.
 
--Cambiar para que la carta no se genere automaticamente, sino que la cree el admin a partir de los productos disponibles en el inventario de la cocina.
+
 -mejorar las tablas de administracion con funcionalidades de excel.
 -crear nuevos roles con permisos definidos para el admin
 
