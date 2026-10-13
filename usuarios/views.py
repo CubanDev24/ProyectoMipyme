@@ -179,7 +179,11 @@ def inventario_ventas_turno(request):
         })
 
     ahora = timezone.now()
-    insumos = list(Insumo.objects.filter(activo=True).select_related('categoria').order_by('nombre'))
+    insumos = list(
+        Insumo.objects.filter(activo=True)
+        .select_related('categoria', 'categoria_inventario')
+        .order_by('nombre')
+    )
     insumo_ids = [insumo.pk for insumo in insumos]
     movimientos = MovimientoInventario.objects.filter(
         insumo_id__in=insumo_ids,
@@ -249,7 +253,12 @@ def inventario_ventas_turno(request):
         merma = mov.get('merma', Decimal('0'))
         productos.append({
             'nombre': insumo.nombre,
-            'categoria': insumo.categoria.nombre if insumo.categoria else 'Sin categoría',
+            'area': insumo.get_tipo_inventario_display() if insumo.tipo_inventario else 'Por clasificar',
+            'categoria': (
+                insumo.categoria_inventario.nombre if insumo.categoria_inventario
+                else insumo.categoria.nombre if insumo.categoria
+                else 'Sin categoría'
+            ),
             'unidad': insumo.get_unidad_display(),
             'saldo_inicial': str(inicial),
             'entradas': str(entradas),
@@ -597,7 +606,7 @@ def ipv_turno(request, turno_id):
     # ── Movimientos de inventario ──────────────────────────────────────────────
     insumos = list(
         Insumo.objects.filter(activo=True)
-        .select_related('categoria')
+        .select_related('categoria', 'categoria_inventario')
         .order_by('nombre')
     )
     insumo_ids = [insumo.pk for insumo in insumos]
@@ -688,7 +697,12 @@ def ipv_turno(request, turno_id):
 
         filas.append({
             'nombre': insumo.nombre,
-            'categoria': insumo.categoria.nombre if insumo.categoria else 'Sin categoría',
+            'area': insumo.get_tipo_inventario_display() if insumo.tipo_inventario else 'Por clasificar',
+            'categoria': (
+                insumo.categoria_inventario.nombre if insumo.categoria_inventario
+                else insumo.categoria.nombre if insumo.categoria
+                else 'Sin categoría'
+            ),
             'unidad': insumo.get_unidad_display(),
             'saldo_inicial': None,
             'entradas': str(entradas),

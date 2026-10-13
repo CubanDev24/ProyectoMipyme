@@ -36,9 +36,11 @@ def _build_caja_estadisticas_payload():
                 salidas[receta.insumo_id] += receta.cantidad * item.cantidad
 
     inventario = []
-    for insumo in Insumo.objects.all():
+    for insumo in Insumo.objects.select_related('categoria_inventario'):
         inventario.append({
             'nombre': insumo.nombre,
+            'area': insumo.get_tipo_inventario_display() if insumo.tipo_inventario else 'Por clasificar',
+            'categoria': insumo.categoria_inventario.nombre if insumo.categoria_inventario else 'Sin categoría',
             'unidad': insumo.get_unidad_display(),
             'salida': str(salidas[insumo.id]),
             'stock_actual': str(insumo.stock_actual),
@@ -68,8 +70,14 @@ def en_turno(nombre):
 @login_required
 @user_passes_test(_rol_permitido('mesera'))
 def mesera(request):
-    productos = Plato.objects.filter(disponible=True).select_related('categoria').order_by('categoria__orden', 'categoria__nombre', 'nombre')
-    categorias = Categoria.objects.filter(platos__disponible=True).distinct().order_by('orden', 'nombre')
+    productos = Plato.objects.filter(
+        disponible=True,
+        receta__isnull=False,
+    ).distinct().select_related('categoria').order_by('categoria__orden', 'categoria__nombre', 'nombre')
+    categorias = Categoria.objects.filter(
+        platos__disponible=True,
+        platos__receta__isnull=False,
+    ).distinct().order_by('orden', 'nombre')
     turno = get_turno_abierto()
     mesas = mesas_del_turno(turno) if turno else Mesa.objects.none()
     mesera_en_turno = en_turno(request.user.username)

@@ -1,5 +1,6 @@
 import json
 import uuid
+from decimal import Decimal
 from io import BytesIO
 from tempfile import TemporaryDirectory
 from unittest.mock import AsyncMock
@@ -31,9 +32,18 @@ class FacturaWorkflowTests(TestCase):
             disponible=True,
             orden=1,
         )
+        self.insumo_receta = Insumo.objects.create(
+            nombre='Ingrediente de receta de pruebas',
+            tipo_inventario='cocina',
+            stock_actual='1000',
+        )
+        self.asociar_receta(self.plato)
         self.mesa = Mesa.objects.create(numero=7, abierta=True, activa=True)
         self.pedido = Pedido.objects.create(mesa=self.mesa, estado='listo', sesion_id=self.mesa.sesion_id)
         ItemPedido.objects.create(pedido=self.pedido, plato=self.plato, cantidad=2)
+
+    def asociar_receta(self, plato):
+        RecetaItem.objects.create(plato=plato, insumo=self.insumo_receta, cantidad=1)
 
     def test_cliente_solicita_cuenta_con_resumen_completo(self):
         cuenta = serializar_cuenta([self.pedido])
@@ -50,6 +60,31 @@ class FacturaWorkflowTests(TestCase):
         pedido = serializar_pedido(self.pedido)
 
         self.assertTrue(pedido['items'][0]['imagen_url'].endswith('/media/carta/pizza.png'))
+
+    def test_public_menu_and_order_flow_hide_dishes_without_a_recipe(self):
+        sin_receta = Plato.objects.create(
+            categoria=self.categoria,
+            nombre='Plato sin receta',
+            precio='10.00',
+            disponible=True,
+        )
+
+        respuesta_carta = self.client.get(reverse('carta:carta', args=[self.mesa.numero]))
+        platos_publicados = respuesta_carta.context['categorias'][0].platos.all()
+        self.assertEqual(list(platos_publicados), [self.plato])
+
+        User = get_user_model()
+        mesera = User.objects.create_user(username='mesera_menu', password='123456', role='mesera')
+        self.client.force_login(mesera)
+        respuesta_mesera = self.client.get(reverse('pedidos:mesera'))
+        self.assertEqual(list(respuesta_mesera.context['productos']), [self.plato])
+
+        cliente = ClienteConsumer()
+        cliente.mesa_numero = str(self.mesa.numero)
+        pedidos = async_to_sync(cliente.crear_pedido)([
+            {'plato_id': sin_receta.pk, 'cantidad': 1},
+        ], '')
+        self.assertEqual(pedidos, [])
 
     def test_pedido_de_exteriores_conserva_mesa_y_etiqueta_de_zona(self):
         mesa_exterior = Mesa.objects.create(
@@ -150,6 +185,7 @@ class FacturaWorkflowTests(TestCase):
             precio='10.00',
             disponible=True,
         )
+        self.asociar_receta(bebida)
         mesera = MeseraConsumer()
         mesera.scope = {'user': None}
         mesera.channel_layer = AsyncMock()
@@ -192,6 +228,7 @@ class FacturaWorkflowTests(TestCase):
             precio='10.00',
             disponible=True,
         )
+        self.asociar_receta(bebida)
         cliente = ClienteConsumer()
         cliente.mesa_numero = str(self.mesa.numero)
 
@@ -222,6 +259,7 @@ class FacturaWorkflowTests(TestCase):
         Turno.objects.create()
         categoria_bebidas = Categoria.objects.create(nombre='Bebidas para llevar', orden=2)
         bebida = Plato.objects.create(categoria=categoria_bebidas, nombre='Agua', precio='5.00', disponible=True)
+        self.asociar_receta(bebida)
         mesera = MeseraConsumer()
 
         pedidos = async_to_sync(mesera.crear_pedido_para_llevar)([
@@ -251,6 +289,7 @@ class FacturaWorkflowTests(TestCase):
         Turno.objects.create()
         categoria_bebidas = Categoria.objects.create(nombre='Bebidas de barra', orden=2)
         bebida = Plato.objects.create(categoria=categoria_bebidas, nombre='Limonada', precio='7.00', disponible=True)
+        self.asociar_receta(bebida)
         mesera = MeseraConsumer()
         mesera.scope = {'user': None}
         pedido = async_to_sync(mesera.crear_pedido_para_llevar)([
@@ -436,6 +475,7 @@ class FacturaWorkflowTests(TestCase):
         insumo = Insumo.objects.create(nombre='Queso de ticket', categoria=self.categoria, stock_actual='10.00')
         categoria_bebidas = Categoria.objects.create(nombre='Bebidas para el ticket', orden=2)
         bebida = Plato.objects.create(categoria=categoria_bebidas, nombre='Limonada del ticket', precio='7.00', disponible=True)
+        self.asociar_receta(bebida)
         insumo_bebida = Insumo.objects.create(nombre='Limón de ticket', categoria=categoria_bebidas, stock_actual='8.00')
         RecetaItem.objects.create(plato=self.plato, insumo=insumo, cantidad='0.50')
         RecetaItem.objects.create(plato=bebida, insumo=insumo_bebida, cantidad='1.00')
@@ -464,9 +504,9 @@ class FacturaWorkflowTests(TestCase):
         self.assertEqual(Pedido.objects.filter(grupo_para_llevar=grupo_para_llevar, estado='entregado').count(), 2)
         self.assertFalse(alertas)
         insumo.refresh_from_db()
-        self.assertEqual(str(insumo.stock_actual), '9.00')
+        self.assertEqual(insumo.stock_actual, Decimal('9.000'))
         insumo_bebida.refresh_from_db()
-        self.assertEqual(str(insumo_bebida.stock_actual), '7.00')
+        self.assertEqual(insumo_bebida.stock_actual, Decimal('7.000'))
         pedidos_actualizados, cuenta = async_to_sync(mesera.preparar_cobro_para_llevar)(
             grupo_para_llevar,
             'usd',
@@ -566,6 +606,9 @@ class FacturaWorkflowTests(TestCase):
         self.assertContains(response, 'id="send-order-${table.id}"')
         self.assertContains(response, 'function actualizarEstadoBotonEnviarComanda(table)')
         self.assertContains(response, 'table.comandaEnviandose || !(table.newOrder || []).some(item => item.qty > 0)')
+        self.assertContains(response, '${(table.pedidos || []).length ? `')
+        self.assertContains(response, "if (table && !(table.pedidos || []).length && !itemsCuenta.length)")
+        self.assertContains(response, 'No hay pedidos')
         self.assertContains(response, 'id="nav-takeaway"')
         self.assertContains(response, 'id="takeaway-customer-name"')
         self.assertContains(response, 'id="takeaway-customer-phone"')

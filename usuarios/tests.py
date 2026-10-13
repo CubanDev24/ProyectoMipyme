@@ -110,6 +110,8 @@ class UsuarioTurnoTests(TestCase):
         self.assertContains(response, 'Abrir turno de hoy')
         self.assertContains(response, 'El turno anterior fue el')
         self.assertContains(response, reverse('usuarios:historial_turno_detalle', args=[turno_anterior.pk]))
+        self.assertContains(response, f'href="{reverse("inventario:administrador")}#inventario-restaurante"')
+        self.assertContains(response, f'href="{reverse("inventario:administrador")}#inventario-cocina"')
         self.assertNotContains(response, 'Crear usuario')
 
     def test_dashboard_admin_con_turno_cerrado_muestra_detalle_e_historial(self):
@@ -161,6 +163,8 @@ class UsuarioTurnoTests(TestCase):
         enlaces_sidebar = [
             f'href="{reverse("inventario:administrador")}#configuracion"',
             f'href="{reverse("inventario:administrador")}#carta"',
+            f'href="{reverse("inventario:administrador")}#inventario-restaurante"',
+            f'href="{reverse("inventario:administrador")}#inventario-cocina"',
             f'href="{reverse("usuarios:gestion_usuarios")}"',
             f'href="{reverse("usuarios:dashboard")}"',
             f'href="{reverse("usuarios:historial_turnos")}"',

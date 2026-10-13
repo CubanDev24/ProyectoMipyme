@@ -1291,9 +1291,11 @@
                     <button id="send-order-${table.id}" onclick="sendOrderToKitchen(${table.id})" ${table.comandaEnviandose || !(table.newOrder || []).some(item => item.qty > 0) ? 'disabled' : ''} class="px-4 py-3 bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold rounded-xl text-xs flex items-center gap-2 transition-all disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-slate-800">
                         <i class="fa-solid fa-paper-plane text-amber-400"></i> Enviar comanda
                     </button>
+                    ${(table.pedidos || []).length ? `
                     <button onclick="openPaymentModal()" class="flex-1 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold py-3 rounded-xl transition-all shadow-lg shadow-emerald-500/20 flex items-center justify-center gap-2 text-sm">
                         <i class="fa-solid fa-receipt"></i> Cobrar y Cerrar Cuenta
                     </button>
+                    ` : ''}
                 `;
             } else if (table.status === 'limpieza') {
                 footer.innerHTML = `
@@ -1536,6 +1538,11 @@
             const table = tables.find(t => t.id === activeTableId);
             const total = cuentaEnProceso ? parseFloat(cuentaEnProceso.total_cup || cuentaEnProceso.total || 0) : calculateTableTotal(activeTableId);
             if (!table && !cuentaEnProceso) return;
+            const itemsCuenta = cuentaEnProceso?.items || cuentaEnProceso?.items_snapshot || [];
+            if (table && !(table.pedidos || []).length && !itemsCuenta.length) {
+                showToast('No hay pedidos', 'Agrega productos y envía una comanda antes de abrir la cuenta.');
+                return;
+            }
             if (!cuentaEnProceso && table && (
                 (table.newOrder || []).length
                 || (table.pedidos || []).some(pedido => pedido.estado !== 'servido')

@@ -4,8 +4,31 @@ from carta.models import Categoria, Plato
 from django.conf import settings
 
 
+class CategoriaInventario(models.Model):
+    TIPO_CHOICES = [
+        ('cocina', 'Cocina'),
+        ('restaurante', 'Restaurante'),
+    ]
+
+    tipo = models.CharField(max_length=12, choices=TIPO_CHOICES)
+    nombre = models.CharField(max_length=100)
+    orden = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        ordering = ['orden', 'nombre']
+        constraints = [
+            models.UniqueConstraint(fields=['tipo', 'nombre'], name='uniq_categoria_inventario_tipo_nombre'),
+        ]
+        verbose_name = 'Categoría de inventario'
+        verbose_name_plural = 'Categorías de inventario'
+
+    def __str__(self):
+        return self.nombre
+
+
 class Insumo(models.Model):
     """Un producto/ingrediente de inventario (harina, pollo, refresco embotellado, etc)."""
+    TIPO_INVENTARIO_CHOICES = CategoriaInventario.TIPO_CHOICES
     UNIDAD_CHOICES = [
         ('unidad', 'Unidad'),
         ('kg', 'Kilogramo'),
@@ -14,11 +37,24 @@ class Insumo(models.Model):
         ('ml', 'Mililitro'),
     ]
     nombre = models.CharField(max_length=150, unique=True)
+    tipo_inventario = models.CharField(
+        max_length=12,
+        choices=TIPO_INVENTARIO_CHOICES,
+        null=True,
+        blank=True,
+    )
+    categoria_inventario = models.ForeignKey(
+        CategoriaInventario,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='insumos',
+    )
     categoria = models.ForeignKey(Categoria, on_delete=models.SET_NULL, null=True, blank=True, related_name='insumos')
     unidad = models.CharField(max_length=10, choices=UNIDAD_CHOICES, default='unidad')
-    stock_actual = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0'))
-    stock_minimo = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0'))
-    stock_maximo = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0'))
+    stock_actual = models.DecimalField(max_digits=11, decimal_places=3, default=Decimal('0'))
+    stock_minimo = models.DecimalField(max_digits=11, decimal_places=3, default=Decimal('0'))
+    stock_maximo = models.DecimalField(max_digits=11, decimal_places=3, default=Decimal('0'))
     costo = models.DecimalField(max_digits=8, decimal_places=2, default=Decimal('0'))
     precio = models.DecimalField(max_digits=8, decimal_places=2, default=Decimal('0'))
     disponible = models.BooleanField(default=True)
@@ -33,40 +69,6 @@ class Insumo(models.Model):
 
     def __str__(self):
         return self.nombre
-
-    @property
-    def plato(self):
-        return Plato.objects.filter(nombre__iexact=self.nombre).order_by('-id').first()
-
-    @property
-    def plato_id(self):
-        plato = self.plato
-        return plato.id if plato else None
-
-    def save(self, *args, **kwargs):
-        super().save(*args, **kwargs)
-        if not self.nombre:
-            return
-        categoria = self.categoria or Categoria.objects.order_by('orden', 'nombre').first()
-        if categoria is None:
-            categoria, _ = Categoria.objects.get_or_create(nombre='General', defaults={'orden': 0})
-        plato_defaults = {
-            'categoria': categoria,
-            'descripcion': f'Producto del inventario: {self.nombre}',
-            'precio': self.precio or Decimal('0'),
-            'disponible': self.disponible and self.activo,
-            'orden': Plato.objects.count() + 1,
-        }
-        plato, _ = Plato.objects.get_or_create(
-            nombre__iexact=self.nombre,
-            defaults={**plato_defaults, 'nombre': self.nombre},
-        )
-        plato.categoria = categoria
-        plato.nombre = self.nombre
-        plato.descripcion = plato_defaults['descripcion']
-        plato.precio = self.precio or Decimal('0')
-        plato.disponible = self.disponible and self.activo
-        plato.save()
 
     @property
     def stock_bajo(self):
@@ -87,12 +89,18 @@ class MovimientoInventario(models.Model):
         blank=True,
         related_name='movimientos',
     )
+    tipo_inventario = models.CharField(
+        max_length=12,
+        choices=CategoriaInventario.TIPO_CHOICES,
+        null=True,
+        blank=True,
+    )
     producto_nombre = models.CharField(max_length=150)
     categoria_nombre = models.CharField(max_length=150, blank=True, default='Sin categoría')
     tipo = models.CharField(max_length=10, choices=TIPO_CHOICES)
-    cantidad = models.DecimalField(max_digits=10, decimal_places=2)
-    stock_anterior = models.DecimalField(max_digits=10, decimal_places=2)
-    stock_posterior = models.DecimalField(max_digits=10, decimal_places=2)
+    cantidad = models.DecimalField(max_digits=11, decimal_places=3)
+    stock_anterior = models.DecimalField(max_digits=11, decimal_places=3)
+    stock_posterior = models.DecimalField(max_digits=11, decimal_places=3)
     unidad = models.CharField(max_length=10, blank=True, default='unidad')
     usuario = models.ForeignKey(
         settings.AUTH_USER_MODEL,

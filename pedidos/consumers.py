@@ -82,10 +82,14 @@ def crear_pedidos_por_destino(
         if not isinstance(item_data, dict):
             continue
         try:
-            plato = Plato.objects.select_related('categoria').get(
-                pk=item_data.get('plato_id'), disponible=True,
-            )
-        except (Plato.DoesNotExist, TypeError, ValueError):
+            plato = Plato.objects.filter(
+                pk=item_data.get('plato_id'),
+                disponible=True,
+                receta__isnull=False,
+            ).distinct().select_related('categoria').first()
+        except (TypeError, ValueError):
+            continue
+        if not plato:
             continue
         categoria = (plato.categoria.nombre or '').strip().casefold()
         destino = 'barra' if categoria.startswith('bebid') else 'cocina'
