@@ -146,14 +146,8 @@ con el botón **Imprimir QR**.
 - Al agregar un pedido para llevar si tiene algun producto de cocina, agregar un termopad a la compra.
 
 
-- Cambiar para que la carta no se genere automaticamente, sino que la cree el admin a partir de los productos disponibles en el inventario de la cocina.
-
-- mejorar las tablas de administracion con funcionalidades de excel.
-- poner un inventario para la cocina y uno para el restaurante
-- crear nuevos roles con permisos definidos para el admin
 -mejorar las tablas de administracion con funcionalidades de excel.
 -crear nuevos roles con permisos definidos para el admin
-
 
 
 
