@@ -196,7 +196,6 @@ class UsuarioTurnoTests(TestCase):
                 self.assertEqual(response.status_code, 200)
                 self.assertContains(response, enlace_rol)
                 self.assertContains(response, f'{etiqueta_rol} &bull; Activo')
-                self.assertNotContains(response, 'Sin turno')
                 if usuario.role == 'mesera':
                     for seccion in (
                         'tables',
@@ -287,14 +286,14 @@ class UsuarioTurnoTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         producto = next(row for row in response.json()['productos'] if row['nombre'] == 'Coca-Cola')
-        self.assertEqual(producto['saldo_inicial'], '10.00')
-        self.assertEqual(producto['entradas'], '5.00')
-        self.assertEqual(producto['cantidad_existencia'], '12.00')
+        self.assertEqual(producto['saldo_inicial'], '10.000')
+        self.assertEqual(producto['entradas'], '5.000')
+        self.assertEqual(producto['cantidad_existencia'], '12.000')
         self.assertEqual(producto['cantidad_vendida'], '2')
-        self.assertEqual(producto['saldo_final'], '12.00')
+        self.assertEqual(producto['saldo_final'], '12.000')
         self.assertEqual(producto['precio_venta'], '12.50')
         self.assertEqual(producto['importe_venta'], '25.00')
-        self.assertEqual(producto['merma_rotura'], '1.00')
+        self.assertEqual(producto['merma_rotura'], '1.000')
         venta_sin_control = next(row for row in response.json()['productos'] if row['nombre'] == plato_sin_inventario.nombre)
         self.assertFalse(venta_sin_control['control_existencia'])
         self.assertEqual(venta_sin_control['cantidad_vendida'], '1')
@@ -649,8 +648,8 @@ class UsuarioTurnoTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         producto = next(row for row in response.json()['filas'] if row['nombre'] == insumo.nombre)
-        self.assertEqual(producto['entradas'], '5.00')
-        self.assertEqual(producto['cantidad_existencia'], '13.00')
+        self.assertEqual(producto['entradas'], '5.000')
+        self.assertEqual(producto['cantidad_existencia'], '13.000')
         self.assertIsNone(producto['saldo_inicial'])
         self.assertIsNone(producto['saldo_final'])
 

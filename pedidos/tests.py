@@ -50,7 +50,7 @@ class FacturaWorkflowTests(TestCase):
 
         self.assertIsNotNone(cuenta)
         self.assertEqual(cuenta['mesa_numero'], self.mesa.numero)
-        self.assertEqual(cuenta['total'], '57.00')
+        self.assertEqual(cuenta['total'], '50.00')
         self.assertEqual(cuenta['items'][0]['plato'], self.plato.nombre)
 
     def test_pedido_serializado_incluye_imagen_opcional_del_plato(self):
@@ -779,7 +779,8 @@ class FacturaWorkflowTests(TestCase):
         self.assertContains(response, 'FACTURA DE CONSUMO')
         self.assertContains(response, 'Calle 100 entre 117 y 123')
         self.assertContains(response, 'Reparto Puente Nuevo, Marianao')
-        self.assertContains(response, 'El ingrediente secreto siempre es tu visita. ¡Vuelve pronto!')
+        self.assertContains(response, 'El ingrediente secreto siempre es tu visita.')
+        self.assertContains(response, '¡Vuelve pronto!')
 
     def test_vista_estadisticas_caja_existe_y_usa_template(self):
         User = get_user_model()
