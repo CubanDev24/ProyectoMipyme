@@ -243,26 +243,29 @@ def configurar_turno(turno, cantidad_mesas=None, platos=None, cantidad_mesas_ext
     return turno
 
 
-def cerrar_turno(usuario, observaciones=''):
+def cerrar_turno(usuario, observaciones='', turno=None):
     if usuario is None or getattr(usuario, 'role', None) not in ('cajera', 'administrador'):
         raise PermissionError('Solo caja o el administrador pueden cerrar el turno.')
 
-    turno = get_turno_abierto()
+    turno = turno or get_turno_abierto()
     if turno is None:
         raise ValueError('No hay un turno abierto para cerrar.')
+    if turno.estado != 'abierto':
+        raise ValueError('El turno seleccionado ya está cerrado.')
 
     from decimal import Decimal
     from django.db.models import Sum
     from pedidos.models import Factura
 
-    facturas = Factura.objects.filter(creado_en__date=turno.fecha)
+    cierre = timezone.now()
+    facturas = Factura.objects.filter(creado_en__gte=turno.apertura, creado_en__lte=cierre)
     total = facturas.aggregate(total=Sum('total_cup'))['total'] or Decimal('0')
     efectivo = facturas.aggregate(efectivo=Sum('monto_efectivo_cup'))['efectivo'] or Decimal('0')
     transferencia = facturas.aggregate(transferencia=Sum('monto_transferencia_cup'))['transferencia'] or Decimal('0')
     usd = facturas.aggregate(usd=Sum('monto_usd'))['usd'] or Decimal('0')
     usd_cup_equivalente = facturas.aggregate(cup=Sum('total_cup'))['cup'] or Decimal('0')
 
-    turno.cierre = timezone.now()
+    turno.cierre = cierre
     turno.estado = 'cerrado'
     turno.observaciones = observaciones
     turno.resumen = (

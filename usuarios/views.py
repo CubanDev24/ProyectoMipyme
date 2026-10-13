@@ -519,8 +519,26 @@ def cerrar_turno_view(request):
         return redirect('usuarios:dashboard')
 
     try:
-        turno = cerrar_turno(request.user, observaciones=request.POST.get('observaciones', ''))
+        turno_pendiente = None
+        turno_id = request.POST.get('turno_id')
+        if turno_id and request.user.role != 'administrador':
+            messages.error(request, 'Solo el administrador puede cerrar un turno anterior.')
+            return redirect('usuarios:dashboard')
+        if turno_id:
+            turno_pendiente = get_object_or_404(
+                Turno,
+                pk=turno_id,
+                estado='abierto',
+                fecha__lt=timezone.localdate(),
+            )
+        turno = cerrar_turno(
+            request.user,
+            observaciones=request.POST.get('observaciones', ''),
+            turno=turno_pendiente,
+        )
         messages.success(request, f'Turno cerrado correctamente. Resumen: {turno.resumen}')
+        if request.user.role == 'administrador':
+            return redirect('usuarios:historial_turno_detalle', turno_id=turno.pk)
     except PermissionError as exc:
         messages.error(request, str(exc))
     except ValueError as exc:
