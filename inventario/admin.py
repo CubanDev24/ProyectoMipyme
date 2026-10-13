@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Insumo, MovimientoInventario, RecetaItem, TasaCambio
+from .models import CategoriaInventario, Insumo, MovimientoInventario, RecetaItem, TasaCambio
 
 
 class RecetaItemInline(admin.TabularInline):
@@ -9,10 +9,17 @@ class RecetaItemInline(admin.TabularInline):
 
 @admin.register(Insumo)
 class InsumoAdmin(admin.ModelAdmin):
-    list_display = ['nombre', 'categoria', 'costo', 'precio', 'stock_actual', 'stock_minimo', 'stock_maximo', 'stock_bajo', 'activo']
-    list_filter = ['activo', 'unidad']
+    list_display = ['nombre', 'tipo_inventario', 'categoria_inventario', 'costo', 'precio', 'stock_actual', 'stock_minimo', 'stock_maximo', 'stock_bajo', 'activo']
+    list_filter = ['tipo_inventario', 'activo', 'unidad']
     list_editable = ['stock_actual', 'stock_minimo', 'stock_maximo', 'activo']
     inlines = [RecetaItemInline]
+
+
+@admin.register(CategoriaInventario)
+class CategoriaInventarioAdmin(admin.ModelAdmin):
+    list_display = ['nombre', 'tipo', 'orden']
+    list_filter = ['tipo']
+    search_fields = ['nombre']
 
 
 @admin.register(RecetaItem)

@@ -38,7 +38,9 @@ con el botón **Imprimir QR**.
 
 1. **Administrador** en `/administrador/` da de alta los insumos de inventario (nombre,
    unidad, stock actual y mínimo) y, por cada plato de la carta, indica qué insumos
-   consume y en qué cantidad (la "receta"). También configura la tasa de cambio
+   consume y en qué cantidad (la "receta"). Cada plato publicado requiere al menos
+   un insumo activo de Cocina o Restaurante; el inventario no crea platos de carta.
+   También configura la tasa de cambio
    CUP/USD vigente. En el panel de turno puede activar o desactivar cada mesa por
    separado, ver su QR y agregar mesas de salón o exteriores.
 2. **Mesera** abre `/pedidos/mesera/`, selecciona mesa, agrega platos y envía a cocina
@@ -64,7 +66,17 @@ con el botón **Imprimir QR**.
 
 ## Inventario
 
-- App `inventario`: modelos `Insumo` (stock), `RecetaItem` (consumo de insumo por
+- El panel de administración separa las existencias en inventario de **Cocina**
+  (ingredientes de recetas) e inventario de **Restaurante** (productos listos para
+  vender). Cada área gestiona sus propias categorías; los productos que ya existían
+  antes de la separación quedan en "Por clasificar" hasta que el administrador los
+  asigne, sin alterar stock, recetas ni movimientos históricos.
+- Los productos de Restaurante se vinculan a una categoría de inventario y a una
+  categoría de la carta; los insumos de Cocina no se publican automáticamente en la
+  carta. Entradas, salidas, mermas, stock mínimo/máximo e historial siguen disponibles
+  en ambas áreas.
+- App `inventario`: modelos `Insumo` (stock y área), `CategoriaInventario`,
+  `RecetaItem` (consumo de insumo por
   plato) y `TasaCambio` (histórico de tasas CUP/USD, se usa la más reciente).
 - El descuento de stock ocurre una sola vez por pedido (campo
   `Pedido.inventario_descontado`), disparado cuando la mesera marca el pedido
@@ -121,25 +133,30 @@ con el botón **Imprimir QR**.
 - Se cambio el flujo y se agrego una seccion de barra a la mesera para que las bebidas pudiera manejarlas desde el mismo panel y no salieran en cocina.
 - Se agrego la funcionalidad de editar categorias en el panel de administracion.
 - Se agregaron las mesas ecteriores.
+- Se corrigio para que las modales en la administracion no salgan por encima de otras.
+- Se corrigio para que no pueda cobrar antes de que el pedido este servido.
+- Se separo el inventario en Cocina y Restaurante, con categorías independientes y
+  clasificación manual segura para los productos anteriores.
+- La carta se genera a partir de los productos que decida el administrador del inventario.
 
 
 ## por hacer:
 - pedir agregos a un plato o un trago.
 - corregir los permisos de los usuarios para las vistas. 
-- Agregar un delay a la llamada de la mesera. 
 - Al agregar un pedido para llevar si tiene algun producto de cocina, agregar un termopad a la compra.
 
-- Las modales no se abra una detras de la otra
-- que no puedas cobrar antes de enviar un pedido a cocina
 
 - Cambiar para que la carta no se genere automaticamente, sino que la cree el admin a partir de los productos disponibles en el inventario de la cocina.
 
 - mejorar las tablas de administracion con funcionalidades de excel.
 - poner un inventario para la cocina y uno para el restaurante
 - crear nuevos roles con permisos definidos para el admin
+-mejorar las tablas de administracion con funcionalidades de excel.
+-crear nuevos roles con permisos definidos para el admin
 
 
 
 
 ## Notas
 eliminar el main css y que cada html tenga sus estilos en su mismo archivo para que no haya conflicto
+l

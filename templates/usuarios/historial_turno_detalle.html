@@ -295,6 +295,15 @@
             <pre>{{ turno.resumen }}</pre>
           </section>
           {% endif %}
+          {% if turno.observaciones %}
+          <section class="admin-card turn-dashboard-card">
+            <div class="turn-card-heading">
+              <div class="turn-section-icon"><i class="fa-solid fa-comment-dots"></i></div>
+              <div><p class="panel-kicker">Registro</p><h2>Observaciones del cierre</h2></div>
+            </div>
+            <p class="whitespace-pre-wrap break-words">{{ turno.observaciones }}</p>
+          </section>
+          {% endif %}
         </div>
 
         <!-- ── IPV Perpetuo de Ventas ──────────────────────────────────── -->

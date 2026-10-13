@@ -28,7 +28,7 @@ body.login-page{background:#0d0d0d}
 body.login-page .topbar{display:none !important}
 .auth-page{min-height:100vh;display:grid;place-items:center;padding:clamp(1rem,2.5vw,2.5rem);background:radial-gradient(circle at top, rgba(200,169,110,0.12), transparent 30%), linear-gradient(135deg, #111111 0%, #171717 45%, #0d0d0d 100%)}
 .auth-panel{width:min(980px,100%);display:grid;grid-template-columns:1.2fr .8fr;min-height:620px;background:rgba(17,17,17,0.9);border:1px solid rgba(255,255,255,0.08);border-radius:28px;overflow:hidden;box-shadow:0 30px 70px rgba(0,0,0,0.45);backdrop-filter:blur(12px)}
-.auth-visual{position:relative;padding:2.5rem;background:linear-gradient(135deg, rgba(200,169,110,0.18), rgba(10,10,10,0.15)), url('https://images.unsplash.com/photo-1559339352-11d035aa65de?auto=format&fit=crop&w=1200&q=80') center/cover no-repeat;display:flex;align-items:flex-end}
+.auth-visual{position:relative;padding:2.5rem;background:linear-gradient(135deg, rgba(200,169,110,0.18), rgba(10,10,10,0.15)), url('../img/login-background.jpg') center/cover no-repeat;display:flex;align-items:flex-end}
 .auth-visual::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg, rgba(10,10,10,0.08), rgba(10,10,10,0.72));}
 .auth-visual-inner{position:relative;z-index:1;max-width:430px;color:#fff}
 .auth-brand-chip{display:inline-flex;align-items:center;padding:.45rem .8rem;border:1px solid rgba(255,255,255,0.18);border-radius:999px;background:rgba(12,12,12,0.22);font-size:.68rem;letter-spacing:.14em;text-transform:uppercase;font-weight:700;color:#f4d39b}
@@ -436,6 +436,10 @@ body.login-page .topbar{display:none !important}
 @media(max-width:700px){.turn-summary-grid{grid-template-columns:1fr}.turn-summary-grid p{align-items:flex-start;flex-direction:column;gap:.25rem}.turn-summary-grid p strong{text-align:left}}
 @media(max-width:700px){.turn-user-row{align-items:flex-start;flex-direction:column}.turn-user-actions{justify-content:flex-start}.turn-user-edit-form{left:50%;right:auto;top:50%;transform:translate(-50%,-50%);width:min(560px,calc(100vw - 2rem));grid-template-columns:1fr;max-height:calc(100vh - 2rem);overflow-y:auto}.turn-user-edit-actions{grid-column:auto;flex-direction:column!important}.turn-user-edit-actions .btn{width:100%}}
 .cocina-body{padding:1.5rem clamp(1rem,3vw,2rem);max-width:1500px;margin:0 auto;background:radial-gradient(circle at top left,rgba(34,197,94,.06),transparent 28%)}
+.plato-create-form{display:grid;gap:1rem;margin:1rem 0 1.5rem;padding:1rem}.plato-create-form>.turn-card-heading{margin:0}.plato-create-form>.btn{justify-self:start}
+.plato-recipe-editor{grid-column:1/-1;display:grid;gap:.65rem;padding:1rem;border:1px solid rgba(52,211,153,.18);border-radius:12px;background:rgba(2,6,23,.28)}.plato-recipe-editor .turn-card-heading{margin:0}.plato-recipe-editor h3,.plato-recipe-editor h4{color:#f8fafc;font-size:.85rem;font-weight:700}.plato-recipe-editor .admin-hint{margin:0}
+.plato-recipe-rows{display:grid;gap:.55rem}.plato-recipe-row{display:grid;grid-template-columns:minmax(0,1fr) minmax(130px,.35fr) auto;gap:.55rem;align-items:center}
+@media(max-width:700px){.plato-recipe-row{grid-template-columns:minmax(0,1fr) auto}.plato-recipe-row input{grid-column:1}.plato-recipe-row button{grid-column:2;grid-row:1 / span 2}.plato-create-form{padding:.75rem}}
 .cocina-toolbar{background:linear-gradient(180deg,rgba(15,23,42,.96),rgba(15,23,42,.82));border-color:rgba(148,163,184,.16);border-radius:16px;padding:1rem 1.15rem;box-shadow:0 12px 30px rgba(2,6,23,.16)}
 .cocina-toolbar strong{color:#f8fafc}.cocina-toolbar span{color:#94a3b8}
 .col-header{color:#94a3b8;padding:.35rem .25rem}

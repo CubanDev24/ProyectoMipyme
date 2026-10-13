@@ -1,11 +1,14 @@
+import json
 from decimal import Decimal, InvalidOperation
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required, user_passes_test
+from django.db import transaction
+from django.db.models import Prefetch
 from django.shortcuts import render, redirect, get_object_or_404
 
 from carta.models import Categoria, Plato
-from .models import Insumo, MovimientoInventario, RecetaItem, TasaCambio
+from .models import CategoriaInventario, Insumo, MovimientoInventario, RecetaItem, TasaCambio
 
 
 def _es_admin(user):
@@ -19,19 +22,65 @@ def _to_decimal(valor, default=None):
         return default
 
 
+def _receta_desde_post(request):
+    insumo_ids = request.POST.getlist('insumo_id[]') or request.POST.getlist('insumo_id')
+    cantidades = request.POST.getlist('cantidad[]') or request.POST.getlist('cantidad')
+    if len(insumo_ids) != len(cantidades):
+        return None, 'Cada producto de la receta necesita una cantidad.'
+
+    receta = []
+    insumos_vistos = set()
+    for insumo_id, cantidad_raw in zip(insumo_ids, cantidades):
+        insumo_id = (insumo_id or '').strip()
+        cantidad_raw = (cantidad_raw or '').strip()
+        if not insumo_id and not cantidad_raw:
+            continue
+        if not insumo_id:
+            return None, 'Selecciona un producto para cada cantidad indicada.'
+        cantidad = _to_decimal(cantidad_raw)
+        if cantidad is None or cantidad <= 0 or cantidad.as_tuple().exponent < -3:
+            return None, 'Las cantidades de receta deben ser positivas y tener hasta tres decimales.'
+        if insumo_id in insumos_vistos:
+            return None, 'No repitas un producto en la receta; suma sus cantidades en una sola fila.'
+        insumo = Insumo.objects.filter(
+            pk=insumo_id,
+            activo=True,
+            tipo_inventario__in=['cocina', 'restaurante'],
+        ).first()
+        if not insumo:
+            return None, 'Selecciona productos activos de Cocina o Restaurante.'
+        receta.append((insumo, cantidad))
+        insumos_vistos.add(insumo_id)
+    return receta, None
+
+
 @login_required
 @user_passes_test(_es_admin)
 def administrador(request):
-    insumos = Insumo.objects.select_related('categoria').all()
+    insumos = Insumo.objects.select_related('categoria', 'categoria_inventario').all()
     movimientos = MovimientoInventario.objects.select_related('insumo', 'usuario').all()[:250]
-    platos = list(Plato.objects.select_related('categoria').all())
-    precios_inventario = {
-        insumo.nombre.casefold(): insumo.precio
-        for insumo in insumos
-    }
+    platos = list(Plato.objects.select_related('categoria').prefetch_related(
+        Prefetch(
+            'receta',
+            queryset=RecetaItem.objects.select_related('insumo'),
+            to_attr='receta_admin',
+        )
+    ))
     for plato in platos:
-        plato.precio_inventario = precios_inventario.get(plato.nombre.casefold(), plato.precio)
-    categorias = Categoria.objects.all()
+        plato.receta_json = json.dumps([
+            {'insumo_id': item.insumo_id, 'cantidad': str(item.cantidad)}
+            for item in plato.receta_admin
+        ])
+    categorias = Categoria.objects.prefetch_related(
+        Prefetch(
+            'platos',
+            queryset=Plato.objects.filter(
+                disponible=True,
+                receta__isnull=False,
+            ).distinct(),
+            to_attr='platos_publicados',
+        )
+    )
 
     plato_sel = None
     plato_id = request.GET.get('plato')
@@ -40,15 +89,31 @@ def administrador(request):
     receta_items = []
     if plato_sel:
         receta_items = RecetaItem.objects.filter(plato=plato_sel).select_related('insumo')
+    inventarios = [
+        {
+            'tipo': tipo,
+            'nombre': nombre,
+            'insumos': insumos.filter(tipo_inventario=tipo),
+            'categorias': CategoriaInventario.objects.filter(tipo=tipo),
+            'categoria_carta': categorias,
+        }
+        for tipo, nombre in CategoriaInventario.TIPO_CHOICES
+    ]
 
     return render(request, 'administrador/administrador.html', {
         'insumos': insumos,
+        'inventarios': inventarios,
+        'insumos_por_clasificar': insumos.filter(tipo_inventario__isnull=True),
+        'categorias_inventario': CategoriaInventario.objects.all(),
         'movimientos': movimientos,
         'platos': platos,
         'categorias': categorias,
         'plato_sel': plato_sel,
         'receta_items': receta_items,
-        'insumos_disponibles': Insumo.objects.filter(activo=True),
+        'insumos_disponibles': Insumo.objects.filter(
+            activo=True,
+            tipo_inventario__in=['cocina', 'restaurante'],
+        ).select_related('categoria_inventario').order_by('tipo_inventario', 'nombre'),
         'tasa_actual': TasaCambio.actual(),
     })
 
@@ -89,6 +154,53 @@ def categoria_editar(request, pk):
 
 @login_required
 @user_passes_test(_es_admin)
+def categoria_inventario_crear(request, tipo):
+    nombre_tipo = dict(CategoriaInventario.TIPO_CHOICES).get(tipo)
+    if not nombre_tipo:
+        messages.error(request, 'Selecciona un inventario válido.')
+        return redirect('inventario:administrador')
+    if request.method == 'POST':
+        nombre = request.POST.get('nombre', '').strip()
+        if not nombre:
+            messages.error(request, 'La categoría necesita un nombre.')
+        elif len(nombre) > CategoriaInventario._meta.get_field('nombre').max_length:
+            messages.error(request, 'El nombre de la categoría no puede superar los 100 caracteres.')
+        elif CategoriaInventario.objects.filter(tipo=tipo, nombre__iexact=nombre).exists():
+            messages.error(request, f'La categoría "{nombre}" ya existe en {nombre_tipo}.')
+        else:
+            CategoriaInventario.objects.create(
+                tipo=tipo,
+                nombre=nombre,
+                orden=CategoriaInventario.objects.filter(tipo=tipo).count() + 1,
+            )
+            messages.success(request, f'Categoría "{nombre}" creada en {nombre_tipo}.')
+    return redirect(f'/administrador/#inventario-{tipo}')
+
+
+@login_required
+@user_passes_test(_es_admin)
+def categoria_inventario_editar(request, tipo, pk):
+    categoria = get_object_or_404(CategoriaInventario, pk=pk, tipo=tipo)
+    if request.method == 'POST':
+        nombre = request.POST.get('nombre', '').strip()
+        if not nombre:
+            messages.error(request, 'La categoría necesita un nombre.')
+        elif len(nombre) > CategoriaInventario._meta.get_field('nombre').max_length:
+            messages.error(request, 'El nombre de la categoría no puede superar los 100 caracteres.')
+        elif CategoriaInventario.objects.filter(
+            tipo=tipo,
+            nombre__iexact=nombre,
+        ).exclude(pk=categoria.pk).exists():
+            messages.error(request, f'La categoría "{nombre}" ya existe en este inventario.')
+        else:
+            categoria.nombre = nombre
+            categoria.save(update_fields=['nombre'])
+            messages.success(request, f'Categoría actualizada a "{nombre}".')
+    return redirect(f'/administrador/#inventario-{tipo}')
+
+
+@login_required
+@user_passes_test(_es_admin)
 def plato_crear(request):
     if request.method == 'POST':
         categoria_id = request.POST.get('categoria')
@@ -98,12 +210,21 @@ def plato_crear(request):
         precio = _to_decimal(request.POST.get('precio'))
 
         if not categoria_id and not categoria_nombre:
-            messages.error(request, 'Debes elegir una categoría o crear una nueva.')
-            return redirect('inventario:administrador')
+            messages.error(request, 'Debes elegir una categoría para el plato.')
+            return redirect('/administrador/#carta')
 
         if not nombre or precio is None or precio <= 0:
             messages.error(request, 'Completa nombre y precio del plato.')
-            return redirect('inventario:administrador')
+            return redirect('/administrador/#carta')
+
+        receta, error_receta = _receta_desde_post(request)
+        disponible = request.POST.get('disponible') == 'on'
+        if error_receta:
+            messages.error(request, error_receta)
+            return redirect('/administrador/#carta')
+        if disponible and not receta:
+            messages.error(request, 'Agrega al menos un producto de inventario antes de publicar el plato.')
+            return redirect('/administrador/#carta')
 
         if categoria_id:
             categoria = get_object_or_404(Categoria, pk=categoria_id)
@@ -115,38 +236,22 @@ def plato_crear(request):
             if created:
                 messages.success(request, f'Categoría "{categoria.nombre}" creada.')
 
-        plato = Plato.objects.create(
-            categoria=categoria,
-            nombre=nombre,
-            descripcion=descripcion,
-            precio=precio,
-            disponible=request.POST.get('disponible') == 'on',
-            orden=Plato.objects.count() + 1,
-            imagen=request.FILES.get('imagen'),
-        )
-
-        insumo_ids = request.POST.getlist('insumo_id[]') or request.POST.getlist('insumo_id')
-        cantidades = request.POST.getlist('cantidad[]') or request.POST.getlist('cantidad')
-        creados = 0
-        for insumo_id, cantidad_raw in zip(insumo_ids, cantidades):
-            insumo_id = (insumo_id or '').strip()
-            cantidad = _to_decimal(cantidad_raw)
-            if not insumo_id or cantidad is None or cantidad <= 0:
-                continue
-            insumo = Insumo.objects.filter(pk=insumo_id).first()
-            if not insumo:
-                continue
-            RecetaItem.objects.update_or_create(
-                plato=plato, insumo=insumo,
-                defaults={'cantidad': cantidad}
+        with transaction.atomic():
+            plato = Plato.objects.create(
+                categoria=categoria,
+                nombre=nombre,
+                descripcion=descripcion,
+                precio=precio,
+                disponible=disponible,
+                orden=Plato.objects.count() + 1,
+                imagen=request.FILES.get('imagen'),
             )
-            creados += 1
-
-        if creados:
-            messages.success(request, f'Plato "{nombre}" creado con {creados} ingrediente(s) de inventario.')
-        else:
-            messages.success(request, f'Plato "{nombre}" creado sin receta asociada.')
-    return redirect('inventario:administrador')
+            RecetaItem.objects.bulk_create([
+                RecetaItem(plato=plato, insumo=insumo, cantidad=cantidad)
+                for insumo, cantidad in receta
+            ])
+        messages.success(request, f'Plato "{nombre}" creado con {len(receta)} producto(s) de inventario.')
+    return redirect('/administrador/#carta')
 
 
 @login_required
@@ -154,25 +259,42 @@ def plato_crear(request):
 def plato_editar(request, pk):
     plato = get_object_or_404(Plato, pk=pk)
     if request.method == 'POST':
-        insumo_relacionado = Insumo.objects.filter(nombre__iexact=plato.nombre).first()
         categoria_id = request.POST.get('categoria')
         nombre = request.POST.get('nombre', plato.nombre).strip() or plato.nombre
         descripcion = request.POST.get('descripcion', plato.descripcion).strip()
         precio = _to_decimal(request.POST.get('precio'))
+        receta = None
+        if 'receta_enviada' in request.POST:
+            receta, error_receta = _receta_desde_post(request)
+            if error_receta:
+                messages.error(request, error_receta)
+                return redirect('/administrador/#carta')
+        disponible = request.POST.get('disponible') == 'on'
+        if disponible and receta is not None and not receta:
+            messages.error(request, 'Agrega al menos un producto de inventario para publicar este plato.')
+            return redirect('/administrador/#carta')
+        if disponible and receta is None and not plato.receta.exists():
+            messages.error(request, 'Agrega al menos un producto de inventario para publicar este plato.')
+            return redirect('/administrador/#carta')
         if categoria_id:
             plato.categoria = get_object_or_404(Categoria, pk=categoria_id)
-        if insumo_relacionado is not None:
-            plato.precio = insumo_relacionado.precio
-        elif precio is not None and precio > 0:
+        if precio is not None and precio > 0:
             plato.precio = precio
         plato.nombre = nombre
         plato.descripcion = descripcion
-        plato.disponible = request.POST.get('disponible') == 'on'
+        plato.disponible = disponible
         if request.FILES.get('imagen'):
             plato.imagen = request.FILES['imagen']
-        plato.save()
+        with transaction.atomic():
+            plato.save()
+            if receta is not None:
+                plato.receta.all().delete()
+                RecetaItem.objects.bulk_create([
+                    RecetaItem(plato=plato, insumo=insumo, cantidad=cantidad)
+                    for insumo, cantidad in receta
+                ])
         messages.success(request, f'Plato "{plato.nombre}" actualizado.')
-    return redirect('inventario:administrador')
+    return redirect('/administrador/#carta')
 
 
 @login_required
@@ -192,23 +314,33 @@ def insumo_crear(request):
     if request.method == 'POST':
         nombre = request.POST.get('nombre', '').strip()
         unidad = request.POST.get('unidad', 'unidad')
+        tipo_inventario = request.POST.get('tipo_inventario')
         stock_actual = _to_decimal(request.POST.get('stock_actual'), Decimal('0'))
         stock_minimo = _to_decimal(request.POST.get('stock_minimo'), Decimal('0'))
         stock_maximo = _to_decimal(request.POST.get('stock_maximo'), Decimal('0'))
         costo = _to_decimal(request.POST.get('costo'), Decimal('0'))
         precio = _to_decimal(request.POST.get('precio'), Decimal('0'))
-        categoria_id = request.POST.get('categoria')
-        categoria = None
-        if categoria_id:
-            categoria = get_object_or_404(Categoria, pk=categoria_id)
-        if not nombre:
+        categoria_inventario_id = request.POST.get('categoria_inventario')
+        if tipo_inventario not in dict(CategoriaInventario.TIPO_CHOICES):
+            messages.error(request, 'Selecciona Cocina o Restaurante para el producto.')
+        elif not nombre:
             messages.error(request, 'El insumo necesita un nombre.')
         elif Insumo.objects.filter(nombre__iexact=nombre).exists():
             messages.error(request, f'Ya existe un insumo llamado "{nombre}".')
         else:
+            categoria_inventario = None
+            if categoria_inventario_id:
+                categoria_inventario = CategoriaInventario.objects.filter(
+                    pk=categoria_inventario_id,
+                    tipo=tipo_inventario,
+                ).first()
+                if not categoria_inventario:
+                    messages.error(request, 'La categoría no pertenece al inventario seleccionado.')
+                    return redirect(f'/administrador/#inventario-{tipo_inventario}')
             insumo = Insumo.objects.create(
                 nombre=nombre,
-                categoria=categoria,
+                tipo_inventario=tipo_inventario,
+                categoria_inventario=categoria_inventario,
                 unidad=unidad,
                 stock_actual=stock_actual or Decimal('0'),
                 stock_minimo=stock_minimo or Decimal('0'),
@@ -224,8 +356,8 @@ def insumo_crear(request):
                     insumo, 'entrada', insumo.stock_actual, Decimal('0'), insumo.stock_actual,
                     usuario=request.user, motivo='Inventario inicial',
                 )
-            messages.success(request, f'Insumo "{nombre}" creado y sincronizado con la carta.')
-    return redirect('inventario:administrador')
+            messages.success(request, f'Producto "{nombre}" creado en {dict(CategoriaInventario.TIPO_CHOICES)[tipo_inventario]}.')
+    return redirect(f"/administrador/#inventario-{request.POST.get('tipo_inventario', 'restaurante')}")
 
 
 @login_required
@@ -235,14 +367,27 @@ def insumo_editar(request, pk):
     if request.method == 'POST':
         insumo.nombre = request.POST.get('nombre', insumo.nombre).strip() or insumo.nombre
         insumo.unidad = request.POST.get('unidad', insumo.unidad)
+        tipo_inventario = request.POST.get('tipo_inventario', insumo.tipo_inventario)
+        if tipo_inventario not in dict(CategoriaInventario.TIPO_CHOICES):
+            messages.error(request, 'Selecciona Cocina o Restaurante para el producto.')
+            return redirect('inventario:administrador')
+        insumo.tipo_inventario = tipo_inventario
         stock_actual = _to_decimal(request.POST.get('stock_actual'))
         stock_minimo = _to_decimal(request.POST.get('stock_minimo'))
         stock_maximo = _to_decimal(request.POST.get('stock_maximo'))
         costo = _to_decimal(request.POST.get('costo'))
         precio = _to_decimal(request.POST.get('precio'))
-        categoria_id = request.POST.get('categoria')
-        if peso := request.POST.get('categoria'):
-            insumo.categoria = get_object_or_404(Categoria, pk=peso)
+        categoria_inventario_id = request.POST.get('categoria_inventario')
+        categoria_inventario = None
+        if categoria_inventario_id:
+            categoria_inventario = CategoriaInventario.objects.filter(
+                pk=categoria_inventario_id,
+                tipo=tipo_inventario,
+            ).first()
+            if not categoria_inventario:
+                messages.error(request, 'La categoría no pertenece al inventario seleccionado.')
+                return redirect(f'/administrador/#inventario-{tipo_inventario}')
+        insumo.categoria_inventario = categoria_inventario
         if stock_actual is not None:
             stock_anterior = insumo.stock_actual
             insumo.stock_actual = stock_actual
@@ -256,8 +401,9 @@ def insumo_editar(request, pk):
             insumo.costo = costo
         if precio is not None:
             insumo.precio = precio
-        insumo.activo = request.POST.get('activo') == 'on'
-        insumo.disponible = insumo.activo
+        if 'activo' in request.POST:
+            insumo.activo = request.POST.get('activo') == 'on'
+            insumo.disponible = insumo.activo
         insumo.save()
         if stock_actual is not None and stock_actual != stock_anterior:
             from .services import _registrar_movimiento
@@ -272,12 +418,14 @@ def insumo_editar(request, pk):
                 motivo='Ajuste manual del inventario',
             )
         messages.success(request, f'Insumo "{insumo.nombre}" actualizado.')
+        return redirect(f'/administrador/#inventario-{tipo_inventario}')
     return redirect('inventario:administrador')
 
 
 @login_required
 @user_passes_test(_es_admin)
 def movimiento_crear(request):
+    insumo = None
     if request.method == 'POST':
         insumo = get_object_or_404(Insumo, pk=request.POST.get('insumo_id'))
         tipo = request.POST.get('tipo')
@@ -296,7 +444,9 @@ def movimiento_crear(request):
                 usuario=request.user, motivo=motivo or 'Movimiento manual',
             )
             messages.success(request, f'Movimiento registrado para "{insumo.nombre}".')
-    return redirect('/administrador/#inventario')
+    if insumo and insumo.tipo_inventario:
+        return redirect(f'/administrador/#inventario-{insumo.tipo_inventario}')
+    return redirect('/administrador/#movimientos-inventario')
 
 
 @login_required
@@ -317,7 +467,11 @@ def receta_agregar(request, plato_id):
     if request.method == 'POST':
         insumo_id = request.POST.get('insumo_id')
         cantidad = _to_decimal(request.POST.get('cantidad'), Decimal('1'))
-        insumo = Insumo.objects.filter(pk=insumo_id).first()
+        insumo = Insumo.objects.filter(
+            pk=insumo_id,
+            activo=True,
+            tipo_inventario__in=['cocina', 'restaurante'],
+        ).first()
         if not insumo:
             messages.error(request, 'Selecciona un insumo válido.')
         elif not cantidad or cantidad <= 0:
@@ -327,18 +481,21 @@ def receta_agregar(request, plato_id):
                 plato=plato, insumo=insumo, defaults={'cantidad': cantidad}
             )
             messages.success(request, f'"{insumo.nombre}" agregado a la receta de {plato.nombre}.')
-    return redirect(f"/administrador/?plato={plato_id}")
+    return redirect('/administrador/#carta')
 
 
 @login_required
 @user_passes_test(_es_admin)
 def receta_item_eliminar(request, pk):
     item = get_object_or_404(RecetaItem, pk=pk)
-    plato_id = item.plato_id
+    plato = item.plato
     if request.method == 'POST':
         item.delete()
+        if not plato.receta.exists():
+            plato.disponible = False
+            plato.save(update_fields=['disponible'])
         messages.success(request, 'Ingrediente quitado de la receta.')
-    return redirect(f"/administrador/?plato={plato_id}")
+    return redirect('/administrador/#carta')
 
 
 @login_required

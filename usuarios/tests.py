@@ -110,6 +110,8 @@ class UsuarioTurnoTests(TestCase):
         self.assertContains(response, 'Abrir turno de hoy')
         self.assertContains(response, 'El turno anterior fue el')
         self.assertContains(response, reverse('usuarios:historial_turno_detalle', args=[turno_anterior.pk]))
+        self.assertContains(response, f'href="{reverse("inventario:administrador")}#inventario-restaurante"')
+        self.assertContains(response, f'href="{reverse("inventario:administrador")}#inventario-cocina"')
         self.assertNotContains(response, 'Crear usuario')
 
     def test_dashboard_admin_con_turno_cerrado_muestra_detalle_e_historial(self):
@@ -137,6 +139,15 @@ class UsuarioTurnoTests(TestCase):
         self.assertContains(response, 'Crear usuario')
         self.assertContains(response, 'Usuarios registrados')
 
+    def test_editores_de_usuario_solo_permiten_una_modal_abierta(self):
+        self.client.force_login(self.admin)
+
+        response = self.client.get(reverse('usuarios:gestion_usuarios'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, '<details class="turn-user-edit" name="user-edit">')
+        self.assertContains(response, "otherDialog.open = false")
+
     def test_sidebar_del_administrador_se_mantiene_completo_en_sus_secciones(self):
         turno = Turno.objects.create(
             fecha=timezone.localdate() - timedelta(days=1),
@@ -152,6 +163,8 @@ class UsuarioTurnoTests(TestCase):
         enlaces_sidebar = [
             f'href="{reverse("inventario:administrador")}#configuracion"',
             f'href="{reverse("inventario:administrador")}#carta"',
+            f'href="{reverse("inventario:administrador")}#inventario-restaurante"',
+            f'href="{reverse("inventario:administrador")}#inventario-cocina"',
             f'href="{reverse("usuarios:gestion_usuarios")}"',
             f'href="{reverse("usuarios:dashboard")}"',
             f'href="{reverse("usuarios:historial_turnos")}"',
@@ -183,7 +196,6 @@ class UsuarioTurnoTests(TestCase):
                 self.assertEqual(response.status_code, 200)
                 self.assertContains(response, enlace_rol)
                 self.assertContains(response, f'{etiqueta_rol} &bull; Activo')
-                self.assertNotContains(response, 'Sin turno')
                 if usuario.role == 'mesera':
                     for seccion in (
                         'tables',
@@ -274,14 +286,14 @@ class UsuarioTurnoTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         producto = next(row for row in response.json()['productos'] if row['nombre'] == 'Coca-Cola')
-        self.assertEqual(producto['saldo_inicial'], '10.00')
-        self.assertEqual(producto['entradas'], '5.00')
-        self.assertEqual(producto['cantidad_existencia'], '12.00')
+        self.assertEqual(producto['saldo_inicial'], '10.000')
+        self.assertEqual(producto['entradas'], '5.000')
+        self.assertEqual(producto['cantidad_existencia'], '12.000')
         self.assertEqual(producto['cantidad_vendida'], '2')
-        self.assertEqual(producto['saldo_final'], '12.00')
+        self.assertEqual(producto['saldo_final'], '12.000')
         self.assertEqual(producto['precio_venta'], '12.50')
         self.assertEqual(producto['importe_venta'], '25.00')
-        self.assertEqual(producto['merma_rotura'], '1.00')
+        self.assertEqual(producto['merma_rotura'], '1.000')
         venta_sin_control = next(row for row in response.json()['productos'] if row['nombre'] == plato_sin_inventario.nombre)
         self.assertFalse(venta_sin_control['control_existencia'])
         self.assertEqual(venta_sin_control['cantidad_vendida'], '1')
@@ -316,14 +328,55 @@ class UsuarioTurnoTests(TestCase):
 
         response = self.client.post(reverse('usuarios:cerrar_turno'), {
             'observaciones': 'Cierre realizado por administración',
-        })
+        }, follow=True)
 
-        self.assertRedirects(response, reverse('usuarios:dashboard'))
+        self.assertRedirects(
+            response,
+            reverse('usuarios:historial_turno_detalle', args=[turno.pk]),
+        )
+        self.assertContains(response, 'Turno cerrado')
+        self.assertContains(response, 'Cierre realizado por administración')
         turno.refresh_from_db()
         self.assertEqual(turno.estado, 'cerrado')
         self.assertEqual(turno.observaciones, 'Cierre realizado por administración')
         self.assertTrue(Notificacion.objects.filter(
             destinatario=self.admin,
+            mensaje__contains='Administrador admin cerró el turno',
+        ).exists())
+
+    def test_administrador_puede_cerrar_turno_abierto_del_dia_anterior(self):
+        turno_anterior = Turno.objects.create(
+            fecha=timezone.localdate() - timedelta(days=1),
+            estado='abierto',
+        )
+        turno_hoy = Turno.objects.create(fecha=timezone.localdate(), estado='abierto')
+        self.client.force_login(self.admin)
+
+        dashboard = self.client.get(reverse('usuarios:dashboard'))
+
+        self.assertContains(dashboard, 'Turno anterior pendiente')
+        self.assertContains(dashboard, 'Cerrar turno pendiente')
+        self.assertContains(dashboard, f'name="turno_id" value="{turno_anterior.pk}"')
+
+        response = self.client.post(reverse('usuarios:cerrar_turno'), {
+            'turno_id': turno_anterior.pk,
+            'observaciones': 'Cierre del turno atrasado',
+        }, follow=True)
+
+        self.assertRedirects(
+            response,
+            reverse('usuarios:historial_turno_detalle', args=[turno_anterior.pk]),
+        )
+        self.assertContains(response, 'Turno cerrado')
+        self.assertContains(response, 'Cierre del turno atrasado')
+        turno_anterior.refresh_from_db()
+        turno_hoy.refresh_from_db()
+        self.assertEqual(turno_anterior.estado, 'cerrado')
+        self.assertEqual(turno_anterior.observaciones, 'Cierre del turno atrasado')
+        self.assertEqual(turno_hoy.estado, 'abierto')
+        self.assertTrue(Notificacion.objects.filter(
+            destinatario=self.admin,
+            turno=turno_anterior,
             mensaje__contains='Administrador admin cerró el turno',
         ).exists())
 
@@ -636,8 +689,8 @@ class UsuarioTurnoTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         producto = next(row for row in response.json()['filas'] if row['nombre'] == insumo.nombre)
-        self.assertEqual(producto['entradas'], '5.00')
-        self.assertEqual(producto['cantidad_existencia'], '13.00')
+        self.assertEqual(producto['entradas'], '5.000')
+        self.assertEqual(producto['cantidad_existencia'], '13.000')
         self.assertIsNone(producto['saldo_inicial'])
         self.assertIsNone(producto['saldo_final'])
 

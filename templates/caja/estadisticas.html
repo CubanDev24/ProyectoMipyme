@@ -103,6 +103,7 @@
                             {% for producto in inventario %}
                                 <div class="caja-inventario-row {% if producto.stock_bajo %}stock-bajo{% endif %}">
                                     <strong>{{ producto.nombre }}</strong>
+                                    <span>{{ producto.area }} · {{ producto.categoria }}</span>
                                     <span>Salida: {{ producto.salida }} {{ producto.unidad }}</span>
                                     <span>Quedan: <b>{{ producto.stock_actual }} {{ producto.unidad }}</b></span>
                                 </div>

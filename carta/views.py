@@ -1,8 +1,9 @@
 from django.core.exceptions import ObjectDoesNotExist
+from django.db.models import Prefetch
 from django.http import Http404
 from django.shortcuts import render
 from django.views.decorators.clickjacking import xframe_options_exempt
-from .models import Categoria
+from .models import Categoria, Plato
 from .qr import generar_qr_mesa
 from pedidos.models import Mesa
 
@@ -31,8 +32,14 @@ def qr_mesa(request, mesa_numero):
 
 
 def carta_cliente(request, mesa_id):
-    categorias = Categoria.objects.prefetch_related('platos').all()
-    categorias_con_platos = [c for c in categorias if c.platos.filter(disponible=True).exists()]
+    platos_publicados = Plato.objects.filter(
+        disponible=True,
+        receta__isnull=False,
+    ).distinct()
+    categorias = Categoria.objects.prefetch_related(
+        Prefetch('platos', queryset=platos_publicados),
+    ).all()
+    categorias_con_platos = [categoria for categoria in categorias if categoria.platos.all()]
     mesa = Mesa.objects.filter(numero=mesa_id, activa=True).first()
     return render(request, 'carta/carta.html', {
         'categorias': categorias_con_platos,

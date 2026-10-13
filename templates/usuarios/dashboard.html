@@ -133,7 +133,7 @@
         {% if user.role == 'cocina' %}<a href="{% url 'pedidos:cocina' %}" class="w-full flex items-center gap-3 px-3 py-3 rounded-xl font-medium text-sm text-slate-400 hover:text-white hover:bg-slate-800/50 transition-all"><i class="fa-solid fa-fire-burner text-lg w-6 text-center" aria-hidden="true"></i><span class="hidden lg:inline">Pedidos</span></a>{% endif %}
         {% if user.role == 'cajera' %}<a href="{% url 'pedidos:caja' %}" class="w-full flex items-center gap-3 px-3 py-3 rounded-xl font-medium text-sm text-slate-400 hover:text-white hover:bg-slate-800/50 transition-all"><i class="fa-solid fa-cash-register text-lg w-6 text-center" aria-hidden="true"></i><span class="hidden lg:inline">Caja</span></a>
         <a href="{% url 'pedidos:caja_estadisticas_pagina' %}" class="w-full flex items-center gap-3 px-3 py-3 rounded-xl font-medium text-sm text-slate-400 hover:text-white hover:bg-slate-800/50 transition-all"><i class="fa-solid fa-chart-column text-lg w-6 text-center"></i><span class="hidden lg:inline">Estadísticas</span></a>{% endif %}
-        {% if user.role == 'administrador' %}<a href="{% url 'inventario:administrador' %}#configuracion" class="w-full flex items-center gap-3 px-3 py-3 rounded-xl font-medium text-sm text-slate-400 hover:text-white hover:bg-slate-800/50 transition-all"><i class="fa-solid fa-sliders text-lg w-6 text-center" aria-hidden="true"></i><span class="hidden lg:inline">Configuración</span></a><a href="{% url 'inventario:administrador' %}#carta" class="w-full flex items-center gap-3 px-3 py-3 rounded-xl font-medium text-sm text-slate-400 hover:text-white hover:bg-slate-800/50 transition-all"><i class="fa-solid fa-book-open text-lg w-6 text-center" aria-hidden="true"></i><span class="hidden lg:inline">Carta</span></a><a href="{% url 'usuarios:gestion_usuarios' %}" class="w-full flex items-center gap-3 px-3 py-3 rounded-xl font-medium text-sm text-slate-400 hover:text-white hover:bg-slate-800/50 transition-all"><i class="fa-solid fa-users text-lg w-6 text-center" aria-hidden="true"></i><span class="hidden lg:inline">Usuarios</span></a>{% endif %}
+        {% if user.role == 'administrador' %}<a href="{% url 'inventario:administrador' %}#configuracion" class="w-full flex items-center gap-3 px-3 py-3 rounded-xl font-medium text-sm text-slate-400 hover:text-white hover:bg-slate-800/50 transition-all"><i class="fa-solid fa-sliders text-lg w-6 text-center" aria-hidden="true"></i><span class="hidden lg:inline">Configuración</span></a><a href="{% url 'inventario:administrador' %}#carta" class="w-full flex items-center gap-3 px-3 py-3 rounded-xl font-medium text-sm text-slate-400 hover:text-white hover:bg-slate-800/50 transition-all"><i class="fa-solid fa-book-open text-lg w-6 text-center" aria-hidden="true"></i><span class="hidden lg:inline">Carta</span></a><a href="{% url 'inventario:administrador' %}#inventario-restaurante" class="w-full flex items-center gap-3 px-3 py-3 rounded-xl font-medium text-sm text-slate-400 hover:text-white hover:bg-slate-800/50 transition-all"><i class="fa-solid fa-store text-lg w-6 text-center" aria-hidden="true"></i><span class="hidden lg:inline">Restaurante</span></a><a href="{% url 'inventario:administrador' %}#inventario-cocina" class="w-full flex items-center gap-3 px-3 py-3 rounded-xl font-medium text-sm text-slate-400 hover:text-white hover:bg-slate-800/50 transition-all"><i class="fa-solid fa-kitchen-set text-lg w-6 text-center" aria-hidden="true"></i><span class="hidden lg:inline">Cocina</span></a><a href="{% url 'usuarios:gestion_usuarios' %}" class="w-full flex items-center gap-3 px-3 py-3 rounded-xl font-medium text-sm text-slate-400 hover:text-white hover:bg-slate-800/50 transition-all"><i class="fa-solid fa-users text-lg w-6 text-center" aria-hidden="true"></i><span class="hidden lg:inline">Usuarios</span></a>{% endif %}
         <button type="button" class="w-full flex items-center gap-3 px-3 py-3 rounded-xl font-medium text-sm transition-all bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" aria-current="page"><i class="fa-solid fa-clock-rotate-left text-lg w-6 text-center" aria-hidden="true"></i><span class="hidden lg:inline">Detalle del turno</span></button>
         {% if user.role == 'administrador' %}<a href="{% url 'usuarios:historial_turnos' %}" class="w-full flex items-center gap-3 px-3 py-3 rounded-xl font-medium text-sm text-slate-400 hover:text-white hover:bg-slate-800/50 transition-all"><i class="fa-solid fa-clock-rotate-left text-lg w-6 text-center" aria-hidden="true"></i><span class="hidden lg:inline">Historial</span></a>{% endif %}
       </nav>
@@ -192,10 +192,7 @@
       {% else %}
         <div class="turn-info-grid"><div><span>Fecha de hoy</span><strong>{{ hoy|date:"d/m/Y" }}</strong></div><div><span>Estado</span><strong>Sin abrir</strong></div></div>
         {% if user.role == 'administrador' %}
-          {% if turno_abierto_pendiente %}
-            <div class="turn-note"><span>Turno anterior pendiente</span><p>El turno del {{ turno_abierto_pendiente.fecha|date:"d/m/Y" }} sigue abierto. Debe cerrarse antes de abrir el turno de hoy.</p></div>
-            <a href="{% url 'usuarios:historial_turno_detalle' turno_abierto_pendiente.pk %}" class="btn btn-outline btn-sm mt-3"><i class="fa-solid fa-eye"></i> Ver turno pendiente</a>
-          {% else %}
+          {% if not turno_abierto_pendiente %}
             <form method="post" action="{% url 'usuarios:abrir_turno' %}" class="mt-4">
               {% csrf_token %}
               <button type="submit" class="btn btn-primary turn-action-btn"><i class="fa-solid fa-lock-open"></i> Abrir turno de hoy</button>
@@ -210,6 +207,17 @@
         {% else %}
           <div class="turn-note mt-4"><span>Turnos anteriores</span><p>No hay turnos anteriores registrados.</p></div>
         {% endif %}
+      {% endif %}
+      {% if user.role == 'administrador' and turno_abierto_pendiente %}
+        <div class="turn-note mt-4"><span>Turno anterior pendiente</span><p>El turno del {{ turno_abierto_pendiente.fecha|date:"d/m/Y" }} sigue abierto. Debe cerrarse antes de continuar.</p></div>
+        <a href="{% url 'usuarios:historial_turno_detalle' turno_abierto_pendiente.pk %}" class="btn btn-outline btn-sm mt-3"><i class="fa-solid fa-eye"></i> Ver turno pendiente</a>
+        <form method="post" action="{% url 'usuarios:cerrar_turno' %}" class="turn-close-form mt-4" onsubmit="return confirm('¿Confirmas el cierre del turno del {{ turno_abierto_pendiente.fecha|date:"d/m/Y" }}? Esta acción no se puede deshacer.');">
+          {% csrf_token %}
+          <input type="hidden" name="turno_id" value="{{ turno_abierto_pendiente.pk }}">
+          <label for="observaciones-cierre-pendiente">Observaciones del cierre</label>
+          <textarea id="observaciones-cierre-pendiente" name="observaciones" rows="4" placeholder="Observaciones del cierre" class="admin-input"></textarea>
+          <button type="submit" class="btn btn-orange turn-action-btn"><i class="fa-solid fa-lock" aria-hidden="true"></i> Cerrar turno pendiente</button>
+        </form>
       {% endif %}
     </section>
 
@@ -406,7 +414,7 @@
         } else {
           cuerpo.innerHTML = data.productos.map(producto => `
             <tr>
-              <td><span class="ledger-product">${escaparCelda(producto.nombre)}</span><span class="ledger-muted">${escaparCelda(producto.categoria)} · ${escaparCelda(producto.unidad)} · ${producto.control_existencia ? 'Stock controlado' : 'Sin control de stock'}</span></td>
+              <td><span class="ledger-product">${escaparCelda(producto.nombre)}</span><span class="ledger-muted">${escaparCelda(producto.area)} · ${escaparCelda(producto.categoria)} · ${escaparCelda(producto.unidad)} · ${producto.control_existencia ? 'Stock controlado' : 'Sin control de stock'}</span></td>
               <td class="ledger-number">${formatoExistencia(producto.saldo_inicial, producto.control_existencia)}</td>
               <td class="ledger-number">${formatoExistencia(producto.entradas, producto.control_existencia)}</td>
               <td class="ledger-number">${formatoExistencia(producto.cantidad_existencia, producto.control_existencia)}</td>

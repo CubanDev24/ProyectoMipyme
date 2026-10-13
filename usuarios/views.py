@@ -179,7 +179,11 @@ def inventario_ventas_turno(request):
         })
 
     ahora = timezone.now()
-    insumos = list(Insumo.objects.filter(activo=True).select_related('categoria').order_by('nombre'))
+    insumos = list(
+        Insumo.objects.filter(activo=True)
+        .select_related('categoria', 'categoria_inventario')
+        .order_by('nombre')
+    )
     insumo_ids = [insumo.pk for insumo in insumos]
     movimientos = MovimientoInventario.objects.filter(
         insumo_id__in=insumo_ids,
@@ -249,7 +253,12 @@ def inventario_ventas_turno(request):
         merma = mov.get('merma', Decimal('0'))
         productos.append({
             'nombre': insumo.nombre,
-            'categoria': insumo.categoria.nombre if insumo.categoria else 'Sin categoría',
+            'area': insumo.get_tipo_inventario_display() if insumo.tipo_inventario else 'Por clasificar',
+            'categoria': (
+                insumo.categoria_inventario.nombre if insumo.categoria_inventario
+                else insumo.categoria.nombre if insumo.categoria
+                else 'Sin categoría'
+            ),
             'unidad': insumo.get_unidad_display(),
             'saldo_inicial': str(inicial),
             'entradas': str(entradas),
@@ -510,8 +519,26 @@ def cerrar_turno_view(request):
         return redirect('usuarios:dashboard')
 
     try:
-        turno = cerrar_turno(request.user, observaciones=request.POST.get('observaciones', ''))
+        turno_pendiente = None
+        turno_id = request.POST.get('turno_id')
+        if turno_id and request.user.role != 'administrador':
+            messages.error(request, 'Solo el administrador puede cerrar un turno anterior.')
+            return redirect('usuarios:dashboard')
+        if turno_id:
+            turno_pendiente = get_object_or_404(
+                Turno,
+                pk=turno_id,
+                estado='abierto',
+                fecha__lt=timezone.localdate(),
+            )
+        turno = cerrar_turno(
+            request.user,
+            observaciones=request.POST.get('observaciones', ''),
+            turno=turno_pendiente,
+        )
         messages.success(request, f'Turno cerrado correctamente. Resumen: {turno.resumen}')
+        if request.user.role == 'administrador':
+            return redirect('usuarios:historial_turno_detalle', turno_id=turno.pk)
     except PermissionError as exc:
         messages.error(request, str(exc))
     except ValueError as exc:
@@ -597,7 +624,7 @@ def ipv_turno(request, turno_id):
     # ── Movimientos de inventario ──────────────────────────────────────────────
     insumos = list(
         Insumo.objects.filter(activo=True)
-        .select_related('categoria')
+        .select_related('categoria', 'categoria_inventario')
         .order_by('nombre')
     )
     insumo_ids = [insumo.pk for insumo in insumos]
@@ -688,7 +715,12 @@ def ipv_turno(request, turno_id):
 
         filas.append({
             'nombre': insumo.nombre,
-            'categoria': insumo.categoria.nombre if insumo.categoria else 'Sin categoría',
+            'area': insumo.get_tipo_inventario_display() if insumo.tipo_inventario else 'Por clasificar',
+            'categoria': (
+                insumo.categoria_inventario.nombre if insumo.categoria_inventario
+                else insumo.categoria.nombre if insumo.categoria
+                else 'Sin categoría'
+            ),
             'unidad': insumo.get_unidad_display(),
             'saldo_inicial': None,
             'entradas': str(entradas),

@@ -693,7 +693,7 @@
                 </div>
             </div>
 
-            <button type="submit" class="w-full bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold py-3.5 rounded-2xl transition-all shadow-lg shadow-emerald-500/20 flex items-center justify-center gap-2 text-sm">
+            <button id="payment-submit" type="submit" class="w-full bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold py-3.5 rounded-2xl transition-all shadow-lg shadow-emerald-500/20 flex items-center justify-center gap-2 text-sm">
                 <i class="fa-solid fa-paper-plane"></i> Enviar cobro a caja
             </button>
         </form>
@@ -741,6 +741,7 @@
         let cuentaEnProceso = null;
         let formaPagoSeleccionada = 'efectivo_cup';
         let comprobantePreviewObjectUrl = null;
+        let cobroMeseraEnCurso = false;
 
         function escaparHtml(value) {
             return String(value ?? '').replace(/[&<>"']/g, character => ({
@@ -851,7 +852,11 @@
                     renderVistaParaLlevar();
                 } else if (data.tipo === 'pedido_confirmado') {
                     const table = tables.find(item => item.id === data.pedido.mesa_id);
-                    if (table) table.newOrder = [];
+                    if (table && table.comandaRequestId === data.request_id) {
+                        table.newOrder = [];
+                        table.comandaEnviandose = false;
+                        table.comandaRequestId = null;
+                    }
                     if (data.pedido.es_para_llevar) {
                         actualizarPedidoParaLlevar(data.pedido);
                         carritoParaLlevar = [];
@@ -887,10 +892,31 @@
                         updateHeaderStats();
                         if (activeTableId === table.id) openTableModal(table.id);
                     }
+                    cobroMeseraEnCurso = false;
+                    document.getElementById('payment-submit').disabled = false;
+                    closePaymentModal();
                     showToast('Cuenta enviada a caja', `${table?.name || `Mesa ${mesa}`} quedó marcada como cuenta solicitada.`);
                 } else if (data.tipo === 'cobro_preparado_para_llevar') {
+                    cobroMeseraEnCurso = false;
+                    document.getElementById('payment-submit').disabled = false;
+                    closePaymentModal();
                     showToast('Cuenta enviada a caja', 'La cajera recibió el pedido para llevar con la forma de pago seleccionada.');
+                } else if (data.tipo === 'factura_aceptada') {
+                    facturasMostradas.delete(String(data.mesa_numero));
+                    showToast('Factura aceptada', `Caja recibió la solicitud de ${etiquetaMesaNumero(data.mesa_numero)}.`);
+                } else if (data.tipo === 'error_cobro') {
+                    cobroMeseraEnCurso = false;
+                    document.getElementById('payment-submit').disabled = false;
+                    showToast('No se pudo enviar la cuenta a caja', data.mensaje);
+                } else if (data.tipo === 'error_servicio') {
+                    showToast('No se pudo marcar como servido', data.mensaje);
                 } else if (data.tipo === 'error_pedido') {
+                    const table = tables.find(item => item.id === data.mesa_id);
+                    if (table && table.comandaRequestId === data.request_id) {
+                        table.comandaEnviandose = false;
+                        table.comandaRequestId = null;
+                        actualizarEstadoBotonEnviarComanda(table);
+                    }
                     showToast('No se pudo crear el pedido', data.mensaje);
                 } else if (data.tipo === 'error_mesa') {
                     showToast('No se pudo actualizar', data.mensaje);
@@ -929,12 +955,17 @@
                 total: parseFloat(factura?.total_cup || factura?.total || 0),
                 tipo: 'mesera',
                 onAccept: () => {
-                    cerrarModalFactura();
-                    if (ws && ws.readyState === WebSocket.OPEN) {
-                        ws.send(JSON.stringify({ accion: 'aceptar_factura', mesa_numero: mesa }));
-                        showToast('Factura aceptada', `Caja recibió la solicitud de ${etiquetaMesaNumero(mesa)}.`);
+                    const table = tables.find(item => item.numero === Number(mesa));
+                    if (table && ((table.newOrder || []).length || (table.pedidos || []).some(pedido => pedido.estado !== 'servido'))) {
+                        showToast('Pedidos pendientes', 'Espera a que todos los pedidos estén servidos antes de aceptar la cuenta.');
+                        return;
                     }
-                    facturasMostradas.delete(String(mesa));
+                    if (!ws || ws.readyState !== WebSocket.OPEN) {
+                        showToast('Sin conexión', 'No se pudo enviar la solicitud de cuenta a caja.');
+                        return;
+                    }
+                    ws.send(JSON.stringify({ accion: 'aceptar_factura', mesa_numero: mesa }));
+                    cerrarModalFactura();
                 }
             });
             sonidoCuenta();
@@ -1257,12 +1288,14 @@
                 `;
             } else if (table.status === 'ocupada') {
                 footer.innerHTML = `
-                    <button onclick="sendOrderToKitchen(${table.id})" class="px-4 py-3 bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold rounded-xl text-xs flex items-center gap-2 transition-all">
+                    <button id="send-order-${table.id}" onclick="sendOrderToKitchen(${table.id})" ${table.comandaEnviandose || !(table.newOrder || []).some(item => item.qty > 0) ? 'disabled' : ''} class="px-4 py-3 bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold rounded-xl text-xs flex items-center gap-2 transition-all disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-slate-800">
                         <i class="fa-solid fa-paper-plane text-amber-400"></i> Enviar comanda
                     </button>
+                    ${(table.pedidos || []).length ? `
                     <button onclick="openPaymentModal()" class="flex-1 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold py-3 rounded-xl transition-all shadow-lg shadow-emerald-500/20 flex items-center justify-center gap-2 text-sm">
                         <i class="fa-solid fa-receipt"></i> Cobrar y Cerrar Cuenta
                     </button>
+                    ` : ''}
                 `;
             } else if (table.status === 'limpieza') {
                 footer.innerHTML = `
@@ -1332,6 +1365,10 @@
             if (!activeTableId) return;
             const table = tables.find(t => t.id === activeTableId);
             if (!table) return;
+            if (table.comandaEnviandose) {
+                showToast('Comanda en envío', 'Espera a que termine el envío antes de agregar más productos.');
+                return;
+            }
 
             if (table.status === 'libre') {
                 showToast('Mesa cerrada', 'Abre la mesa antes de agregar productos.');
@@ -1356,6 +1393,7 @@
         function updateOrderQty(itemId, change) {
             const table = tables.find(t => t.id === activeTableId);
             if (!table) return;
+            if (table.comandaEnviandose) return;
 
             const itemIndex = (table.newOrder || []).findIndex(o => o.itemId === itemId);
             if (itemIndex > -1) {
@@ -1375,6 +1413,7 @@
             container.innerHTML = '';
 
             const table = tables.find(t => t.id === activeTableId);
+            actualizarEstadoBotonEnviarComanda(table);
             const displayOrder = table ? [...table.order, ...(table.newOrder || [])] : [];
             if (!table || displayOrder.length === 0) {
                 container.innerHTML = `
@@ -1426,6 +1465,13 @@
             updateModalTotals(subtotal);
         }
 
+        function actualizarEstadoBotonEnviarComanda(table) {
+            if (!table) return;
+            const button = document.getElementById(`send-order-${table.id}`);
+            if (!button) return;
+            button.disabled = table.comandaEnviandose || !(table.newOrder || []).some(item => item.qty > 0);
+        }
+
         function marcarServidoMesera(pedidoId) {
             if (!ws || ws.readyState !== WebSocket.OPEN) {
                 showToast('Sin conexión', 'No se pudo actualizar el pedido.');
@@ -1460,13 +1506,23 @@
         // ENVIAR A COCINA
         function sendOrderToKitchen(tableId) {
             const table = tables.find(item => item.id === tableId);
-            if (!table || !(table.newOrder || []).length) {
+            if (!table) return;
+            if (table.comandaEnviandose) {
+                showToast('Comanda en envío', 'Espera a que termine el envío antes de volver a intentarlo.');
+                return;
+            }
+            if (!(table.newOrder || []).some(item => item.qty > 0)) {
                 showToast("Comanda vacía", "Agrega al menos un producto antes de enviar.");
                 return;
             }
+            const requestId = `${tableId}-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+            table.comandaEnviandose = true;
+            table.comandaRequestId = requestId;
+            actualizarEstadoBotonEnviarComanda(table);
             enviarMensajeMesera({
                 accion: 'crear_pedido',
                 mesa_id: tableId,
+                request_id: requestId,
                 items: table.newOrder.map(item => ({
                     plato_id: item.itemId,
                     cantidad: item.qty,
@@ -1482,6 +1538,18 @@
             const table = tables.find(t => t.id === activeTableId);
             const total = cuentaEnProceso ? parseFloat(cuentaEnProceso.total_cup || cuentaEnProceso.total || 0) : calculateTableTotal(activeTableId);
             if (!table && !cuentaEnProceso) return;
+            const itemsCuenta = cuentaEnProceso?.items || cuentaEnProceso?.items_snapshot || [];
+            if (table && !(table.pedidos || []).length && !itemsCuenta.length) {
+                showToast('No hay pedidos', 'Agrega productos y envía una comanda antes de abrir la cuenta.');
+                return;
+            }
+            if (!cuentaEnProceso && table && (
+                (table.newOrder || []).length
+                || (table.pedidos || []).some(pedido => pedido.estado !== 'servido')
+            )) {
+                showToast('Pedidos pendientes', 'Envía la comanda y espera a que todos los pedidos estén servidos antes de cobrar.');
+                return;
+            }
             if (!cuentaEnProceso && table) {
                 cuentaEnProceso = { mesa_numero: table.numero || Number(table.name.replace(/\D/g, '')), total: total.toFixed(2) };
             }
@@ -1496,6 +1564,7 @@
         }
 
         function closePaymentModal() {
+            if (cobroMeseraEnCurso) return;
             const pModal = document.getElementById('payment-modal');
             pModal.classList.add('opacity-0', 'pointer-events-none');
             cuentaEnProceso = null;
@@ -1538,7 +1607,7 @@
         }
 
         async function confirmPayment() {
-            if (!cuentaEnProceso) {
+            if (!cuentaEnProceso || cobroMeseraEnCurso) {
                 return;
             }
             let tasa = null;
@@ -1567,7 +1636,7 @@
                     formData.append('mesa_numero', cuentaEnProceso.mesa_numero);
                 }
                 const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
-                const submitButton = document.querySelector('#payment-modal button[type="submit"]');
+                const submitButton = document.getElementById('payment-submit');
                 submitButton.disabled = true;
                 try {
                     const response = await fetch('{% url "pedidos:subir_comprobante_transferencia" %}', {
@@ -1587,6 +1656,8 @@
                 }
                 submitButton.disabled = false;
             }
+            cobroMeseraEnCurso = true;
+            document.getElementById('payment-submit').disabled = true;
             enviarMensajeMesera({
                 accion: cuentaEnProceso.es_para_llevar ? 'preparar_cobro_para_llevar' : 'preparar_cobro',
                 mesa_numero: cuentaEnProceso.mesa_numero,
@@ -1595,9 +1666,6 @@
                 tasa_cambio: tasa,
                 comprobante_url: comprobanteUrl,
             });
-            closePaymentModal();
-            cuentaEnProceso = null;
-            showToast('Cuenta enviada a caja', 'La cajera debe aceptar el cobro.');
         }
 
         function renderMenuParaLlevar() {

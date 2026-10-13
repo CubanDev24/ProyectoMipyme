@@ -1,13 +1,17 @@
 from django.db import transaction
-
 from .models import Insumo, MovimientoInventario, RecetaItem
 
 
 def _registrar_movimiento(insumo, tipo, cantidad, stock_anterior, stock_posterior, usuario=None, motivo=''):
     MovimientoInventario.objects.create(
         insumo=insumo,
+        tipo_inventario=insumo.tipo_inventario,
         producto_nombre=insumo.nombre,
-        categoria_nombre=insumo.categoria.nombre if insumo.categoria else 'Sin categoría',
+        categoria_nombre=(
+            insumo.categoria_inventario.nombre if insumo.categoria_inventario
+            else insumo.categoria.nombre if insumo.categoria
+            else 'Sin categoría'
+        ),
         tipo=tipo,
         cantidad=cantidad,
         stock_anterior=stock_anterior,
@@ -39,13 +43,6 @@ def descontar_inventario_por_pedido(pedido, usuario=None):
     for item in pedido.items.select_related('plato').all():
         recetas = list(RecetaItem.objects.filter(plato=item.plato).select_related('insumo'))
         consumos = [(receta.insumo, receta.cantidad * item.cantidad) for receta in recetas]
-        if not recetas:
-            insumo_producto = Insumo.objects.filter(
-                nombre__iexact=item.plato.nombre,
-                activo=True,
-            ).first()
-            if insumo_producto:
-                consumos.append((insumo_producto, item.cantidad))
 
         for insumo, consumo in consumos:
             stock_anterior = insumo.stock_actual

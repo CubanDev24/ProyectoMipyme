@@ -1,6 +1,6 @@
 from carta.models import Categoria, Plato
 from pedidos.models import Mesa
-from inventario.models import Insumo, RecetaItem, TasaCambio
+from inventario.models import CategoriaInventario, Insumo, RecetaItem, TasaCambio
 
 # Mesas
 for i in range(1, 11):
@@ -35,22 +35,36 @@ platos = [
     (c5, 'Café',                  'Espresso cubano',                      '1.00'),
 ]
 for cat, nombre, desc, precio in platos:
-    Plato.objects.create(categoria=cat, nombre=nombre, descripcion=desc, precio=precio)
+    Plato.objects.create(
+        categoria=cat,
+        nombre=nombre,
+        descripcion=desc,
+        precio=precio,
+        disponible=False,
+    )
 
 print(f"Platos: {Plato.objects.count()} en {Categoria.objects.count()} categorías")
 
 # Inventario: insumos de ejemplo
 Insumo.objects.all().delete()
+categoria_cocina, _ = CategoriaInventario.objects.get_or_create(
+    tipo='cocina',
+    nombre='Ingredientes',
+)
+categoria_restaurante, _ = CategoriaInventario.objects.get_or_create(
+    tipo='restaurante',
+    nombre='Bebidas y envasados',
+)
 insumos = {
-    'pollo':      Insumo.objects.create(nombre='Pollo (kg)', unidad='kg', stock_actual=20, stock_minimo=5),
-    'res':        Insumo.objects.create(nombre='Carne de res (kg)', unidad='kg', stock_actual=15, stock_minimo=4),
-    'cerdo':      Insumo.objects.create(nombre='Filete de cerdo (kg)', unidad='kg', stock_actual=12, stock_minimo=3),
-    'pasta':      Insumo.objects.create(nombre='Pasta (kg)', unidad='kg', stock_actual=10, stock_minimo=2),
-    'huevo':      Insumo.objects.create(nombre='Huevos', unidad='unidad', stock_actual=60, stock_minimo=12),
-    'leche':      Insumo.objects.create(nombre='Leche (l)', unidad='l', stock_actual=8, stock_minimo=2),
-    'refresco':   Insumo.objects.create(nombre='Refresco embotellado', unidad='unidad', stock_actual=48, stock_minimo=12),
-    'agua':       Insumo.objects.create(nombre='Agua embotellada', unidad='unidad', stock_actual=48, stock_minimo=12),
-    'cafe':       Insumo.objects.create(nombre='Café molido (kg)', unidad='kg', stock_actual=3, stock_minimo=1),
+    'pollo':      Insumo.objects.create(nombre='Pollo (kg)', tipo_inventario='cocina', categoria_inventario=categoria_cocina, unidad='kg', stock_actual=20, stock_minimo=5),
+    'res':        Insumo.objects.create(nombre='Carne de res (kg)', tipo_inventario='cocina', categoria_inventario=categoria_cocina, unidad='kg', stock_actual=15, stock_minimo=4),
+    'cerdo':      Insumo.objects.create(nombre='Filete de cerdo (kg)', tipo_inventario='cocina', categoria_inventario=categoria_cocina, unidad='kg', stock_actual=12, stock_minimo=3),
+    'pasta':      Insumo.objects.create(nombre='Pasta (kg)', tipo_inventario='cocina', categoria_inventario=categoria_cocina, unidad='kg', stock_actual=10, stock_minimo=2),
+    'huevo':      Insumo.objects.create(nombre='Huevos', tipo_inventario='cocina', categoria_inventario=categoria_cocina, unidad='unidad', stock_actual=60, stock_minimo=12),
+    'leche':      Insumo.objects.create(nombre='Leche (l)', tipo_inventario='cocina', categoria_inventario=categoria_cocina, unidad='l', stock_actual=8, stock_minimo=2),
+    'refresco':   Insumo.objects.create(nombre='Refresco embotellado', tipo_inventario='restaurante', categoria_inventario=categoria_restaurante, categoria=c5, unidad='unidad', stock_actual=48, stock_minimo=12),
+    'agua':       Insumo.objects.create(nombre='Agua embotellada', tipo_inventario='restaurante', categoria_inventario=categoria_restaurante, categoria=c5, unidad='unidad', stock_actual=48, stock_minimo=12),
+    'cafe':       Insumo.objects.create(nombre='Café molido (kg)', tipo_inventario='cocina', categoria_inventario=categoria_cocina, unidad='kg', stock_actual=3, stock_minimo=1),
 }
 print(f"Insumos: {Insumo.objects.count()}")
 
@@ -71,6 +85,8 @@ for nombre_plato, insumo, cantidad in recetas:
     plato = Plato.objects.filter(nombre=nombre_plato).first()
     if plato:
         RecetaItem.objects.create(plato=plato, insumo=insumo, cantidad=cantidad)
+        plato.disponible = True
+        plato.save(update_fields=['disponible'])
 print(f"Ingredientes de receta: {RecetaItem.objects.count()}")
 
 # Tasa de cambio inicial (CUP por 1 USD)
