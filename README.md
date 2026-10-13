@@ -148,7 +148,7 @@ con el botón **Imprimir QR**.
 
 -mejorar las tablas de administracion con funcionalidades de excel.
 -crear nuevos roles con permisos definidos para el admin
-
+-Eliminar o editar categorias
 
 
 ## Notas
