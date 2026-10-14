@@ -91,7 +91,7 @@ def crear_pedidos_por_destino(
             continue
         if not plato:
             continue
-        categoria = (plato.categoria.nombre or '').strip().casefold()
+        categoria = (plato.categoria.nombre if plato.categoria else '').strip().casefold()
         destino = 'barra' if categoria.startswith('bebid') else 'cocina'
         grupos[destino].append((plato, item_data))
 
