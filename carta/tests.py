@@ -29,3 +29,10 @@ class CartaQrTests(TestCase):
 
         self.assertContains(qr_response, 'Exteriores 1')
         self.assertContains(carta_response, 'Exteriores 1')
+        self.assertContains(carta_response, 'id="placedOrdersTotal"')
+        self.assertContains(carta_response, 'id="placedOrdersTotalValue"')
+        self.assertContains(carta_response, 'id="placedOrdersCount"')
+        self.assertContains(carta_response, 'id="placedItemsCount"')
+        self.assertContains(carta_response, 'Pedido #${numeroVisiblePedido(pedido)}')
+        self.assertNotContains(carta_response, 'id="btnFacturaDirecta"')
+        self.assertNotContains(carta_response, 'Ver y Descargar Factura')

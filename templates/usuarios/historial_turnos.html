@@ -18,7 +18,7 @@
     }
     .turn-filter-grid {
       display: grid;
-      grid-template-columns: minmax(180px, 1.4fr) minmax(190px, 1fr) minmax(170px, 1fr) auto;
+      grid-template-columns: minmax(180px, 1.4fr) minmax(190px, 1fr) minmax(260px, 1.5fr) auto;
       gap: 1rem;
       align-items: end;
     }
@@ -90,11 +90,45 @@
       font-size: .85rem;
       letter-spacing: normal;
     }
-    .turn-filter-date-parts {
+    .turn-filter-date-parts,
+    .turn-filter-range {
       display: grid;
-      grid-template-columns: minmax(0, 1.2fr) minmax(0, .8fr);
       gap: .55rem;
       flex: 1;
+    }
+    .turn-filter-date-parts {
+      grid-template-columns: minmax(0, 1.2fr) minmax(0, .8fr);
+    }
+    .turn-filter-range {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      align-items: stretch;
+    }
+    .turn-filter-date-field {
+      display: grid;
+      min-width: 0;
+      gap: .3rem;
+      color: #94a3b8;
+      font-size: .8rem;
+      font-weight: 700;
+      letter-spacing: normal;
+    }
+    .turn-filter-date-field input {
+      width: 100%;
+      min-width: 0;
+      height: 44px;
+      box-sizing: border-box;
+      border: 1px solid rgba(148, 163, 184, .22);
+      border-radius: 9px;
+      background: #020817;
+      padding: 0 .55rem;
+      color: #f8fafc;
+      color-scheme: dark;
+      font: inherit;
+      font-size: .75rem;
+    }
+    .turn-filter-date-field input:focus-visible {
+      outline: 2px solid #34d399;
+      outline-offset: 1px;
     }
     .turn-filter-control select {
       width: 100%;
@@ -127,6 +161,11 @@
       .turn-filter-grid {
         grid-template-columns: minmax(0, 1fr);
         gap: .8rem;
+      }
+    }
+    @media (max-width: 380px) {
+      .turn-filter-range {
+        grid-template-columns: minmax(0, 1fr);
       }
     }
     @media (prefers-reduced-motion: reduce) {
@@ -163,9 +202,17 @@
               </span>
             </span>
           </div>
-          <label class="turn-filter-field" for="filtro-fecha-especifica">Filtrar por fecha específica
-            <span class="turn-filter-control"><i class="fa-solid fa-calendar-day" aria-hidden="true"></i><input type="date" id="filtro-fecha-especifica" aria-label="Filtrar por fecha específica"></span>
-          </label>
+          <div class="turn-filter-field" role="group" aria-labelledby="filtro-rango-label">
+            <span id="filtro-rango-label">Filtrar por rango de fechas</span>
+            <span class="turn-filter-range">
+              <label class="turn-filter-date-field" for="filtro-fecha-desde">Desde
+                <input type="date" id="filtro-fecha-desde" aria-label="Fecha desde">
+              </label>
+              <label class="turn-filter-date-field" for="filtro-fecha-hasta">Hasta
+                <input type="date" id="filtro-fecha-hasta" aria-label="Fecha hasta">
+              </label>
+            </span>
+          </div>
           <div class="turn-filter-actions">
             <button class="btn btn-filter" type="submit"><i class="fa-solid fa-filter" aria-hidden="true"></i> Filtrar</button>
             <button class="btn btn-outline" type="button" id="limpiar-filtros"><i class="fa-solid fa-eraser" aria-hidden="true"></i> Limpiar</button>
@@ -233,7 +280,8 @@
     const filtroTexto = document.getElementById('filtro-texto');
     const filtroMes = document.getElementById('filtro-mes');
     const filtroAnio = document.getElementById('filtro-anio');
-    const filtroFechaEspecifica = document.getElementById('filtro-fecha-especifica');
+    const filtroFechaDesde = document.getElementById('filtro-fecha-desde');
+    const filtroFechaHasta = document.getElementById('filtro-fecha-hasta');
     const formularioFiltros = document.getElementById('turn-filter-form');
     const botonLimpiar = document.getElementById('limpiar-filtros');
     const estadoFiltros = document.getElementById('turn-filter-status');
@@ -267,8 +315,14 @@
       const texto = normalizarTexto(filtroTexto.value.trim());
       const mes = filtroMes.value;
       const anio = filtroAnio.value;
-      const fechaEspecifica = filtroFechaEspecifica.value;
+      const fechaDesde = filtroFechaDesde.value;
+      const fechaHasta = filtroFechaHasta.value;
       let visibles = 0;
+
+      if (fechaDesde && fechaHasta && fechaDesde > fechaHasta) {
+        estadoFiltros.textContent = 'La fecha inicial debe ser anterior o igual a la fecha final.';
+        return;
+      }
 
       tarjetasTurno.forEach((tarjeta) => {
         const fechaTurno = tarjeta.dataset.turnDate;
@@ -277,8 +331,9 @@
         const coincideTexto = !texto || normalizarTexto(textoTarjeta).includes(texto);
         const coincideMes = !mes || mesTurno === mes;
         const coincideAnio = !anio || anioTurno === anio;
-        const coincideFecha = !fechaEspecifica || fechaTurno === fechaEspecifica;
-        const visible = coincideTexto && coincideMes && coincideAnio && coincideFecha;
+        const coincideFechaDesde = !fechaDesde || fechaTurno >= fechaDesde;
+        const coincideFechaHasta = !fechaHasta || fechaTurno <= fechaHasta;
+        const visible = coincideTexto && coincideMes && coincideAnio && coincideFechaDesde && coincideFechaHasta;
 
         tarjeta.hidden = !visible;
         if (visible) visibles += 1;
