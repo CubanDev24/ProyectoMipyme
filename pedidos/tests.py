@@ -78,6 +78,8 @@ class FacturaWorkflowTests(TestCase):
         self.client.force_login(mesera)
         respuesta_mesera = self.client.get(reverse('pedidos:mesera'))
         self.assertEqual(list(respuesta_mesera.context['productos']), [self.plato])
+        self.assertContains(respuesta_mesera, 'aria-label="Cerrar sesión"')
+        self.assertContains(respuesta_mesera, reverse('usuarios:logout'))
 
         cliente = ClienteConsumer()
         cliente.mesa_numero = str(self.mesa.numero)
