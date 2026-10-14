@@ -280,6 +280,39 @@ body.login-page .topbar{display:none !important}
 .caja-inventario-row b{color:#e2e8f0}
 .caja-inventario-row.stock-bajo{border-color:rgba(251,146,60,.6);background:rgba(251,146,60,.08)}
 @media(max-width:700px){.caja-metricas{grid-template-columns:1fr 1fr}.caja-inventario-row{grid-template-columns:1fr 1fr}.caja-inventario-row strong{grid-column:1 / -1}}
+.caja-layout{gap:1rem;padding:1rem;background:radial-gradient(ellipse at top left,rgba(16,185,129,.13),transparent 34%),linear-gradient(145deg,#07131d,#020817 68%);border:1px solid rgba(52,211,153,.16);border-radius:22px}
+.panel-caja-lista{min-width:0;padding:1.35rem;border:1px solid rgba(52,211,153,.16);border-radius:18px;background:linear-gradient(145deg,rgba(15,36,48,.96),rgba(11,18,32,.94))}
+.panel-caja-lista h2{font-size:.78rem;letter-spacing:.12em;color:#a7f3d0}
+.caja-panel-header,.cobro-header{padding-bottom:1rem;border-color:rgba(52,211,153,.18)}
+.caja-panel-header h2,.cobro-header h2{font-size:1.08rem}
+.caja-panel-header .aviso-sonido-btn{position:static;right:auto;bottom:auto;z-index:auto;flex:none;min-height:42px;padding:.65rem .9rem;border:1px solid rgba(110,231,183,.42);border-radius:12px;background:linear-gradient(135deg,#34d399,#14b8a6);color:#022c22;font-size:.82rem;font-weight:800;box-shadow:0 8px 20px rgba(16,185,129,.2);transition:transform .18s ease,box-shadow .18s ease,filter .18s ease}
+.caja-panel-header .aviso-sonido-btn:hover{transform:translateY(-1px);filter:brightness(1.06);box-shadow:0 12px 26px rgba(16,185,129,.28)}
+.caja-panel-header .aviso-sonido-btn:focus-visible{outline:3px solid rgba(110,231,183,.55);outline-offset:3px}
+.caja-panel-header .aviso-sonido-btn.sonido-activo{background:linear-gradient(135deg,#059669,#0f766e)!important;border-color:rgba(110,231,183,.65)!important;color:#ecfdf5!important;box-shadow:0 0 0 3px rgba(52,211,153,.14),0 8px 20px rgba(16,185,129,.2)}
+.caja-card{padding:1.1rem;border-color:rgba(52,211,153,.16);border-radius:18px;background:linear-gradient(145deg,rgba(15,36,48,.94),rgba(11,18,32,.94));box-shadow:0 12px 28px rgba(2,6,23,.22);transition:transform .18s ease,border-color .18s ease,box-shadow .18s ease}
+.caja-card:hover{transform:translateY(-2px);border-color:rgba(52,211,153,.42);box-shadow:0 16px 32px rgba(2,6,23,.3)}
+.caja-card.seleccionada{border-color:rgba(52,211,153,.7);background:linear-gradient(145deg,rgba(6,78,59,.28),rgba(15,23,42,.94));box-shadow:0 0 0 2px rgba(52,211,153,.1),0 14px 30px rgba(16,185,129,.14)}
+.caja-mesa{font-size:1.18rem}
+.caja-total-row{padding-top:.7rem;border-color:rgba(52,211,153,.16)}
+.caja-total-val{font-size:1.16rem}
+.caja-historial{margin-top:1.5rem;padding-top:1rem;border-color:rgba(52,211,153,.16)}
+.caja-historial-header h2{font-size:.8rem;letter-spacing:.1em;color:#a7f3d0}
+.caja-factura-row{padding:.9rem 1rem;border-color:rgba(52,211,153,.14);border-radius:14px;background:linear-gradient(145deg,rgba(4,25,33,.76),rgba(2,8,23,.58));transition:transform .18s ease,border-color .18s ease}
+.caja-factura-row:hover{transform:translateY(-1px);border-color:rgba(52,211,153,.34)}
+.caja-layout .panel-cobro{min-width:0;padding:1.35rem;border:1px solid rgba(52,211,153,.22);border-radius:18px;background:radial-gradient(ellipse at top right,rgba(16,185,129,.1),transparent 40%),linear-gradient(145deg,rgba(15,36,48,.98),rgba(7,17,26,.98));box-shadow:0 16px 36px rgba(2,6,23,.26)}
+.panel-cobro .cobro-mesa{font-size:1.65rem}
+.panel-cobro .cobro-total{padding:1.1rem .75rem;border:1px solid rgba(52,211,153,.22);border-radius:16px;background:linear-gradient(145deg,rgba(4,25,33,.78),rgba(2,8,23,.58));font-size:1.85rem;font-variant-numeric:tabular-nums}
+.panel-cobro .pago-box{padding-top:.8rem;border-color:rgba(52,211,153,.18)}
+.panel-cobro .pago-box-titulo{font-size:.78rem;color:#a7f3d0}
+.panel-cobro .pago-opcion{min-height:46px;padding:.7rem .8rem;border-radius:12px;background:rgba(2,8,23,.52);font-size:.83rem}
+.panel-cobro .pago-opcion.seleccionada{border-color:rgba(52,211,153,.68);background:rgba(16,185,129,.13);box-shadow:inset 0 0 0 1px rgba(52,211,153,.12)}
+.panel-cobro #btn-cobrar{min-height:48px;border-radius:13px;font-size:.9rem;font-weight:800;box-shadow:0 8px 20px rgba(16,185,129,.16)}
+.panel-cobro .btn-imprimir{min-height:42px;border-radius:12px}
+.caja-alertas{border-color:rgba(52,211,153,.17);border-radius:14px;background:linear-gradient(145deg,rgba(4,25,33,.72),rgba(2,8,23,.48))}
+.caja-alertas-header{background:rgba(16,185,129,.07);color:#a7f3d0}
+.cobro-vacio{padding:1.25rem;border:1px dashed rgba(52,211,153,.2);border-radius:16px;background:rgba(2,8,23,.3)}
+@media(max-width:860px){.caja-layout{gap:.75rem;padding:.75rem}.panel-caja-lista{padding:1rem;border-radius:16px}.caja-layout .panel-cobro{padding:1rem;border-radius:16px}}
+@media(max-width:600px){.caja-layout{padding:.5rem;border-radius:17px}.panel-caja-lista{padding:.85rem;border-radius:14px}.caja-layout .panel-cobro{padding:.85rem;border-radius:14px}.caja-panel-header,.cobro-header{align-items:flex-start;flex-direction:column}.caja-panel-header .aviso-sonido-btn{width:100%}.panel-cobro .cobro-total{font-size:1.55rem}.panel-cobro .pago-opcion{font-size:.78rem}}
 .panel-cobro{background:linear-gradient(180deg, rgba(15,23,42,.98), rgba(2,6,23,.95));border-left:1px solid rgba(148,163,184,.16);padding:1.5rem;display:flex;flex-direction:column;gap:1rem}
 .panel-cobro h2{font-size:.95rem;font-weight:700;margin-bottom:.25rem}
 .cobro-vacio{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;color:#94a3b8;text-align:center;gap:.5rem;min-height:220px}
@@ -441,9 +474,69 @@ body.login-page .topbar{display:none !important}
 @media(max-width:700px){.turn-user-row{align-items:flex-start;flex-direction:column}.turn-user-actions{justify-content:flex-start}.turn-user-edit-form{left:50%;right:auto;top:50%;transform:translate(-50%,-50%);width:min(560px,calc(100vw - 2rem));grid-template-columns:1fr;max-height:calc(100vh - 2rem);overflow-y:auto}.turn-user-edit-actions{grid-column:auto;flex-direction:column!important}.turn-user-edit-actions .btn{width:100%}}
 .cocina-body{padding:1.5rem clamp(1rem,3vw,2rem);max-width:1500px;margin:0 auto;background:radial-gradient(circle at top left,rgba(34,197,94,.06),transparent 28%)}
 .plato-create-form{display:grid;gap:1rem;margin:1rem 0 1.5rem;padding:1rem}.plato-create-form>.turn-card-heading{margin:0}.plato-create-form>.btn{justify-self:start}
+.plato-create-form>.plato-edit-fields{grid-template-columns:minmax(0,1.2fr) minmax(0,1fr) minmax(120px,.65fr);gap:.85rem;align-items:start}
+.plato-create-form .carta-form-field{min-width:0}
+.plato-create-form .carta-form-field .admin-input{width:100%;min-width:0}
+.plato-create-form .carta-form-field:nth-child(4){grid-column:1}
+.plato-create-form .carta-form-field:nth-child(5){grid-column:2 / -1}
+.plato-create-form .carta-form-field label{font-size:.68rem;font-weight:700;color:#cbd5e1}
+.plato-create-form .carta-form-field input[type="file"]{padding:.45rem;font-size:.75rem}
+.plato-create-form .carta-form-field input[type="file"]::file-selector-button{margin-right:.65rem;padding:.4rem .6rem;border:1px solid rgba(52,211,153,.25);border-radius:7px;background:rgba(52,211,153,.1);color:#a7f3d0;font:inherit;font-weight:700;cursor:pointer}
+.plato-create-form .carta-form-field textarea{min-height:5.5rem;resize:vertical}
+.plato-create-form .plato-edit-fields>.carta-availability{grid-column:1 / -1;padding-top:.1rem}
+.plato-create-form>.btn{min-width:150px}
+.plato-create-form{padding:1.35rem;background:linear-gradient(145deg,rgba(6,30,39,.96),rgba(15,23,42,.96) 55%,rgba(20,36,44,.96));border:1px solid rgba(52,211,153,.3);border-radius:22px;box-shadow:0 18px 42px rgba(2,6,23,.34),inset 0 1px rgba(255,255,255,.04)}
+.plato-create-form>.turn-card-heading{padding:0 0 .9rem;border-color:rgba(52,211,153,.2)}
+.plato-create-form>.turn-card-heading .turn-section-icon{width:42px;height:42px;border-radius:14px;background:linear-gradient(145deg,rgba(52,211,153,.2),rgba(20,184,166,.12));color:#6ee7b7;font-size:1.05rem}
+.plato-create-form>.turn-card-heading h3{color:#f0fdf4;font-size:1.12rem;letter-spacing:.01em}
+.plato-create-form .carta-form-field{gap:.45rem}
+.plato-create-form .carta-form-field label{font-size:.76rem;letter-spacing:.055em;color:#a7f3d0}
+.plato-create-form .carta-form-field .admin-input{min-height:44px;padding:.68rem .8rem;border:1px solid rgba(148,163,184,.24);border-radius:12px;background:rgba(2,8,23,.78);font-size:.88rem;transition:border-color .18s ease,box-shadow .18s ease,background .18s ease}
+.plato-create-form .carta-form-field .admin-input:focus{border-color:rgba(52,211,153,.75);background:#020817;box-shadow:0 0 0 4px rgba(52,211,153,.12)}
+.plato-create-form .carta-form-field textarea.admin-input{min-height:6.5rem;line-height:1.5}
+.plato-create-form .carta-form-field input[type="file"]{padding:.5rem;font-size:.82rem}
+.plato-create-form .carta-form-field input[type="file"]::file-selector-button{padding:.48rem .7rem;border-radius:9px;background:rgba(52,211,153,.14);font-size:.78rem;transition:background .18s ease}
+.plato-create-form .carta-form-field input[type="file"]::file-selector-button:hover{background:rgba(52,211,153,.24)}
+.plato-create-form .plato-edit-fields>.carta-availability{display:flex;align-items:center;gap:.55rem;padding:.7rem .85rem;border:1px solid rgba(52,211,153,.2);border-radius:12px;background:rgba(52,211,153,.07);color:#d1fae5;font-size:.84rem}
+.plato-create-form .plato-edit-fields>.carta-availability input{width:17px;height:17px;accent-color:#34d399}
+.plato-create-form .plato-recipe-editor{padding:1.1rem;border-color:rgba(45,212,191,.24);border-radius:16px;background:linear-gradient(145deg,rgba(13,40,48,.65),rgba(2,8,23,.5))}
+.plato-create-form .plato-recipe-editor .turn-card-heading h4{font-size:.96rem}
+.plato-create-form .plato-recipe-editor .admin-hint{font-size:.82rem;line-height:1.55}
+.plato-create-form .plato-recipe-editor .btn{min-height:38px;padding:.5rem .8rem;border-radius:10px;font-size:.8rem}
+.plato-create-form>.btn-primary{min-height:46px;padding:.72rem 1.15rem;border:1px solid rgba(110,231,183,.42);border-radius:13px;background:linear-gradient(135deg,#34d399,#14b8a6);color:#022c22;font-size:.92rem;font-weight:800;box-shadow:0 8px 20px rgba(16,185,129,.18);transition:transform .18s ease,box-shadow .18s ease,filter .18s ease}
+.plato-create-form>.btn-primary:hover{transform:translateY(-1px);filter:brightness(1.06);box-shadow:0 12px 26px rgba(16,185,129,.25)}
+#modal-editar-plato .admin-modal-panel{width:min(780px,100%);padding:1.5rem;background:radial-gradient(ellipse at top left,rgba(16,185,129,.12),transparent 42%),linear-gradient(145deg,#0f2430,#0b1220 62%,#07111a);border:1px solid rgba(52,211,153,.32);border-radius:24px;box-shadow:0 28px 80px rgba(0,0,0,.58),inset 0 1px rgba(255,255,255,.04)}
+#modal-editar-plato .admin-modal-header{align-items:center;padding-bottom:1.1rem;border-color:rgba(52,211,153,.2)}
+#modal-editar-plato .admin-modal-header .panel-kicker{font-size:.72rem;letter-spacing:.17em}
+#modal-editar-plato .admin-modal-header h2{font-size:1.3rem;color:#f0fdf4}
+#modal-editar-plato .admin-modal-close{width:40px;height:40px;border:1px solid rgba(148,163,184,.18);border-radius:12px;background:rgba(148,163,184,.08);font-size:1rem;transition:all .18s ease}
+#modal-editar-plato .admin-modal-close:hover{border-color:rgba(52,211,153,.4);background:rgba(52,211,153,.14);color:#a7f3d0}
+#modal-editar-plato .plato-edit-form{grid-template-columns:160px minmax(0,1fr);gap:1.15rem;padding-top:1.25rem}
+#modal-editar-plato .plato-edit-preview{align-self:start;padding:1rem .65rem;border:1px solid rgba(52,211,153,.2);border-radius:18px;background:linear-gradient(155deg,rgba(52,211,153,.09),rgba(2,8,23,.55))}
+#modal-editar-plato .plato-edit-preview .carta-admin-image{width:132px;height:132px;border:2px solid rgba(110,231,183,.38);border-radius:18px;box-shadow:0 10px 25px rgba(2,6,23,.35);font-size:1.6rem}
+#modal-editar-plato .plato-edit-preview .carta-file-label{display:inline-flex;justify-content:center;gap:.45rem;padding:.55rem .7rem;border:1px solid rgba(52,211,153,.2);border-radius:10px;background:rgba(52,211,153,.08);font-size:.8rem;transition:background .18s ease,border-color .18s ease}
+#modal-editar-plato .plato-edit-preview .carta-file-label:hover{border-color:rgba(52,211,153,.45);background:rgba(52,211,153,.14)}
+#modal-editar-plato .plato-edit-fields{gap:.85rem;align-content:start}
+#modal-editar-plato .plato-edit-fields .carta-form-field{gap:.45rem}
+#modal-editar-plato .plato-edit-fields .carta-form-field label{font-size:.76rem;letter-spacing:.055em;color:#a7f3d0;font-weight:700}
+#modal-editar-plato .plato-edit-fields .admin-input{width:100%;min-width:0;min-height:44px;padding:.68rem .8rem;border:1px solid rgba(148,163,184,.24);border-radius:12px;background:rgba(2,8,23,.78);font-size:.88rem;transition:border-color .18s ease,box-shadow .18s ease,background .18s ease}
+#modal-editar-plato .plato-edit-fields .admin-input:focus{border-color:rgba(52,211,153,.75);background:#020817;box-shadow:0 0 0 4px rgba(52,211,153,.12)}
+#modal-editar-plato .plato-edit-fields textarea.admin-input{min-height:6rem;line-height:1.5}
+#modal-editar-plato .plato-edit-fields>.carta-availability{padding:.7rem .85rem;border:1px solid rgba(52,211,153,.2);border-radius:12px;background:rgba(52,211,153,.07);color:#d1fae5;font-size:.84rem}
+#modal-editar-plato .plato-edit-fields>.carta-availability input{width:17px;height:17px;accent-color:#34d399}
+#modal-editar-plato .plato-recipe-editor{padding:1.1rem;border-color:rgba(45,212,191,.24);border-radius:16px;background:linear-gradient(145deg,rgba(13,40,48,.65),rgba(2,8,23,.5))}
+#modal-editar-plato .plato-recipe-editor .turn-card-heading h3{font-size:.98rem}
+#modal-editar-plato .plato-recipe-editor .btn{min-height:38px;padding:.5rem .8rem;border-radius:10px;font-size:.8rem}
+#modal-editar-plato .plato-recipe-row{gap:.65rem}
+#modal-editar-plato .plato-recipe-row .admin-input{width:100%;min-width:0;min-height:42px;padding:.65rem .75rem;border-radius:11px;font-size:.86rem}
+#modal-editar-plato .admin-modal-actions{gap:.75rem;padding-top:1.15rem;border-color:rgba(52,211,153,.2)}
+#modal-editar-plato .admin-modal-actions .btn{min-height:40px;padding:.6rem .85rem;border-radius:11px;font-size:.82rem}
+#modal-editar-plato .admin-modal-actions .btn-primary{border-color:rgba(110,231,183,.42);background:linear-gradient(135deg,#34d399,#14b8a6);color:#022c22;font-weight:800}
 .plato-recipe-editor{grid-column:1/-1;display:grid;gap:.65rem;padding:1rem;border:1px solid rgba(52,211,153,.18);border-radius:12px;background:rgba(2,6,23,.28)}.plato-recipe-editor .turn-card-heading{margin:0}.plato-recipe-editor h3,.plato-recipe-editor h4{color:#f8fafc;font-size:.85rem;font-weight:700}.plato-recipe-editor .admin-hint{margin:0}
 .plato-recipe-rows{display:grid;gap:.55rem}.plato-recipe-row{display:grid;grid-template-columns:minmax(0,1fr) minmax(130px,.35fr) auto;gap:.55rem;align-items:center}
 @media(max-width:700px){.plato-recipe-row{grid-template-columns:minmax(0,1fr) auto}.plato-recipe-row input{grid-column:1}.plato-recipe-row button{grid-column:2;grid-row:1 / span 2}.plato-create-form{padding:.75rem}}
+@media(max-width:900px){.plato-create-form>.plato-edit-fields{grid-template-columns:repeat(2,minmax(0,1fr))}.plato-create-form .carta-form-field:nth-child(4){grid-column:auto}.plato-create-form .carta-form-field:nth-child(5){grid-column:1 / -1}}
+@media(max-width:700px){.plato-create-form>.plato-edit-fields{grid-template-columns:minmax(0,1fr)}.plato-create-form .carta-form-field:nth-child(4),.plato-create-form .carta-form-field:nth-child(5){grid-column:1}.plato-create-form>.btn{width:100%}.plato-create-form>.turn-card-heading{align-items:flex-start}}
 .cocina-toolbar{background:linear-gradient(180deg,rgba(15,23,42,.96),rgba(15,23,42,.82));border-color:rgba(148,163,184,.16);border-radius:16px;padding:1rem 1.15rem;box-shadow:0 12px 30px rgba(2,6,23,.16)}
 .cocina-toolbar strong{color:#f8fafc}.cocina-toolbar span{color:#94a3b8}
 .col-header{color:#94a3b8;padding:.35rem .25rem}
@@ -454,6 +547,7 @@ body.login-page .topbar{display:none !important}
 .pedido-items-ul li{border-color:rgba(148,163,184,.12);color:#cbd5e1}
 @media(max-width:700px){.admin-body,.cocina-body{padding:1rem}.admin-card{padding:1rem}.admin-form-row{align-items:stretch}.admin-form-row .admin-input{width:100%!important;flex:1 1 100%}.categoria-create-form,.categoria-edit-form{align-items:stretch;flex-direction:column;max-width:none}.categoria-create-form .admin-input,.categoria-create-form .btn,.categoria-edit-form .admin-input,.categoria-edit-form .btn{width:100%}.inventario-create-form,.movimiento-form{grid-template-columns:1fr}.inventario-create-form .admin-input,.movimiento-form .admin-input,.inventario-create-form .btn,.movimiento-form .btn{width:100%}.inventario-toolbar{align-items:stretch;flex-direction:column}.inventario-search{max-width:none}.inventario-toolbar>.admin-input{width:100%}.carta-create-form{grid-template-columns:1fr}.carta-form-description,.carta-form-image,.carta-create-form>.carta-availability,.carta-create-form>.turn-action-btn{grid-column:1}.carta-create-form>.turn-action-btn{width:100%}.carta-admin-item{grid-template-columns:1fr}.carta-admin-image{width:100%;height:150px}.carta-admin-fields{grid-template-columns:1fr}.carta-admin-fields .carta-form-description{grid-column:1}.carta-file-label{margin-left:0}.carta-preview-grid{grid-template-columns:1fr}.carta-preview-item{grid-template-columns:42px minmax(0,1fr) auto}.carta-preview-image{width:42px;height:42px}}
 @media(max-width:700px){.plato-edit-form{grid-template-columns:1fr}.plato-edit-preview .carta-admin-image{margin:auto}.plato-edit-fields{grid-template-columns:1fr}.plato-edit-fields .carta-form-field:nth-child(4),.plato-edit-fields>.carta-availability{grid-column:1}.admin-modal-actions{grid-template-columns:1fr 1fr}.admin-modal-actions span{display:none}.admin-modal-actions .btn-danger{grid-column:1 / -1}.admin-modal-actions .btn{width:100%}}
+@media(max-width:700px){#modal-editar-plato .admin-modal-panel{padding:1rem;border-radius:19px}#modal-editar-plato .plato-edit-form{grid-template-columns:minmax(0,1fr);gap:.9rem}#modal-editar-plato .plato-edit-preview{flex-direction:row;justify-content:space-between;align-items:center;padding:.75rem}#modal-editar-plato .plato-edit-preview .carta-admin-image{width:88px;height:88px;border-radius:14px}#modal-editar-plato .plato-edit-preview .carta-file-label{margin-left:auto}#modal-editar-plato .plato-edit-fields{grid-template-columns:minmax(0,1fr)}#modal-editar-plato .plato-edit-fields .carta-form-field:nth-child(4),#modal-editar-plato .plato-edit-fields>.carta-availability{grid-column:1}#modal-editar-plato .plato-recipe-editor{padding:.85rem}#modal-editar-plato .plato-recipe-editor>.turn-card-heading{align-items:flex-start;flex-wrap:wrap}#modal-editar-plato .plato-recipe-row{grid-template-columns:minmax(0,1fr) auto}#modal-editar-plato .plato-recipe-row input{grid-column:1}#modal-editar-plato .plato-recipe-row button{grid-column:2;grid-row:1}#modal-editar-plato .admin-modal-actions{grid-template-columns:1fr 1fr}#modal-editar-plato .admin-modal-actions span{display:none}#modal-editar-plato .admin-modal-actions .btn-danger{grid-column:1 / -1}#modal-editar-plato .admin-modal-actions .btn{width:100%}}
 @media(max-width:520px){.turn-table-grid{grid-template-columns:1fr}.turn-table-card{align-items:flex-start}.turn-table-qr{width:72px;height:72px}.turn-table-add-actions,.turn-table-add-actions form,.turn-table-add-actions .btn{width:100%}}
 
 /* ── CAJA: alertas de inventario ──────────────── */
@@ -546,3 +640,279 @@ img[alt^="Código QR de la mesa"]{display:block;max-width:min(320px,100%);margin
 ::-webkit-scrollbar{width:5px;height:5px}
 ::-webkit-scrollbar-track{background:transparent}
 ::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+
+/* Keep the inventory views within the available viewport width. */
+#admin-view-cocina,
+#admin-view-restaurante{min-width:0}
+#admin-view-cocina .inventario-create-form,
+#admin-view-restaurante .inventario-create-form{grid-template-columns:repeat(4,minmax(0,1fr))}
+#admin-view-cocina .inventario-create-form>*,
+#admin-view-restaurante .inventario-create-form>*{min-width:0}
+#admin-view-cocina .inventario-create-form .admin-input,
+#admin-view-restaurante .inventario-create-form .admin-input{width:100%;min-width:0}
+#admin-view-cocina .inventario-create-form .btn,
+#admin-view-restaurante .inventario-create-form .btn{width:100%;white-space:normal}
+#admin-view-cocina .inventario-table,
+#admin-view-restaurante .inventario-table{width:100%;min-width:0;table-layout:fixed}
+#admin-view-cocina .inventario-table th,
+#admin-view-restaurante .inventario-table th{white-space:normal;overflow-wrap:anywhere}
+#admin-view-cocina .inventario-table td,
+#admin-view-restaurante .inventario-table td{min-width:0;padding:.3rem .25rem;white-space:normal;overflow-wrap:anywhere}
+#admin-view-cocina .inventario-table .admin-input-inline,
+#admin-view-restaurante .inventario-table .admin-input-inline{width:100%;min-width:0;padding:.25rem;font-size:.68rem}
+#admin-view-cocina .inventario-table .admin-actions,
+#admin-view-restaurante .inventario-table .admin-actions{position:static;gap:.2rem}
+#admin-view-cocina .inventario-table .admin-actions form,
+#admin-view-restaurante .inventario-table .admin-actions form{display:flex}
+#admin-view-cocina .inventario-table .admin-actions .btn,
+#admin-view-restaurante .inventario-table .admin-actions .btn{padding:.35rem}
+
+@media(max-width:700px){
+  #admin-view-cocina .inventario-create-form,
+  #admin-view-restaurante .inventario-create-form{grid-template-columns:repeat(2,minmax(0,1fr))}
+  #admin-view-cocina .inventario-table,
+  #admin-view-restaurante .inventario-table{display:block}
+  #admin-view-cocina .inventario-table thead,
+  #admin-view-restaurante .inventario-table thead{display:none}
+  #admin-view-cocina .inventario-table tbody,
+  #admin-view-restaurante .inventario-table tbody{display:grid;gap:.75rem}
+  #admin-view-cocina .inventario-table tbody tr[data-inventario-row],
+  #admin-view-restaurante .inventario-table tbody tr[data-inventario-row]{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.35rem;padding:.65rem;border:1px solid rgba(148,163,184,.16);border-radius:12px}
+  #admin-view-cocina .inventario-table tbody tr[data-inventario-row] td,
+  #admin-view-restaurante .inventario-table tbody tr[data-inventario-row] td{display:grid;grid-template-columns:minmax(4.5rem,.7fr) minmax(0,1fr);align-items:center;gap:.35rem;border:0;padding:.2rem;font-size:.7rem}
+  #admin-view-cocina .inventario-table tbody tr[data-inventario-row] td::before,
+  #admin-view-restaurante .inventario-table tbody tr[data-inventario-row] td::before{font-size:.62rem;font-weight:700;color:#94a3b8}
+  #admin-view-cocina .inventario-table tbody tr[data-inventario-row] td:nth-child(1)::before,
+  #admin-view-restaurante .inventario-table tbody tr[data-inventario-row] td:nth-child(1)::before{content:"Producto"}
+  #admin-view-cocina .inventario-table tbody tr[data-inventario-row] td:nth-child(2)::before,
+  #admin-view-restaurante .inventario-table tbody tr[data-inventario-row] td:nth-child(2)::before{content:"Categoría"}
+  #admin-view-cocina .inventario-table tbody tr[data-inventario-row] td:nth-child(3)::before,
+  #admin-view-restaurante .inventario-table tbody tr[data-inventario-row] td:nth-child(3)::before{content:"Unidad"}
+  #admin-view-cocina .inventario-table tbody tr[data-inventario-row] td:nth-child(4)::before,
+  #admin-view-restaurante .inventario-table tbody tr[data-inventario-row] td:nth-child(4)::before{content:"Costo"}
+  #admin-view-restaurante .inventario-table tbody tr[data-inventario-row] td:nth-child(5)::before{content:"Precio"}
+  #admin-view-cocina .inventario-table tbody tr[data-inventario-row] td:nth-child(5)::before,
+  #admin-view-restaurante .inventario-table tbody tr[data-inventario-row] td:nth-child(6)::before{content:"Existencia"}
+  #admin-view-cocina .inventario-table tbody tr[data-inventario-row] td:nth-child(6)::before,
+  #admin-view-restaurante .inventario-table tbody tr[data-inventario-row] td:nth-child(7)::before{content:"Mínimo"}
+  #admin-view-cocina .inventario-table tbody tr[data-inventario-row] td:nth-child(7)::before,
+  #admin-view-restaurante .inventario-table tbody tr[data-inventario-row] td:nth-child(8)::before{content:"Máximo"}
+  #admin-view-cocina .inventario-table tbody tr[data-inventario-row] td:nth-child(8)::before,
+  #admin-view-restaurante .inventario-table tbody tr[data-inventario-row] td:nth-child(9)::before{content:"Estado"}
+  #admin-view-cocina .inventario-table tbody tr[data-inventario-row] td:nth-child(9)::before,
+  #admin-view-restaurante .inventario-table tbody tr[data-inventario-row] td:nth-child(10)::before{content:"Activo"}
+  #admin-view-cocina .inventario-table tbody tr[data-inventario-row] td:last-child,
+  #admin-view-restaurante .inventario-table tbody tr[data-inventario-row] td:last-child{grid-column:1/-1}
+  #admin-view-cocina .inventario-table tbody tr[data-inventario-row] td:last-child::before,
+  #admin-view-restaurante .inventario-table tbody tr[data-inventario-row] td:last-child::before{content:"Acciones"}
+  #admin-view-cocina .inventario-table tbody tr[data-inventario-row] .admin-actions,
+  #admin-view-restaurante .inventario-table tbody tr[data-inventario-row] .admin-actions{display:flex;justify-content:flex-end}
+  #admin-view-cocina .inventario-table tbody tr:not([data-inventario-row]) td,
+  #admin-view-restaurante .inventario-table tbody tr:not([data-inventario-row]) td{display:block;width:100%}
+}
+
+#admin-view-configuracion>.admin-card,
+#admin-view-cocina>.admin-card,
+#admin-view-restaurante>.admin-card{position:relative;padding:1.35rem;background:radial-gradient(ellipse at top right,rgba(16,185,129,.09),transparent 42%),linear-gradient(145deg,rgba(15,36,48,.98),rgba(11,18,32,.97));border:1px solid rgba(52,211,153,.22);border-radius:20px;box-shadow:0 16px 38px rgba(2,6,23,.3),inset 0 1px rgba(255,255,255,.035)}
+#admin-view-carta>.admin-card{position:relative;padding:1.35rem;background:radial-gradient(ellipse at top right,rgba(16,185,129,.09),transparent 42%),linear-gradient(145deg,rgba(15,36,48,.98),rgba(11,18,32,.97));border:1px solid rgba(52,211,153,.22);border-radius:20px;box-shadow:0 16px 38px rgba(2,6,23,.3),inset 0 1px rgba(255,255,255,.035)}
+#admin-view-configuracion>.admin-card::before,
+#admin-view-cocina>.admin-card::before,
+#admin-view-restaurante>.admin-card::before{position:absolute;top:0;left:1.35rem;right:1.35rem;height:2px;background:linear-gradient(90deg,transparent,rgba(52,211,153,.65),transparent);content:""}
+#admin-view-carta>.admin-card::before{position:absolute;top:0;left:1.35rem;right:1.35rem;height:2px;background:linear-gradient(90deg,transparent,rgba(52,211,153,.65),transparent);content:""}
+#admin-view-configuracion>.admin-card>.turn-card-heading,
+#admin-view-cocina>.admin-card>.turn-card-heading,
+#admin-view-restaurante>.admin-card>.turn-card-heading{position:relative;margin-bottom:1.1rem;padding-bottom:.9rem;border-color:rgba(52,211,153,.18)}
+#admin-view-carta>.admin-card>.turn-card-heading{position:relative;margin-bottom:1.1rem;padding-bottom:.9rem;border-color:rgba(52,211,153,.18)}
+#admin-view-configuracion>.admin-card>.turn-card-heading .turn-section-icon,
+#admin-view-cocina>.admin-card>.turn-card-heading .turn-section-icon,
+#admin-view-restaurante>.admin-card>.turn-card-heading .turn-section-icon{width:42px;height:42px;border-radius:14px;background:linear-gradient(145deg,rgba(52,211,153,.2),rgba(20,184,166,.1));font-size:1rem}
+#admin-view-carta>.admin-card>.turn-card-heading .turn-section-icon{width:42px;height:42px;border-radius:14px;background:linear-gradient(145deg,rgba(52,211,153,.2),rgba(20,184,166,.1));font-size:1rem}
+#admin-view-configuracion>.admin-card>.turn-card-heading h2,
+#admin-view-cocina>.admin-card>.turn-card-heading h2,
+#admin-view-restaurante>.admin-card>.turn-card-heading h2{font-size:1.08rem}
+#admin-view-carta>.admin-card>.turn-card-heading h2{font-size:1.08rem}
+#admin-view-configuracion>.admin-card>.admin-hint,
+#admin-view-cocina>.admin-card>.admin-hint,
+#admin-view-restaurante>.admin-card>.admin-hint{font-size:.82rem;line-height:1.6}
+#admin-view-carta>.admin-card>.admin-hint{font-size:.82rem;line-height:1.6}
+#admin-view-configuracion>.admin-card .admin-input,
+#admin-view-cocina>.admin-card .admin-input,
+#admin-view-restaurante>.admin-card .admin-input{border-radius:11px;font-size:.84rem}
+#admin-view-configuracion>.admin-card .btn,
+#admin-view-cocina>.admin-card .btn,
+#admin-view-restaurante>.admin-card .btn{border-radius:11px;font-weight:700}
+#admin-view-configuracion .categoria-create-form,
+#admin-view-cocina .categoria-create-form,
+#admin-view-restaurante .categoria-create-form{max-width:720px;padding:.85rem;border:1px solid rgba(52,211,153,.16);border-radius:15px;background:linear-gradient(145deg,rgba(4,25,33,.7),rgba(2,8,23,.48))}
+#admin-view-configuracion .categoria-admin-list,
+#admin-view-cocina .categoria-admin-list,
+#admin-view-restaurante .categoria-admin-list{max-width:720px;gap:.65rem}
+#admin-view-configuracion .categoria-edit-form,
+#admin-view-cocina .categoria-edit-form,
+#admin-view-restaurante .categoria-edit-form{padding:.6rem;border:1px solid rgba(148,163,184,.12);border-radius:12px;background:rgba(2,8,23,.38)}
+#admin-view-cocina .inventario-create-form,
+#admin-view-restaurante .inventario-create-form,
+#admin-view-configuracion .movimiento-form{padding:1rem;border:1px solid rgba(52,211,153,.17);border-radius:15px;background:linear-gradient(145deg,rgba(4,25,33,.68),rgba(2,8,23,.46))}
+#admin-view-cocina .inventario-toolbar,
+#admin-view-restaurante .inventario-toolbar,
+#admin-view-configuracion .inventario-toolbar{gap:.85rem}
+#admin-view-cocina .admin-table-wrap,
+#admin-view-restaurante .admin-table-wrap,
+#admin-view-configuracion .admin-table-wrap{border:1px solid rgba(148,163,184,.14);border-radius:14px;background:rgba(2,8,23,.3)}
+#admin-view-cocina .inventario-table thead,
+#admin-view-restaurante .inventario-table thead,
+#admin-view-configuracion .inventario-table thead{background:rgba(16,185,129,.07)}
+#admin-view-cocina .inventario-table th,
+#admin-view-restaurante .inventario-table th,
+#admin-view-configuracion .inventario-table th{color:#a7f3d0}
+#admin-view-carta .carta-admin-list{gap:.85rem}
+#admin-view-carta .carta-admin-item{padding:1rem;background:linear-gradient(145deg,rgba(4,25,33,.82),rgba(2,8,23,.62));border:1px solid rgba(52,211,153,.17);border-radius:16px;box-shadow:0 8px 22px rgba(2,6,23,.18);transition:transform .18s ease,border-color .18s ease,box-shadow .18s ease}
+#admin-view-carta .carta-admin-item:hover{transform:translateY(-2px);border-color:rgba(52,211,153,.38);box-shadow:0 14px 30px rgba(2,6,23,.28)}
+#admin-view-carta .carta-admin-image{width:90px;height:90px;border:1px solid rgba(52,211,153,.22);border-radius:14px;box-shadow:0 8px 20px rgba(2,6,23,.24)}
+#admin-view-carta .carta-admin-topline h3{font-size:1.08rem;color:#f0fdf4}
+#admin-view-carta .carta-admin-category{font-size:.68rem;letter-spacing:.12em}
+#admin-view-carta .carta-admin-price{padding:.35rem .6rem;border:1px solid rgba(52,211,153,.2);border-radius:999px;background:rgba(52,211,153,.08);font-size:.84rem}
+#admin-view-carta .carta-admin-description{font-size:.84rem;line-height:1.55}
+#admin-view-carta .carta-admin-content>.admin-hint{font-size:.77rem;line-height:1.55}
+#admin-view-carta .carta-admin-footer{padding-top:.8rem;border-color:rgba(52,211,153,.15)}
+#admin-view-carta .carta-admin-footer .btn{min-height:38px;padding:.55rem .8rem;border-radius:10px;font-size:.78rem}
+#admin-view-carta .carta-preview-category{padding:1rem;background:linear-gradient(145deg,rgba(4,25,33,.72),rgba(2,8,23,.5));border:1px solid rgba(52,211,153,.16);border-radius:16px}
+#admin-view-carta .carta-preview-category-heading{border-color:rgba(52,211,153,.16)}
+#admin-view-carta .carta-preview-category-heading h3{font-size:.84rem}
+#admin-view-carta .carta-preview-item{padding:.65rem;background:rgba(15,23,42,.72);border-color:rgba(148,163,184,.13);border-radius:13px;transition:transform .18s ease,border-color .18s ease}
+#admin-view-carta .carta-preview-item:hover{transform:translateY(-1px);border-color:rgba(52,211,153,.32)}
+#admin-view-carta .carta-preview-image{width:52px;height:52px;border:1px solid rgba(52,211,153,.16);border-radius:11px}
+#admin-view-carta .carta-preview-info h4{font-size:.84rem}
+#admin-view-carta .carta-preview-info p{font-size:.72rem}
+#admin-view-carta .carta-preview-price{font-size:.82rem}
+@media(max-width:700px){
+  #admin-view-configuracion>.admin-card,
+  #admin-view-cocina>.admin-card,
+  #admin-view-restaurante>.admin-card,
+  #admin-view-carta>.admin-card{padding:1rem;border-radius:17px}
+  #admin-view-configuracion>.admin-card>.turn-card-heading,
+  #admin-view-cocina>.admin-card>.turn-card-heading,
+  #admin-view-restaurante>.admin-card>.turn-card-heading,
+  #admin-view-carta>.admin-card>.turn-card-heading{align-items:flex-start}
+  #admin-view-configuracion .categoria-create-form,
+  #admin-view-cocina .categoria-create-form,
+  #admin-view-restaurante .categoria-create-form{padding:.75rem}
+  #admin-view-configuracion .categoria-edit-form,
+  #admin-view-cocina .categoria-edit-form,
+  #admin-view-restaurante .categoria-edit-form{padding:.65rem}
+  #admin-view-carta .carta-admin-item{grid-template-columns:1fr;padding:.85rem}
+  #admin-view-carta .carta-admin-image{width:100%;height:150px}
+  #admin-view-carta .carta-admin-footer{align-items:flex-start;flex-direction:column}
+  #admin-view-carta .carta-admin-footer .btn{width:100%}
+  #admin-view-carta .carta-preview-grid{grid-template-columns:1fr}
+}
+
+.turn-summary-card{position:relative;overflow:hidden;padding:1.4rem;background:radial-gradient(ellipse at top right,rgba(16,185,129,.1),transparent 42%),linear-gradient(145deg,rgba(15,36,48,.98),rgba(11,18,32,.97));border:1px solid rgba(52,211,153,.22);border-radius:20px;box-shadow:0 16px 38px rgba(2,6,23,.3),inset 0 1px rgba(255,255,255,.035)}
+.turn-summary-card::before{position:absolute;top:0;left:1.35rem;right:1.35rem;height:2px;background:linear-gradient(90deg,transparent,rgba(52,211,153,.65),transparent);content:""}
+.turn-summary-card .turn-card-heading{position:relative;margin-bottom:1.15rem;padding-bottom:.9rem;border-color:rgba(52,211,153,.18)}
+.turn-summary-card .turn-section-icon{width:42px;height:42px;border-radius:14px;background:linear-gradient(145deg,rgba(52,211,153,.2),rgba(20,184,166,.1));color:#6ee7b7;font-size:1.02rem}
+.turn-summary-card .turn-card-heading h2{font-size:1.08rem;letter-spacing:.01em}
+.turn-summary-card .turn-info-grid>div{padding:.9rem 1rem;border-color:rgba(148,163,184,.15);border-radius:14px;background:linear-gradient(145deg,rgba(2,8,23,.62),rgba(15,23,42,.42));transition:border-color .18s ease,transform .18s ease,background .18s ease}
+.turn-summary-card .turn-info-grid>div:hover{transform:translateY(-2px);border-color:rgba(52,211,153,.36);background:linear-gradient(145deg,rgba(6,30,39,.8),rgba(15,23,42,.52))}
+.turn-summary-card .turn-info-grid span,.turn-summary-card .turn-metric-grid span{font-size:.7rem;letter-spacing:.085em;color:#94a3b8}
+.turn-summary-card .turn-info-grid strong{font-size:.92rem;line-height:1.45;color:#f1f5f9}
+.turn-summary-card .turn-info-grid .turn-status-value{color:#6ee7b7}
+.turn-summary-card .turn-metric-grid{gap:.75rem}
+.turn-summary-card .turn-metric-grid>div{min-height:86px;justify-content:center;padding:.9rem 1rem;border:1px solid rgba(52,211,153,.17);border-radius:14px;background:linear-gradient(145deg,rgba(4,25,33,.78),rgba(2,8,23,.58));transition:border-color .18s ease,transform .18s ease,box-shadow .18s ease}
+.turn-summary-card .turn-metric-grid>div:hover{transform:translateY(-2px);border-color:rgba(52,211,153,.4);box-shadow:0 10px 22px rgba(2,6,23,.24)}
+.turn-summary-card .turn-metric-grid strong{font-size:1rem;line-height:1.35;color:#a7f3d0;font-variant-numeric:tabular-nums}
+.turn-summary-card>pre{padding:1rem 1.1rem;border:1px solid rgba(52,211,153,.18);border-radius:14px;background:rgba(2,8,23,.56);font-size:.86rem;line-height:1.7}
+.admin-body .ipv-wrapper{border-color:rgba(52,211,153,.22);border-radius:20px;background:linear-gradient(145deg,rgba(9,25,37,.98),rgba(2,8,23,.98));box-shadow:0 18px 44px rgba(2,6,23,.3)}
+.admin-body .ipv-caption{padding:1.2rem 1.4rem .85rem;border-bottom:1px solid rgba(52,211,153,.22);background:linear-gradient(90deg,rgba(16,185,129,.08),transparent 72%)}
+.admin-body .ipv-caption-title{font-size:.98rem;letter-spacing:.01em}
+.admin-body .ipv-caption-sub{font-size:.74rem;color:#94a3b8}
+.admin-body .ipv-table thead tr.ipv-cols th{padding:.65rem .8rem;color:#a3b2c7}
+.admin-body .ipv-table tbody tr{transition:background .16s ease}
+.admin-body .ipv-table tbody tr:hover{background:rgba(16,185,129,.08)}
+.admin-body .ipv-table td{padding:.68rem .8rem}
+.admin-body .ipv-update-bar{padding:.7rem 1.4rem;border-color:rgba(52,211,153,.14);color:#94a3b8}
+@media(max-width:700px){
+  .turn-summary-card{padding:1rem;border-radius:17px}
+  .turn-summary-card .turn-card-heading{align-items:flex-start}
+  .turn-summary-card .turn-info-grid>div,.turn-summary-card .turn-metric-grid>div{padding:.75rem;border-radius:12px}
+  .turn-summary-card .turn-info-grid strong{font-size:.86rem}
+  .turn-summary-card .turn-metric-grid strong{font-size:.92rem}
+  .admin-body .ipv-caption{padding:1rem}
+  .admin-body .ipv-update-bar{padding:.65rem 1rem}
+}
+
+.turn-history-card{padding:1.35rem;background:radial-gradient(ellipse at top right,rgba(16,185,129,.09),transparent 40%),linear-gradient(145deg,rgba(15,36,48,.98),rgba(11,18,32,.97));border:1px solid rgba(52,211,153,.2);border-radius:20px;box-shadow:0 16px 36px rgba(2,6,23,.28);transition:transform .2s ease,border-color .2s ease,box-shadow .2s ease}
+.turn-history-card:hover{transform:translateY(-2px);border-color:rgba(52,211,153,.38);box-shadow:0 20px 42px rgba(2,6,23,.36)}
+.turn-history-card .turn-card-heading{margin-bottom:1rem;padding-bottom:.9rem;border-color:rgba(52,211,153,.18)}
+.turn-history-card .turn-section-icon{width:42px;height:42px;border-radius:14px;background:linear-gradient(145deg,rgba(52,211,153,.2),rgba(20,184,166,.1));font-size:1rem}
+.turn-history-card .turn-card-heading h2{font-size:1.08rem}
+.turn-history-card .turn-status-value{margin-left:auto;padding:.38rem .7rem;border:1px solid rgba(52,211,153,.28);border-radius:999px;background:rgba(52,211,153,.1);color:#a7f3d0;font-size:.74rem;font-weight:800;letter-spacing:.025em}
+.turn-history-meta{margin:0 0 1rem}
+.turn-history-meta>span{display:inline-flex;align-items:center;gap:.4rem;max-width:100%;padding:.42rem .65rem;border:1px solid rgba(148,163,184,.14);border-radius:999px;background:rgba(2,8,23,.42);color:#cbd5e1;font-size:.76rem;overflow-wrap:anywhere}
+.turn-history-meta>span:first-child{min-width:0}
+.turn-history-meta i{color:#6ee7b7}
+.turn-history-card .turn-metric-grid-small{grid-template-columns:repeat(3,minmax(0,1fr));gap:.65rem;margin-bottom:1rem}
+.turn-history-card .turn-metric-grid>div{min-height:78px;justify-content:center;padding:.8rem .9rem;border:1px solid rgba(52,211,153,.16);border-radius:13px;background:linear-gradient(145deg,rgba(4,25,33,.76),rgba(2,8,23,.56));transition:border-color .18s ease,background .18s ease}
+.turn-history-card .turn-metric-grid>div:hover{border-color:rgba(52,211,153,.38);background:linear-gradient(145deg,rgba(6,30,39,.86),rgba(2,8,23,.64))}
+.turn-history-card .turn-metric-grid span{font-size:.68rem;color:#94a3b8}
+.turn-history-card .turn-metric-grid strong{font-size:.94rem;line-height:1.35;color:#a7f3d0;font-variant-numeric:tabular-nums}
+.turn-history-card>.turn-action-btn{min-height:42px;padding:.65rem .9rem;border:1px solid rgba(110,231,183,.42);border-radius:12px;background:linear-gradient(135deg,#34d399,#14b8a6);color:#022c22;font-size:.84rem;font-weight:800;box-shadow:0 8px 20px rgba(16,185,129,.16);transition:transform .18s ease,box-shadow .18s ease}
+.turn-history-card>.turn-action-btn:hover{transform:translateY(-1px);box-shadow:0 12px 24px rgba(16,185,129,.24)}
+.turn-history-card .turn-notes{margin-top:1rem;padding-top:.9rem;border-top:1px solid rgba(52,211,153,.15)}
+.turn-history-card .turn-notes>p{font-size:.72rem;letter-spacing:.07em;color:#a7f3d0}
+.turn-history-card .turn-notes pre{padding:.9rem 1rem;border:1px solid rgba(148,163,184,.14);border-radius:13px;background:rgba(2,8,23,.58);font-size:.82rem;line-height:1.6}
+@media(max-width:700px){
+  .turn-history-card{padding:1rem;border-radius:17px}
+  .turn-history-card .turn-card-heading{align-items:flex-start}
+  .turn-history-card .turn-status-value{font-size:.68rem}
+  .turn-history-meta{align-items:flex-start;flex-direction:column}
+  .turn-history-meta>span{border-radius:11px}
+  .turn-history-card .turn-metric-grid-small{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .turn-history-card .turn-metric-grid>div{min-height:72px;padding:.7rem}
+  .turn-history-card .turn-metric-grid strong{font-size:.88rem}
+  .turn-history-card>.turn-action-btn{width:100%}
+}
+@media(max-width:420px){.turn-history-card .turn-metric-grid-small{grid-template-columns:minmax(0,1fr)}}
+
+.caja-estadisticas-page>section{position:relative;overflow:hidden;padding:1.4rem;background:radial-gradient(ellipse at top right,rgba(16,185,129,.09),transparent 42%),linear-gradient(145deg,rgba(15,36,48,.98),rgba(11,18,32,.97));border:1px solid rgba(52,211,153,.22);border-radius:20px;box-shadow:0 16px 38px rgba(2,6,23,.3),inset 0 1px rgba(255,255,255,.035)}
+.caja-estadisticas-page>section::before{position:absolute;top:0;left:1.35rem;right:1.35rem;height:2px;background:linear-gradient(90deg,transparent,rgba(52,211,153,.65),transparent);content:""}
+.caja-estadisticas-page>section:first-child>.flex{position:relative;padding-bottom:.9rem;border-bottom:1px solid rgba(52,211,153,.18)}
+.caja-estadisticas-page>section:first-child .panel-kicker{font-size:.72rem;letter-spacing:.16em}
+.caja-estadisticas-page>section:first-child h2{font-size:1.15rem}
+.caja-estadisticas-page .caja-metricas{grid-template-columns:repeat(4,minmax(0,1fr));gap:.75rem;margin:1rem 0 0}
+.caja-estadisticas-page .caja-metrica{display:flex;min-width:0;min-height:90px;flex-direction:column;justify-content:center;gap:.35rem;padding:.9rem 1rem;border:1px solid rgba(52,211,153,.17);border-radius:14px;background:linear-gradient(145deg,rgba(4,25,33,.78),rgba(2,8,23,.58));transition:transform .18s ease,border-color .18s ease,box-shadow .18s ease}
+.caja-estadisticas-page .caja-metrica:hover{transform:translateY(-2px);border-color:rgba(52,211,153,.4);box-shadow:0 10px 22px rgba(2,6,23,.24)}
+.caja-estadisticas-page .caja-metrica span{font-size:.72rem;letter-spacing:.07em;color:#94a3b8}
+.caja-estadisticas-page .caja-metrica strong{font-size:1.05rem;line-height:1.35;color:#a7f3d0;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.caja-estadisticas-page>section:nth-child(2)>.caja-subtitulo{position:relative;margin-bottom:1rem;padding-bottom:.85rem;border-bottom:1px solid rgba(52,211,153,.18);font-size:.9rem;letter-spacing:.06em;color:#d1fae5}
+.caja-estadisticas-page .caja-inventario{gap:.6rem}
+.caja-estadisticas-page .caja-inventario-row{grid-template-columns:minmax(0,1.2fr) minmax(0,1fr) minmax(0,1fr) minmax(0,1fr);gap:.8rem;min-width:0;padding:.85rem 1rem;border:1px solid rgba(148,163,184,.14);border-radius:14px;background:linear-gradient(145deg,rgba(4,25,33,.68),rgba(2,8,23,.48));font-size:.82rem;transition:transform .18s ease,border-color .18s ease,background .18s ease}
+.caja-estadisticas-page .caja-inventario-row:hover{transform:translateY(-1px);border-color:rgba(52,211,153,.32);background:linear-gradient(145deg,rgba(6,30,39,.82),rgba(2,8,23,.58))}
+.caja-estadisticas-page .caja-inventario-row strong{min-width:0;color:#f1f5f9;font-size:.88rem;overflow-wrap:anywhere}
+.caja-estadisticas-page .caja-inventario-row span{min-width:0;color:#aab8c8;overflow-wrap:anywhere}
+.caja-estadisticas-page .caja-inventario-row span b{color:#a7f3d0;font-variant-numeric:tabular-nums}
+.caja-estadisticas-page .caja-inventario-row.stock-bajo{border-color:rgba(251,146,60,.42);background:linear-gradient(145deg,rgba(67,36,14,.42),rgba(2,8,23,.5))}
+.caja-estadisticas-page .caja-inventario-row.stock-bajo span b{color:#fdba74}
+.caja-estadisticas-page .admin-empty{padding:1.25rem;border:1px dashed rgba(52,211,153,.2);border-radius:14px;background:rgba(2,8,23,.35);font-size:.84rem}
+@media(max-width:900px){.caja-estadisticas-page .caja-metricas{grid-template-columns:repeat(2,minmax(0,1fr))}.caja-estadisticas-page .caja-inventario-row{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:700px){.caja-estadisticas-page>section{padding:1rem;border-radius:17px}.caja-estadisticas-page .caja-metrica{min-height:78px;padding:.75rem;border-radius:12px}.caja-estadisticas-page .caja-metrica strong{font-size:.96rem}.caja-estadisticas-page .caja-inventario-row{gap:.45rem .65rem;padding:.75rem;border-radius:12px;font-size:.76rem}.caja-estadisticas-page .caja-inventario-row strong{font-size:.82rem}}
+@media(max-width:420px){.caja-estadisticas-page .caja-metricas{grid-template-columns:minmax(0,1fr)}.caja-estadisticas-page .caja-inventario-row{grid-template-columns:minmax(0,1fr)}}
+
+.turn-page-heading+.admin-grid>.admin-card{position:relative;overflow:hidden;padding:1.35rem;background:radial-gradient(ellipse at top right,rgba(16,185,129,.09),transparent 42%),linear-gradient(145deg,rgba(15,36,48,.98),rgba(11,18,32,.97));border:1px solid rgba(52,211,153,.22);border-radius:20px;box-shadow:0 16px 38px rgba(2,6,23,.3),inset 0 1px rgba(255,255,255,.035)}
+.turn-page-heading+.admin-grid>.admin-card::before{position:absolute;top:0;left:1.35rem;right:1.35rem;height:2px;background:linear-gradient(90deg,transparent,rgba(52,211,153,.65),transparent);content:""}
+.turn-page-heading+.admin-grid>.admin-card .turn-card-heading{position:relative;margin-bottom:1.1rem;padding-bottom:.9rem;border-color:rgba(52,211,153,.18)}
+.turn-page-heading+.admin-grid>.admin-card .turn-section-icon{width:42px;height:42px;border-radius:14px;background:linear-gradient(145deg,rgba(52,211,153,.2),rgba(20,184,166,.1));font-size:1rem}
+.turn-page-heading+.admin-grid>.admin-card .turn-card-heading h2{font-size:1.08rem}
+.turn-page-heading+.admin-grid>.admin-card .turn-metric-grid{gap:.75rem}
+.turn-page-heading+.admin-grid>.admin-card .turn-metric-grid>div{min-height:82px;justify-content:center;padding:.85rem .95rem;border:1px solid rgba(52,211,153,.17);border-radius:14px;background:linear-gradient(145deg,rgba(4,25,33,.78),rgba(2,8,23,.58));transition:border-color .18s ease,transform .18s ease,box-shadow .18s ease}
+.turn-page-heading+.admin-grid>.admin-card .turn-metric-grid>div:hover{transform:translateY(-2px);border-color:rgba(52,211,153,.4);box-shadow:0 10px 22px rgba(2,6,23,.24)}
+.turn-page-heading+.admin-grid>.admin-card .turn-metric-grid span{font-size:.69rem;letter-spacing:.08em;color:#94a3b8}
+.turn-page-heading+.admin-grid>.admin-card .turn-metric-grid strong{font-size:.98rem;line-height:1.35;color:#a7f3d0;font-variant-numeric:tabular-nums}
+.turn-page-heading+.admin-grid>.admin-card>div.flex.flex-col{position:relative;align-items:center;justify-content:center;min-height:180px;padding:1.5rem;border:1px dashed rgba(52,211,153,.2);border-radius:15px;background:rgba(2,8,23,.35)}
+.turn-page-heading+.admin-grid>.admin-card>div.flex.flex-col h2{font-size:1.08rem}
+.turn-page-heading+.admin-grid>.admin-card>div.flex.flex-col p{font-size:.84rem;color:#94a3b8}
+@media(max-width:700px){
+  .turn-page-heading+.admin-grid>.admin-card{padding:1rem;border-radius:17px}
+  .turn-page-heading+.admin-grid>.admin-card .turn-metric-grid>div{min-height:72px;padding:.7rem;border-radius:12px}
+  .turn-page-heading+.admin-grid>.admin-card .turn-metric-grid strong{font-size:.9rem}
+}
