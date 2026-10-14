@@ -30,10 +30,11 @@
       </div>
       {% include "usuarios/_admin_sidebar_nav.html" with seccion_activa="usuarios" %}
     </div>
-    <div class="p-3 border-t border-slate-800/80"><a href="{% url 'usuarios:logout' %}" class="w-full flex items-center gap-3 px-3 py-2.5 text-xs font-semibold text-rose-400 hover:bg-rose-500/10"><i class="fa-solid fa-right-from-bracket"></i><span class="hidden lg:inline">Cerrar sesión</span></a></div>
+    <div class="p-3 border-t border-slate-800/80"><a href="{% url 'usuarios:logout' %}" class="w-full flex items-center justify-center lg:justify-start gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold text-rose-400 hover:bg-rose-500/10 transition-all"><i class="fa-solid fa-right-from-bracket text-base" aria-hidden="true"></i><span class="hidden lg:inline">Cerrar sesión</span></a></div>
   </aside>
-  <main class="flex-1 min-w-0">
-    <header class="h-16 border-b border-slate-800 bg-slate-950/60 px-6 flex items-center"><h2 class="text-lg font-bold text-white"><i class="fa-solid fa-users text-emerald-400 mr-2"></i>Gestión de usuarios</h2></header>
+  <main class="flex-1 flex flex-col h-screen overflow-hidden">
+    <header class="h-16 border-b border-slate-800 bg-slate-950/60 backdrop-blur px-6 flex items-center justify-between shrink-0"><div class="flex items-center gap-4"><h2 class="text-lg font-bold text-white flex items-center gap-2 leading-none"><i class="fa-solid fa-users text-emerald-400 text-base" aria-hidden="true"></i><span>Gestión de usuarios</span></h2></div></header>
+    <div class="flex-1 overflow-y-auto">
     <div class="admin-body">
       {% if messages %}<div role="status" aria-live="polite">{% for message in messages %}<div class="admin-flash {% if message.tags == 'error' %}admin-flash-error{% else %}admin-flash-ok{% endif %}">{{ message }}</div>{% endfor %}</div>{% endif %}
       <div class="turn-page-heading"><div><p class="panel-kicker">Administración</p><h1 class="admin-h1">Usuarios</h1><p class="turn-page-subtitle">Crea cuentas y administra el acceso del equipo.</p></div><span class="admin-section-count">{{ usuarios|length }} cuentas</span></div>
@@ -81,6 +82,7 @@
           </div>
         </section>
       </div>
+    </div>
     </div>
   </main>
   <script>
