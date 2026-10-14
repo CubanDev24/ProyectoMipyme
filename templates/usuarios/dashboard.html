@@ -250,7 +250,7 @@
         <a href="{% url 'usuarios:gestion_usuarios' %}" class="w-full flex items-center gap-3 px-3 py-3 rounded-xl font-medium text-sm text-slate-400 hover:text-white hover:bg-slate-800/50 transition-all"><i class="fa-solid fa-users text-lg w-6 text-center" aria-hidden="true"></i><span class="hidden lg:inline">Usuarios</span></a>
         {% endif %}
         <button type="button" class="w-full flex items-center gap-3 px-3 py-3 rounded-xl font-medium text-sm transition-all bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" aria-current="page" aria-label="Detalle del turno" title="Detalle del turno"><i class="fa-solid fa-clock-rotate-left text-lg w-6 text-center" aria-hidden="true"></i><span class="hidden lg:inline">Detalle del turno actual</span></button>
-        {% if user.role == 'administrador' %}<a href="{% url 'usuarios:historial_turnos' %}" class="w-full flex items-center gap-3 px-3 py-3 rounded-xl font-medium text-sm text-slate-400 hover:text-white hover:bg-slate-800/50 transition-all"><i class="fa-solid fa-clock-rotate-left text-lg w-6 text-center" aria-hidden="true"></i><span class="hidden lg:inline">Historial</span></a>{% endif %}
+        {% if user.role == 'administrador' or user.role == 'cajera' %}<a href="{% url 'usuarios:historial_turnos' %}" class="w-full flex items-center gap-3 px-3 py-3 rounded-xl font-medium text-sm text-slate-400 hover:text-white hover:bg-slate-800/50 transition-all"><i class="fa-solid fa-clock-rotate-left text-lg w-6 text-center" aria-hidden="true"></i><span class="hidden lg:inline">Historial</span></a>{% endif %}
         {% if user.role == 'mesera' %}<a href="{% url 'usuarios:logout' %}" aria-label="Cerrar sesión" title="Cerrar sesión" class="turn-dashboard-mobile-logout w-full flex items-center gap-3 px-3 py-3 rounded-xl font-medium text-sm text-rose-400 hover:bg-rose-500/10 transition-all"><i class="fa-solid fa-right-from-bracket text-lg w-6 text-center" aria-hidden="true"></i><span>Cerrar sesión</span></a>{% endif %}
       </nav>
     </div>
@@ -288,7 +288,7 @@
           <div><span>Mesas exteriores activas</span><strong>{{ mesas_activas_exteriores }}</strong></div>
           <div><span>Miembros</span><strong>{% for user in turno.usuarios.all %}{{ user.get_full_name|default:user.username }}{% if not forloop.last %}, {% endif %}{% empty %}Sin participantes{% endfor %}</strong></div>
         </div>
-        {% if resumen_turno %}
+        {% if resumen_turno and puede_ver_datos_financieros %}
           <div class="turn-info-grid mt-3">
             <div><span>Ventas totales</span><strong>{{ resumen_turno.total_general_cup|floatformat:2 }} CUP</strong></div>
             <div><span>Facturas</span><strong>{{ resumen_turno.cantidad_facturas }}</strong></div>
@@ -296,10 +296,10 @@
             <div><span>Transferencia</span><strong>{{ resumen_turno.total_transferencia_cup|floatformat:2 }} CUP</strong></div>
           </div>
         {% endif %}
-        {% if turno.resumen %}
+        {% if turno.resumen and puede_ver_datos_financieros %}
           <div class="turn-note"><span>Resumen registrado</span><pre class="whitespace-pre-wrap break-words">{{ turno.resumen }}</pre></div>
         {% endif %}
-        {% if user.role == 'administrador' %}
+        {% if user.role == 'administrador' or user.role == 'cajera' %}
           <div class="flex flex-wrap gap-2 mt-4">
             <a href="{% url 'usuarios:historial_turno_detalle' turno.pk %}" class="btn btn-outline btn-sm"><i class="fa-solid fa-eye"></i> Ver detalle del turno</a>
             <a href="{% url 'usuarios:historial_turnos' %}" class="btn btn-primary btn-sm"><i class="fa-solid fa-clock-rotate-left"></i> Historial</a>
@@ -318,10 +318,12 @@
         {% else %}
           <div class="turn-empty"><i class="fa-regular fa-calendar-xmark" aria-hidden="true"></i><span>No hay turno abierto para hoy.</span></div>
         {% endif %}
-        {% if turno_anterior %}
-          <div class="turn-note mt-4"><span>Turno anterior</span><p>El turno anterior fue el {{ turno_anterior.fecha|date:"d/m/Y" }} y quedó {{ turno_anterior.get_estado_display|lower }}. Ventas: {{ resumen_turno_anterior.total_general_cup|floatformat:2 }} CUP en {{ resumen_turno_anterior.cantidad_facturas }} facturas.</p><a href="{% url 'usuarios:historial_turno_detalle' turno_anterior.pk %}" class="btn btn-outline btn-sm mt-2"><i class="fa-solid fa-eye"></i> Ver detalles del turno anterior</a></div>
-        {% else %}
-          <div class="turn-note mt-4"><span>Turnos anteriores</span><p>No hay turnos anteriores registrados.</p></div>
+        {% if puede_ver_datos_financieros %}
+          {% if turno_anterior %}
+            <div class="turn-note mt-4"><span>Turno anterior</span><p>El turno anterior fue el {{ turno_anterior.fecha|date:"d/m/Y" }} y quedó {{ turno_anterior.get_estado_display|lower }}. Ventas: {{ resumen_turno_anterior.total_general_cup|floatformat:2 }} CUP en {{ resumen_turno_anterior.cantidad_facturas }} facturas.</p><a href="{% url 'usuarios:historial_turno_detalle' turno_anterior.pk %}" class="btn btn-outline btn-sm mt-2"><i class="fa-solid fa-eye"></i> Ver detalles del turno anterior</a></div>
+          {% else %}
+            <div class="turn-note mt-4"><span>Turnos anteriores</span><p>No hay turnos anteriores registrados.</p></div>
+          {% endif %}
         {% endif %}
       {% endif %}
       {% if user.role == 'administrador' and turno_abierto_pendiente %}
@@ -337,6 +339,7 @@
       {% endif %}
     </section>
 
+    {% if puede_ver_datos_financieros %}
     <section class="admin-card turn-dashboard-card carta-admin-card" aria-labelledby="facturas-turno-heading">
       <div class="turn-card-heading"><div class="turn-section-icon" aria-hidden="true"><i class="fa-solid fa-receipt"></i></div><div><p class="panel-kicker">Actividad</p><h2 id="facturas-turno-heading">Facturas del turno</h2></div><span class="admin-section-count">{{ facturas_turno|length }}</span></div>
       {% for factura in facturas_turno %}
@@ -381,8 +384,9 @@
         <div class="turn-empty"><i class="fa-solid fa-receipt" aria-hidden="true"></i><span>No hay facturas registradas en este turno.</span></div>
       {% endfor %}
     </section>
+    {% endif %}
 
-    {% if turno and turno.estado == 'abierto' or user.role != 'administrador' %}
+    {% if puede_ver_datos_financieros and turno and turno.estado == 'abierto' %}
     <section class="admin-card turn-dashboard-card inventory-ledger-card" aria-labelledby="inventory-ledger-heading">
       <div class="turn-card-heading">
         <div class="turn-section-icon" aria-hidden="true"><i class="fa-solid fa-scale-balanced"></i></div>
@@ -400,7 +404,7 @@
     </section>
     {% endif %}
 
-    {% if user.role == 'administrador' %}
+    {% if user.role == 'administrador' or user.role == 'cajera' %}
     <section class="admin-card turn-dashboard-card turn-action-card" aria-labelledby="historial-heading">
       <div class="turn-card-heading"><div class="turn-section-icon" aria-hidden="true"><i class="fa-solid fa-chart-line"></i></div><div><p class="panel-kicker">Rendimiento</p><h2 id="historial-heading">Historial de turnos</h2></div></div>
       <p>Consulta el rendimiento histórico, el IPV y el cierre de cada turno.</p>

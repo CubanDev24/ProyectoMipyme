@@ -195,10 +195,14 @@
         </div>
         <div>
           <p class="text-sm font-semibold text-white leading-tight">{{ request.user.get_full_name|default:request.user.username }}</p>
-          <p class="text-xs text-emerald-400 font-medium">Administrador &bull; Activo</p>
+          <p class="text-xs text-emerald-400 font-medium">{{ request.user.get_role_display }} &bull; Activo</p>
         </div>
       </div>
+      {% if request.user.role == 'cajera' %}
+      {% include "usuarios/_cajera_sidebar_nav.html" with seccion_activa="historial" %}
+      {% else %}
       {% include "usuarios/_admin_sidebar_nav.html" with seccion_activa="historial" %}
+      {% endif %}
     </div>
     <div class="p-3 border-t border-slate-800/80">
       <a href="{% url 'usuarios:logout' %}" class="w-full flex items-center justify-center lg:justify-start gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold text-rose-400 hover:bg-rose-500/10 transition-all">

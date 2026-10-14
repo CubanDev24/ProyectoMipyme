@@ -1,5 +1,6 @@
 from collections import defaultdict
 from decimal import Decimal
+from html import escape as escape_html
 from io import BytesIO
 
 from django.contrib.auth.decorators import login_required, user_passes_test
@@ -10,8 +11,12 @@ from django.core.exceptions import ValidationError
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import render, get_object_or_404
 from django.views.decorators.http import require_POST
-from reportlab.lib.pagesizes import A5
+from reportlab.lib import colors
+from reportlab.lib.enums import TA_CENTER, TA_RIGHT
+from reportlab.lib.styles import ParagraphStyle
+from reportlab.lib.units import mm
 from reportlab.pdfgen import canvas
+from reportlab.platypus import HRFlowable, Paragraph, Spacer, Table, TableStyle
 from carta.models import Categoria, Plato
 from inventario.models import Insumo
 from inventario.models import TasaCambio
@@ -159,66 +164,233 @@ def caja_estadisticas_pagina(request):
 def factura_imprimir(request, pk):
     factura = get_object_or_404(Factura, pk=pk)
 
-    buffer = BytesIO()
-    pdf = canvas.Canvas(buffer, pagesize=A5)
-    width, height = A5
+    ancho_papel = 58 * mm
+    margen_izquierdo = 2.5 * mm
+    margen_derecho = 3 * mm
+    ancho_contenido = ancho_papel - margen_izquierdo - margen_derecho
+    estilos = {
+        'titulo': ParagraphStyle(
+            'TicketTitulo', fontName='Helvetica-Bold', fontSize=18, leading=20,
+            alignment=TA_CENTER, textColor=colors.black,
+        ),
+        'subtitulo': ParagraphStyle(
+            'TicketSubtitulo', fontName='Helvetica-Bold', fontSize=8.5, leading=11,
+            alignment=TA_CENTER, textColor=colors.black,
+        ),
+        'direccion': ParagraphStyle(
+            'TicketDireccion', fontName='Helvetica-Bold', fontSize=8.5, leading=11,
+            alignment=TA_CENTER, textColor=colors.black,
+        ),
+        'etiqueta': ParagraphStyle(
+            'TicketEtiqueta', fontName='Helvetica-Bold', fontSize=7.5, leading=9,
+            textColor=colors.black,
+        ),
+        'valor': ParagraphStyle(
+            'TicketValor', fontName='Helvetica-Bold', fontSize=9.5, leading=11,
+            alignment=TA_RIGHT, textColor=colors.black, wordWrap='CJK',
+        ),
+        'seccion': ParagraphStyle(
+            'TicketSeccion', fontName='Helvetica-Bold', fontSize=7.5, leading=9,
+            textColor=colors.black,
+        ),
+        'cantidad': ParagraphStyle(
+            'TicketCantidad', fontName='Helvetica-Bold', fontSize=9.5, leading=11,
+            textColor=colors.black,
+        ),
+        'producto': ParagraphStyle(
+            'TicketProducto', fontName='Helvetica-Bold', fontSize=9.5, leading=11.5,
+            textColor=colors.black, wordWrap='CJK',
+        ),
+        'importe': ParagraphStyle(
+            'TicketImporte', fontName='Helvetica-Bold', fontSize=9, leading=11,
+            alignment=TA_RIGHT, textColor=colors.black,
+        ),
+        'total_etiqueta': ParagraphStyle(
+            'TicketTotalEtiqueta', fontName='Helvetica-Bold', fontSize=10, leading=13,
+            textColor=colors.white,
+        ),
+        'total_valor': ParagraphStyle(
+            'TicketTotalValor', fontName='Helvetica-Bold', fontSize=14, leading=16,
+            alignment=TA_RIGHT, textColor=colors.white,
+        ),
+        'pago': ParagraphStyle(
+            'TicketPago', fontName='Helvetica-Bold', fontSize=8, leading=10,
+            alignment=TA_CENTER, textColor=colors.black,
+        ),
+        'pie': ParagraphStyle(
+            'TicketPie', fontName='Helvetica-Bold', fontSize=8.5, leading=11,
+            alignment=TA_CENTER, textColor=colors.black,
+        ),
+        'codigo': ParagraphStyle(
+            'TicketCodigo', fontName='Helvetica-Bold', fontSize=10.5, leading=13,
+            alignment=TA_CENTER, textColor=colors.black,
+        ),
+    }
 
+    def parrafo(texto, estilo, permitir_html=False):
+        contenido = str(texto) if permitir_html else escape_html(str(texto))
+        return Paragraph(contenido, estilo)
+
+    historia = [
+        parrafo('LAS CUQUIS', estilos['titulo']),
+        Spacer(1, 2),
+        parrafo('FACTURA DE CONSUMO', estilos['subtitulo']),
+        Spacer(1, 5),
+        parrafo('VISÍTANOS<br/>Calle 100 entre 117 y 123<br/>Reparto Puente Nuevo, Marianao', estilos['direccion'], permitir_html=True),
+        Spacer(1, 7),
+        HRFlowable(width='100%', thickness=0.6, color=colors.black),
+        Spacer(1, 5),
+    ]
+
+    def agregar_dato(etiqueta, valor):
+        fila = Table(
+            [[parrafo(etiqueta.upper(), estilos['etiqueta']), parrafo(valor, estilos['valor'])]],
+            colWidths=[18 * mm, ancho_contenido - 18 * mm],
+        )
+        fila.setStyle(TableStyle([
+            ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+            ('LEFTPADDING', (0, 0), (-1, -1), 0),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 0),
+            ('TOPPADDING', (0, 0), (-1, -1), 1.5),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 1.5),
+        ]))
+        historia.append(fila)
+
+    if factura.pedido.modalidad == 'para_llevar':
+        historia.extend([parrafo('PARA LLEVAR', estilos['subtitulo']), Spacer(1, 4)])
+    agregar_dato('Factura', f'#{factura.pk}')
+    referencia = factura.pedido.mesa.etiqueta if factura.pedido.mesa_id else 'Para llevar'
+    agregar_dato('Mesa', referencia)
+    agregar_dato('Fecha', factura.creado_en.strftime('%d/%m/%Y · %H:%M'))
+    if factura.pedido.modalidad == 'para_llevar':
+        agregar_dato('Cliente', factura.pedido.nombre_cliente or 'Sin nombre')
+        agregar_dato('Teléfono', factura.pedido.telefono_cliente or 'Sin teléfono')
+    if factura.cajera_nombre:
+        agregar_dato('Cajera', factura.cajera_nombre)
+    if factura.mesera_nombre:
+        agregar_dato('Mesera', factura.mesera_nombre)
+
+    historia.extend([
+        Spacer(1, 5),
+        HRFlowable(width='100%', thickness=0.5, color=colors.black),
+        Spacer(1, 4),
+    ])
+    encabezado_detalle = Table(
+        [[parrafo('DETALLE', estilos['seccion']), '', parrafo('IMPORTE', estilos['seccion'])]],
+        colWidths=[8 * mm, ancho_contenido - 8 * mm - 23 * mm, 23 * mm],
+    )
+    encabezado_detalle.setStyle(TableStyle([
+        ('ALIGN', (2, 0), (2, 0), 'RIGHT'),
+        ('LEFTPADDING', (0, 0), (-1, -1), 0),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 0),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
+    ]))
+    historia.append(encabezado_detalle)
+
+    anchos_items = [8 * mm, ancho_contenido - 8 * mm - 23 * mm, 23 * mm]
+    for item in factura.items_snapshot or []:
+        nombre_producto = escape_html(str(item.get('plato', 'Item')))
+        if item.get('cantidad', 1) > 1 and item.get('precio_unit'):
+            nombre_producto += (
+                f"<br/><font size='7.5'>{item['cantidad']} × "
+                f"{escape_html(str(item['precio_unit']))} CUP</font>"
+            )
+        fila_item = Table(
+            [[
+                parrafo(f"{item.get('cantidad', 1)}x", estilos['cantidad']),
+                parrafo(nombre_producto, estilos['producto'], permitir_html=True),
+                parrafo(f"{item.get('subtotal', '0.00')} CUP", estilos['importe']),
+            ]],
+            colWidths=anchos_items,
+        )
+        fila_item.setStyle(TableStyle([
+            ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+            ('ALIGN', (2, 0), (2, 0), 'RIGHT'),
+            ('LEFTPADDING', (0, 0), (-1, -1), 0),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 0),
+            ('TOPPADDING', (0, 0), (-1, -1), 2),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
+        ]))
+        historia.append(fila_item)
+
+    historia.extend([
+        Spacer(1, 5),
+        HRFlowable(width='100%', thickness=0.5, color=colors.black),
+        Spacer(1, 5),
+    ])
+    tabla_total = Table(
+        [[
+            parrafo('TOTAL', estilos['total_etiqueta']),
+            parrafo(f'{escape_html(str(factura.total_cup))} <font size="8">CUP</font>', estilos['total_valor'], permitir_html=True),
+        ]],
+        colWidths=[ancho_contenido * 0.36, ancho_contenido * 0.64],
+    )
+    tabla_total.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, -1), colors.black),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('LEFTPADDING', (0, 0), (-1, -1), 5),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 5),
+        ('TOPPADDING', (0, 0), (-1, -1), 5),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
+    ]))
+    historia.extend([tabla_total, Spacer(1, 5), HRFlowable(width='100%', thickness=0.5, color=colors.black), Spacer(1, 4)])
+
+    pago = Table([[parrafo(factura.get_forma_pago_display().upper(), estilos['pago'])]], colWidths=[ancho_contenido])
+    pago.setStyle(TableStyle([
+        ('BOX', (0, 0), (-1, -1), 0.5, colors.black),
+        ('LEFTPADDING', (0, 0), (-1, -1), 4),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 4),
+        ('TOPPADDING', (0, 0), (-1, -1), 4),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+    ]))
+    historia.extend([pago, Spacer(1, 4)])
+    if factura.forma_pago == 'efectivo_cup':
+        agregar_dato('Efectivo CUP', factura.monto_efectivo_cup)
+    elif factura.forma_pago == 'transferencia':
+        agregar_dato('Transferencia', factura.monto_transferencia_cup)
+    elif factura.forma_pago == 'mixto':
+        agregar_dato('Efectivo CUP', factura.monto_efectivo_cup)
+        agregar_dato('Transferencia', factura.monto_transferencia_cup)
+    elif factura.forma_pago == 'usd':
+        agregar_dato('Monto USD', f'{factura.monto_usd} USD')
+        agregar_dato('Tasa', f'1 USD = {factura.tasa_cambio} CUP')
+    if factura.monto_usd and factura.forma_pago != 'usd':
+        agregar_dato('Total USD', f'{factura.monto_usd} USD')
+
+    historia.extend([
+        Spacer(1, 6),
+        HRFlowable(width='100%', thickness=0.6, color=colors.black),
+        Spacer(1, 5),
+        parrafo('El ingrediente secreto siempre es tu visita.', estilos['pie']),
+        Spacer(1, 3),
+        parrafo('¡Vuelve pronto!', estilos['titulo']),
+        Spacer(1, 5),
+        HRFlowable(width='100%', thickness=0.5, color=colors.black),
+        Spacer(1, 3),
+        parrafo(f'{factura.pk:06d}', estilos['codigo']),
+        Spacer(1, 5),
+        parrafo('GRACIAS POR SU COMPRA', estilos['pie']),
+    ])
+
+    buffer = BytesIO()
+    altura_superior = 3 * mm
+    altura_inferior = 14 * mm
+    altura_contenido = sum(flowable.wrap(ancho_contenido, 100000)[1] for flowable in historia)
+    altura_pagina = altura_superior + altura_contenido + altura_inferior
+    pdf = canvas.Canvas(buffer, pagesize=(ancho_papel, altura_pagina))
     pdf.setTitle(f'Factura #{factura.pk}')
     pdf.setAuthor('Las Cuquis')
-    pdf.setFont('Helvetica-Bold', 14)
-    pdf.drawString(30, height - 35, 'LAS CUQUIS')
-    pdf.setFont('Helvetica', 9)
-    pdf.drawString(30, height - 52, 'Factura de consumo')
-    pdf.drawString(30, height - 70, f'Factura: #{factura.pk}')
-    referencia = (
-        factura.pedido.mesa.etiqueta
-        if factura.pedido.mesa_id
-        else 'Pedido para llevar'
-    )
-    pdf.drawString(30, height - 82, referencia)
-    pdf.drawString(30, height - 94, f'Fecha: {factura.creado_en.strftime("%d/%m/%Y %H:%M")}')
-    y_datos = height - 106
-    if factura.pedido.modalidad == 'para_llevar':
-        pdf.drawString(30, y_datos, f'Cliente: {factura.pedido.nombre_cliente}')
-        pdf.drawString(30, y_datos - 12, f'Teléfono: {factura.pedido.telefono_cliente}')
-        y_datos -= 24
-    if factura.cajera_nombre:
-        pdf.drawString(30, y_datos, f'Cajera: {factura.cajera_nombre}')
-        y_datos -= 12
-    if factura.mesera_nombre:
-        pdf.drawString(30, y_datos, f'Mesera: {factura.mesera_nombre}')
-
-    y = min(y_datos - 20, height - 138)
-    pdf.setFont('Helvetica-Bold', 9)
-    pdf.drawString(30, y, 'ITEM')
-    pdf.drawRightString(width - 30, y, 'SUBTOTAL')
-    y -= 14
-    pdf.setFont('Helvetica', 9)
-
-    for item in factura.items_snapshot or []:
-        nombre = f"{item.get('cantidad', 1)}x {item.get('plato', 'Item')}"
-        subtotal = item.get('subtotal', '0.00')
-        if len(nombre) > 28:
-            nombre = nombre[:25] + '...'
-        pdf.drawString(30, y, nombre)
-        pdf.drawRightString(width - 30, y, f'{subtotal} CUP')
-        y -= 16
-        if y < 90:
-            pdf.showPage()
-            y = height - 30
-
-    pdf.setFont('Helvetica-Bold', 10)
-    pdf.drawString(30, y - 18, 'TOTAL')
-    pdf.drawRightString(width - 30, y - 18, f'{factura.total_cup} CUP')
-
-    pdf.setFont('Helvetica', 9)
-    pdf.drawString(30, y - 36, f'Forma de pago: {factura.get_forma_pago_display()}')
-    pdf.drawString(30, y - 52, 'Gracias por su visita!')
+    cursor_y = altura_pagina - altura_superior
+    for flowable in historia:
+        _, altura = flowable.wrap(ancho_contenido, cursor_y)
+        cursor_y -= altura
+        flowable.drawOn(pdf, margen_izquierdo, cursor_y)
 
     pdf.save()
 
     response = HttpResponse(buffer.getvalue(), content_type='application/pdf')
-    response['Content-Disposition'] = f'attachment; filename="factura_{factura.pk}.pdf"'
+    disposicion = 'inline' if request.GET.get('inline') == '1' else 'attachment'
+    response['Content-Disposition'] = f'{disposicion}; filename="factura_{factura.pk}.pdf"'
     return response
 
 

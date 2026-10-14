@@ -96,6 +96,63 @@ class UsuarioTurnoTests(TestCase):
         self.assertContains(response, 'setInterval(actualizarInventarioTurno, 5000)')
         self.assertNotContains(response, f'Factura #{factura_anterior.pk}')
 
+        self.client.force_login(self.cajera)
+        response_cajera = self.client.get(reverse('usuarios:dashboard'))
+        self.assertEqual(response_cajera.status_code, 200)
+        self.assertTrue(response_cajera.context['puede_ver_datos_financieros'])
+        self.assertContains(response_cajera, f'Factura #{factura_turno.pk}')
+        self.assertContains(response_cajera, 'Inventario perpetuo de ventas')
+
+    def test_mesera_y_cocina_no_ven_datos_financieros_ni_ipv(self):
+        turno = registrar_inicio_turno(self.mesera)
+        turno.usuarios.add(self.cocina)
+        turno.resumen = 'Total general: 987.65 CUP'
+        turno.save(update_fields=['resumen'])
+        mesa = Mesa.objects.create(numero=51, abierta=True)
+        factura = Factura.objects.create(
+            pedido=Pedido.objects.create(mesa=mesa, estado='cerrado'),
+            mesa_numero=mesa.numero,
+            forma_pago='efectivo_cup',
+            total_cup=Decimal('987.65'),
+            monto_efectivo_cup=Decimal('987.65'),
+            items_snapshot=[{
+                'plato': 'Venta privada',
+                'cantidad': 1,
+                'precio_unit': '987.65',
+                'subtotal': '987.65',
+            }],
+        )
+
+        for usuario in (self.mesera, self.cocina):
+            with self.subTest(rol=usuario.role):
+                self.client.force_login(usuario)
+                response = self.client.get(reverse('usuarios:dashboard'))
+
+                self.assertEqual(response.status_code, 200)
+                self.assertFalse(response.context['puede_ver_datos_financieros'])
+                self.assertFalse(response.context['facturas_turno'].exists())
+                self.assertNotContains(response, 'Ventas totales')
+                self.assertNotContains(response, 'Facturas del turno')
+                self.assertNotContains(response, 'Inventario perpetuo de ventas')
+                self.assertNotContains(response, '987.65')
+                self.assertNotContains(response, f'Factura #{factura.pk}')
+                self.assertEqual(
+                    self.client.get(reverse('usuarios:inventario_ventas_turno')).status_code,
+                    403,
+                )
+                self.assertEqual(
+                    self.client.get(reverse('usuarios:ipv_turno', args=[turno.pk])).status_code,
+                    403,
+                )
+                self.assertEqual(
+                    self.client.get(reverse('usuarios:historial_turno_detalle', args=[turno.pk])).status_code,
+                    302,
+                )
+                self.assertEqual(
+                    self.client.get(reverse('usuarios:historial_turnos')).status_code,
+                    302,
+                )
+
     def test_historial_de_turnos_se_pagina(self):
         for indice in range(11):
             turno = Turno.objects.create(estado='cerrado')
@@ -366,7 +423,7 @@ class UsuarioTurnoTests(TestCase):
             }],
         )
 
-        self.client.force_login(self.mesera)
+        self.client.force_login(self.cajera)
         response = self.client.get(reverse('usuarios:inventario_ventas_turno'))
 
         self.assertEqual(response.status_code, 200)
@@ -736,6 +793,21 @@ class UsuarioTurnoTests(TestCase):
         self.assertContains(response, 'Detalle del turno')
         self.assertContains(response, 'IPV')
         self.assertContains(response, '400.00')
+
+        self.client.force_login(self.cajera)
+        response_historial = self.client.get(reverse('usuarios:historial_turnos'))
+        self.assertEqual(response_historial.status_code, 200)
+        self.assertContains(response_historial, '400.00')
+        response_detalle = self.client.get(
+            reverse('usuarios:historial_turno_detalle', args=[turno_cerrado.pk])
+        )
+        self.assertEqual(response_detalle.status_code, 200)
+        self.assertContains(response_detalle, 'IPV')
+        self.assertContains(response_detalle, '400.00')
+        self.assertEqual(
+            self.client.get(reverse('usuarios:ipv_turno', args=[turno_cerrado.pk])).status_code,
+            200,
+        )
 
     def test_ipv_muestra_existencia_despues_de_restar_salidas(self):
         turno = registrar_inicio_turno(self.mesera)

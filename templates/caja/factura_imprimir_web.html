@@ -19,13 +19,8 @@
     body {
       background: radial-gradient(circle at 50% 0%, #70747a 0%, #55585d 100%);
       font-family: 'Open Sans', 'Segoe UI', Arial, Helvetica, sans-serif;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      min-height: 100vh;
-      padding: 20px;
-      color: var(--ink);
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      min-height: 100vh; padding: 20px; color: var(--ink);
     }
 
     /* ---------- Botones (solo pantalla) ---------- */
@@ -37,7 +32,7 @@
     }
     .actions button:hover { background: #f4f4f4; color: #333; }
 
-    /* ---------- Papel ---------- */
+    /* ---------- Papel (pantalla) ---------- */
     .receipt-container {
       position: relative; width: 320px; max-width: 100%;
       filter: drop-shadow(0 10px 18px rgba(0,0,0,.4));
@@ -59,45 +54,30 @@
 
     /* ---------- Separadores ---------- */
     .divider { border-bottom: 1.5px dashed var(--line); margin: 13px 0; }
-    .ornament {
-      display: flex; align-items: center; gap: 8px; margin: 12px 0;
-    }
-    .ornament::before, .ornament::after {
-      content: ''; flex: 1; border-bottom: 1.5px solid var(--ink);
-    }
-    .ornament i {
-      width: 7px; height: 7px; background: var(--ink); transform: rotate(45deg); display: block;
-    }
+    .ornament { display: flex; align-items: center; gap: 8px; margin: 12px 0; }
+    .ornament::before, .ornament::after { content: ''; flex: 1; border-bottom: 1.5px solid var(--ink); }
+    .ornament i { width: 7px; height: 7px; background: var(--ink); transform: rotate(45deg); display: block; }
 
     /* ---------- Cabecera ---------- */
     .brand { text-align: center; }
-    .title {
-      font-size: 27px; font-weight: 800; letter-spacing: 3px;
-      color: var(--ink); line-height: 1.1; margin-top: 2px;
-    }
+    .title { font-size: 27px; font-weight: 800; letter-spacing: 3px; color: var(--ink); line-height: 1.1; margin-top: 2px; }
     .sub-title {
       display: inline-block; margin-top: 8px; padding: 3px 12px;
       border: 1.5px solid var(--ink); border-radius: 3px;
       font-size: 11px; font-weight: 800; letter-spacing: 1.6px; color: var(--ink);
     }
-    .store-address {
-      margin: 10px auto 0; font-size: 10.5px; font-weight: 600;
-      line-height: 1.5; color: var(--ink-soft); text-align: center;
-    }
-    .store-address-label {
-      font-size: 9px; font-weight: 800; letter-spacing: 1.5px;
-      text-transform: uppercase; color: var(--ink-mute); margin-bottom: 2px;
-    }
+    .store-address { margin: 10px auto 0; font-size: 10.5px; font-weight: 600; line-height: 1.5; color: var(--ink-soft); text-align: center; }
+    .store-address-label { font-size: 9px; font-weight: 800; letter-spacing: 1.5px; text-transform: uppercase; color: var(--ink-mute); margin-bottom: 2px; }
     .store-address span { display: block; }
 
-    /* ---------- Insignia "Para llevar" ---------- */
+    /* ---------- Insignia ---------- */
     .badge {
       text-align: center; margin: 4px 0 10px; padding: 5px 0;
       border: 2px solid var(--ink); border-radius: 4px;
       font-size: 14px; font-weight: 800; letter-spacing: 3px; color: var(--ink);
     }
 
-    /* ---------- Datos del ticket ---------- */
+    /* ---------- Datos ---------- */
     .meta-info {
       display: flex; justify-content: space-between; align-items: baseline; gap: 8px;
       font-size: 12.5px; font-weight: 600; color: var(--ink-soft); margin: 3px 0;
@@ -106,7 +86,7 @@
       color: var(--ink-mute); font-size: 10.5px; font-weight: 700;
       letter-spacing: .8px; text-transform: uppercase; white-space: nowrap;
     }
-    .meta-info span:last-child { text-align: right; color: var(--ink); }
+    .meta-info span:last-child { text-align: right; color: var(--ink); min-width: 0; overflow-wrap: anywhere; }
 
     /* ---------- Detalle ---------- */
     .section-label {
@@ -116,15 +96,14 @@
     .item-list { width: 100%; border-collapse: collapse; font-size: 14px; font-weight: 600; color: var(--ink); }
     .item-list td { padding: 4px 0; vertical-align: top; }
     .item-list .qty { width: 30px; font-weight: 800; white-space: nowrap; }
-    .item-list .name { line-height: 1.25; }
+    .item-list .name { line-height: 1.25; overflow-wrap: anywhere; }
     .item-list .unit { display: block; font-size: 10.5px; font-weight: 600; color: var(--ink-mute); margin-top: 1px; }
     .price-col { text-align: right; white-space: nowrap; padding-left: 8px !important; font-variant-numeric: tabular-nums; }
 
     /* ---------- Total ---------- */
     .total-band {
       display: flex; justify-content: space-between; align-items: center;
-      background: #1f1f1f; color: #ffffff; border-radius: 4px; padding: 9px 12px; margin: 2px 0;
-      -webkit-print-color-adjust: exact; print-color-adjust: exact;
+      background: #1f1f1f; color: #fff; border-radius: 4px; padding: 9px 12px; margin: 2px 0;
     }
     .total-band .lbl { font-size: 13px; font-weight: 800; letter-spacing: 3px; }
     .total-band .amt { font-size: 20px; font-weight: 800; font-variant-numeric: tabular-nums; white-space: nowrap; }
@@ -134,109 +113,118 @@
     .payment-method {
       display: table; margin: 2px auto 8px; padding: 3px 14px;
       border: 1.5px solid var(--ink); border-radius: 30px;
-      font-size: 11.5px; font-weight: 800; letter-spacing: 1.2px;
-      text-transform: uppercase; color: var(--ink);
+      font-size: 11.5px; font-weight: 800; letter-spacing: 1.2px; text-transform: uppercase; color: var(--ink);
     }
-    .meta-info.change {
-      margin-top: 6px; padding-top: 6px; border-top: 1.5px solid var(--ink);
-    }
+    .meta-info.change { margin-top: 6px; padding-top: 6px; border-top: 1.5px solid var(--ink); }
     .meta-info.change span:first-child { color: var(--ink); font-size: 11.5px; }
     .meta-info.change span:last-child { font-size: 15px; font-weight: 800; }
 
     /* ---------- Pie ---------- */
-    .thank-you-msg {
-      text-align: center; font-size: 11.5px; font-weight: 700; color: var(--ink-soft);
-      line-height: 1.4; margin-top: 14px; text-wrap: balance;
+    .thank-you-msg { text-align: center; font-size: 11.5px; font-weight: 700; color: var(--ink-soft); line-height: 1.4; margin-top: 14px; text-wrap: balance; }
+    .thank-you-big { text-align: center; font-size: 22px; font-weight: 800; letter-spacing: .5px; color: var(--ink); margin: 4px 0 14px; }
+    .invoice-code {
+      text-align: center; font-size: 13px; font-weight: 800; letter-spacing: 5px;
+      color: var(--ink); font-variant-numeric: tabular-nums;
+      border-top: 1.5px solid var(--ink); border-bottom: 1.5px solid var(--ink); padding: 5px 0;
     }
-    .thank-you-big {
-      text-align: center; font-size: 22px; font-weight: 800; letter-spacing: .5px;
-      color: var(--ink); margin: 4px 0 14px;
-    }
-    .barcode-container { text-align: center; margin-top: 4px; }
-    .barcode {
-      width: 100%; height: 42px;
-      background: repeating-linear-gradient(90deg,
-        #222 0, #222 2px, #fff 2px, #fff 4px, #222 4px, #222 8px, #fff 8px, #fff 9px,
-        #222 9px, #222 11px, #fff 11px, #fff 13px, #222 13px, #222 16px);
-      -webkit-print-color-adjust: exact; print-color-adjust: exact;
-    }
-    .barcode-num {
-      margin-top: 4px; font-size: 10px; font-weight: 700; letter-spacing: 4px;
-      color: var(--ink-soft); font-variant-numeric: tabular-nums;
-    }
-    .end-mark {
-      margin-top: 12px; text-align: center; font-size: 9px; font-weight: 700;
-      letter-spacing: 2px; color: var(--ink-mute); text-transform: uppercase;
-    }
+    .end-mark { margin-top: 12px; text-align: center; font-size: 9px; font-weight: 700; letter-spacing: 2px; color: var(--ink-mute); text-transform: uppercase; }
 
-    /* =====================================================
-       IMPRESIÓN POS / TÉRMICA (58 mm)
-       Para 80 mm cambia 58mm por 80mm en las 3 líneas marcadas.
-       Si se corta a los lados prueba con 48mm.
-       ===================================================== */
+    /* =====================================================================
+       IMPRESIÓN TÉRMICA  (ancho original: 58 mm)
+       Para 80 mm: --w: 80mm  y  @page { size: 80mm auto; }
+       Si se corta el borde derecho: baja --w a 54mm (o sube el padding).
+       Todo en pt/mm, negro puro, sin rellenos ni grises.
+       ===================================================================== */
+    @page { size: 58mm auto; margin: 0; }
+
     @media print {
-      @page { size: 58mm auto; margin: 0; }   /* <-- ancho del papel */
+      :root {
+        --w: 58mm;
+        --ink: #000; --ink-soft: #000; --ink-mute: #000; --line: #000;
+      }
 
-      html, body { width: 58mm; background: #fff !important; }   /* <-- ancho del papel */
-
-      body {
-        display: block !important; min-height: auto !important;
-        padding: 0 !important; margin: 0 !important;
+      html, body {
+        width: var(--w) !important; height: auto !important; min-height: 0 !important;
+        background: #fff !important; margin: 0 !important; padding: 0 !important;
+        display: block !important;
+        font-family: Arial, Helvetica, sans-serif !important;
+        color: #000 !important;
         -webkit-print-color-adjust: exact; print-color-adjust: exact;
       }
 
       .actions { display: none !important; }
 
       .receipt-container {
-        width: 100% !important; max-width: 58mm !important;   /* <-- ancho del papel */
+        width: var(--w) !important; max-width: var(--w) !important;
         margin: 0 !important; filter: none !important; box-shadow: none !important;
       }
 
       .receipt {
+        width: var(--w) !important;
         background: #fff !important;
-        padding: 3mm 2mm 12mm !important;     /* 12mm abajo: margen para el corte */
+        padding: 3mm 3mm 14mm 2.5mm !important;   /* 14mm abajo: margen de corte */
         -webkit-mask-image: none !important; mask-image: none !important;
       }
 
-      :root { --ink: #000; --ink-soft: #000; --ink-mute: #000; --line: #000; }
+      .brand, .store-address, .badge, .meta-info, .item-list tr,
+      .total-band, .payment-method, .thank-you-msg, .thank-you-big,
+      .invoice-code, .end-mark { break-inside: avoid; page-break-inside: avoid; }
 
-      .divider { border-bottom: 1px dashed #000; margin: 6px 0; }
-      .ornament { margin: 6px 0; gap: 5px; }
-      .ornament::before, .ornament::after { border-bottom-width: 1px; }
-      .ornament i { width: 5px; height: 5px; }
+      /* Separadores */
+      .divider { border-bottom: 0.35mm dashed #000; margin: 2.5mm 0; }
+      .ornament { margin: 2.5mm 0; gap: 1.5mm; }
+      .ornament::before, .ornament::after { border-bottom: 0.35mm solid #000; }
+      .ornament i { width: 1.6mm; height: 1.6mm; background: #000; }
 
-      .title { font-size: 18px; letter-spacing: 2px; }
-      .sub-title { font-size: 8.5px; padding: 2px 7px; margin-top: 4px; letter-spacing: 1.2px; border-width: 1px; }
-      .store-address { font-size: 8px; margin-top: 5px; line-height: 1.35; }
-      .store-address-label { font-size: 7.5px; letter-spacing: 1px; }
+      /* Cabecera */
+      .title { font-size: 18pt; font-weight: 900; letter-spacing: 0.4mm; line-height: 1.1; white-space: nowrap; }
+      .sub-title { font-size: 8.5pt; font-weight: 900; padding: 0.8mm 2.5mm; margin-top: 1.5mm; letter-spacing: 0.15mm; border: 0.35mm solid #000; white-space: nowrap; }
+      .store-address { font-size: 8.5pt; font-weight: 700; margin-top: 2mm; line-height: 1.35; }
+      .store-address-label { font-size: 7.5pt; font-weight: 900; letter-spacing: 0.3mm; margin-bottom: 0.5mm; }
 
-      .badge { font-size: 11px; padding: 3px 0; letter-spacing: 2px; border-width: 1.5px; margin: 2px 0 6px; }
+      .badge { font-size: 11pt; font-weight: 900; letter-spacing: 0.5mm; padding: 1.2mm 0; margin: 1mm 0 2.5mm; border: 0.45mm solid #000; }
 
-      .meta-info { font-size: 9px; margin: 2px 0; }
-      .meta-info span:first-child { font-size: 7.5px; letter-spacing: .4px; }
+      /* Datos: etiqueta pequeña a la izquierda, valor a la derecha sin partirse */
+      .meta-info { font-size: 9.5pt; font-weight: 700; margin: 1.1mm 0; gap: 2mm; color: #000; }
+      .meta-info span:first-child { font-size: 7.5pt; font-weight: 800; letter-spacing: 0; flex: none; }
+      .meta-info span:last-child { font-weight: 900; color: #000; white-space: nowrap; }
+      .meta-info span.wrap { white-space: normal; overflow-wrap: anywhere; }
 
-      .section-label { font-size: 7.5px; letter-spacing: 1.2px; margin-bottom: 2px; }
-      .item-list { font-size: 9.5px; }
-      .item-list td { padding: 2px 0; }
-      .item-list .qty { width: 18px; }
-      .item-list .unit { font-size: 7.5px; }
-      .price-col { padding-left: 4px !important; }
+      /* Detalle */
+      .section-label { font-size: 7.5pt; font-weight: 900; letter-spacing: 0.2mm; margin-bottom: 1mm; color: #000; }
+      .item-list { width: 100%; table-layout: auto; font-size: 9.5pt; font-weight: 700; color: #000; }
+      .item-list td { padding: 1.1mm 0; }
+      .item-list .qty { width: 7mm; font-size: 9.5pt; font-weight: 900; }
+      .item-list .name { font-weight: 800; line-height: 1.2; padding-right: 1.5mm; }
+      .item-list .unit { font-size: 7.5pt; font-weight: 700; margin-top: 0.4mm; }
+      .item-list .price-col { width: 1%; white-space: nowrap; font-size: 9.5pt; font-weight: 900; padding-left: 0 !important; }
+      .price-col small, .total-band small, .meta-info small { font-size: 7pt; font-weight: 800; }
 
-      .total-band { background: #000 !important; color: #fff !important; padding: 5px 6px; border-radius: 2px; }
-      .total-band .lbl { font-size: 9px; letter-spacing: 2px; }
-      .total-band .amt { font-size: 13px; }
-      .total-band .amt small { font-size: 8px; }
+      /* Total */
+      .total-band {
+        background: #000 !important; color: #fff !important;
+        border: 0; border-radius: 1mm; padding: 2mm 2mm; margin: 1mm 0; gap: 2mm;
+        -webkit-print-color-adjust: exact; print-color-adjust: exact;
+      }
+      .total-band .lbl { font-size: 10pt; font-weight: 900; letter-spacing: 0.2mm; }
+      .total-band .amt { font-size: 14pt; font-weight: 900; white-space: nowrap; }
+      .total-band .amt small { font-size: 8pt; font-weight: 900; margin-left: 0.8mm; }
 
-      .payment-method { font-size: 8.5px; padding: 2px 9px; margin: 2px auto 5px; border-width: 1px; }
-      .meta-info.change { margin-top: 4px; padding-top: 4px; border-top-width: 1px; }
-      .meta-info.change span:first-child { font-size: 8.5px; }
-      .meta-info.change span:last-child { font-size: 11px; }
+      /* Pago */
+      .payment-method {
+        display: block; width: 100%; text-align: center;
+        font-size: 8pt; font-weight: 900; letter-spacing: 0; line-height: 1.25;
+        padding: 1.2mm 2mm; margin: 1mm 0 2.5mm; border: 0.35mm solid #000; border-radius: 2mm;
+      }
+      .meta-info.change { margin-top: 2mm; padding-top: 2mm; border-top: 0.35mm solid #000; }
+      .meta-info.change span:first-child { font-size: 8.5pt; font-weight: 900; }
+      .meta-info.change span:last-child { font-size: 12pt; font-weight: 900; }
 
-      .thank-you-msg { font-size: 8.5px; margin-top: 7px; }
-      .thank-you-big { font-size: 13px; margin: 2px 0 7px; }
-      .barcode { height: 28px; }
-      .barcode-num { font-size: 7.5px; letter-spacing: 3px; margin-top: 3px; }
-      .end-mark { font-size: 7px; margin-top: 8px; letter-spacing: 1.5px; }
+      /* Pie */
+      .thank-you-msg { font-size: 8.5pt; font-weight: 700; margin-top: 3mm; line-height: 1.3; }
+      .thank-you-big { font-size: 14pt; font-weight: 900; margin: 1mm 0 3mm; }
+      .invoice-code { font-size: 10.5pt; font-weight: 900; letter-spacing: 1mm; padding: 1.2mm 0; border-width: 0.35mm; }
+      .end-mark { font-size: 7.5pt; font-weight: 800; margin-top: 3mm; letter-spacing: 0.2mm; }
     }
   </style>
 </head>
@@ -270,18 +258,18 @@
         {% endif %}
 
         <!-- Datos -->
-        <div class="meta-info"><span>Factura</span><span><strong>#{{ factura.pk }}</strong></span></div>
-        <div class="meta-info"><span>Mesa</span><span><strong>{% if factura.pedido.mesa_id %}{{ factura.pedido.mesa.etiqueta }}{% else %}Para llevar{% endif %}</strong></span></div>
-        <div class="meta-info"><span>Fecha</span><span><strong>{{ factura.creado_en|date:"d/m/Y" }} · {{ factura.creado_en|date:"H:i" }}</strong></span></div>
+        <div class="meta-info"><span>Factura</span><span>#{{ factura.pk }}</span></div>
+        <div class="meta-info"><span>Mesa</span><span class="wrap">{% if factura.pedido.mesa_id %}{{ factura.pedido.mesa.etiqueta }}{% else %}Para llevar{% endif %}</span></div>
+        <div class="meta-info"><span>Fecha</span><span>{{ factura.creado_en|date:"d/m/Y" }} · {{ factura.creado_en|date:"H:i" }}</span></div>
         {% if factura.pedido.modalidad == 'para_llevar' %}
-        <div class="meta-info"><span>Cliente</span><span><strong>{{ factura.pedido.nombre_cliente }}</strong></span></div>
-        <div class="meta-info"><span>Teléfono</span><span><strong>{{ factura.pedido.telefono_cliente }}</strong></span></div>
+        <div class="meta-info"><span>Cliente</span><span class="wrap">{{ factura.pedido.nombre_cliente }}</span></div>
+        <div class="meta-info"><span>Teléfono</span><span>{{ factura.pedido.telefono_cliente }}</span></div>
         {% endif %}
         {% if factura.cajera_nombre %}
-        <div class="meta-info"><span>Cajera</span><span><strong>{{ factura.cajera_nombre }}</strong></span></div>
+        <div class="meta-info"><span>Cajera</span><span class="wrap">{{ factura.cajera_nombre }}</span></div>
         {% endif %}
         {% if factura.mesera_nombre %}
-        <div class="meta-info"><span>Mesera</span><span><strong>{{ factura.mesera_nombre }}</strong></span></div>
+        <div class="meta-info"><span>Mesera</span><span class="wrap">{{ factura.mesera_nombre }}</span></div>
         {% endif %}
 
         <div class="divider"></div>
@@ -293,7 +281,7 @@
           <tr>
             <td class="qty">{{ item.cantidad }}x</td>
             <td class="name">{{ item.plato }}{% if item.cantidad > 1 and item.precio %}<span class="unit">{{ item.cantidad }} × {{ item.precio }} CUP</span>{% endif %}</td>
-            <td class="price-col">{{ item.subtotal }} CUP</td>
+            <td class="price-col">{{ item.subtotal }} <small>CUP</small></td>
           </tr>
           {% endfor %}
         </table>
@@ -303,7 +291,7 @@
         <!-- Total -->
         <div class="total-band">
           <span class="lbl">TOTAL</span>
-          <span class="amt">{{ factura.total_cup }}<small>CUP</small></span>
+          <span class="amt">{{ factura.total_cup|unlocalize }}<small>CUP</small></span>
         </div>
 
         <div class="divider"></div>
@@ -311,21 +299,21 @@
         <!-- Pago -->
         <div class="payment-method">{{ factura.get_forma_pago_display }}</div>
         {% if factura.forma_pago == 'efectivo_cup' %}
-          <div class="meta-info"><span>Efectivo CUP</span><span>{{ factura.monto_efectivo_cup }} CUP</span></div>
+          <div class="meta-info"><span>Efectivo CUP</span><span>{{ factura.monto_efectivo_cup|unlocalize }} <small>CUP</small></span></div>
         {% elif factura.forma_pago == 'transferencia' %}
-          <div class="meta-info"><span>Transferencia</span><span>{{ factura.monto_transferencia_cup }} CUP</span></div>
+          <div class="meta-info"><span>Transferencia</span><span>{{ factura.monto_transferencia_cup|unlocalize }} <small>CUP</small></span></div>
         {% elif factura.forma_pago == 'mixto' %}
-          <div class="meta-info"><span>Efectivo CUP</span><span>{{ factura.monto_efectivo_cup }} CUP</span></div>
-          <div class="meta-info"><span>Transferencia</span><span>{{ factura.monto_transferencia_cup }} CUP</span></div>
+          <div class="meta-info"><span>Efectivo CUP</span><span>{{ factura.monto_efectivo_cup|unlocalize }} <small>CUP</small></span></div>
+          <div class="meta-info"><span>Transferencia</span><span>{{ factura.monto_transferencia_cup|unlocalize }} <small>CUP</small></span></div>
         {% elif factura.forma_pago == 'usd' %}
-          <div class="meta-info"><span>Monto USD</span><span>{{ factura.monto_usd }} USD</span></div>
+          <div class="meta-info"><span>Monto USD</span><span>{{ factura.monto_usd|unlocalize }} <small>USD</small></span></div>
           <div class="meta-info"><span>Tasa</span><span>1 USD = {{ factura.tasa_cambio }} CUP</span></div>
         {% endif %}
         {% if factura.monto_usd and factura.forma_pago != 'usd' %}
-          <div class="meta-info"><span>Total USD</span><span>{{ factura.monto_usd }} USD</span></div>
+          <div class="meta-info"><span>Total USD</span><span>{{ factura.monto_usd|unlocalize }} <small>USD</small></span></div>
         {% endif %}
         {% if factura.cambio_cup %}
-          <div class="meta-info change"><span>Cambio</span><span>{{ factura.cambio_cup }} CUP</span></div>
+          <div class="meta-info change"><span>Cambio</span><span>{{ factura.cambio_cup|unlocalize }} <small>CUP</small></span></div>
         {% endif %}
 
         <div class="ornament"><i></i></div>
@@ -334,10 +322,7 @@
         <div class="thank-you-msg">El ingrediente secreto siempre es tu visita.</div>
         <div class="thank-you-big">¡Vuelve pronto!</div>
 
-        <div class="barcode-container">
-          <div class="barcode"></div>
-          <div class="barcode-num">{{ factura.pk|stringformat:"06d" }}</div>
-        </div>
+        <div class="invoice-code">{{ factura.pk|stringformat:"06d" }}</div>
 
         <div class="end-mark">Gracias por su compra</div>
 

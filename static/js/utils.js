@@ -72,6 +72,19 @@ function cerrarModalFactura() {
 let contextoAudio = null;
 const VOLUMEN_NOTIFICACION = 0.75;
 
+function esMovilMesera() {
+  return document.body.classList.contains('mesera-app')
+    && window.matchMedia('(max-width: 767px)').matches;
+}
+
+function frecuenciaNotificacion(freq) {
+  return esMovilMesera() ? Math.min(1600, Math.max(950, freq * 0.8 + 650)) : freq;
+}
+
+function gananciaNotificacion() {
+  return esMovilMesera() ? 1 : VOLUMEN_NOTIFICACION;
+}
+
 function prepararAudio() {
   try {
     if (!contextoAudio) {
@@ -84,18 +97,35 @@ function prepararAudio() {
 
 document.addEventListener('pointerdown', prepararAudio, {once: true});
 
+function reproducirTonoNotificacion(ctx, freq, duracion) {
+  const movil = esMovilMesera();
+  const cantidadPulsos = movil ? 3 : 1;
+  const intervaloPulso = movil ? 0.18 : duracion;
+  const frecuencia = frecuenciaNotificacion(freq);
+
+  for (let pulso = 0; pulso < cantidadPulsos; pulso += 1) {
+    const inicio = ctx.currentTime + pulso * intervaloPulso;
+    const fin = inicio + duracion;
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = movil ? 'square' : 'sine';
+    osc.frequency.value = frecuencia;
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    gain.gain.setValueAtTime(gananciaNotificacion(), inicio);
+    gain.gain.exponentialRampToValueAtTime(0.001, fin);
+    osc.start(inicio);
+    osc.stop(fin);
+  }
+}
+
 function sonidoAlerta(freq = 880) {
   prepararAudio().then(() => {
     try {
     const ctx = contextoAudio;
     if (!ctx) return;
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.connect(gain); gain.connect(ctx.destination);
-    osc.frequency.value = freq;
-    gain.gain.setValueAtTime(VOLUMEN_NOTIFICACION, ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.5);
-    osc.start(ctx.currentTime); osc.stop(ctx.currentTime + 0.5);
+    const movil = esMovilMesera();
+    reproducirTonoNotificacion(ctx, freq, movil ? 0.14 : 0.5);
     } catch(e) {}
   });
 }
@@ -107,13 +137,7 @@ function activarSonido() {
     }
     const ctx = contextoAudio;
     const reproducir = () => {
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.connect(gain); gain.connect(ctx.destination);
-      osc.frequency.value = 880;
-      gain.gain.setValueAtTime(VOLUMEN_NOTIFICACION, ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.45);
-      osc.start(); osc.stop(ctx.currentTime + 0.45);
+      reproducirTonoNotificacion(ctx, 880, esMovilMesera() ? 0.14 : 0.45);
     };
     reproducir();
     if (ctx.state === 'suspended') ctx.resume();
