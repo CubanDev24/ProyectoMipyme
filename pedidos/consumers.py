@@ -199,6 +199,7 @@ def serializar_factura(factura):
         ],
         'items_snapshot': factura.items_snapshot,
         'pdf_url': f'/pedidos/caja/factura/{factura.id}/imprimir/',
+        'web_url': f'/pedidos/caja/factura/{factura.id}/imprimir-web/',
     }
     return data
 
@@ -918,6 +919,11 @@ class CajaConsumer(AsyncWebsocketConsumer):
                 await self.send(text_data=json.dumps({'tipo': 'error_cobro', 'mensaje': error}))
             elif resultado:
                 mesa_numero = resultado['mesa_numero']
+                if not resultado['es_para_llevar']:
+                    await self.channel_layer.group_send(
+                        f'cliente_{mesa_numero}',
+                        {'type': 'factura_final', 'factura': resultado}
+                    )
                 for grupo in ['caja', 'mesera', 'cocina']:
                     for cerrado_id in resultado['pedido_ids']:
                         await self.channel_layer.group_send(grupo, {'type': 'pedido_cerrado', 'pedido_id': cerrado_id})
@@ -925,10 +931,6 @@ class CajaConsumer(AsyncWebsocketConsumer):
                     await self.channel_layer.group_send(
                         f'cliente_{mesa_numero}',
                         {'type': 'pedido_cerrado', 'pedido_id': pedido_id}
-                    )
-                    await self.channel_layer.group_send(
-                        f'cliente_{mesa_numero}',
-                        {'type': 'factura_final', 'factura': resultado}
                     )
                     await self.channel_layer.group_send(
                         'mesera',
@@ -1208,6 +1210,7 @@ class CajaConsumer(AsyncWebsocketConsumer):
                 for item in items_snapshot
             ],
             'pdf_url': f'/pedidos/caja/factura/{factura.id}/imprimir/',
+            'web_url': f'/pedidos/caja/factura/{factura.id}/imprimir-web/',
         }
         return factura_data, None
 
@@ -1338,7 +1341,7 @@ class ClienteConsumer(AsyncWebsocketConsumer):
     @database_sync_to_async
     def get_historial_cliente(self):
         mesa = Mesa.objects.filter(numero=self.mesa_numero, activa=True).first()
-        if not mesa or not mesa.abierta:
+        if not mesa:
             return [], None, False
         pedidos = Pedido.objects.filter(
             mesa=mesa,
@@ -1351,7 +1354,7 @@ class ClienteConsumer(AsyncWebsocketConsumer):
         factura_data = None
         if factura:
             factura_data = serializar_factura(factura)
-        return [serializar_pedido(pedido) for pedido in pedidos], factura_data, True
+        return [serializar_pedido(pedido) for pedido in pedidos], factura_data, mesa.abierta
 
     @database_sync_to_async
     def crear_pedido(self, items_data, nota):
