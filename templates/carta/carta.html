@@ -262,13 +262,22 @@
           <i class="fa-solid fa-bell"></i> Solicitar Factura al Mesero
         </button>
 
-        <button type="button" class="cliente-primary-btn" onclick="abrirConfirmacionCuenta()" id="btnFacturaDirecta" style="display:none;">
-          <i class="fa-solid fa-file-invoice"></i> Ver y Descargar Factura
-        </button>
       </div>
     </section>
 
   </main>
+
+  <div id="placedOrdersTotal" class="cliente-orders-grand-total" aria-live="polite">
+    <div class="cliente-orders-grand-total-heading">
+      <span class="cliente-orders-total-icon" aria-hidden="true"><i class="fa-solid fa-receipt"></i></span>
+      <span class="cliente-orders-total-label">Total acumulado</span>
+      <strong id="placedOrdersTotalValue">0.00 CUP</strong>
+    </div>
+    <div class="cliente-orders-total-details">
+      <span><i class="fa-solid fa-list-check" aria-hidden="true"></i><strong id="placedOrdersCount">0</strong> órdenes</span>
+      <span><i class="fa-solid fa-utensils" aria-hidden="true"></i><strong id="placedItemsCount">0</strong> artículos</span>
+    </div>
+  </div>
 
   <!-- BARRA DE NAVEGACIÓN INFERIOR -->
   <nav class="cliente-bottom-nav" aria-label="Navegación principal">
@@ -1350,6 +1359,100 @@
   color: var(--gc-emerald-light);
 }
 
+.cliente-orders-grand-total {
+  display: none;
+  position: fixed;
+  z-index: 19;
+  bottom: calc(58px + env(safe-area-inset-bottom, 6px));
+  left: 50%;
+  width: calc(100% - 24px);
+  max-width: 456px;
+  box-sizing: border-box;
+  transform: translateX(-50%);
+  flex-direction: column;
+  gap: 9px;
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  border-radius: 14px;
+  background: linear-gradient(120deg, rgba(6, 78, 59, 0.97), rgba(15, 23, 42, 0.97) 70%);
+  backdrop-filter: blur(12px);
+  padding: 11px 14px 10px;
+  color: var(--gc-text);
+  box-shadow: 0 8px 26px rgba(2, 6, 23, 0.38), 0 0 18px rgba(16, 185, 129, 0.08);
+}
+
+.cliente-orders-grand-total.is-visible {
+  display: flex;
+}
+
+.cliente-orders-grand-total-heading {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 9px;
+}
+
+.cliente-orders-total-icon {
+  display: grid;
+  width: 32px;
+  height: 32px;
+  flex: 0 0 32px;
+  place-items: center;
+  border: 1px solid rgba(52, 211, 153, 0.24);
+  border-radius: 10px;
+  background: rgba(16, 185, 129, 0.14);
+  color: var(--gc-emerald-light);
+}
+
+.cliente-orders-total-label {
+  color: var(--gc-text-muted);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+
+.cliente-orders-grand-total strong {
+  color: var(--gc-emerald-light);
+  font-size: 16px;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.cliente-orders-grand-total-heading > strong {
+  margin-left: auto;
+}
+
+.cliente-orders-total-details {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 16px;
+  border-top: 1px solid rgba(148, 163, 184, 0.14);
+  padding-top: 8px;
+  color: var(--gc-text-muted);
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.cliente-orders-total-details > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.cliente-orders-total-details i {
+  color: var(--gc-emerald-light);
+}
+
+.cliente-orders-total-details strong {
+  color: var(--gc-text);
+  font-size: 11px;
+}
+
+.cliente-view#view-orders.active-view {
+  padding-bottom: 92px;
+}
+
 /* ===== FACTURA / CUENTA ===== */
 .cliente-invoice-content {
   background: var(--gc-surface);
@@ -1908,6 +2011,10 @@ function switchTab(tab) {
   document.querySelectorAll('.cliente-nav-btn').forEach(btn => {
     btn.classList.toggle('active', btn.dataset.view === tab);
   });
+  document.getElementById('placedOrdersTotal').classList.toggle(
+    'is-visible',
+    tab === 'orders' && pedidosCliente.length > 0
+  );
   
   // Acciones específicas por vista
   if (tab === 'cart') renderCartItems();
@@ -1915,7 +2022,6 @@ function switchTab(tab) {
     renderPlacedOrders();
     document.getElementById('ordersBadge').classList.add('hidden');
   }
-  if (tab === 'invoice') renderCuentaFinalView();
 }
 
 // ============================================================
@@ -2005,7 +2111,6 @@ function conectar() {
       if (facturaFinalCliente) {
         switchTab('invoice');
         document.querySelector('#view-invoice .cliente-amber-btn').style.display = 'none';
-        document.getElementById('btnFacturaDirecta').style.display = 'none';
       } else {
         document.getElementById('cuentaFinalContainer').style.display = 'none';
       }
@@ -2062,9 +2167,13 @@ function conectar() {
       }
       if (pedidoActual && d.pedido_id === pedidoActual.id) {
         document.getElementById('cerrado-msg').style.display = 'block';
-        document.getElementById('btnFacturaDirecta').style.display = 'none';
       }
-      notificarCliente(`pedido-${d.pedido_id}-cerrado`, `Pedido #${d.pedido_id} cerrado`, 'success');
+      const numeroPedido = pedido ? numeroVisiblePedido(pedido) : null;
+      notificarCliente(
+        `pedido-${d.pedido_id}-cerrado`,
+        `Pedido${numeroPedido ? ` #${numeroPedido}` : ''} cerrado`,
+        'success'
+      );
       
     } else if (d.tipo === 'factura_solicitada' || d.tipo === 'cuenta_en_camino') {
       const factura = d.factura || { id: '—', total_cup: d.total_cup || 0, items_snapshot: d.items || [] };
@@ -2076,7 +2185,6 @@ function conectar() {
       renderCuentaFinal(d.factura);
       switchTab('invoice');
       document.querySelector('#view-invoice .cliente-amber-btn').style.display = 'none';
-      document.getElementById('btnFacturaDirecta').style.display = 'none';
       notificarCliente(`factura-${d.factura.id}`, `Factura final: ${d.factura.total_cup} CUP`, 'success');
       
     } else if (d.tipo === 'mesa_actualizada') {
@@ -2098,7 +2206,6 @@ function conectar() {
       actualizarDisponibilidadMesa();
       
     } else if (d.tipo === 'cuenta_en_camino') {
-      document.getElementById('btnFacturaDirecta').style.display = 'none';
       notificarCliente('cuenta-en-camino', 'Cuenta solicitada', 'warning');
     }
   };
@@ -2232,10 +2339,15 @@ function enviarPedido() {
 function renderHistorialCliente() {
   const lista = document.getElementById('placedOrdersList');
   if (!lista) return;
+  const totalPedidos = document.getElementById('placedOrdersTotal');
+  const totalPedidosValor = document.getElementById('placedOrdersTotalValue');
+  const cantidadPedidos = document.getElementById('placedOrdersCount');
+  const cantidadArticulos = document.getElementById('placedItemsCount');
   
   lista.innerHTML = '';
   
   if (!pedidosCliente.length) {
+    totalPedidos.classList.remove('is-visible');
     lista.innerHTML = `
       <div class="cliente-cart-empty">
         <i class="fa-solid fa-paper-plane"></i>
@@ -2244,6 +2356,8 @@ function renderHistorialCliente() {
     return;
   }
   
+  let totalAcumulado = 0;
+  let totalUnidades = 0;
   pedidosCliente.slice().reverse().forEach(pedido => {
     let statusClass = '';
     let statusIcon = '';
@@ -2277,13 +2391,18 @@ function renderHistorialCliente() {
     }).join('');
     
     const total = toNumber(pedido.total);
+    totalAcumulado += total;
+    totalUnidades += (pedido.items || []).reduce(
+      (cantidad, item) => cantidad + (toNumber(item.cantidad) || 1),
+      0
+    );
     
     const card = document.createElement('div');
     card.className = 'cliente-order-card';
     card.innerHTML = `
       <div class="cliente-order-header">
         <div>
-          <span class="cliente-order-id">Pedido #${pedido.id}</span>
+          <span class="cliente-order-id">Pedido #${numeroVisiblePedido(pedido)}</span>
           <span class="cliente-order-time">${pedido.creado_en || ''}</span>
         </div>
         <span class="cliente-order-status ${statusClass}">${statusIcon}${pedido.estado_display || pedido.estado}</span>
@@ -2296,8 +2415,20 @@ function renderHistorialCliente() {
     `;
     lista.appendChild(card);
   });
-  
+
+  totalPedidosValor.textContent = `${fmt(totalAcumulado)} CUP`;
+  cantidadPedidos.textContent = pedidosCliente.length;
+  cantidadArticulos.textContent = totalUnidades;
+  totalPedidos.classList.toggle(
+    'is-visible',
+    document.getElementById('view-orders').classList.contains('active-view')
+  );
   actualizarBadges();
+}
+
+function numeroVisiblePedido(pedido) {
+  const indice = pedidosCliente.findIndex(item => item.id === pedido.id);
+  return indice === -1 ? pedidosCliente.length : pedidosCliente.length - indice;
 }
 
 function mostrarEstado(p) {
@@ -2311,12 +2442,6 @@ function mostrarEstado(p) {
     if (estadoTxt) estadoTxt.textContent = `${iconos[p.estado] || '📋'} ${p.estado_display || p.estado}`;
     const estadoItems = document.getElementById('estado-items');
     if (estadoItems) estadoItems.textContent = (p.items || []).map(i => `${i.cantidad}x ${i.plato || i.nombre}`).join(', ');
-  }
-  
-  const btnFactura = document.getElementById('btnFacturaDirecta');
-  if (btnFactura) {
-    const puedeSolicitar = ['listo', 'servido'].includes(p.estado) && !p.cuenta_solicitada;
-    btnFactura.style.display = puedeSolicitar ? 'block' : 'none';
   }
 }
 
@@ -2363,14 +2488,6 @@ function renderCuentaFinal(factura) {
     <div style="font-size:10px;color:var(--gc-text-muted);margin-top:4px;">${factura.creado_en || ''}</div>
     ${enlacesFactura}
   `;
-}
-
-function renderCuentaFinalView() {
-  if (pedidoActual && ['listo', 'servido'].includes(pedidoActual.estado)) {
-    document.getElementById('btnFacturaDirecta').style.display = 'block';
-  } else {
-    document.getElementById('btnFacturaDirecta').style.display = 'none';
-  }
 }
 
 function abrirConfirmacionCuenta() {

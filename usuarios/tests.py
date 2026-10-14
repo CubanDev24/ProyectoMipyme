@@ -184,7 +184,7 @@ class UsuarioTurnoTests(TestCase):
         response = self.client.get(reverse('usuarios:historial_turnos'))
 
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.content.count(b'<input '), 2)
+        self.assertEqual(response.content.count(b'<input '), 3)
         self.assertEqual(response.content.count(b'<select '), 2)
         self.assertEqual(response.content.count(b'<button '), 2)
         self.assertEqual(
@@ -194,8 +194,11 @@ class UsuarioTurnoTests(TestCase):
         self.assertContains(response, 'id="filtro-texto"')
         self.assertContains(response, 'id="filtro-mes"')
         self.assertContains(response, 'id="filtro-anio"')
-        self.assertContains(response, 'id="filtro-fecha-especifica"')
-        self.assertContains(response, 'Filtrar por fecha específica')
+        self.assertContains(response, 'id="filtro-fecha-desde"')
+        self.assertContains(response, 'id="filtro-fecha-hasta"')
+        self.assertContains(response, 'Filtrar por rango de fechas')
+        self.assertContains(response, 'aria-label="Fecha desde"')
+        self.assertContains(response, 'aria-label="Fecha hasta"')
         self.assertContains(response, 'aria-label="Mes"')
         self.assertContains(response, 'aria-label="Año"')
         self.assertContains(response, 'background-color: #0f172a;')
@@ -208,7 +211,9 @@ class UsuarioTurnoTests(TestCase):
         self.assertContains(response, "addEventListener('submit'")
         self.assertContains(response, "addEventListener('click'")
         self.assertContains(response, 'const [anioTurno, mesTurno] = fechaTurno.split')
-        self.assertContains(response, 'fechaTurno === fechaEspecifica')
+        self.assertContains(response, 'fechaTurno >= fechaDesde')
+        self.assertContains(response, 'fechaTurno <= fechaHasta')
+        self.assertContains(response, 'fechaDesde > fechaHasta')
 
     def test_admin_tiene_seccion_separada_para_gestionar_usuarios(self):
         self.client.force_login(self.admin)
