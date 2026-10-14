@@ -14,7 +14,7 @@
       
     </script>
     <style>
-        @import url("{% static 'css/main.css' %}?v=20261005-exterior-tables");
+        @import url("{% static 'css/main.css' %}?v=20261013-mesera-responsive");
 
         /* Custom scrollbar */
         ::-webkit-scrollbar {
@@ -254,21 +254,456 @@
             50% { box-shadow: 0 0 0 8px rgba(52, 211, 153, 0.08); }
         }
 
+        .mesera-content {
+            min-width: 0;
+            min-height: 0;
+            overscroll-behavior: contain;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        #tables-grid,
+        #active-orders-container,
+        #bar-orders-container,
+        #menu-catalog {
+            min-width: 0;
+        }
+
+        #tables-grid > *,
+        #active-orders-container > *,
+        #bar-orders-container > *,
+        #menu-catalog > * {
+            min-width: 0;
+        }
+
+        @media (min-width: 768px) and (max-width: 1023px) {
+            .mesera-sidebar {
+                width: 196px;
+                flex: 0 0 196px;
+            }
+
+            .mesera-nav-label {
+                display: inline;
+            }
+
+            .mesera-nav {
+                padding: .65rem;
+            }
+
+            .mesera-nav button,
+            .mesera-nav a {
+                gap: .55rem;
+                padding: .7rem .6rem;
+                font-size: .76rem;
+            }
+
+            .mesera-nav button i,
+            .mesera-nav a i {
+                width: 1.35rem;
+                flex: 0 0 1.35rem;
+            }
+
+            .mesera-nav-badge:not(.hidden) {
+                display: flex;
+            }
+
+            .mesera-header {
+                flex-wrap: wrap;
+                gap: .65rem;
+                padding-left: 1rem;
+                padding-right: 1rem;
+            }
+
+            .mesera-header > div:first-child {
+                min-width: 0;
+            }
+
+            .mesera-quick-stats {
+                width: 100%;
+                justify-content: flex-end;
+            }
+
+            .mesera-header h2 {
+                font-size: 1rem;
+            }
+
+            .mesera-quick-stats {
+                gap: .45rem;
+                font-size: .68rem;
+            }
+
+            .mesera-quick-stats > * {
+                padding: .4rem .55rem;
+            }
+
+            #tables-grid {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+                gap: .75rem;
+            }
+
+            #active-orders-container,
+            #bar-orders-container,
+            #menu-catalog {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+        }
+
+        @media (max-width: 767px) {
+            body.mesera-app {
+                display: flex;
+                width: 100%;
+                height: 100vh;
+                height: 100dvh;
+                min-height: 0;
+                overflow: hidden;
+                flex-direction: column;
+            }
+
+            .mesera-sidebar {
+                position: fixed;
+                z-index: 40;
+                inset: auto 0 0;
+                display: block;
+                width: 100%;
+                height: calc(64px + env(safe-area-inset-bottom));
+                flex: none;
+                border-top: 1px solid #1e293b;
+                border-right: 0;
+                padding-bottom: env(safe-area-inset-bottom);
+            }
+
+            .mesera-sidebar > div:first-child {
+                height: 100%;
+            }
+
+            .mesera-brand,
+            .mesera-user-card,
+            .mesera-logout {
+                display: none;
+            }
+
+            .mesera-nav {
+                display: flex;
+                width: 100%;
+                height: 100%;
+                align-items: center;
+                justify-content: space-between;
+                gap: 4px;
+                overflow-x: auto;
+                overscroll-behavior-x: contain;
+                padding: 6px 8px;
+                margin: 0;
+                scrollbar-width: none;
+            }
+
+            .mesera-nav::-webkit-scrollbar {
+                display: none;
+            }
+
+            .mesera-nav button,
+            .mesera-nav a {
+                position: relative;
+                display: flex;
+                width: 48px;
+                min-width: 48px;
+                height: 48px;
+                flex: 1 0 48px;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+                gap: 2px;
+                border-radius: 12px;
+                padding: 5px 4px;
+                font-size: 10px;
+                line-height: 1;
+                text-align: center;
+            }
+
+            .mesera-nav button i,
+            .mesera-nav a i {
+                width: auto;
+                font-size: 17px;
+                line-height: 1;
+            }
+
+            .mesera-nav-label {
+                display: none;
+            }
+
+            .mesera-mobile-logout {
+                display: flex !important;
+            }
+
+            .mesera-nav-badge:not(.hidden) {
+                position: absolute;
+                top: 1px;
+                right: 4px;
+                display: flex;
+                min-width: 16px;
+                height: 16px;
+                align-items: center;
+                justify-content: center;
+                margin: 0;
+                border: 1px solid #020617;
+                padding: 0 4px;
+                font-size: 9px;
+            }
+
+            .mesera-nav-badge.hidden {
+                display: none;
+            }
+
+            .mesera-main {
+                width: 100%;
+                height: 100vh;
+                height: 100dvh;
+                min-height: 0;
+                padding-bottom: calc(64px + env(safe-area-inset-bottom));
+                overflow: hidden;
+            }
+
+            .mesera-header {
+                height: auto;
+                min-height: 0;
+                flex: none;
+                flex-wrap: wrap;
+                align-items: stretch;
+                gap: 10px;
+                padding: 10px 12px;
+            }
+
+            .mesera-header > div:first-child {
+                width: 100%;
+                justify-content: space-between;
+                gap: 8px;
+            }
+
+            .mesera-header h2 {
+                min-width: 0;
+                font-size: .9rem;
+                line-height: 1.25;
+            }
+
+            #page-title {
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+            }
+
+            #clock-display {
+                flex: none;
+                font-size: 10px;
+            }
+
+            .mesera-quick-stats {
+                display: grid;
+                width: 100%;
+                grid-template-columns: repeat(3, minmax(0, 1fr));
+                gap: 6px;
+                font-size: 10px;
+            }
+
+            .mesera-quick-stats > * {
+                min-width: 0;
+                min-height: 38px;
+                justify-content: center;
+                gap: 5px;
+                padding: 5px 4px;
+                text-align: center;
+            }
+
+            .mesera-quick-stats button {
+                font-size: 0;
+            }
+
+            .mesera-quick-stats button i {
+                font-size: 15px;
+            }
+
+            .mesera-content {
+                padding: 12px;
+            }
+
+            #view-tables,
+            #view-orders,
+            #view-bar,
+            #view-takeaway,
+            #view-menu {
+                gap: 12px;
+            }
+
+            #view-tables > div:first-child {
+                align-items: stretch;
+                gap: 8px;
+                padding: 8px;
+            }
+
+            #view-tables > div:first-child > div:first-child {
+                width: 100%;
+                gap: 6px;
+            }
+
+            .filter-btn {
+                min-height: 40px;
+                flex: 1 0 auto;
+                padding: 8px 12px;
+            }
+
+            #tables-grid {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+                gap: 8px;
+            }
+
+            #tables-grid > div {
+                gap: 10px;
+                border-radius: 16px;
+                padding: 10px;
+            }
+
+            #tables-grid > div > div:first-child {
+                flex-wrap: wrap;
+                gap: 8px;
+                margin-bottom: 0;
+            }
+
+            #tables-grid > div > div:first-child > div:first-child {
+                min-width: 0;
+                gap: 7px;
+            }
+
+            #tables-grid > div > div:first-child > div:first-child > div:first-child {
+                width: 36px;
+                height: 36px;
+                flex: 0 0 36px;
+                border-radius: 10px;
+            }
+
+            #tables-grid h4 {
+                font-size: 12px;
+                line-height: 1.25;
+                overflow-wrap: anywhere;
+            }
+
+            #tables-grid > div > div:first-child > span {
+                max-width: 100%;
+                padding: 4px 7px;
+                font-size: 9px;
+            }
+
+            #tables-grid > div > div:nth-child(2) {
+                margin-top: 0;
+            }
+
+            #tables-grid > div > div:nth-child(2) > div {
+                padding: 8px;
+            }
+
+            #tables-grid > div > div:nth-child(2) p,
+            #tables-grid > div > div:nth-child(2) span {
+                font-size: 10px;
+            }
+
+            #tables-grid > div > div:last-child {
+                margin-top: 0;
+                padding-top: 8px;
+                font-size: 10px;
+            }
+
+            #tables-grid > div > div:last-child > div {
+                gap: 8px;
+            }
+
+            #tables-grid > div > div:last-child button {
+                min-height: 32px;
+                padding: 4px;
+            }
+
+            #active-orders-container,
+            #bar-orders-container,
+            #menu-catalog {
+                grid-template-columns: minmax(0, 1fr);
+                gap: 10px;
+            }
+
+            #view-takeaway > .grid {
+                gap: 12px;
+            }
+
+            #view-takeaway section {
+                min-width: 0;
+                padding: 12px;
+            }
+
+            #takeaway-menu {
+                grid-template-columns: minmax(0, 1fr);
+            }
+
+            #table-modal,
+            #payment-modal,
+            #qr-modal {
+                align-items: flex-end;
+                padding: 0;
+            }
+
+            #modal-panel {
+                width: 100%;
+                max-width: none;
+                height: 94dvh;
+                border-right: 0;
+                border-bottom: 0;
+                border-left: 0;
+                border-radius: 18px 18px 0 0;
+                padding-bottom: env(safe-area-inset-bottom);
+            }
+
+            #payment-modal > form,
+            #qr-modal > div {
+                width: 100%;
+                max-width: none;
+                max-height: 92dvh;
+                border-radius: 18px 18px 0 0;
+                padding: 16px;
+            }
+
+            #qr-modal-frame {
+                height: min(55dvh, 360px);
+            }
+
+            #toast {
+                right: 10px;
+                bottom: calc(72px + env(safe-area-inset-bottom));
+                left: 10px;
+                max-width: calc(100vw - 20px);
+            }
+        }
+
+        @media (max-width: 380px) {
+            #tables-grid {
+                grid-template-columns: minmax(0, 1fr);
+            }
+
+            #tables-grid > div > div:first-child {
+                flex-wrap: nowrap;
+            }
+
+            #tables-grid h4 {
+                font-size: 14px;
+            }
+        }
+
         @media (prefers-reduced-motion: reduce) {
             .call-alert-panel, .call-alert-live::before, .call-alert-icon {
                 animation: none;
             }
         }
     </style>
-    <script src="{% static 'js/responsive-sidebar.js' %}?v=20261001-sidebar-logout" defer></script>
 </head>
-<body class="bg-slate-900 text-slate-100 font-sans min-h-screen flex flex-col md:flex-row overflow-x-hidden">
+<body class="mesera-app bg-slate-900 text-slate-100 font-sans min-h-screen flex flex-col md:flex-row overflow-x-hidden">
 
     <!-- BARRA LATERAL / NAVEGACIÓN -->
-    <aside class="w-full md:w-20 lg:w-64 bg-slate-950 border-r border-slate-800 flex flex-col justify-between shrink-0">
+    <aside class="mesera-sidebar w-full md:w-20 lg:w-64 bg-slate-950 border-r border-slate-800 flex flex-col justify-between shrink-0">
         <div>
             <!-- Logo -->
-            <div class="p-4 lg:p-6 flex items-center justify-between border-b border-slate-800/80">
+            <div class="mesera-brand p-4 lg:p-6 flex items-center justify-between border-b border-slate-800/80">
                 <div class="flex items-center gap-3">
                     <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-500 to-teal-400 flex items-center justify-center text-slate-950 font-black text-xl shadow-lg shadow-emerald-500/20">
                         <i class="fa-solid font-bold fa-utensils"></i>
@@ -281,7 +716,7 @@
             </div>
 
             <!-- Info Mesera -->
-            <div class="p-4 border-b border-slate-800/50 hidden lg:flex items-center gap-3 bg-slate-900/40">
+            <div class="mesera-user-card p-4 border-b border-slate-800/50 hidden lg:flex items-center gap-3 bg-slate-900/40">
                 <div class="relative">
                     <div class="w-10 h-10 rounded-full bg-emerald-500/15 border-2 border-emerald-500 flex items-center justify-center text-emerald-400"><i class="fa-solid fa-user"></i></div>
                     <span class="absolute bottom-0 right-0 w-3 h-3 bg-emerald-500 border-2 border-slate-950 rounded-full"></span>
@@ -293,43 +728,47 @@
             </div>
 
             <!-- Navegación Menú -->
-            <nav class="p-3 space-y-1">
-                <button onclick="switchView('tables')" id="nav-tables" class="w-full flex items-center gap-3 px-3 py-3 rounded-xl font-medium text-sm transition-all bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+            <nav class="mesera-nav p-3 space-y-1" aria-label="Secciones de atención">
+                <button type="button" onclick="switchView('tables')" id="nav-tables" aria-label="Mesas y Salón" title="Mesas y Salón" class="w-full flex items-center gap-3 px-3 py-3 rounded-xl font-medium text-sm transition-all bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
                     <i class="fa-solid fa-border-all text-lg w-6 text-center"></i>
-                    <span class="hidden lg:inline">Mesas y Salón</span>
+                    <span class="mesera-nav-label hidden lg:inline">Mesas y Salón</span>
                 </button>
-                <button onclick="switchView('exterior-tables')" id="nav-exteriors" class="w-full flex items-center gap-3 px-3 py-3 rounded-xl font-medium text-sm text-slate-400 hover:text-white hover:bg-slate-800/50 transition-all">
+                <button type="button" onclick="switchView('exterior-tables')" id="nav-exteriors" aria-label="Exteriores" title="Exteriores" class="w-full flex items-center gap-3 px-3 py-3 rounded-xl font-medium text-sm text-slate-400 hover:text-white hover:bg-slate-800/50 transition-all">
                     <i class="fa-solid fa-tree text-lg w-6 text-center"></i>
-                    <span class="hidden lg:inline">Exteriores</span>
+                    <span class="mesera-nav-label hidden lg:inline">Exteriores</span>
                 </button>
-                <button onclick="switchView('active-orders')" id="nav-orders" class="w-full flex items-center gap-3 px-3 py-3 rounded-xl font-medium text-sm text-slate-400 hover:text-white hover:bg-slate-800/50 transition-all">
+                <button type="button" onclick="switchView('active-orders')" id="nav-orders" aria-label="Pedidos Activos" title="Pedidos Activos" class="w-full flex items-center gap-3 px-3 py-3 rounded-xl font-medium text-sm text-slate-400 hover:text-white hover:bg-slate-800/50 transition-all">
                     <i class="fa-solid fa-receipt text-lg w-6 text-center"></i>
-                    <span class="hidden lg:inline">Pedidos Activos</span>
-                    <span id="badge-active-count" class="hidden lg:flex ml-auto bg-emerald-500/20 text-emerald-400 text-xs px-2 py-0.5 rounded-full font-bold">0</span>
+                    <span class="mesera-nav-label hidden lg:inline">Pedidos Activos</span>
+                    <span id="badge-active-count" class="mesera-nav-badge hidden lg:flex ml-auto bg-emerald-500/20 text-emerald-400 text-xs px-2 py-0.5 rounded-full font-bold">0</span>
                 </button>
-                <button onclick="switchView('bar')" id="nav-bar" class="w-full flex items-center gap-3 px-3 py-3 rounded-xl font-medium text-sm text-slate-400 hover:text-white hover:bg-slate-800/50 transition-all">
+                <button type="button" onclick="switchView('bar')" id="nav-bar" aria-label="Barra" title="Barra" class="w-full flex items-center gap-3 px-3 py-3 rounded-xl font-medium text-sm text-slate-400 hover:text-white hover:bg-slate-800/50 transition-all">
                     <i class="fa-solid fa-martini-glass-citrus text-lg w-6 text-center"></i>
-                    <span class="hidden lg:inline">Barra</span>
-                    <span id="badge-bar-count" class="hidden lg:flex ml-auto bg-amber-500/20 text-amber-300 text-xs px-2 py-0.5 rounded-full font-bold">0</span>
+                    <span class="mesera-nav-label hidden lg:inline">Barra</span>
+                    <span id="badge-bar-count" class="mesera-nav-badge hidden lg:flex ml-auto bg-amber-500/20 text-amber-300 text-xs px-2 py-0.5 rounded-full font-bold">0</span>
                 </button>
-                <button onclick="switchView('takeaway')" id="nav-takeaway" class="w-full flex items-center gap-3 px-3 py-3 rounded-xl font-medium text-sm text-slate-400 hover:text-white hover:bg-slate-800/50 transition-all">
+                <button type="button" onclick="switchView('takeaway')" id="nav-takeaway" aria-label="Para llevar" title="Para llevar" class="w-full flex items-center gap-3 px-3 py-3 rounded-xl font-medium text-sm text-slate-400 hover:text-white hover:bg-slate-800/50 transition-all">
                     <i class="fa-solid fa-bag-shopping text-lg w-6 text-center"></i>
-                    <span class="hidden lg:inline">Para llevar</span>
-                    <span id="badge-takeaway-count" class="hidden lg:flex ml-auto bg-sky-500/20 text-sky-300 text-xs px-2 py-0.5 rounded-full font-bold">0</span>
+                    <span class="mesera-nav-label hidden lg:inline">Para llevar</span>
+                    <span id="badge-takeaway-count" class="mesera-nav-badge hidden lg:flex ml-auto bg-sky-500/20 text-sky-300 text-xs px-2 py-0.5 rounded-full font-bold">0</span>
                 </button>
-                <button onclick="switchView('menu')" id="nav-menu" class="w-full flex items-center gap-3 px-3 py-3 rounded-xl font-medium text-sm text-slate-400 hover:text-white hover:bg-slate-800/50 transition-all">
+                <button type="button" onclick="switchView('menu')" id="nav-menu" aria-label="Carta / Menú" title="Carta / Menú" class="w-full flex items-center gap-3 px-3 py-3 rounded-xl font-medium text-sm text-slate-400 hover:text-white hover:bg-slate-800/50 transition-all">
                     <i class="fa-solid fa-book-open text-lg w-6 text-center"></i>
-                    <span class="hidden lg:inline">Carta / Menú</span>
+                    <span class="mesera-nav-label hidden lg:inline">Carta / Menú</span>
                 </button>
-                <a href="{% url 'usuarios:dashboard' %}" class="w-full flex items-center gap-3 px-3 py-3 rounded-xl font-medium text-sm text-slate-400 hover:text-white hover:bg-slate-800/50 transition-all">
+                <a href="{% url 'usuarios:dashboard' %}" aria-label="Detalle del turno" title="Detalle del turno" class="w-full flex items-center gap-3 px-3 py-3 rounded-xl font-medium text-sm text-slate-400 hover:text-white hover:bg-slate-800/50 transition-all">
                     <i class="fa-solid fa-clock-rotate-left text-lg w-6 text-center"></i>
-                    <span class="hidden lg:inline">Detalle del turno actual</span>
+                    <span class="mesera-nav-label hidden lg:inline">Detalle del turno actual</span>
+                </a>
+                <a href="{% url 'usuarios:logout' %}" aria-label="Cerrar sesión" title="Cerrar sesión" class="mesera-mobile-logout w-full flex items-center gap-3 px-3 py-3 rounded-xl font-medium text-sm text-rose-400 hover:bg-rose-500/10 transition-all">
+                    <i class="fa-solid fa-right-from-bracket text-lg w-6 text-center" aria-hidden="true"></i>
+                    <span class="mesera-nav-label">Cerrar sesión</span>
                 </a>
             </nav>
         </div>
 
         <!-- Botón Salir / Resumen -->
-        <div class="p-3 border-t border-slate-800/80">
+        <div class="mesera-logout p-3 border-t border-slate-800/80">
             <a href="{% url 'usuarios:logout' %}" class="w-full flex items-center justify-center lg:justify-start gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold text-rose-400 hover:bg-rose-500/10 transition-all">
                 <i class="fa-solid fa-right-from-bracket text-base"></i>
                 <span class="hidden lg:inline">Cerrar sesión</span>
@@ -338,10 +777,10 @@
     </aside>
 
     <!-- CONTENIDO PRINCIPAL -->
-    <main class="flex-1 flex flex-col h-screen overflow-hidden">
+    <main class="mesera-main flex-1 flex flex-col h-screen overflow-hidden">
         
         <!-- HEADER SUPERIOR -->
-        <header class="h-16 border-b border-slate-800 bg-slate-950/60 backdrop-blur px-6 flex items-center justify-between shrink-0">
+        <header class="mesera-header h-16 border-b border-slate-800 bg-slate-950/60 backdrop-blur px-6 flex items-center justify-between shrink-0">
             <div class="flex items-center gap-4">
                 <h2 id="page-title" class="text-lg font-bold text-white flex items-center gap-2">
                     <i class="fa-solid fa-chair text-emerald-400"></i> Vista del Salón
@@ -350,10 +789,10 @@
             </div>
 
             <!-- Estadísticas rápidas superiores -->
-            <div class="flex items-center gap-3 text-xs">
+            <div class="mesera-quick-stats flex items-center gap-3 text-xs">
                 <button type="button" data-activar-sonido onclick="activarSonido()" class="flex items-center gap-2 px-3 py-2 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-300 hover:bg-amber-500/20 transition-colors" title="Habilitar sonido de alertas">
                     <i class="fa-solid fa-volume-high"></i>
-                    Activar sonido
+                    <span>Activar sonido</span>
                 </button>
                 <div class="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">
                     <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
@@ -367,7 +806,7 @@
         </header>
 
         <!-- AREA DE CONTENIDO DINÁMICO -->
-        <div class="flex-1 overflow-y-auto p-4 md:p-6" id="main-container">
+        <div class="mesera-content flex-1 overflow-y-auto p-4 md:p-6" id="main-container">
             
             <!-- VISTA: MESAS (DEFAULT) -->
             <section id="view-tables" class="space-y-6">
@@ -701,7 +1140,7 @@
     </div>
 
     <!-- NOTIFICACIÓN TOAST -->
-    <div id="toast" class="fixed bottom-6 right-6 bg-slate-800 border border-slate-700 text-white px-4 py-3 rounded-2xl shadow-2xl flex items-center gap-3 transform translate-y-20 opacity-0 transition-all duration-300 z-50">
+    <div id="toast" class="fixed bottom-6 right-6 bg-slate-800 border border-slate-700 text-white px-4 py-3 rounded-2xl shadow-2xl flex items-center gap-3 transform translate-y-20 opacity-0 pointer-events-none transition-all duration-300 z-50">
         <div id="toast-icon" class="w-8 h-8 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center">
             <i class="fa-solid fa-check"></i>
         </div>
@@ -1339,8 +1778,8 @@
                 const el = document.createElement('div');
                 el.className = "flex items-center justify-between p-3 rounded-xl bg-slate-950/80 border border-slate-800/80 hover:border-slate-700 transition-all";
                 const imagen = item.image
-                    ? `<img src="${escaparHtml(item.image)}" alt="${escaparHtml(item.name)}" loading="lazy" class="h-10 w-10 shrink-0 rounded-lg object-cover">`
-                    : `<div class="w-10 h-10 shrink-0 rounded-lg bg-slate-900 border border-slate-800 flex items-center justify-center text-slate-300"><i class="fa-solid ${item.icon}"></i></div>`;
+                    ? `<img src="${escaparHtml(item.image)}" alt="${escaparHtml(item.name)}" loading="lazy" class="mesera-menu-list-image">`
+                    : `<div class="mesera-menu-list-placeholder rounded-lg bg-slate-900 border border-slate-800 text-slate-300"><i class="fa-solid ${item.icon}"></i></div>`;
                 el.innerHTML = `
                     <div class="flex items-center gap-3">
                         ${imagen}
@@ -1846,8 +2285,8 @@
                 card.className = 'rounded-xl border border-amber-500/20 bg-slate-950 p-4';
                 const items = pedido.items.map(item => {
                     const imagen = item.imagen_url
-                        ? `<img src="${escaparHtml(item.imagen_url)}" alt="${escaparHtml(item.plato)}" loading="lazy" class="h-14 w-14 shrink-0 rounded-lg object-cover">`
-                        : '<span class="grid h-14 w-14 shrink-0 place-items-center rounded-lg bg-slate-900 text-slate-500"><i class="fa-solid fa-martini-glass-citrus"></i></span>';
+                        ? `<img src="${escaparHtml(item.imagen_url)}" alt="${escaparHtml(item.plato)}" loading="lazy" class="mesera-order-image">`
+                        : '<span class="mesera-order-placeholder rounded-lg bg-slate-900 text-slate-500"><i class="fa-solid fa-martini-glass-citrus"></i></span>';
                     return `
                         <div class="flex items-center gap-3 border-b border-slate-800 py-3 last:border-0">
                             ${imagen}
@@ -1940,8 +2379,8 @@
                 const card = document.createElement('div');
                 card.className = "bg-slate-950 border border-slate-800 rounded-2xl p-4 flex flex-col justify-between hover:border-slate-700 transition-all";
                 const imagen = item.image
-                    ? `<img src="${escaparHtml(item.image)}" alt="${escaparHtml(item.name)}" loading="lazy" class="mb-3 h-36 w-full rounded-xl object-cover">`
-                    : `<div class="mb-3 flex h-36 w-full items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-400"><i class="fa-solid ${item.icon} text-3xl"></i></div>`;
+                    ? `<img src="${escaparHtml(item.image)}" alt="${escaparHtml(item.name)}" loading="lazy" class="mesera-menu-card-image mb-3">`
+                    : `<div class="mesera-menu-card-placeholder mb-3 rounded-xl bg-emerald-500/10 text-emerald-400"><i class="fa-solid ${item.icon} text-3xl"></i></div>`;
                 card.innerHTML = `
                     <div>
                         ${imagen}
@@ -1963,10 +2402,10 @@
             document.getElementById('toast-title').textContent = title;
             document.getElementById('toast-message').textContent = message;
 
-            toast.classList.remove('translate-y-20', 'opacity-0');
+            toast.classList.remove('translate-y-20', 'opacity-0', 'pointer-events-none');
 
             setTimeout(() => {
-                toast.classList.add('translate-y-20', 'opacity-0');
+                toast.classList.add('translate-y-20', 'opacity-0', 'pointer-events-none');
             }, 3000);
         }
 

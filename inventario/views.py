@@ -84,6 +84,10 @@ def administrador(request):
             to_attr='platos_publicados',
         )
     )
+    platos_sin_categoria = [
+        plato for plato in platos
+        if plato.categoria_id is None and plato.disponible and plato.receta_admin
+    ]
 
     plato_sel = None
     plato_id = request.GET.get('plato')
@@ -111,6 +115,7 @@ def administrador(request):
         'movimientos': movimientos,
         'platos': platos,
         'categorias': categorias,
+        'platos_sin_categoria': platos_sin_categoria,
         'plato_sel': plato_sel,
         'receta_items': receta_items,
         'insumos_disponibles': Insumo.objects.filter(
@@ -152,6 +157,20 @@ def categoria_editar(request, pk):
             categoria.nombre = nombre
             categoria.save(update_fields=['nombre'])
             messages.success(request, f'Categoría actualizada a "{nombre}".')
+    return redirect('/administrador/#categorias')
+
+
+@login_required
+@user_passes_test(_es_admin)
+def categoria_eliminar(request, pk):
+    categoria = get_object_or_404(Categoria, pk=pk)
+    if request.method == 'POST':
+        nombre = categoria.nombre
+        categoria.delete()
+        messages.success(
+            request,
+            f'Categoría "{nombre}" eliminada. Los platos se conservaron sin categoría.',
+        )
     return redirect('/administrador/#categorias')
 
 
@@ -199,6 +218,22 @@ def categoria_inventario_editar(request, tipo, pk):
             categoria.nombre = nombre
             categoria.save(update_fields=['nombre'])
             messages.success(request, f'Categoría actualizada a "{nombre}".')
+    return redirect(f'/administrador/#inventario-{tipo}')
+
+
+@login_required
+@user_passes_test(_es_admin)
+def categoria_inventario_eliminar(request, tipo, pk):
+    categoria = get_object_or_404(CategoriaInventario, pk=pk, tipo=tipo)
+    if request.method == 'POST':
+        nombre = categoria.nombre
+        nombre_tipo = categoria.get_tipo_display()
+        categoria.delete()
+        messages.success(
+            request,
+            f'Categoría "{nombre}" eliminada de {nombre_tipo}. '
+            'Los productos se conservaron sin categoría.',
+        )
     return redirect(f'/administrador/#inventario-{tipo}')
 
 
@@ -279,8 +314,8 @@ def plato_editar(request, pk):
         if disponible and receta is None and not plato.receta.exists():
             messages.error(request, 'Agrega al menos un producto de inventario para publicar este plato.')
             return redirect('/administrador/#carta')
-        if categoria_id:
-            plato.categoria = get_object_or_404(Categoria, pk=categoria_id)
+        if 'categoria' in request.POST:
+            plato.categoria = get_object_or_404(Categoria, pk=categoria_id) if categoria_id else None
         if precio is not None and precio > 0:
             plato.precio = precio
         plato.nombre = nombre

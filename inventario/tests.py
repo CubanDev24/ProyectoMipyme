@@ -54,6 +54,28 @@ class InventarioFlowTests(TestCase):
 
         self.assertEqual(otra_categoria.nombre, 'Bebidas')
 
+    def test_admin_can_delete_a_menu_category_without_deleting_its_dishes(self):
+        plato = Plato.objects.create(
+            categoria=self.categoria,
+            nombre='Pollo al horno',
+            precio='22.00',
+            disponible=True,
+        )
+        RecetaItem.objects.create(plato=plato, insumo=self.insumo_1, cantidad='0.500')
+
+        response = self.client.post(
+            reverse('inventario:categoria_eliminar', args=[self.categoria.pk]),
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertFalse(Categoria.objects.filter(pk=self.categoria.pk).exists())
+        plato.refresh_from_db()
+        self.assertIsNone(plato.categoria)
+        self.assertTrue(plato.receta.exists())
+        carta_response = self.client.get(reverse('carta:carta', args=[1]))
+        self.assertContains(carta_response, 'Pollo al horno')
+        self.assertContains(carta_response, 'Sin categoría')
+
     def test_inventory_categories_are_separate_by_area(self):
         cocina = CategoriaInventario.objects.create(tipo='cocina', nombre='Carnes')
         restaurante = CategoriaInventario.objects.create(tipo='restaurante', nombre='Carnes')
@@ -78,7 +100,43 @@ class InventarioFlowTests(TestCase):
         categoria.refresh_from_db()
         self.assertEqual(categoria.nombre, 'Vegetales frescos')
 
+    def test_admin_can_delete_inventory_categories_without_deleting_products(self):
+        for tipo, insumo in (
+            ('cocina', self.insumo_1),
+            ('restaurante', self.insumo_2),
+        ):
+            with self.subTest(tipo=tipo):
+                categoria = CategoriaInventario.objects.create(
+                    tipo=tipo,
+                    nombre=f'Categoría {tipo}',
+                )
+                insumo.tipo_inventario = tipo
+                insumo.categoria_inventario = categoria
+                insumo.save(update_fields=['tipo_inventario', 'categoria_inventario'])
+
+                response = self.client.post(
+                    reverse(
+                        'inventario:categoria_inventario_eliminar',
+                        args=[tipo, categoria.pk],
+                    ),
+                )
+
+                self.assertEqual(response.status_code, 302)
+                self.assertFalse(CategoriaInventario.objects.filter(pk=categoria.pk).exists())
+                insumo.refresh_from_db()
+                self.assertIsNone(insumo.categoria_inventario)
+                self.assertEqual(insumo.tipo_inventario, tipo)
+                self.assertEqual(insumo.stock_actual, Decimal('10'))
+
     def test_admin_inventory_page_shows_separate_areas_and_legacy_products(self):
+        categoria_cocina = CategoriaInventario.objects.create(
+            tipo='cocina',
+            nombre='Carnes',
+        )
+        categoria_restaurante = CategoriaInventario.objects.create(
+            tipo='restaurante',
+            nombre='Bebidas',
+        )
         response = self.client.get(reverse('inventario:administrador'))
 
         self.assertEqual(response.status_code, 200)
@@ -102,6 +160,18 @@ class InventarioFlowTests(TestCase):
         self.assertContains(response, 'id="admin-view-cocina" class="admin-view admin-view-hidden"')
         self.assertContains(response, 'id="admin-view-restaurante" class="admin-view admin-view-hidden"')
         self.assertContains(response, 'Productos por clasificar')
+        self.assertContains(
+            response,
+            reverse('inventario:categoria_eliminar', args=[self.categoria.pk]),
+        )
+        self.assertContains(
+            response,
+            reverse('inventario:categoria_inventario_eliminar', args=['cocina', categoria_cocina.pk]),
+        )
+        self.assertContains(
+            response,
+            reverse('inventario:categoria_inventario_eliminar', args=['restaurante', categoria_restaurante.pk]),
+        )
         self.assertEqual(response.context['insumos_por_clasificar'].count(), 2)
 
     def test_admin_menu_has_text_category_and_low_stock_filters(self):
