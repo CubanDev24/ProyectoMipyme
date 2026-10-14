@@ -198,6 +198,8 @@ class UsuarioTurnoTests(TestCase):
         self.assertContains(response, 'Filtrar por fecha específica')
         self.assertContains(response, 'aria-label="Mes"')
         self.assertContains(response, 'aria-label="Año"')
+        self.assertContains(response, 'background-color: #0f172a;')
+        self.assertContains(response, 'color: #f8fafc;')
         self.assertContains(response, 'Filtrar por mes y año')
         self.assertContains(response, 'id="turn-filter-form"')
         self.assertContains(response, 'id="limpiar-filtros"')

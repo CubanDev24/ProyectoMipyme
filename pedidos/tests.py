@@ -134,6 +134,30 @@ class FacturaWorkflowTests(TestCase):
         self.assertContains(response, 'class="cocina-item-imagen"')
         self.assertContains(response, 'Listo para recoger')
 
+    def test_vista_mesera_muestra_carta_agrupada_por_categorias(self):
+        categoria_bebidas = Categoria.objects.create(nombre='Bebidas', orden=2)
+        bebida = Plato.objects.create(
+            categoria=categoria_bebidas,
+            nombre='Limonada',
+            precio='12.00',
+            disponible=True,
+        )
+        self.asociar_receta(bebida)
+        mesera = get_user_model().objects.create_user(
+            username='mesera_carta_categorias',
+            password='123456',
+            role='mesera',
+        )
+        self.client.force_login(mesera)
+
+        response = self.client.get(reverse('pedidos:mesera'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'grupos.forEach((items, categoria)')
+        self.assertContains(response, 'data-menu-category')
+        self.assertContains(response, 'Entradas')
+        self.assertContains(response, 'Bebidas')
+
     def test_mesera_puede_marcar_listo_un_pedido_de_barra_para_una_mesa(self):
         pedido_barra = Pedido.objects.create(
             mesa=self.mesa,

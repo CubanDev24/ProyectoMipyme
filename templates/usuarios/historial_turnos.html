@@ -109,6 +109,10 @@
       letter-spacing: normal;
       cursor: pointer;
     }
+    .turn-filter-control select option {
+      background-color: #0f172a;
+      color: #f8fafc;
+    }
     .turn-filter-control input::placeholder {
       color: #64748b;
       opacity: 1;
@@ -176,10 +180,10 @@
       <div class="turn-metric-grid">
         <div><span>Turnos cerrados</span><strong>{{ resumen_general.turnos_cerrados }}</strong></div>
         <div><span>Total general</span><strong>{{ resumen_general.total_general_cup }} CUP</strong></div>
-        <div><span>Total USD</span><strong>{{ resumen_general.total_usd }} USD</strong></div>
+        <div><span>Total USD</span><strong>{{ resumen_general.total_usd|floatformat:2 }} USD</strong></div>
         <div><span>Efectivo CUP</span><strong>{{ resumen_general.total_efectivo_cup }} CUP</strong></div>
         <div><span>Transferencia CUP</span><strong>{{ resumen_general.total_transferencia_cup }} CUP</strong></div>
-        <div><span>IPV promedio</span><strong>{{ resumen_general.promedio_ipv }} CUP</strong></div>
+        <div><span>IPV promedio</span><strong>{{ resumen_general.promedio_ipv|floatformat:2 }} CUP</strong></div>
         <div><span>Rendimiento promedio</span><strong>{{ resumen_general.rendimiento_promedio|floatformat:2 }} CUP/h</strong></div>
       </div>
     </section>
@@ -196,8 +200,8 @@
           <div><span>Total</span><strong>{{ item.total_general_cup }} CUP</strong></div>
           <div><span>Efectivo</span><strong>{{ item.total_efectivo_cup }} CUP</strong></div>
           <div><span>Transferencia</span><strong>{{ item.total_transferencia_cup }} CUP</strong></div>
-          <div><span>USD</span><strong>{{ item.total_usd }} USD</strong></div>
-          <div><span>IPV</span><strong>{{ item.ipv }} CUP</strong></div>
+          <div><span>USD</span><strong>{{ item.total_usd|floatformat:2 }} USD</strong></div>
+          <div><span>IPV</span><strong>{{ item.ipv|floatformat:2 }} CUP</strong></div>
           <div><span>Rendimiento/h</span><strong>{{ item.rendimiento_por_hora_cup|floatformat:2 }} CUP/h</strong></div>
         </div>
         <a href="{% url 'usuarios:historial_turno_detalle' item.turno.pk %}" class="btn btn-primary turn-action-btn"><i class="fa-solid fa-arrow-right" aria-hidden="true"></i> Ver detalle del turno</a>
