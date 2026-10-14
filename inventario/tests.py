@@ -148,6 +148,15 @@ class InventarioFlowTests(TestCase):
         self.assertContains(response, 'id="admin-view-restaurante"')
         self.assertContains(response, 'id="nav-configuracion"')
         self.assertContains(response, 'id="nav-carta"')
+        self.assertContains(response, 'id="carta-header-nav"')
+        self.assertContains(response, 'data-carta-tab="platos"')
+        self.assertContains(response, 'Platos y productos')
+        self.assertContains(response, 'data-carta-tab="publicada"')
+        self.assertContains(response, 'Carta publicada')
+        self.assertContains(response, 'function mostrarSeccionCarta(seccion)')
+        self.assertContains(response, 'panel.hidden = panel.id !== `carta-${seccionValida}`')
+        self.assertContains(response, 'history.replaceState(null, \'\', hashSeccion)')
+        self.assertContains(response, "hashInicial.includes('carta')")
         self.assertContains(response, 'id="admin-view-cocina" class="admin-view admin-view-hidden"')
         self.assertContains(response, 'id="admin-view-restaurante" class="admin-view admin-view-hidden"')
         self.assertContains(response, 'Productos por clasificar')
@@ -164,6 +173,39 @@ class InventarioFlowTests(TestCase):
             reverse('inventario:categoria_inventario_eliminar', args=['restaurante', categoria_restaurante.pk]),
         )
         self.assertEqual(response.context['insumos_por_clasificar'].count(), 2)
+
+    def test_admin_menu_has_text_category_and_low_stock_filters(self):
+        plato_stock_bajo = Plato.objects.create(
+            categoria=self.categoria,
+            nombre='Sopa de pollo',
+            descripcion='Sopa especial',
+            precio='12.00',
+        )
+        plato_stock_normal = Plato.objects.create(
+            categoria=self.categoria,
+            nombre='Arroz blanco',
+            descripcion='Acompañamiento',
+            precio='8.00',
+        )
+        Insumo.objects.filter(pk=self.insumo_1.pk).update(stock_actual=1)
+        RecetaItem.objects.create(plato=plato_stock_bajo, insumo=self.insumo_1)
+        RecetaItem.objects.create(plato=plato_stock_normal, insumo=self.insumo_2)
+
+        response = self.client.get(reverse('inventario:administrador'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'id="carta-buscar-plato"')
+        self.assertContains(response, 'id="carta-filtrar-categoria"')
+        self.assertContains(response, 'id="carta-solo-stock-bajo"')
+        self.assertContains(
+            response,
+            f'data-categoria="{self.categoria.pk}" data-stock-bajo="true"',
+        )
+        self.assertContains(
+            response,
+            f'data-categoria="{self.categoria.pk}" data-stock-bajo="false"',
+        )
+        self.assertContains(response, 'filtrarPlatosCarta')
 
     def test_admin_can_classify_legacy_item_as_kitchen_without_losing_existing_data(self):
         plato = Plato.objects.create(

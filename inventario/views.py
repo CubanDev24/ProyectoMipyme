@@ -71,6 +71,9 @@ def administrador(request):
             {'insumo_id': item.insumo_id, 'cantidad': str(item.cantidad)}
             for item in plato.receta_admin
         ])
+        plato.receta_con_stock_bajo = any(
+            item.insumo.stock_bajo for item in plato.receta_admin
+        )
     categorias = Categoria.objects.prefetch_related(
         Prefetch(
             'platos',

@@ -1,4 +1,5 @@
 from pathlib import Path
+
 BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = 'django-insecure-restaurante-dev-key-2024'
 DEBUG = True
@@ -55,3 +56,36 @@ AUTH_USER_MODEL = 'usuarios.Usuario'
 LOGIN_URL = 'usuarios:landing'
 LOGIN_REDIRECT_URL = 'usuarios:dashboard'
 CSRF_FAILURE_VIEW = 'usuarios.views.csrf_failure'
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'file': {
+            'format': '{asctime} {levelname} {name}: {message}',
+            'style': '{',
+        },
+    },
+    'handlers': {
+        'file': {
+            'class': 'logging.handlers.TimedRotatingFileHandler',
+            'filename': BASE_DIR / 'logs.txt',
+            'when': 'midnight',
+            'interval': 1,
+            'backupCount': 30,
+            'encoding': 'utf-8',
+            'formatter': 'file',
+            'level': 'ERROR',
+        },
+    },
+    'loggers': {
+        'django': {
+            'handlers': ['file'],
+            'level': 'ERROR',
+            'propagate': False,
+        },
+    },
+    'root': {
+        'handlers': ['file'],
+        'level': 'ERROR',
+    },
+}
