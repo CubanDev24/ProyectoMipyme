@@ -10,12 +10,120 @@
   <link rel="stylesheet" href="{% static 'vendor/fontawesome/css/all.min.css' %}">  <link rel="stylesheet" href="{% static 'css/main.css' %}?v=20261001-responsive-sidebar-logout">
   <script src="{% static 'js/responsive-sidebar.js' %}?v=20261001-sidebar-logout" defer></script>
   <style>
-    /* Visible keyboard focus for every interactive element (additive, doesn't touch main.css) */
     a:focus-visible,
     button:focus-visible {
       outline: 2px solid #34d399;
       outline-offset: 2px;
       border-radius: 8px;
+    }
+    .turn-filter-grid {
+      display: grid;
+      grid-template-columns: minmax(180px, 1.4fr) minmax(190px, 1fr) minmax(170px, 1fr) auto;
+      gap: 1rem;
+      align-items: end;
+    }
+    .turn-filter-actions {
+      display: flex;
+      align-items: end;
+      gap: .65rem;
+    }
+    .turn-filter-actions .btn {
+      height: 48px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: .5rem;
+      white-space: nowrap;
+    }
+    .turn-filter-actions .btn-filter {
+      border: 1px solid #2563eb;
+      background: linear-gradient(135deg, #2563eb, #1d4ed8);
+      color: #fff;
+      box-shadow: 0 5px 14px rgba(37, 99, 235, .2);
+      transition: background .18s ease, box-shadow .18s ease, transform .18s ease;
+    }
+    .turn-filter-actions .btn-filter:hover {
+      background: linear-gradient(135deg, #3b82f6, #2563eb);
+      box-shadow: 0 7px 18px rgba(37, 99, 235, .3);
+      transform: translateY(-1px);
+    }
+    .turn-filter-field {
+      display: grid;
+      gap: .45rem;
+      color: #cbd5e1;
+      font-size: .75rem;
+      font-weight: 650;
+      letter-spacing: .025em;
+    }
+    .turn-filter-control {
+      display: flex;
+      align-items: center;
+      gap: .7rem;
+      min-width: 0;
+      min-height: 48px;
+      padding: 0 .85rem;
+      border: 1px solid rgba(148, 163, 184, .22);
+      border-radius: 12px;
+      background: linear-gradient(145deg, rgba(15, 23, 42, .98), rgba(2, 8, 23, .96));
+      color: #94a3b8;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, .025);
+      transition: border-color .18s ease, box-shadow .18s ease, background .18s ease;
+    }
+    .turn-filter-control:focus-within {
+      border-color: rgba(52, 211, 153, .75);
+      background: #020817;
+      box-shadow: 0 0 0 3px rgba(52, 211, 153, .12);
+    }
+    .turn-filter-control i {
+      flex: 0 0 auto;
+      color: #34d399;
+    }
+    .turn-filter-control input {
+      width: 100%;
+      min-width: 0;
+      border: 0;
+      outline: 0;
+      background: transparent;
+      color: #f8fafc;
+      color-scheme: dark;
+      font: inherit;
+      font-size: .85rem;
+      letter-spacing: normal;
+    }
+    .turn-filter-date-parts {
+      display: grid;
+      grid-template-columns: minmax(0, 1.2fr) minmax(0, .8fr);
+      gap: .55rem;
+      flex: 1;
+    }
+    .turn-filter-control select {
+      width: 100%;
+      min-width: 0;
+      border: 0;
+      outline: 0;
+      background: transparent;
+      color: #f8fafc;
+      color-scheme: dark;
+      font: inherit;
+      font-size: .85rem;
+      letter-spacing: normal;
+      cursor: pointer;
+    }
+    .turn-filter-control input::placeholder {
+      color: #64748b;
+      opacity: 1;
+    }
+    .turn-filter-status {
+      min-height: 1.25rem;
+      margin-top: .8rem;
+      color: #94a3b8;
+      font-size: .75rem;
+    }
+    @media (max-width: 700px) {
+      .turn-filter-grid {
+        grid-template-columns: minmax(0, 1fr);
+        gap: .8rem;
+      }
     }
     @media (prefers-reduced-motion: reduce) {
       *, *::before, *::after {
@@ -32,6 +140,37 @@
   <div class="turn-page-heading"><div><p class="panel-kicker">Rendimiento</p><h1 class="admin-h1">Historial de turnos</h1><p class="turn-page-subtitle">Consulta el rendimiento y los cierres registrados.</p></div><span class="turn-live-badge"><span aria-hidden="true"></span> Archivo histórico</span></div>
 
   <div class="admin-grid">
+    <section class="admin-card" aria-label="Filtros del historial">
+      <form id="turn-filter-form">
+        <div class="turn-filter-grid">
+          <label class="turn-filter-field" for="filtro-texto">Buscar por texto
+            <span class="turn-filter-control"><i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i><input type="search" id="filtro-texto" placeholder="Participante o notas" autocomplete="off"></span>
+          </label>
+          <div class="turn-filter-field" role="group" aria-labelledby="filtro-periodo-label">
+            <span id="filtro-periodo-label">Filtrar por mes y año</span>
+            <span class="turn-filter-control"><i class="fa-solid fa-calendar-days" aria-hidden="true"></i>
+              <span class="turn-filter-date-parts">
+                <select id="filtro-mes" aria-label="Mes">
+                  <option value="">Mes</option>
+                </select>
+                <select id="filtro-anio" aria-label="Año">
+                  <option value="">Año</option>
+                </select>
+              </span>
+            </span>
+          </div>
+          <label class="turn-filter-field" for="filtro-fecha-especifica">Filtrar por fecha específica
+            <span class="turn-filter-control"><i class="fa-solid fa-calendar-day" aria-hidden="true"></i><input type="date" id="filtro-fecha-especifica" aria-label="Filtrar por fecha específica"></span>
+          </label>
+          <div class="turn-filter-actions">
+            <button class="btn btn-filter" type="submit"><i class="fa-solid fa-filter" aria-hidden="true"></i> Filtrar</button>
+            <button class="btn btn-outline" type="button" id="limpiar-filtros"><i class="fa-solid fa-eraser" aria-hidden="true"></i> Limpiar</button>
+          </div>
+        </div>
+      </form>
+      <p class="turn-filter-status" id="turn-filter-status" role="status" aria-live="polite"></p>
+    </section>
+
     <section class="admin-card turn-dashboard-card" aria-labelledby="resumen-general-heading">
       <div class="turn-card-heading"><div class="turn-section-icon" aria-hidden="true"><i class="fa-solid fa-chart-line"></i></div><div><p class="panel-kicker">Resumen acumulado</p><h2 id="resumen-general-heading">Rendimiento General</h2></div></div>
       <div class="turn-metric-grid">
@@ -47,7 +186,7 @@
 
     {% if historial %}
       {% for item in historial %}
-      <section class="admin-card turn-history-card turn-dashboard-card" aria-labelledby="turno-heading-{{ forloop.counter }}">
+      <section class="admin-card turn-history-card turn-dashboard-card" data-turn-date="{{ item.turno.fecha|date:'Y-m-d' }}" data-search-text="{{ item.turno.pk }} {% for user in item.turno.usuarios.all %}{{ user.username }} {{ user.get_full_name }} {% endfor %}{{ item.turno.resumen }} {{ item.turno.observaciones }}" aria-labelledby="turno-heading-{{ forloop.counter }}">
         <div class="turn-card-heading"><div class="turn-section-icon" aria-hidden="true"><i class="fa-solid fa-calendar-check"></i></div><div><p class="panel-kicker">Cierre registrado</p><h2 id="turno-heading-{{ forloop.counter }}">Turno {{ item.turno.fecha|date:'d/m/Y' }}</h2></div><span class="turn-status-value">{{ item.turno.get_estado_display }}</span></div>
         <div class="turn-history-meta">
           <span><i class="fa-solid fa-users" aria-hidden="true"></i> <span class="sr-only">Participantes:</span>{% for user in item.turno.usuarios.all %}{{ user.username }}{% if not forloop.last %}, {% endif %}{% empty %}Sin participantes{% endfor %}</span>
@@ -81,6 +220,86 @@
     {% endif %}
   </div>
 </div></div></main>
-  <script>function actualizarReloj(){document.getElementById('clock-display').textContent=new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});}actualizarReloj();setInterval(actualizarReloj,30000);</script>
+  <script>
+    function actualizarReloj(){document.getElementById('clock-display').textContent=new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});}
+    actualizarReloj();
+    setInterval(actualizarReloj,30000);
+
+    const filtroTexto = document.getElementById('filtro-texto');
+    const filtroMes = document.getElementById('filtro-mes');
+    const filtroAnio = document.getElementById('filtro-anio');
+    const filtroFechaEspecifica = document.getElementById('filtro-fecha-especifica');
+    const formularioFiltros = document.getElementById('turn-filter-form');
+    const botonLimpiar = document.getElementById('limpiar-filtros');
+    const estadoFiltros = document.getElementById('turn-filter-status');
+    const tarjetasTurno = Array.from(document.querySelectorAll('[data-turn-date]'));
+    const formatoMes = new Intl.DateTimeFormat('es', { month: 'long', timeZone: 'UTC' });
+    const meses = Array.from({ length: 12 }, (_, index) => index + 1);
+    const anios = [...new Set(tarjetasTurno.map((tarjeta) => tarjeta.dataset.turnDate.slice(0, 4)))]
+      .sort((a, b) => Number(b) - Number(a));
+
+    meses.forEach((mes) => {
+      const opcion = document.createElement('option');
+      opcion.value = String(mes).padStart(2, '0');
+      const nombreMes = formatoMes.format(new Date(Date.UTC(2020, mes - 1, 1)));
+      opcion.textContent = nombreMes.charAt(0).toLocaleUpperCase('es') + nombreMes.slice(1);
+      filtroMes.append(opcion);
+    });
+
+    anios.forEach((anio) => {
+      const opcion = document.createElement('option');
+      opcion.value = anio;
+      opcion.textContent = anio;
+      filtroAnio.append(opcion);
+    });
+
+    const normalizarTexto = (texto) => texto
+      .toLocaleLowerCase('es')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '');
+
+    function filtrarTurnos() {
+      const texto = normalizarTexto(filtroTexto.value.trim());
+      const mes = filtroMes.value;
+      const anio = filtroAnio.value;
+      const fechaEspecifica = filtroFechaEspecifica.value;
+      let visibles = 0;
+
+      tarjetasTurno.forEach((tarjeta) => {
+        const fechaTurno = tarjeta.dataset.turnDate;
+        const [anioTurno, mesTurno] = fechaTurno.split('-');
+        const textoTarjeta = `${tarjeta.dataset.searchText} ${tarjeta.textContent}`;
+        const coincideTexto = !texto || normalizarTexto(textoTarjeta).includes(texto);
+        const coincideMes = !mes || mesTurno === mes;
+        const coincideAnio = !anio || anioTurno === anio;
+        const coincideFecha = !fechaEspecifica || fechaTurno === fechaEspecifica;
+        const visible = coincideTexto && coincideMes && coincideAnio && coincideFecha;
+
+        tarjeta.hidden = !visible;
+        if (visible) visibles += 1;
+      });
+
+      estadoFiltros.textContent = visibles
+        ? `Mostrando ${visibles} de ${tarjetasTurno.length} turnos`
+        : tarjetasTurno.length
+          ? 'No hay turnos que coincidan con estos filtros.'
+          : 'Aún no se registran cierres de turno.';
+    }
+
+    formularioFiltros.addEventListener('submit', (event) => {
+      event.preventDefault();
+      filtrarTurnos();
+    });
+    botonLimpiar.addEventListener('click', () => {
+      formularioFiltros.reset();
+      filtroMes.value = '';
+      filtroAnio.value = '';
+      filtrarTurnos();
+      filtroTexto.focus();
+    });
+    estadoFiltros.textContent = tarjetasTurno.length
+      ? `Mostrando ${tarjetasTurno.length} de ${tarjetasTurno.length} turnos`
+      : 'Aún no se registran cierres de turno.';
+  </script>
 </body>
 </html>
