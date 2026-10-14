@@ -1,3 +1,5 @@
+from types import SimpleNamespace
+
 from django.core.exceptions import ObjectDoesNotExist
 from django.db.models import Prefetch
 from django.http import Http404
@@ -40,9 +42,18 @@ def carta_cliente(request, mesa_id):
         Prefetch('platos', queryset=platos_publicados),
     ).all()
     categorias_con_platos = [categoria for categoria in categorias if categoria.platos.all()]
+    platos_sin_categoria = list(platos_publicados.filter(categoria__isnull=True))
+    if platos_sin_categoria:
+        categorias_con_platos.append(SimpleNamespace(
+            id='sin-categoria',
+            nombre='Sin categoría',
+            icono='🍽️',
+            platos=SimpleNamespace(all=lambda: platos_sin_categoria),
+        ))
     mesa = Mesa.objects.filter(numero=mesa_id, activa=True).first()
     return render(request, 'carta/carta.html', {
         'categorias': categorias_con_platos,
+        'platos_sin_categoria': platos_sin_categoria,
         'mesa_id': mesa_id,
         'mesa_etiqueta': mesa.etiqueta if mesa else f'Mesa {mesa_id}',
     })

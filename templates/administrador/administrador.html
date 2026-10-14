@@ -74,7 +74,7 @@
         {% for plato in platos %}
         <article class="carta-admin-item">
           <div class="carta-admin-image">{% if plato.imagen %}<img src="{{ plato.imagen.url }}" alt="{{ plato.nombre }}">{% else %}<i class="fa-solid fa-utensils"></i>{% endif %}</div>
-          <div class="carta-admin-content"><div class="carta-admin-topline"><div><p class="carta-admin-category">{{ plato.categoria.nombre }}</p><h3>{{ plato.nombre }}</h3></div><span class="carta-admin-price">{{ plato.precio|floatformat:2 }} <small>CUP</small></span></div><p class="carta-admin-description">{{ plato.descripcion|default:'Sin descripción registrada.' }}</p><p class="admin-hint">Receta: {% for item in plato.receta_admin %}{{ item.insumo.nombre }} ({{ item.cantidad }} {{ item.insumo.get_unidad_display }}){% if not forloop.last %}, {% endif %}{% empty %}Sin productos asociados{% endfor %}</p><div class="carta-admin-footer"><span class="carta-availability {% if not plato.disponible %}carta-unavailable{% endif %}"><span></span>{% if plato.disponible %}Disponible{% else %}No disponible{% endif %}</span><button type="button" class="btn btn-outline btn-sm" data-edit-plato data-id="{{ plato.pk }}" data-name="{{ plato.nombre|escapejs }}" data-category="{{ plato.categoria_id }}" data-price="{{ plato.precio|floatformat:2|unlocalize }}" data-description="{{ plato.descripcion|escapejs }}" data-available="{% if plato.disponible %}true{% else %}false{% endif %}" data-image="{% if plato.imagen %}{{ plato.imagen.url }}{% endif %}" data-recipe="{{ plato.receta_json|escape }}"><i class="fa-solid fa-pen"></i> Editar plato y receta</button></div></div>
+          <div class="carta-admin-content"><div class="carta-admin-topline"><div><p class="carta-admin-category">{{ plato.categoria.nombre|default:'Sin categoría' }}</p><h3>{{ plato.nombre }}</h3></div><span class="carta-admin-price">{{ plato.precio|floatformat:2 }} <small>CUP</small></span></div><p class="carta-admin-description">{{ plato.descripcion|default:'Sin descripción registrada.' }}</p><p class="admin-hint">Receta: {% for item in plato.receta_admin %}{{ item.insumo.nombre }} ({{ item.cantidad }} {{ item.insumo.get_unidad_display }}){% if not forloop.last %}, {% endif %}{% empty %}Sin productos asociados{% endfor %}</p><div class="carta-admin-footer"><span class="carta-availability {% if not plato.disponible %}carta-unavailable{% endif %}"><span></span>{% if plato.disponible %}Disponible{% else %}No disponible{% endif %}</span><button type="button" class="btn btn-outline btn-sm" data-edit-plato data-id="{{ plato.pk }}" data-name="{{ plato.nombre|escapejs }}" data-category="{{ plato.categoria_id|default:'' }}" data-price="{{ plato.precio|floatformat:2|unlocalize }}" data-description="{{ plato.descripcion|escapejs }}" data-available="{% if plato.disponible %}true{% else %}false{% endif %}" data-image="{% if plato.imagen %}{{ plato.imagen.url }}{% endif %}" data-recipe="{{ plato.receta_json|escape }}"><i class="fa-solid fa-pen"></i> Editar plato y receta</button></div></div>
         </article>
         {% empty %}<div class="admin-empty">Todavía no hay platos registrados.</div>{% endfor %}
       </div>
@@ -100,6 +100,20 @@
           </div>
           {% endwith %}
         {% empty %}<div class="turn-empty"><i class="fa-solid fa-book-open"></i><span>No hay categorías creadas.</span></div>{% endfor %}
+        {% if platos_sin_categoria %}
+        <div class="carta-preview-category">
+          <div class="carta-preview-category-heading"><h3>Sin categoría</h3><span>{{ platos_sin_categoria|length }} opciones</span></div>
+          <div class="carta-preview-items">
+            {% for plato in platos_sin_categoria %}
+            <article class="carta-preview-item">
+              <div class="carta-preview-image">{% if plato.imagen %}<img src="{{ plato.imagen.url }}" alt="{{ plato.nombre }}">{% else %}<i class="fa-solid fa-utensils"></i>{% endif %}</div>
+              <div class="carta-preview-info"><h4>{{ plato.nombre }}</h4><p>{{ plato.descripcion|default:'Sin descripción' }}</p></div>
+              <strong class="carta-preview-price">{{ plato.precio }} <small>CUP</small></strong>
+            </article>
+            {% endfor %}
+          </div>
+        </div>
+        {% endif %}
       </div>
     </section>
 
@@ -109,7 +123,7 @@
         <form id="form-editar-plato" method="post" enctype="multipart/form-data" class="plato-edit-form">
           {% csrf_token %}
           <div class="plato-edit-preview"><div id="plato-edit-image" class="carta-admin-image"><i class="fa-solid fa-utensils"></i></div><label class="carta-file-label"><i class="fa-solid fa-image"></i> Cambiar foto<input type="file" name="imagen" accept="image/*"></label></div>
-          <div class="plato-edit-fields"><div class="carta-form-field"><label for="edit-plato-nombre">Nombre</label><input id="edit-plato-nombre" type="text" name="nombre" required class="admin-input"></div><div class="carta-form-field"><label for="edit-plato-categoria">Categoría</label><select id="edit-plato-categoria" name="categoria" class="admin-input">{% for c in categorias %}<option value="{{ c.id }}">{{ c.nombre }}</option>{% endfor %}</select></div><div class="carta-form-field"><label for="edit-plato-precio">Precio CUP</label><input id="edit-plato-precio" type="number" step="0.01" min="0.01" name="precio" required class="admin-input"></div><div class="carta-form-field"><label for="edit-plato-descripcion">Descripción</label><textarea id="edit-plato-descripcion" name="descripcion" rows="4" class="admin-input"></textarea></div><label class="carta-availability"><input id="edit-plato-disponible" type="checkbox" name="disponible"> Disponible en la carta</label></div>
+          <div class="plato-edit-fields"><div class="carta-form-field"><label for="edit-plato-nombre">Nombre</label><input id="edit-plato-nombre" type="text" name="nombre" required class="admin-input"></div><div class="carta-form-field"><label for="edit-plato-categoria">Categoría</label><select id="edit-plato-categoria" name="categoria" class="admin-input"><option value="">Sin categoría</option>{% for c in categorias %}<option value="{{ c.id }}">{{ c.nombre }}</option>{% endfor %}</select></div><div class="carta-form-field"><label for="edit-plato-precio">Precio CUP</label><input id="edit-plato-precio" type="number" step="0.01" min="0.01" name="precio" required class="admin-input"></div><div class="carta-form-field"><label for="edit-plato-descripcion">Descripción</label><textarea id="edit-plato-descripcion" name="descripcion" rows="4" class="admin-input"></textarea></div><label class="carta-availability"><input id="edit-plato-disponible" type="checkbox" name="disponible"> Disponible en la carta</label></div>
           <input type="hidden" name="receta_enviada" value="1">
           <div class="plato-recipe-editor">
             <div class="turn-card-heading"><div><p class="panel-kicker">Descuento de inventario</p><h3>Productos y cantidades por plato</h3></div><button type="button" class="btn btn-outline btn-sm" data-add-recipe-row="editar"><i class="fa-solid fa-plus"></i> Agregar producto</button></div>
@@ -144,12 +158,18 @@
       </form>
       <div class="categoria-admin-list">
         {% for categoria in categorias %}
+        <div class="categoria-admin-row">
         <form method="post" action="{% url 'inventario:categoria_editar' categoria.pk %}" class="categoria-edit-form">
           {% csrf_token %}
           <label class="sr-only" for="categoria-{{ categoria.pk }}">Nombre de {{ categoria.nombre }}</label>
           <input id="categoria-{{ categoria.pk }}" type="text" name="nombre" value="{{ categoria.nombre }}" class="admin-input" required maxlength="100">
           <button type="submit" class="btn btn-outline btn-sm" title="Guardar categoría"><i class="fa-solid fa-floppy-disk"></i> Guardar</button>
         </form>
+        <form method="post" action="{% url 'inventario:categoria_eliminar' categoria.pk %}" onsubmit="return confirm('¿Eliminar la categoría {{ categoria.nombre|escapejs }}? Los platos se conservarán sin categoría.');">
+          {% csrf_token %}
+          <button type="submit" class="btn btn-danger btn-sm" title="Eliminar categoría"><i class="fa-solid fa-trash"></i> Eliminar</button>
+        </form>
+        </div>
         {% empty %}<p class="admin-empty">Todavía no hay categorías creadas.</p>{% endfor %}
       </div>
     </section>
@@ -205,12 +225,18 @@
         </form>
         <div class="categoria-admin-list">
           {% for categoria in area.categorias %}
+          <div class="categoria-admin-row">
           <form method="post" action="{% url 'inventario:categoria_inventario_editar' area.tipo categoria.pk %}" class="categoria-edit-form">
             {% csrf_token %}
             <label class="sr-only" for="categoria-inventario-{{ categoria.pk }}">Nombre de {{ categoria.nombre }}</label>
             <input id="categoria-inventario-{{ categoria.pk }}" type="text" name="nombre" value="{{ categoria.nombre }}" class="admin-input" required maxlength="100">
             <button type="submit" class="btn btn-outline btn-sm" title="Guardar categoría"><i class="fa-solid fa-floppy-disk"></i> Guardar</button>
           </form>
+          <form method="post" action="{% url 'inventario:categoria_inventario_eliminar' area.tipo categoria.pk %}" onsubmit="return confirm('¿Eliminar la categoría {{ categoria.nombre|escapejs }}? Los productos se conservarán sin categoría.');">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-danger btn-sm" title="Eliminar categoría"><i class="fa-solid fa-trash"></i> Eliminar</button>
+          </form>
+          </div>
           {% empty %}<p class="admin-empty">Todavía no hay categorías para este inventario.</p>{% endfor %}
         </div>
       </section>
@@ -339,7 +365,7 @@
       formEditarPlato.action = `/administrador/plato/${button.dataset.id}/editar/`;
       formEliminarPlato.action = `/administrador/plato/${button.dataset.id}/eliminar/`;
       document.getElementById('edit-plato-nombre').value = button.dataset.name;
-      document.getElementById('edit-plato-categoria').value = button.dataset.category;
+      document.getElementById('edit-plato-categoria').value = button.dataset.category || '';
       const precioAtributo = (button.getAttribute('data-price') || '').trim();
       const precioVisible = precioAtributo || button.closest('.carta-admin-item').querySelector('.carta-admin-price').textContent.replace(/[^0-9,.-]/g, '').trim();
       const precioNormalizado = precioVisible.replace(',', '.');

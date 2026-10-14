@@ -146,11 +146,7 @@ con el botón **Imprimir QR**.
 - Al agregar un pedido para llevar si tiene algun producto de cocina, agregar un termopad a la compra.
 
 
--mejorar las tablas de administracion con funcionalidades de excel.
--crear nuevos roles con permisos definidos para el admin
--Eliminar o editar categorias
+- mejorar las tablas de administracion con funcionalidades de excel.
+- crear nuevos roles con permisos definidos para el admin
+- Eliminar o editar categorias
 
-
-## Notas
-eliminar el main css y que cada html tenga sus estilos en su mismo archivo para que no haya conflicto
-l
