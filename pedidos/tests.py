@@ -234,6 +234,36 @@ class FacturaWorkflowTests(TestCase):
         self.assertEqual(resultado['mesera_nombre'], 'María')
         self.assertEqual(resultado['cajera_nombre'], 'Lina')
         self.assertTrue(resultado['pdf_url'].startswith('/pedidos/caja/factura/'))
+        self.assertTrue(resultado['web_url'].startswith('/pedidos/caja/factura/'))
+
+    def test_cliente_puede_recuperar_factura_despues_de_cerrar_mesa(self):
+        self.pedido.estado = 'cerrado'
+        self.pedido.save(update_fields=['estado'])
+        self.mesa.abierta = False
+        self.mesa.save(update_fields=['abierta'])
+        factura = Factura.objects.create(
+            pedido=self.pedido,
+            mesa_numero=self.mesa.numero,
+            forma_pago='efectivo_cup',
+            total_cup='50.00',
+            monto_efectivo_cup='50.00',
+            items_snapshot=[{
+                'plato': self.plato.nombre,
+                'cantidad': 2,
+                'precio_unit': '25.00',
+                'subtotal': '50.00',
+            }],
+        )
+        cliente = ClienteConsumer()
+        cliente.mesa_numero = str(self.mesa.numero)
+
+        pedidos, factura_data, mesa_abierta = async_to_sync(cliente.get_historial_cliente)()
+
+        self.assertFalse(mesa_abierta)
+        self.assertEqual([pedido['id'] for pedido in pedidos], [self.pedido.id])
+        self.assertEqual(factura_data['id'], factura.id)
+        self.assertEqual(factura_data['web_url'], f'/pedidos/caja/factura/{factura.id}/imprimir-web/')
+        self.assertEqual(factura_data['pdf_url'], f'/pedidos/caja/factura/{factura.id}/imprimir/')
 
     def test_mesera_acepta_factura_y_envia_a_caja(self):
         cuenta = serializar_cuenta([self.pedido])
