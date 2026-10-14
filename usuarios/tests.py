@@ -1,4 +1,4 @@
-from datetime import timedelta
+from datetime import date, timedelta
 from decimal import Decimal
 
 from django.test import Client, RequestFactory, TestCase
@@ -86,6 +86,7 @@ class UsuarioTurnoTests(TestCase):
         response = self.client.get(reverse('usuarios:dashboard'))
 
         self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Detalle del turno actual')
         self.assertEqual(list(response.context['facturas_turno']), [factura_turno])
         self.assertContains(response, f'Factura #{factura_turno.pk}')
         self.assertContains(response, 'Plato de prueba')
@@ -155,6 +156,57 @@ class UsuarioTurnoTests(TestCase):
         self.assertContains(response, reverse('usuarios:historial_turno_detalle', args=[turno.pk]))
         self.assertContains(response, reverse('usuarios:historial_turnos'))
         self.assertNotContains(response, 'Abrir turno de hoy')
+
+    def test_historial_turnos_entrega_datos_para_filtrado_en_el_navegador(self):
+        turno_mayo_10 = Turno.objects.create(
+            fecha=date(2024, 5, 10),
+            estado='cerrado',
+            cierre=timezone.now(),
+            resumen='Inventario temprano',
+        )
+        turno_mayo_20 = Turno.objects.create(
+            fecha=date(2024, 5, 20),
+            estado='cerrado',
+            cierre=timezone.now(),
+            resumen='Cierre nocturno',
+        )
+        turno_junio = Turno.objects.create(
+            fecha=date(2024, 6, 10),
+            estado='cerrado',
+            cierre=timezone.now(),
+            resumen='Inventario de junio',
+        )
+        turno_mayo_10.usuarios.add(self.mesera)
+        turno_mayo_20.usuarios.add(self.cajera)
+        turno_junio.usuarios.add(self.mesera)
+        self.client.force_login(self.admin)
+
+        response = self.client.get(reverse('usuarios:historial_turnos'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.content.count(b'<input '), 2)
+        self.assertEqual(response.content.count(b'<select '), 2)
+        self.assertEqual(response.content.count(b'<button '), 2)
+        self.assertEqual(
+            {item['turno'].pk for item in response.context['historial']},
+            {turno_mayo_10.pk, turno_mayo_20.pk, turno_junio.pk},
+        )
+        self.assertContains(response, 'id="filtro-texto"')
+        self.assertContains(response, 'id="filtro-mes"')
+        self.assertContains(response, 'id="filtro-anio"')
+        self.assertContains(response, 'id="filtro-fecha-especifica"')
+        self.assertContains(response, 'Filtrar por fecha específica')
+        self.assertContains(response, 'aria-label="Mes"')
+        self.assertContains(response, 'aria-label="Año"')
+        self.assertContains(response, 'Filtrar por mes y año')
+        self.assertContains(response, 'id="turn-filter-form"')
+        self.assertContains(response, 'id="limpiar-filtros"')
+        self.assertContains(response, 'data-turn-date="2024-05-10"')
+        self.assertContains(response, 'data-search-text="')
+        self.assertContains(response, "addEventListener('submit'")
+        self.assertContains(response, "addEventListener('click'")
+        self.assertContains(response, 'const [anioTurno, mesTurno] = fechaTurno.split')
+        self.assertContains(response, 'fechaTurno === fechaEspecifica')
 
     def test_admin_tiene_seccion_separada_para_gestionar_usuarios(self):
         self.client.force_login(self.admin)

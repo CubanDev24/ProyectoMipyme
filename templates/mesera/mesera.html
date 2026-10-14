@@ -14,7 +14,11 @@
       
     </script>
     <style>
-        @import url("{% static 'css/main.css' %}?v=20261013-mesera-responsive");
+        @import url("{% static 'css/main.css' %}?v=20261014-mesera-single-desktop-logout");
+
+        .mesera-mobile-logout {
+            display: none !important;
+        }
 
         /* Custom scrollbar */
         ::-webkit-scrollbar {
@@ -37,6 +41,16 @@
             border-radius: 14px;
             background: rgba(2, 6, 23, 0.55);
             padding: 14px;
+        }
+
+        .mesera-toast-error {
+            background: #450a0a !important;
+            border-color: rgba(248, 113, 113, 0.55) !important;
+        }
+
+        .mesera-toast-error #toast-icon {
+            background: rgba(239, 68, 68, 0.2) !important;
+            color: #f87171 !important;
         }
 
         .receipt-upload-button {
@@ -758,7 +772,7 @@
                 </button>
                 <a href="{% url 'usuarios:dashboard' %}" aria-label="Detalle del turno" title="Detalle del turno" class="w-full flex items-center gap-3 px-3 py-3 rounded-xl font-medium text-sm text-slate-400 hover:text-white hover:bg-slate-800/50 transition-all">
                     <i class="fa-solid fa-clock-rotate-left text-lg w-6 text-center"></i>
-                    <span class="mesera-nav-label hidden lg:inline">Detalle del turno</span>
+                    <span class="mesera-nav-label hidden lg:inline">Detalle del turno actual</span>
                 </a>
                 <a href="{% url 'usuarios:logout' %}" aria-label="Cerrar sesión" title="Cerrar sesión" class="mesera-mobile-logout w-full flex items-center gap-3 px-3 py-3 rounded-xl font-medium text-sm text-rose-400 hover:bg-rose-500/10 transition-all">
                     <i class="fa-solid fa-right-from-bracket text-lg w-6 text-center" aria-hidden="true"></i>
@@ -1349,7 +1363,7 @@
                     document.getElementById('payment-submit').disabled = false;
                     showToast('No se pudo enviar la cuenta a caja', data.mensaje);
                 } else if (data.tipo === 'error_servicio') {
-                    showToast('No se pudo marcar como servido', data.mensaje);
+                    showToast('No se pudo marcar como servido', data.mensaje, 'error');
                 } else if (data.tipo === 'error_pedido') {
                     const table = tables.find(item => item.id === data.mesa_id);
                     if (table && table.comandaRequestId === data.request_id) {
@@ -2401,10 +2415,14 @@
         }
 
         // MOSTRAR TOAST NOTIFICACIÓN
-        function showToast(title, message) {
+        function showToast(title, message, type = 'success') {
             const toast = document.getElementById('toast');
+            const icon = document.getElementById('toast-icon');
             document.getElementById('toast-title').textContent = title;
             document.getElementById('toast-message').textContent = message;
+            const isError = type === 'error';
+            toast.classList.toggle('mesera-toast-error', isError);
+            icon.innerHTML = `<i class="fa-solid ${isError ? 'fa-circle-xmark' : 'fa-circle-check'}"></i>`;
 
             toast.classList.remove('translate-y-20', 'opacity-0', 'pointer-events-none');
 

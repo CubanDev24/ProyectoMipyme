@@ -8,7 +8,7 @@
   <link rel="icon" type="image/svg+xml" href="{% static 'img/favicon.svg' %}?v=20261013">
   <link rel="stylesheet" href="{% static 'css/tailwind.css' %}">
   <link rel="stylesheet" href="{% static 'vendor/fontawesome/css/all.min.css' %}">
-  <link rel="stylesheet" href="{% static 'css/main.css' %}?v=20261013-fixed-product-images">
+  <link rel="stylesheet" href="{% static 'css/main.css' %}?v=20261014-status-flash-icons">
   <script src="{% static 'js/responsive-sidebar.js' %}?v=20261001-sidebar-logout" defer></script>
 </head>
 <body class="bg-slate-900 text-slate-100 font-sans min-h-screen flex flex-col md:flex-row overflow-x-hidden">
@@ -22,21 +22,21 @@
         <button id="nav-cocina" onclick="mostrarVistaAdmin('cocina')" class="admin-nav-btn w-full flex items-center gap-3 px-3 py-3 rounded-xl font-medium text-sm text-slate-400 hover:text-white hover:bg-slate-800/50 transition-all"><i class="fa-solid fa-kitchen-set text-lg w-6 text-center"></i><span class="hidden lg:inline">Cocina</span></button>
         <button id="nav-carta" onclick="mostrarVistaAdmin('carta')" class="admin-nav-btn w-full flex items-center gap-3 px-3 py-3 rounded-xl font-medium text-sm text-slate-400 hover:text-white hover:bg-slate-800/50 transition-all"><i class="fa-solid fa-book-open text-lg w-6 text-center"></i><span class="hidden lg:inline">Carta</span></button>
         <a href="{% url 'usuarios:gestion_usuarios' %}" class="w-full flex items-center gap-3 px-3 py-3 rounded-xl font-medium text-sm text-slate-400 hover:text-white hover:bg-slate-800/50 transition-all"><i class="fa-solid fa-users text-lg w-6 text-center"></i><span class="hidden lg:inline">Usuarios</span></a>
-        <a href="{% url 'usuarios:dashboard' %}" class="w-full flex items-center gap-3 px-3 py-3 rounded-xl font-medium text-sm text-slate-400 hover:text-white hover:bg-slate-800/50 transition-all"><i class="fa-solid fa-calendar-day text-lg w-6 text-center"></i><span class="hidden lg:inline">Detalle del turno</span></a>
+        <a href="{% url 'usuarios:dashboard' %}" class="w-full flex items-center gap-3 px-3 py-3 rounded-xl font-medium text-sm text-slate-400 hover:text-white hover:bg-slate-800/50 transition-all"><i class="fa-solid fa-calendar-day text-lg w-6 text-center"></i><span class="hidden lg:inline">Detalle del turno actual</span></a>
         <a href="{% url 'usuarios:historial_turnos' %}" class="w-full flex items-center gap-3 px-3 py-3 rounded-xl font-medium text-sm text-slate-400 hover:text-white hover:bg-slate-800/50 transition-all"><i class="fa-solid fa-clock-rotate-left text-lg w-6 text-center"></i><span class="hidden lg:inline">Historial</span></a>
       </nav>
     </div>
     <div class="p-3 border-t border-slate-800/80"><a href="{% url 'usuarios:logout' %}" class="w-full flex items-center justify-center lg:justify-start gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold text-rose-400 hover:bg-rose-500/10 transition-all"><i class="fa-solid fa-right-from-bracket text-base"></i><span class="hidden lg:inline">Cerrar sesión</span></a></div>
   </aside>
   <main class="flex-1 flex flex-col h-screen overflow-hidden">
-    <header class="h-16 border-b border-slate-800 bg-slate-950/60 backdrop-blur px-6 flex items-center justify-between shrink-0"><div class="flex items-center gap-4"><h2 class="text-lg font-bold text-white flex items-center gap-2 leading-none"><i class="fa-solid fa-user-shield text-emerald-400 text-base"></i><span id="page-view-title">Panel de Administrador</span></h2><span class="text-[11px] bg-slate-800 text-slate-300 px-2.5 py-1 rounded-full border border-slate-700 font-medium tracking-wide" id="clock-display">12:00 PM</span></div><div class="flex items-center gap-3 text-[11px]"><div class="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400"><span class="w-2 h-2 rounded-full bg-emerald-400"></span><span class="font-medium">Sistema activo</span></div></div></header>
+    <header class="admin-topbar h-16 border-b border-slate-800 bg-slate-950/60 backdrop-blur px-6 flex items-center justify-between shrink-0"><div class="admin-topbar-title flex items-center gap-4"><h2 class="text-lg font-bold text-white flex items-center gap-2 leading-none"><i class="fa-solid fa-user-shield text-emerald-400 text-base"></i><span id="page-view-title">Panel de Administrador</span></h2><span class="text-[11px] bg-slate-800 text-slate-300 px-2.5 py-1 rounded-full border border-slate-700 font-medium tracking-wide" id="clock-display">12:00 PM</span></div><nav class="carta-header-nav" id="carta-header-nav" aria-label="Secciones de Carta" role="tablist" hidden><button type="button" id="tab-carta-platos" role="tab" aria-controls="carta-platos" aria-selected="true" data-carta-tab="platos" onclick="mostrarSeccionCarta('platos')"><i class="fa-solid fa-utensils" aria-hidden="true"></i><span>Platos y productos</span></button><button type="button" id="tab-carta-publicada" role="tab" aria-controls="carta-publicada" aria-selected="false" data-carta-tab="publicada" onclick="mostrarSeccionCarta('publicada')"><i class="fa-solid fa-eye" aria-hidden="true"></i><span>Carta publicada</span></button></nav><div class="admin-topbar-status flex items-center gap-3 text-[11px]"><div class="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400"><span class="w-2 h-2 rounded-full bg-emerald-400"></span><span class="font-medium">Sistema activo</span></div></div></header>
     <div class="flex-1 overflow-y-auto">
 <div class="admin-body">
 
   {% if messages %}
   <div class="admin-flash-list">
     {% for m in messages %}
-    <div class="admin-flash {% if m.tags == 'error' %}admin-flash-error{% else %}admin-flash-ok{% endif %}">{{ m }}</div>
+    <div class="admin-flash {% if m.tags == 'error' %}admin-flash-error{% else %}admin-flash-ok{% endif %}"><i class="fa-solid {% if m.tags == 'error' %}fa-circle-xmark{% else %}fa-circle-check{% endif %} admin-flash-icon" aria-hidden="true"></i><span>{{ m }}</span></div>
     {% endfor %}
   </div>
   {% endif %}
@@ -47,7 +47,7 @@
 
     <div id="admin-view-carta" class="admin-view">
 
-    <section class="admin-card carta-admin-card">
+    <section class="admin-card carta-admin-card carta-tab-panel" id="carta-platos" role="tabpanel" aria-labelledby="tab-carta-platos">
       <div class="turn-card-heading"><div class="turn-section-icon"><i class="fa-solid fa-book-open"></i></div><div><p class="panel-kicker">Carta</p><h2>Gestionar platos</h2></div><span class="admin-section-count">{{ platos|length }} platos</span></div>
       <p class="admin-hint">Crea los platos de la carta de forma independiente y define qué productos del inventario consume cada uno.</p>
 
@@ -70,9 +70,20 @@
         <button type="submit" class="btn btn-primary"><i class="fa-solid fa-plus"></i> Crear plato</button>
       </form>
 
-      <div class="carta-admin-list">
+      <div class="carta-admin-filters" aria-label="Filtros de platos">
+        <label class="inventario-search" for="carta-buscar-plato"><i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i><input id="carta-buscar-plato" type="search" placeholder="Buscar platos o ingredientes" autocomplete="off"></label>
+        <label class="sr-only" for="carta-filtrar-categoria">Filtrar por categoría</label>
+        <select id="carta-filtrar-categoria" class="admin-input">
+          <option value="">Todas las categorías</option>
+          {% for categoria in categorias %}<option value="{{ categoria.pk }}">{{ categoria.nombre }}</option>{% endfor %}
+        </select>
+        <label class="carta-low-stock-filter"><input id="carta-solo-stock-bajo" type="checkbox"> Solo platos con productos de stock bajo</label>
+      </div>
+      <p class="admin-hint" id="carta-filtro-resultado" role="status" aria-live="polite"></p>
+      <div class="admin-empty carta-no-filter-results" id="carta-sin-resultados" hidden>No hay platos que coincidan con los filtros.</div>
+      <div class="carta-admin-list" id="carta-lista-platos">
         {% for plato in platos %}
-        <article class="carta-admin-item">
+        <article class="carta-admin-item" data-categoria="{{ plato.categoria_id }}" data-stock-bajo="{% if plato.receta_con_stock_bajo %}true{% else %}false{% endif %}">
           <div class="carta-admin-image">{% if plato.imagen %}<img src="{{ plato.imagen.url }}" alt="{{ plato.nombre }}">{% else %}<i class="fa-solid fa-utensils"></i>{% endif %}</div>
           <div class="carta-admin-content"><div class="carta-admin-topline"><div><p class="carta-admin-category">{{ plato.categoria.nombre|default:'Sin categoría' }}</p><h3>{{ plato.nombre }}</h3></div><span class="carta-admin-price">{{ plato.precio|floatformat:2 }} <small>CUP</small></span></div><p class="carta-admin-description">{{ plato.descripcion|default:'Sin descripción registrada.' }}</p><p class="admin-hint">Receta: {% for item in plato.receta_admin %}{{ item.insumo.nombre }} ({{ item.cantidad }} {{ item.insumo.get_unidad_display }}){% if not forloop.last %}, {% endif %}{% empty %}Sin productos asociados{% endfor %}</p><div class="carta-admin-footer"><span class="carta-availability {% if not plato.disponible %}carta-unavailable{% endif %}"><span></span>{% if plato.disponible %}Disponible{% else %}No disponible{% endif %}</span><button type="button" class="btn btn-outline btn-sm" data-edit-plato data-id="{{ plato.pk }}" data-name="{{ plato.nombre|escapejs }}" data-category="{{ plato.categoria_id|default:'' }}" data-price="{{ plato.precio|floatformat:2|unlocalize }}" data-description="{{ plato.descripcion|escapejs }}" data-available="{% if plato.disponible %}true{% else %}false{% endif %}" data-image="{% if plato.imagen %}{{ plato.imagen.url }}{% endif %}" data-recipe="{{ plato.receta_json|escape }}"><i class="fa-solid fa-pen"></i> Editar plato y receta</button></div></div>
         </article>
@@ -80,7 +91,7 @@
       </div>
     </section>
 
-    <section class="admin-card carta-preview-card" id="carta-publicada">
+    <section class="admin-card carta-preview-card carta-tab-panel" id="carta-publicada" role="tabpanel" aria-labelledby="tab-carta-publicada" hidden>
       <div class="turn-card-heading"><div class="turn-section-icon"><i class="fa-solid fa-eye"></i></div><div><p class="panel-kicker">Vista del cliente</p><h2>Carta publicada</h2></div><span class="admin-section-count">Así la ve el cliente</span></div>
       <p class="admin-hint">Esta vista refleja los platos disponibles que aparecen actualmente en la carta del cliente.</p>
       <div class="carta-preview-grid">
@@ -302,17 +313,38 @@
         carta: 'Carta del restaurante',
       };
       document.getElementById('page-view-title').textContent = titulos[vistaValida];
+      document.getElementById('carta-header-nav').hidden = vistaValida !== 'carta';
       if (desplazar) {
         document.getElementById(`admin-view-${vistaValida}`).scrollIntoView({ behavior: 'smooth', block: 'start' });
-        if (location.hash !== `#${vistaValida}`) history.replaceState(null, '', `#${vistaValida}`);
+        if (location.hash !== `#${vistaValida}`) {
+          const hashVista = vistaValida === 'carta' ? '#carta-platos' : `#${vistaValida}`;
+          history.replaceState(null, '', hashVista);
+        }
+        if (vistaValida === 'carta') mostrarSeccionCarta('platos');
       }
     }
+
+    function mostrarSeccionCarta(seccion) {
+      const seccionValida = seccion === 'publicada' ? 'publicada' : 'platos';
+      document.querySelectorAll('.carta-tab-panel').forEach(panel => {
+        panel.hidden = panel.id !== `carta-${seccionValida}`;
+      });
+      document.querySelectorAll('[data-carta-tab]').forEach(tab => {
+        const activa = tab.dataset.cartaTab === seccionValida;
+        tab.setAttribute('aria-selected', String(activa));
+        tab.tabIndex = activa ? 0 : -1;
+      });
+      const hashSeccion = `#carta-${seccionValida}`;
+      if (location.hash !== hashSeccion) history.replaceState(null, '', hashSeccion);
+    }
+
     const hashInicial = location.hash.slice(1);
     const vistaInicial = hashInicial.includes('restaurante') ? 'restaurante'
       : hashInicial.includes('cocina') ? 'cocina'
-      : hashInicial === 'carta' || hashInicial === 'carta-publicada' ? 'carta'
+      : hashInicial.includes('carta') ? 'carta'
       : 'configuracion';
     mostrarVistaAdmin(vistaInicial, false);
+    mostrarSeccionCarta(location.hash === '#carta-publicada' ? 'publicada' : 'platos');
   </script>
   <script>
     const modalPlato = document.getElementById('modal-editar-plato');
@@ -320,6 +352,38 @@
     const formEliminarPlato = document.getElementById('form-eliminar-plato');
     const previewPlato = document.getElementById('plato-edit-image');
     const recipeRowTemplate = document.getElementById('recipe-row-template');
+    const buscarPlato = document.getElementById('carta-buscar-plato');
+    const filtrarCategoriaPlato = document.getElementById('carta-filtrar-categoria');
+    const filtrarStockBajo = document.getElementById('carta-solo-stock-bajo');
+    const tarjetasPlato = Array.from(document.querySelectorAll('#carta-lista-platos .carta-admin-item'));
+    const sinResultadosPlato = document.getElementById('carta-sin-resultados');
+    const resultadoFiltroPlato = document.getElementById('carta-filtro-resultado');
+    const normalizarTexto = texto => texto.toLocaleLowerCase('es').normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    function filtrarPlatosCarta() {
+      const texto = normalizarTexto(buscarPlato.value.trim());
+      const categoria = filtrarCategoriaPlato.value;
+      const soloStockBajo = filtrarStockBajo.checked;
+      let visibles = 0;
+
+      tarjetasPlato.forEach(plato => {
+        const coincideTexto = !texto || normalizarTexto(plato.textContent).includes(texto);
+        const coincideCategoria = !categoria || plato.dataset.categoria === categoria;
+        const coincideStock = !soloStockBajo || plato.dataset.stockBajo === 'true';
+        const visible = coincideTexto && coincideCategoria && coincideStock;
+        plato.hidden = !visible;
+        if (visible) visibles += 1;
+      });
+
+      sinResultadosPlato.hidden = visibles > 0 || tarjetasPlato.length === 0;
+      resultadoFiltroPlato.textContent = tarjetasPlato.length
+        ? `Mostrando ${visibles} de ${tarjetasPlato.length} platos`
+        : '';
+    }
+    buscarPlato.addEventListener('input', filtrarPlatosCarta);
+    filtrarCategoriaPlato.addEventListener('change', filtrarPlatosCarta);
+    filtrarStockBajo.addEventListener('change', filtrarPlatosCarta);
+    filtrarPlatosCarta();
+
     function agregarFilaReceta(container, recetaItem = null) {
       const row = recipeRowTemplate.content.firstElementChild.cloneNode(true);
       if (recetaItem) {

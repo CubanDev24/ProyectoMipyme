@@ -589,7 +589,7 @@ def historial_turnos_view(request):
             'total_facturas': total_facturas,
             'promedio_ipv': promedio_ipv,
             'rendimiento_promedio': rendimiento_promedio,
-            'turnos_cerrados': turnos.count(),
+            'turnos_cerrados': len(historial),
         },
     }
     return render(request, 'usuarios/historial_turnos.html', context)
