@@ -7,7 +7,7 @@
   <title>Detalle del turno - GourmetControl</title>
   <link rel="icon" type="image/svg+xml" href="{% static 'img/favicon.svg' %}?v=20261013">
   <link rel="stylesheet" href="{% static 'css/tailwind.css' %}">
-  <link rel="stylesheet" href="{% static 'vendor/fontawesome/css/all.min.css' %}">  <link rel="stylesheet" href="{% static 'css/main.css' %}?v=20261001-responsive-sidebar-logout">
+  <link rel="stylesheet" href="{% static 'vendor/fontawesome/css/all.min.css' %}">  <link rel="stylesheet" href="{% static 'css/main.css' %}?v=20261014-status-flash-icons">
   {% if user.role != 'mesera' %}<script src="{% static 'js/responsive-sidebar.js' %}?v=20261001-sidebar-logout" defer></script>{% endif %}
   <style>
     /* Visible keyboard focus for every interactive element (additive, doesn't touch main.css) */
@@ -272,7 +272,7 @@
   {% if messages %}
     <div role="status" aria-live="polite">
     {% for message in messages %}
-      <div class="admin-flash {% if message.tags == 'error' %}admin-flash-error{% else %}admin-flash-ok{% endif %}">{{ message }}</div>
+      <div class="admin-flash {% if message.tags == 'error' %}admin-flash-error{% else %}admin-flash-ok{% endif %}"><i class="fa-solid {% if message.tags == 'error' %}fa-circle-xmark{% else %}fa-circle-check{% endif %} admin-flash-icon" aria-hidden="true"></i><span>{{ message }}</span></div>
     {% endfor %}
     </div>
   {% endif %}

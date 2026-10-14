@@ -8,7 +8,7 @@
   <link rel="icon" type="image/svg+xml" href="{% static 'img/favicon.svg' %}?v=20261013">
   <link rel="stylesheet" href="{% static 'css/tailwind.css' %}">
   <link rel="stylesheet" href="{% static 'vendor/fontawesome/css/all.min.css' %}">
-  <link rel="stylesheet" href="{% static 'css/main.css' %}?v=20261013-fixed-product-images">
+  <link rel="stylesheet" href="{% static 'css/main.css' %}?v=20261014-status-flash-icons">
   <script src="{% static 'js/responsive-sidebar.js' %}?v=20261001-sidebar-logout" defer></script>
 </head>
 <body class="bg-slate-900 text-slate-100 font-sans min-h-screen flex flex-col md:flex-row overflow-x-hidden">
@@ -36,7 +36,7 @@
   {% if messages %}
   <div class="admin-flash-list">
     {% for m in messages %}
-    <div class="admin-flash {% if m.tags == 'error' %}admin-flash-error{% else %}admin-flash-ok{% endif %}">{{ m }}</div>
+    <div class="admin-flash {% if m.tags == 'error' %}admin-flash-error{% else %}admin-flash-ok{% endif %}"><i class="fa-solid {% if m.tags == 'error' %}fa-circle-xmark{% else %}fa-circle-check{% endif %} admin-flash-icon" aria-hidden="true"></i><span>{{ m }}</span></div>
     {% endfor %}
   </div>
   {% endif %}
