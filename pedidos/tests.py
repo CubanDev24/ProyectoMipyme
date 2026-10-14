@@ -78,6 +78,8 @@ class FacturaWorkflowTests(TestCase):
         self.client.force_login(mesera)
         respuesta_mesera = self.client.get(reverse('pedidos:mesera'))
         self.assertEqual(list(respuesta_mesera.context['productos']), [self.plato])
+        self.assertContains(respuesta_mesera, 'aria-label="Cerrar sesión"')
+        self.assertContains(respuesta_mesera, reverse('usuarios:logout'))
 
         cliente = ClienteConsumer()
         cliente.mesa_numero = str(self.mesa.numero)
@@ -85,6 +87,19 @@ class FacturaWorkflowTests(TestCase):
             {'plato_id': sin_receta.pk, 'cantidad': 1},
         ], '')
         self.assertEqual(pedidos, [])
+
+    def test_order_from_a_dish_without_category_is_sent_to_the_kitchen(self):
+        self.plato.categoria = None
+        self.plato.save(update_fields=['categoria'])
+
+        cliente = ClienteConsumer()
+        cliente.mesa_numero = str(self.mesa.numero)
+        pedidos = async_to_sync(cliente.crear_pedido)([
+            {'plato_id': self.plato.pk, 'cantidad': 1},
+        ], '')
+
+        self.assertEqual(len(pedidos), 1)
+        self.assertEqual(Pedido.objects.get(pk=pedidos[0]['id']).destino, 'cocina')
 
     def test_pedido_de_exteriores_conserva_mesa_y_etiqueta_de_zona(self):
         mesa_exterior = Mesa.objects.create(

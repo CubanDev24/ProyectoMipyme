@@ -10,7 +10,13 @@ class Categoria(models.Model):
     def __str__(self): return self.nombre
 
 class Plato(models.Model):
-    categoria = models.ForeignKey(Categoria, on_delete=models.CASCADE, related_name='platos')
+    categoria = models.ForeignKey(
+        Categoria,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='platos',
+    )
     nombre = models.CharField(max_length=200)
     descripcion = models.TextField(blank=True)
     imagen = models.ImageField(upload_to='carta/', blank=True, null=True)

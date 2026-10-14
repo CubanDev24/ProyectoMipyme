@@ -95,6 +95,17 @@ class UsuarioTurnoTests(TestCase):
         self.assertContains(response, 'setInterval(actualizarInventarioTurno, 5000)')
         self.assertNotContains(response, f'Factura #{factura_anterior.pk}')
 
+    def test_dashboard_de_mesera_usa_navegacion_movil_del_panel(self):
+        self.client.force_login(self.mesera)
+
+        response = self.client.get(reverse('usuarios:dashboard'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'class="mesera-app bg-slate-900')
+        self.assertContains(response, 'turn-mobile-nav')
+        self.assertContains(response, 'aria-label="Cerrar sesión"')
+        self.assertNotContains(response, 'responsive-sidebar.js')
+
     def test_dashboard_admin_sin_turno_muestra_fecha_apertura_y_turno_anterior(self):
         turno_anterior = Turno.objects.create(
             fecha=timezone.localdate() - timedelta(days=1),
