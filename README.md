@@ -1,4 +1,4 @@
-# La Mesa — Sistema de carta y pedidos en tiempo real
+# Las Cuquis— Sistema de carta y pedidos en tiempo real
 
 ## Instalación rápida
 
@@ -6,9 +6,22 @@
 pip install -r requirements.txt
 python manage.py makemigrations carta pedidos inventario
 python manage.py migrate
-python manage.py shell < datos_ejemplo.py
+python manage.py cargar_datos_demo --dry-run
+python manage.py cargar_datos_demo --confirm
 python manage.py runserver
 ```
+
+El comando de demostración reemplaza la carta, el inventario, los turnos,
+pedidos, facturas y movimientos existentes. Conserva los usuarios, las mesas
+configuradas y las tasas de cambio; reinicia el estado de las mesas y abre las
+que tienen pedidos actuales. Genera tres días históricos cerrados, con seis
+facturas por día, y un turno actual abierto. Revisa el alcance con `--dry-run`
+antes de confirmar.
+
+La carta de demostración incluye energizantes, cervezas, licores, cocteles y
+postres. Sus existencias se gestionan en Restaurante y se descuentan mediante
+las recetas de cada producto vendido; los postres preparados se controlan por
+porción.
 
 En la página de inicio (`/`) se muestra un código QR por cada mesa activa. Al
 escanearlo, el teléfono abre directamente la carta asociada a esa mesa. Para
@@ -46,8 +59,11 @@ con el botón **Imprimir QR**.
 2. **Mesera** abre `/pedidos/mesera/`, selecciona mesa, agrega platos y envía a cocina
    - También puede el **cliente** desde `/mesa/<N>/`
    - **Caja o el administrador** pueden cerrar el turno desde el panel de turno.
-3. **Cocina** en `/pedidos/cocina/` recibe el pedido → lo pasa a "En preparación" → "Listo"
-4. **Mesera** ve que el plato está listo y lo recoge → lo marca como "Servido".
+3. **Cocina** en `/pedidos/cocina/` recibe los platos → los pasa a "En preparación" → "Listo".
+   Las bebidas se preparan desde **Barra** en el panel de la mesera, donde se marcan
+   como "Listo" al terminar.
+4. **Mesera** recoge el pedido listo → lo marca como "Servido". El servidor no permite
+   servir un pedido que todavía no esté listo.
    En este momento el sistema descuenta automáticamente el inventario según la
    receta de cada plato, y si algún insumo queda en o por debajo de su stock
    mínimo (o no alcanzaba), se envía un aviso en tiempo real a **Caja**.
@@ -84,6 +100,8 @@ con el botón **Imprimir QR**.
 - Los avisos de inventario (`stock bajo` o `insuficiente`) se transmiten por
   WebSocket al grupo `caja` y se muestran como notificaciones + un panel de
   alertas recientes en la pantalla de Caja.
+- Los historiales de movimientos, facturas y turnos, así como las listas de productos
+  de inventario, se muestran paginados para facilitar la consulta de registros extensos.
 
 ## Facturación
 
@@ -138,6 +156,9 @@ con el botón **Imprimir QR**.
 - Se separo el inventario en Cocina y Restaurante, con categorías independientes y
   clasificación manual segura para los productos anteriores.
 - La carta se genera a partir de los productos que decida el administrador del inventario.
+- Ya se eliminan y editan las categorias.
+
+
 
 
 ## por hacer:
@@ -148,5 +169,3 @@ con el botón **Imprimir QR**.
 
 - mejorar las tablas de administracion con funcionalidades de excel.
 - crear nuevos roles con permisos definidos para el admin
-- Eliminar o editar categorias
-

@@ -4,6 +4,7 @@ from io import BytesIO
 
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django import forms
+from django.core.paginator import Paginator
 from django.db.models import Count, F, Sum
 from django.core.exceptions import ValidationError
 from django.http import HttpResponse, JsonResponse
@@ -226,7 +227,10 @@ def factura_imprimir_web(request, pk):
     return render(request, 'caja/factura_imprimir_web.html', {'factura': factura})
 
 def facturas_historial(request):
-    facturas = Factura.objects.select_related('pedido__mesa').order_by('-creado_en')
+    pagina = Paginator(
+        Factura.objects.select_related('pedido__mesa').order_by('-creado_en', '-pk'),
+        10,
+    ).get_page(request.GET.get('page'))
     return JsonResponse({
         'facturas': [
             {
@@ -244,8 +248,13 @@ def facturas_historial(request):
                 'total_cup': str(factura.total_cup),
                 'creado_en': factura.creado_en.strftime('%d/%m/%Y %H:%M'),
             }
-            for factura in facturas
+            for factura in pagina
         ],
+        'pagina': pagina.number,
+        'paginas': pagina.paginator.num_pages,
+        'total': pagina.paginator.count,
+        'anterior': pagina.has_previous(),
+        'siguiente': pagina.has_next(),
     })
 
 def caja_estadisticas(request):

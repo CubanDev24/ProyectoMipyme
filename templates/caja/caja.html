@@ -119,6 +119,7 @@
                         <div id="lista-facturas" class="caja-historial-lista">
                             <div class="admin-empty">Cargando historial...</div>
                         </div>
+                        <div id="facturas-pagination" class="flex flex-wrap items-center justify-center gap-2 py-3" aria-label="Paginación de facturas"></div>
                     </section>
                 </div>
 
@@ -186,6 +187,7 @@
     let formaPagoSeleccionada = null;
     let ultimaFacturaId = null;
     let alertasInventario = [];
+    let paginaHistorialFacturas = 1;
 
     function escaparHtml(valor) {
       return String(valor ?? '').replace(/[&<>"']/g, caracter => ({
@@ -197,23 +199,30 @@
       return pedido.etiqueta || (pedido.mesa_numero != null ? `Mesa ${pedido.mesa_numero}` : 'Para llevar');
     }
 
-    function cargarHistorialFacturas() {
-      fetch('{% url "pedidos:facturas_historial" %}')
-        .then(response => response.json())
-        .then(data => renderHistorialFacturas(data.facturas))
+    function cargarHistorialFacturas(pagina = 1) {
+      fetch(`{% url "pedidos:facturas_historial" %}?page=${pagina}`)
+        .then(response => {
+          if (!response.ok) throw new Error('No se pudo cargar el historial.');
+          return response.json();
+        })
+        .then(renderHistorialFacturas)
         .catch(() => {
           document.getElementById('lista-facturas').innerHTML = '<div class="admin-empty">No se pudo cargar el historial.</div>';
         });
     }
 
-    function renderHistorialFacturas(facturas) {
+    function renderHistorialFacturas(data) {
+      const facturas = data.facturas || [];
       const lista = document.getElementById('lista-facturas');
       const cnt = document.getElementById('caja-historial-cnt');
       const count = document.getElementById('count-facturas');
-      cnt.textContent = facturas.length;
-      if (count) count.textContent = facturas.length;
+      const paginacion = document.getElementById('facturas-pagination');
+      paginaHistorialFacturas = data.pagina || 1;
+      cnt.textContent = data.total;
+      if (count) count.textContent = data.total;
       if (!facturas.length) {
         lista.innerHTML = '<div class="admin-empty">Todavía no hay facturas registradas.</div>';
+        paginacion.innerHTML = '';
         return;
       }
       lista.innerHTML = facturas.map(factura => `
@@ -228,6 +237,10 @@
           </div>
           <button class="btn btn-outline btn-sm" onclick="imprimirFactura(${factura.id})" title="Imprimir factura">Imprimir</button>
         </div>`).join('');
+      paginacion.innerHTML = `
+        ${data.anterior ? `<button class="btn btn-outline btn-sm" onclick="cargarHistorialFacturas(${paginaHistorialFacturas - 1})">Anterior</button>` : '<span class="btn btn-outline btn-sm opacity-50" aria-disabled="true">Anterior</span>'}
+        <span class="px-2 text-sm text-slate-400">Página ${paginaHistorialFacturas} de ${data.paginas}</span>
+        ${data.siguiente ? `<button class="btn btn-outline btn-sm" onclick="cargarHistorialFacturas(${paginaHistorialFacturas + 1})">Siguiente</button>` : '<span class="btn btn-outline btn-sm opacity-50" aria-disabled="true">Siguiente</span>'}`;
     }
 
     function imprimirFactura(facturaId) {

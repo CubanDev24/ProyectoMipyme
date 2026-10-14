@@ -132,6 +132,58 @@ class FacturaWorkflowTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'function urlImagenProducto')
         self.assertContains(response, 'class="cocina-item-imagen"')
+        self.assertContains(response, 'Listo para recoger')
+
+    def test_mesera_puede_marcar_listo_un_pedido_de_barra_para_una_mesa(self):
+        pedido_barra = Pedido.objects.create(
+            mesa=self.mesa,
+            sesion_id=self.mesa.sesion_id,
+            destino='barra',
+            estado='pendiente',
+        )
+        ItemPedido.objects.create(pedido=pedido_barra, plato=self.plato)
+        mesera = MeseraConsumer()
+        mesera.scope = {'user': None}
+        mesera.channel_layer = AsyncMock()
+        mesera.send = AsyncMock()
+
+        async_to_sync(mesera.receive)(json.dumps({
+            'accion': 'marcar_listo_barra',
+            'pedido_id': pedido_barra.pk,
+        }))
+
+        pedido_barra.refresh_from_db()
+        self.assertEqual(pedido_barra.estado, 'listo')
+        self.assertTrue(any(
+            call.args[0] == 'mesera'
+            and call.args[1]['pedido']['estado'] == 'listo'
+            for call in mesera.channel_layer.group_send.await_args_list
+        ))
+
+    def test_historial_de_facturas_se_pagina(self):
+        Factura.objects.create(
+            pedido=self.pedido,
+            mesa_numero=self.mesa.numero,
+            forma_pago='efectivo_cup',
+            total_cup='50.00',
+        )
+        for numero in range(10, 20):
+            mesa = Mesa.objects.create(numero=numero)
+            pedido = Pedido.objects.create(mesa=mesa, estado='cerrado')
+            Factura.objects.create(
+                pedido=pedido,
+                mesa_numero=mesa.numero,
+                forma_pago='efectivo_cup',
+                total_cup='10.00',
+            )
+
+        response = self.client.get(reverse('pedidos:facturas_historial'), {'page': 2})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()['pagina'], 2)
+        self.assertEqual(response.json()['paginas'], 2)
+        self.assertEqual(response.json()['total'], 11)
+        self.assertEqual(len(response.json()['facturas']), 1)
 
     def test_caja_registra_factura_con_items_y_pdf(self):
         factura = Factura.objects.create(

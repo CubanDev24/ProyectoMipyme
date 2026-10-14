@@ -31,7 +31,7 @@
   <main class="flex-1 flex flex-col h-screen overflow-hidden"><header class="h-16 border-b border-slate-800 bg-slate-950/60 backdrop-blur px-6 flex items-center justify-between shrink-0"><div class="flex items-center gap-4"><h2 class="text-lg font-bold text-white flex items-center gap-2 leading-none"><i class="fa-solid fa-clock-rotate-left text-emerald-400 text-base" aria-hidden="true"></i><span>Historial de turnos</span></h2><span class="text-[11px] bg-slate-800 text-slate-300 px-2.5 py-1 rounded-full border border-slate-700 font-medium tracking-wide" id="clock-display" aria-live="off">12:00 PM</span></div><div class="flex items-center gap-3 text-[11px]"><div class="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400"><span class="w-2 h-2 rounded-full bg-emerald-400" aria-hidden="true"></span><span class="font-medium">Archivo histórico</span></div></div></header><div class="flex-1 overflow-y-auto"><div class="admin-body">
   <div class="turn-page-heading"><div><p class="panel-kicker">Rendimiento</p><h1 class="admin-h1">Historial de turnos</h1><p class="turn-page-subtitle">Consulta el rendimiento y los cierres registrados.</p></div><span class="turn-live-badge"><span aria-hidden="true"></span> Archivo histórico</span></div>
 
-  <div class="admin-grid">
+  <div class="admin-grid" id="historial-turnos">
     <section class="admin-card turn-dashboard-card" aria-labelledby="resumen-general-heading">
       <div class="turn-card-heading"><div class="turn-section-icon" aria-hidden="true"><i class="fa-solid fa-chart-line"></i></div><div><p class="panel-kicker">Resumen acumulado</p><h2 id="resumen-general-heading">Rendimiento General</h2></div></div>
       <div class="turn-metric-grid">
@@ -79,6 +79,7 @@
         </div>
       </section>
     {% endif %}
+    {% include 'includes/pagination.html' with page_obj=historial page_parameter='page' pagination_query=historial_pagination_query pagination_anchor='#historial-turnos' %}
   </div>
 </div></div></main>
   <script>function actualizarReloj(){document.getElementById('clock-display').textContent=new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});}actualizarReloj();setInterval(actualizarReloj,30000);</script>

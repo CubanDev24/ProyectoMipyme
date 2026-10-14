@@ -147,7 +147,7 @@ function crearCard(p) {
   let btns='';
   if(p.estado==='pendiente') btns=`<button class="btn btn-orange" onclick="cambiarEstado(${p.id},'en_preparacion')">Preparar</button>`;
   else if(p.estado==='en_preparacion') btns=`<button class="btn btn-success" onclick="cambiarEstado(${p.id},'listo')">Marcar listo</button>`;
-  else if(p.estado==='listo') btns=`<button class="btn btn-success" onclick="cambiarEstado(${p.id},'servido')">Listo</button>`;
+  else if(p.estado==='listo') btns='<span class="text-xs font-semibold text-emerald-400">Listo para recoger</span>';
   div.innerHTML=`
     <div class="pedido-card-top">
       <div><div class="pedido-mesa-label">${p.etiqueta || `Mesa ${p.mesa_numero}`}</div><div class="pedido-hora">#${p.id} · ${p.creado_en}</div></div>

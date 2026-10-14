@@ -176,7 +176,7 @@
 
     {% if insumos_por_clasificar %}
     <section class="admin-card inventario-panel" id="inventario-por-clasificar">
-      <div class="turn-card-heading"><div class="turn-section-icon"><i class="fa-solid fa-circle-question"></i></div><div><p class="panel-kicker">Revisión inicial</p><h2>Productos por clasificar</h2></div><span class="admin-section-count">{{ insumos_por_clasificar|length }} productos</span></div>
+      <div class="turn-card-heading"><div class="turn-section-icon"><i class="fa-solid fa-circle-question"></i></div><div><p class="panel-kicker">Revisión inicial</p><h2>Productos por clasificar</h2></div><span class="admin-section-count">{{ insumos_por_clasificar.paginator.count }} productos</span></div>
       <p class="admin-hint">Estos productos ya existían antes de separar los inventarios. Asígnalos a Cocina o Restaurante. Se conservan sus existencias, recetas y registros históricos.</p>
       <div class="admin-table-wrap">
         <table class="admin-table inventario-table"><thead><tr><th>Producto</th><th>Inventario</th><th>Categoría de inventario</th><th>Unidad</th><th>Existencia</th><th>Mínimo</th><th>Máximo</th><th>Acciones</th></tr></thead><tbody>
@@ -194,11 +194,12 @@
           {% endfor %}
         </tbody></table>
       </div>
+      {% include 'includes/pagination.html' with page_obj=insumos_por_clasificar page_parameter='sin_clasificar_page' pagination_query=sin_clasificar_pagination_query pagination_anchor=sin_clasificar_pagination_anchor %}
     </section>
     {% endif %}
 
     <section class="admin-card inventario-panel" id="movimientos-inventario">
-      <div class="turn-card-heading"><div class="turn-section-icon"><i class="fa-solid fa-arrow-right-arrow-left"></i></div><div><p class="panel-kicker">Trazabilidad</p><h2>Historial de movimientos</h2></div><span class="admin-section-count">Últimos {{ movimientos|length }}</span></div>
+      <div class="turn-card-heading"><div class="turn-section-icon"><i class="fa-solid fa-arrow-right-arrow-left"></i></div><div><p class="panel-kicker">Trazabilidad</p><h2>Historial de movimientos</h2></div><span class="admin-section-count">{{ movimientos.paginator.count }} movimientos</span></div>
       <form method="post" action="{% url 'inventario:movimiento_crear' %}" class="movimiento-form">
         {% csrf_token %}
         <select name="insumo_id" class="admin-input" required><option value="">Producto</option>{% for i in insumos %}<option value="{{ i.id }}">{% if i.tipo_inventario %}{{ i.get_tipo_inventario_display }}{% else %}Por clasificar{% endif %} · {{ i.nombre }}</option>{% endfor %}</select>
@@ -209,6 +210,7 @@
       </form>
       <div class="inventario-toolbar"><label class="inventario-search"><i class="fa-solid fa-magnifying-glass"></i><input id="movimientos-search" type="search" placeholder="Buscar en historial"></label><select id="movimientos-type-filter" class="admin-input"><option value="todos">Entradas, salidas y mermas</option><option value="entrada">Entradas</option><option value="salida">Salidas</option><option value="merma">Mermas por rotura</option></select></div>
       <div class="admin-table-wrap"><table class="admin-table inventario-table movimientos-table" id="movimientos-table"><thead><tr><th>Fecha y hora</th><th>Inventario</th><th>Producto</th><th>Categoría</th><th>Tipo</th><th>Cantidad</th><th>Antes</th><th>Después</th><th>Responsable</th><th>Motivo</th></tr></thead><tbody>{% for movimiento in movimientos %}<tr data-movimiento-row data-type="{{ movimiento.tipo }}" data-search="{{ movimiento.producto_nombre|lower }} {{ movimiento.categoria_nombre|lower }} {{ movimiento.responsable_nombre|lower }}"><td>{{ movimiento.creado_en|date:'d/m/Y H:i' }}</td><td>{% if movimiento.tipo_inventario %}{{ movimiento.get_tipo_inventario_display }}{% else %}Histórico{% endif %}</td><td><strong>{{ movimiento.producto_nombre }}</strong><small>{{ movimiento.get_unidad_display }}</small></td><td>{{ movimiento.categoria_nombre }}</td><td><span class="movimiento-badge movimiento-{{ movimiento.tipo }}">{{ movimiento.get_tipo_display }}</span></td><td>{{ movimiento.cantidad }}</td><td>{{ movimiento.stock_anterior }}</td><td><strong>{{ movimiento.stock_posterior }}</strong></td><td>{{ movimiento.responsable_nombre }}</td><td>{{ movimiento.motivo|default:'—' }}</td></tr>{% empty %}<tr><td colspan="10" class="admin-empty">Todavía no hay movimientos registrados.</td></tr>{% endfor %}</tbody></table></div>
+      {% include 'includes/pagination.html' with page_obj=movimientos page_parameter='movimientos_page' pagination_query=movimientos_pagination_query pagination_anchor=movimientos_pagination_anchor %}
     </section>
 
     <!-- ── TASA DE CAMBIO ───────────────────────────────────── -->

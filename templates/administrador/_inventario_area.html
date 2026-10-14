@@ -1,6 +1,6 @@
 {% load l10n %}
 <section class="admin-card inventario-panel" id="inventario-{{ area.tipo }}">
-  <div class="turn-card-heading"><div class="turn-section-icon"><i class="fa-solid fa-boxes-stacked"></i></div><div><p class="panel-kicker">Control de existencias</p><h2>Inventario de {{ area.nombre }}</h2></div><span class="admin-section-count">{{ area.insumos|length }} productos</span></div>
+  <div class="turn-card-heading"><div class="turn-section-icon"><i class="fa-solid fa-boxes-stacked"></i></div><div><p class="panel-kicker">Control de existencias</p><h2>Inventario de {{ area.nombre }}</h2></div><span class="admin-section-count">{{ area.insumos.paginator.count }} productos</span></div>
   <p class="admin-hint">Gestiona existencias, costos, precios y movimientos de {{ area.nombre|lower }}. Las salidas por pedidos se registran automáticamente.</p>
 
   <form method="post" action="{% url 'inventario:insumo_crear' %}" class="inventario-create-form">
@@ -43,4 +43,5 @@
       </tbody>
     </table>
   </div>
+  {% include 'includes/pagination.html' with page_obj=area.insumos page_parameter=area.page_parameter pagination_query=area.pagination_query pagination_anchor=area.pagination_anchor %}
 </section>

@@ -5,6 +5,7 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.db import transaction
 from django.db.models import Prefetch
+from django.core.paginator import Paginator
 from django.shortcuts import render, redirect, get_object_or_404
 
 from carta.models import Categoria, Plato
@@ -20,6 +21,12 @@ def _to_decimal(valor, default=None):
         return Decimal(str(valor).replace(',', '.').strip())
     except (InvalidOperation, ValueError, AttributeError):
         return default
+
+
+def _pagination_query(request, page_parameter):
+    query = request.GET.copy()
+    query.pop(page_parameter, None)
+    return query.urlencode()
 
 
 def _receta_desde_post(request):
@@ -58,7 +65,11 @@ def _receta_desde_post(request):
 @user_passes_test(_es_admin)
 def administrador(request):
     insumos = Insumo.objects.select_related('categoria', 'categoria_inventario').all()
-    movimientos = MovimientoInventario.objects.select_related('insumo', 'usuario').all()[:250]
+    movimientos = Paginator(
+        MovimientoInventario.objects.select_related('insumo', 'usuario').order_by('-creado_en', '-pk'),
+        10,
+    ).get_page(request.GET.get('movimientos_page'))
+    movimientos_pagina_query = _pagination_query(request, 'movimientos_page')
     platos = list(Plato.objects.select_related('categoria').prefetch_related(
         Prefetch(
             'receta',
@@ -93,23 +104,37 @@ def administrador(request):
     receta_items = []
     if plato_sel:
         receta_items = RecetaItem.objects.filter(plato=plato_sel).select_related('insumo')
-    inventarios = [
-        {
+    inventarios = []
+    for tipo, nombre in CategoriaInventario.TIPO_CHOICES:
+        page_parameter = f'{tipo}_page'
+        inventarios.append({
             'tipo': tipo,
             'nombre': nombre,
-            'insumos': insumos.filter(tipo_inventario=tipo),
+            'insumos': Paginator(
+                insumos.filter(tipo_inventario=tipo).order_by('nombre'),
+                25,
+            ).get_page(request.GET.get(page_parameter)),
+            'page_parameter': page_parameter,
+            'pagination_query': _pagination_query(request, page_parameter),
+            'pagination_anchor': f'#inventario-{tipo}',
             'categorias': CategoriaInventario.objects.filter(tipo=tipo),
             'categoria_carta': categorias,
-        }
-        for tipo, nombre in CategoriaInventario.TIPO_CHOICES
-    ]
+        })
+    insumos_por_clasificar = Paginator(
+        insumos.filter(tipo_inventario__isnull=True).order_by('nombre'),
+        25,
+    ).get_page(request.GET.get('sin_clasificar_page'))
 
     return render(request, 'administrador/administrador.html', {
         'insumos': insumos,
         'inventarios': inventarios,
-        'insumos_por_clasificar': insumos.filter(tipo_inventario__isnull=True),
+        'insumos_por_clasificar': insumos_por_clasificar,
+        'sin_clasificar_pagination_query': _pagination_query(request, 'sin_clasificar_page'),
+        'sin_clasificar_pagination_anchor': '#inventario-por-clasificar',
         'categorias_inventario': CategoriaInventario.objects.all(),
         'movimientos': movimientos,
+        'movimientos_pagination_query': movimientos_pagina_query,
+        'movimientos_pagination_anchor': '#movimientos-inventario',
         'platos': platos,
         'categorias': categorias,
         'platos_sin_categoria': platos_sin_categoria,

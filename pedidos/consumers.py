@@ -441,7 +441,7 @@ class MeseraConsumer(AsyncWebsocketConsumer):
                     'etiqueta_pedido': pedidos[0]['etiqueta'],
                 })
 
-        elif accion == 'marcar_listo_para_llevar':
+        elif accion in ['marcar_listo_barra', 'marcar_listo_para_llevar']:
             pedido = await self.marcar_listo_para_llevar(data.get('pedido_id'))
             if pedido:
                 await self._broadcast_actualizacion(pedido)
@@ -698,6 +698,15 @@ class MeseraConsumer(AsyncWebsocketConsumer):
             destino='barra',
             estado__in=['pendiente', 'en_preparacion'],
         ).select_related('mesa').first()
+        if not pedido:
+            pedido = Pedido.objects.filter(
+                pk=pedido_id,
+                modalidad='mesa',
+                destino='barra',
+                estado__in=['pendiente', 'en_preparacion'],
+                mesa__abierta=True,
+                sesion_id=F('mesa__sesion_id'),
+            ).select_related('mesa').first()
         if not pedido:
             return None
         pedido.estado = 'listo'

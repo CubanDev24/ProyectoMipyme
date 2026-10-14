@@ -1,13 +1,17 @@
 from decimal import Decimal
+from datetime import timedelta
 
 from django.contrib.auth import get_user_model
+from django.core.management import CommandError, call_command
 from django.test import TestCase
 from django.urls import reverse
+from django.utils import timezone
 
 from carta.models import Categoria, Plato
-from inventario.models import CategoriaInventario, Insumo, MovimientoInventario, RecetaItem
+from inventario.models import CategoriaInventario, Insumo, MovimientoInventario, RecetaItem, TasaCambio
 from inventario.services import descontar_inventario_por_pedido
-from pedidos.models import ItemPedido, Mesa, Pedido
+from pedidos.models import Factura, ItemPedido, Mesa, Pedido
+from usuarios.models import Turno
 
 
 class InventarioFlowTests(TestCase):
@@ -163,7 +167,48 @@ class InventarioFlowTests(TestCase):
             response,
             reverse('inventario:categoria_inventario_eliminar', args=['restaurante', categoria_restaurante.pk]),
         )
-        self.assertEqual(response.context['insumos_por_clasificar'].count(), 2)
+        self.assertEqual(response.context['insumos_por_clasificar'].paginator.count, 2)
+
+    def test_admin_paginates_inventory_and_complete_movement_history(self):
+        for index in range(26):
+            Insumo.objects.create(
+                nombre=f'Producto de cocina {index:02}',
+                tipo_inventario='cocina',
+            )
+            MovimientoInventario.objects.create(
+                insumo=self.insumo_1,
+                tipo_inventario='cocina',
+                producto_nombre=f'Movimiento {index:02}',
+                tipo='entrada',
+                cantidad=1,
+                stock_anterior=10,
+                stock_posterior=11,
+            )
+
+        response = self.client.get(reverse('inventario:administrador'), {
+            'cocina_page': 2,
+            'movimientos_page': 2,
+        })
+
+        self.assertEqual(response.status_code, 200)
+        movimientos_primera_pagina = response.context['movimientos']
+        self.assertEqual(movimientos_primera_pagina.paginator.per_page, 10)
+        self.assertEqual(len(movimientos_primera_pagina), 10)
+
+        response = self.client.get(reverse('inventario:administrador'), {
+            'cocina_page': 2,
+            'movimientos_page': 2,
+        })
+        self.assertEqual(response.status_code, 200)
+        inventario_cocina = response.context['inventarios'][0]['insumos']
+        self.assertEqual(inventario_cocina.number, 2)
+        self.assertEqual(inventario_cocina.paginator.count, 26)
+        self.assertEqual(len(inventario_cocina), 1)
+        movimientos = response.context['movimientos']
+        self.assertEqual(movimientos.number, 2)
+        self.assertEqual(movimientos.paginator.count, 26)
+        self.assertEqual(len(movimientos), 10)
+        self.assertContains(response, '?movimientos_page=1')
 
     def test_admin_can_classify_legacy_item_as_kitchen_without_losing_existing_data(self):
         plato = Plato.objects.create(
@@ -488,6 +533,7 @@ class InventarioFlowTests(TestCase):
         self.assertEqual(movimiento.stock_anterior, 10)
         self.assertEqual(movimiento.stock_posterior, 14.50)
 
+
     def test_admin_puede_registrar_merma_por_rotura(self):
         response = self.client.post(reverse('inventario:movimiento_crear'), {
             'insumo_id': self.insumo_1.id,
@@ -597,3 +643,137 @@ class InventarioFlowTests(TestCase):
             set(MovimientoInventario.objects.values_list('tipo_inventario', flat=True)),
             {'cocina', 'restaurante'},
         )
+
+
+class DemoDataCommandTests(TestCase):
+    def setUp(self):
+        self.admin = get_user_model().objects.create_user(
+            username='admin', password='123456', role='administrador'
+        )
+        self.mesa = Mesa.objects.create(numero=1, activa=True, abierta=True)
+        self.tasa = TasaCambio.objects.create(valor='385.00')
+
+    def test_demo_command_requires_confirmation_and_dry_run_is_safe(self):
+        categoria = Categoria.objects.create(nombre='Categoría que se conserva en dry-run')
+
+        with self.assertRaises(CommandError):
+            call_command('cargar_datos_demo')
+        call_command('cargar_datos_demo', dry_run=True)
+
+        self.assertTrue(Categoria.objects.filter(pk=categoria.pk).exists())
+        self.assertTrue(Mesa.objects.get(pk=self.mesa.pk).abierta)
+
+    def test_demo_command_replaces_operational_data_and_creates_full_history(self):
+        categoria_anterior = Categoria.objects.create(nombre='Categoría anterior')
+        plato_anterior = Plato.objects.create(
+            categoria=categoria_anterior,
+            nombre='Plato anterior',
+            precio='100.00',
+        )
+        pedido_anterior = Pedido.objects.create(
+            mesa=self.mesa,
+            estado='cerrado',
+            modalidad='mesa',
+            sesion_id=self.mesa.sesion_id,
+        )
+        ItemPedido.objects.create(pedido=pedido_anterior, plato=plato_anterior, cantidad=1)
+        Factura.objects.create(
+            pedido=pedido_anterior,
+            mesa_numero=self.mesa.numero,
+            forma_pago='efectivo_cup',
+            total_cup='100.00',
+            monto_efectivo_cup='100.00',
+            items_snapshot=[{
+                'plato': plato_anterior.nombre,
+                'cantidad': 1,
+                'precio_unit': '100.00',
+                'subtotal': '100.00',
+            }],
+        )
+        Turno.objects.create(estado='cerrado')
+
+        call_command('cargar_datos_demo', confirm=True, verbosity=0)
+
+        hoy = timezone.localdate()
+        self.assertTrue(get_user_model().objects.filter(pk=self.admin.pk).exists())
+        self.assertTrue(TasaCambio.objects.filter(pk=self.tasa.pk, valor='385.00').exists())
+        self.assertTrue(Mesa.objects.filter(pk=self.mesa.pk).exists())
+        self.assertTrue(Mesa.objects.get(pk=self.mesa.pk).abierta)
+        self.assertFalse(Categoria.objects.filter(nombre='Categoría anterior').exists())
+        self.assertFalse(Plato.objects.filter(nombre='Plato anterior').exists())
+        self.assertEqual(Turno.objects.filter(estado='cerrado').count(), 3)
+        self.assertEqual(Turno.objects.filter(estado='abierto', fecha=hoy).count(), 1)
+        self.assertEqual(Factura.objects.count(), 18)
+        self.assertGreaterEqual(Pedido.objects.filter(estado='cerrado').count(), 18)
+        self.assertFalse(
+            Pedido.objects.filter(
+                estado='cerrado',
+                items__plato__categoria__nombre='Bebidas',
+            ).exclude(destino='barra').exists()
+        )
+        self.assertEqual(
+            Pedido.objects.filter(
+                creado_en__date=hoy,
+                items__plato__nombre='Refresco embotellado',
+                destino='barra',
+            ).count(),
+            1,
+        )
+        for factura in Factura.objects.all():
+            total_snapshot = sum(
+                Decimal(item['subtotal']) for item in factura.items_snapshot
+            )
+            self.assertEqual(total_snapshot, factura.total_cup)
+        self.assertEqual(Pedido.objects.filter(creado_en__date=hoy).count(), 3)
+        self.assertEqual(Categoria.objects.count(), 5)
+        self.assertEqual(Plato.objects.count(), 27)
+        self.assertEqual(
+            Plato.objects.filter(disponible=True, receta__isnull=False).distinct().count(),
+            27,
+        )
+        self.assertTrue(Plato.objects.filter(nombre='Red Bull').exists())
+        self.assertTrue(Plato.objects.filter(nombre='Mojito').exists())
+        self.assertTrue(Plato.objects.filter(nombre='Botella de ron añejo').exists())
+        self.assertTrue(
+            Insumo.objects.filter(
+                nombre='Red Bull',
+                tipo_inventario='restaurante',
+                categoria_inventario__nombre='Bebidas frías',
+            ).exists()
+        )
+        self.assertTrue(
+            Insumo.objects.filter(
+                nombre='Flan porción',
+                tipo_inventario='restaurante',
+                categoria_inventario__nombre='Postres',
+            ).exists()
+        )
+        self.assertTrue(
+            RecetaItem.objects.filter(
+                plato__nombre='Mojito',
+                insumo__nombre='Ron añejo',
+                cantidad='50.000',
+            ).exists()
+        )
+        self.assertTrue(
+            RecetaItem.objects.filter(
+                plato__nombre='Flan de la casa',
+                insumo__nombre='Flan porción',
+            ).exists()
+        )
+        self.assertEqual(
+            set(Factura.objects.values_list('creado_en__date', flat=True)),
+            {
+                hoy - timedelta(days=1),
+                hoy - timedelta(days=2),
+                hoy - timedelta(days=3),
+            },
+        )
+        for turno in Turno.objects.filter(estado='cerrado'):
+            self.assertEqual(turno.cantidad_facturas, 6)
+            self.assertGreater(turno.total_general_cup, Decimal('0'))
+        self.assertGreater(MovimientoInventario.objects.filter(tipo='salida').count(), 0)
+
+        call_command('cargar_datos_demo', confirm=True, verbosity=0)
+        self.assertEqual(Factura.objects.count(), 18)
+        self.assertEqual(Turno.objects.count(), 4)

@@ -95,6 +95,21 @@ class UsuarioTurnoTests(TestCase):
         self.assertContains(response, 'setInterval(actualizarInventarioTurno, 5000)')
         self.assertNotContains(response, f'Factura #{factura_anterior.pk}')
 
+    def test_historial_de_turnos_se_pagina(self):
+        for indice in range(11):
+            turno = Turno.objects.create(estado='cerrado')
+            Turno.objects.filter(pk=turno.pk).update(
+                cierre=timezone.now() + timedelta(seconds=indice),
+            )
+
+        self.client.force_login(self.admin)
+        response = self.client.get(reverse('usuarios:historial_turnos'), {'page': 2})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context['historial'].number, 2)
+        self.assertEqual(response.context['historial'].paginator.count, 11)
+        self.assertEqual(len(response.context['historial']), 1)
+
     def test_dashboard_de_mesera_usa_navegacion_movil_del_panel(self):
         self.client.force_login(self.mesera)
 

@@ -1,0 +1,15 @@
+{% if page_obj.paginator.num_pages > 1 %}
+<nav class="flex flex-wrap items-center justify-center gap-2 py-4" aria-label="Paginación">
+  {% if page_obj.has_previous %}
+  <a class="btn btn-outline btn-sm" href="?{{ page_parameter }}={{ page_obj.previous_page_number }}{% if pagination_query %}&{{ pagination_query }}{% endif %}{{ pagination_anchor }}" rel="prev">Anterior</a>
+  {% else %}
+  <span class="btn btn-outline btn-sm opacity-50" aria-disabled="true">Anterior</span>
+  {% endif %}
+  <span class="px-2 text-sm text-slate-400">Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}</span>
+  {% if page_obj.has_next %}
+  <a class="btn btn-outline btn-sm" href="?{{ page_parameter }}={{ page_obj.next_page_number }}{% if pagination_query %}&{{ pagination_query }}{% endif %}{{ pagination_anchor }}" rel="next">Siguiente</a>
+  {% else %}
+  <span class="btn btn-outline btn-sm opacity-50" aria-disabled="true">Siguiente</span>
+  {% endif %}
+</nav>
+{% endif %}

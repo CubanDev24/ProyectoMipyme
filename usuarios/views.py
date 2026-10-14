@@ -3,6 +3,7 @@ from decimal import Decimal
 from django.contrib import messages
 from django.contrib.auth import logout, login, authenticate, get_user, update_session_auth_hash
 from django.contrib.auth.decorators import login_required
+from django.core.paginator import Paginator
 from django.db.models import Max, Sum
 from django.db.models.functions import Coalesce
 from django.http import JsonResponse
@@ -573,9 +574,13 @@ def historial_turnos_view(request):
 
     promedio_ipv = (total_general / Decimal(total_facturas)) if total_facturas else Decimal('0')
     rendimiento_promedio = (total_general / total_horas) if total_horas > 0 else Decimal('0')
+    turnos_paginados = Paginator(historial, 10).get_page(request.GET.get('page'))
+    pagination_query = request.GET.copy()
+    pagination_query.pop('page', None)
 
     context = {
-        'historial': historial,
+        'historial': turnos_paginados,
+        'historial_pagination_query': pagination_query.urlencode(),
         'resumen_general': {
             'total_general_cup': total_general,
             'total_efectivo_cup': total_efectivo,
