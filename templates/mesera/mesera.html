@@ -2393,24 +2393,44 @@
             const container = document.getElementById('menu-catalog');
             container.innerHTML = '';
 
+            const grupos = new Map();
             menuItems.forEach(item => {
-                const card = document.createElement('div');
-                card.className = "bg-slate-950 border border-slate-800 rounded-2xl p-4 flex flex-col justify-between hover:border-slate-700 transition-all";
-                const imagen = item.image
-                    ? `<img src="${escaparHtml(item.image)}" alt="${escaparHtml(item.name)}" loading="lazy" class="mesera-menu-card-image mb-3">`
-                    : `<div class="mesera-menu-card-placeholder mb-3 rounded-xl bg-emerald-500/10 text-emerald-400"><i class="fa-solid ${item.icon} text-3xl"></i></div>`;
-                card.innerHTML = `
-                    <div>
-                        ${imagen}
-                        <h4 class="font-bold text-white text-sm">${item.name}</h4>
-                        <p class="text-xs text-slate-400 mt-1">${item.desc}</p>
+                const categoria = item.category || 'General';
+                if (!grupos.has(categoria)) grupos.set(categoria, []);
+                grupos.get(categoria).push(item);
+            });
+
+            grupos.forEach((items, categoria) => {
+                const seccion = document.createElement('section');
+                seccion.className = 'col-span-full space-y-3';
+                seccion.innerHTML = `
+                    <div class="flex items-center justify-between border-b border-slate-800 pb-2">
+                        <h4 class="text-sm font-bold uppercase tracking-wider text-emerald-300">${escaparHtml(categoria)}</h4>
+                        <span class="text-xs text-slate-500">${items.length} ${items.length === 1 ? 'producto' : 'productos'}</span>
                     </div>
-                    <div class="mt-4 pt-3 border-t border-slate-900 flex justify-between items-center">
-                        <span class="text-xs font-semibold text-emerald-400">${item.category}</span>
-                        <span class="text-sm font-extrabold text-white">$${item.price.toFixed(2)}</span>
-                    </div>
-                `;
-                container.appendChild(card);
+                    <div class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4" data-menu-category></div>`;
+                const productosCategoria = seccion.querySelector('[data-menu-category]');
+
+                items.forEach(item => {
+                    const card = document.createElement('div');
+                    card.className = 'bg-slate-950 border border-slate-800 rounded-2xl p-4 flex flex-col justify-between hover:border-slate-700 transition-all';
+                    const imagen = item.image
+                        ? `<img src="${escaparHtml(item.image)}" alt="${escaparHtml(item.name)}" loading="lazy" class="mesera-menu-card-image mb-3">`
+                        : `<div class="mesera-menu-card-placeholder mb-3 rounded-xl bg-emerald-500/10 text-emerald-400"><i class="fa-solid ${escaparHtml(item.icon)} text-3xl"></i></div>`;
+                    card.innerHTML = `
+                        <div>
+                            ${imagen}
+                            <h4 class="font-bold text-white text-sm">${escaparHtml(item.name)}</h4>
+                            <p class="text-xs text-slate-400 mt-1">${escaparHtml(item.desc)}</p>
+                        </div>
+                        <div class="mt-4 pt-3 border-t border-slate-900 flex justify-between items-center">
+                            <span class="text-xs font-semibold text-emerald-400">${escaparHtml(categoria)}</span>
+                            <span class="text-sm font-extrabold text-white">${Number(item.price).toFixed(2)} CUP</span>
+                        </div>`;
+                    productosCategoria.appendChild(card);
+                });
+
+                container.appendChild(seccion);
             });
         }
 
