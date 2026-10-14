@@ -1766,6 +1766,38 @@ let platoEnDetallePrecio = 0;
 let notificacionesCliente = new Set();
 let toastTimeoutId = null;
 let currentView = 'menu';
+let recargaFacturaTimeoutId = null;
+const facturaOcultaStorageKey = `facturaFinalOculta:${MESA}`;
+
+function facturaYaOculta(factura) {
+  return Boolean(factura && sessionStorage.getItem(facturaOcultaStorageKey) === String(factura.id));
+}
+
+function programarRecargaFactura(factura) {
+  if (!factura || !factura.id) return;
+  clearTimeout(recargaFacturaTimeoutId);
+  recargaFacturaTimeoutId = setTimeout(() => {
+    if (!mesaDisponible) {
+      sessionStorage.setItem(facturaOcultaStorageKey, String(factura.id));
+      pedidosCliente = [];
+      pedidoActual = null;
+      renderHistorialCliente();
+      window.location.reload();
+    }
+  }, 60000);
+}
+
+function limpiarEstadoFacturaFinal() {
+  clearTimeout(recargaFacturaTimeoutId);
+  recargaFacturaTimeoutId = null;
+  sessionStorage.removeItem(facturaOcultaStorageKey);
+  facturaFinalCliente = false;
+  const container = document.getElementById('cuentaFinalContainer');
+  if (container) {
+    container.innerHTML = '';
+    container.style.display = 'none';
+  }
+}
 
 // ============================================================
 // UTILIDADES
@@ -1997,17 +2029,22 @@ function conectar() {
     
     if (d.tipo === 'estado_inicial_cliente' || d.tipo === 'historial_cliente') {
       mesaDisponible = d.mesa_abierta !== false;
-      pedidosCliente = d.pedidos || [];
+      const facturaOculta = !mesaDisponible && facturaYaOculta(d.factura);
+      pedidosCliente = facturaOculta ? [] : (d.pedidos || []);
       pedidoActual = pedidosCliente.filter(p => p.estado !== 'cerrado').slice(-1)[0] || null;
       renderHistorialCliente();
-      facturaFinalCliente = Boolean(d.factura);
-      renderCuentaFinal(d.factura);
+      facturaFinalCliente = Boolean(d.factura && !facturaOculta);
+      if (facturaFinalCliente) {
+        renderCuentaFinal(d.factura);
+        if (!mesaDisponible) programarRecargaFactura(d.factura);
+      } else {
+        const container = document.getElementById('cuentaFinalContainer');
+        container.innerHTML = '';
+        container.style.display = 'none';
+      }
       if (facturaFinalCliente) {
         switchTab('invoice');
-        document.querySelector('#view-invoice .cliente-amber-btn').style.display = 'none';
         document.getElementById('btnFacturaDirecta').style.display = 'none';
-      } else {
-        document.getElementById('cuentaFinalContainer').style.display = 'none';
       }
       if (pedidoActual) mostrarEstado(pedidoActual);
       actualizarDisponibilidadMesa();
@@ -2061,8 +2098,10 @@ function conectar() {
         renderHistorialCliente(); 
       }
       if (pedidoActual && d.pedido_id === pedidoActual.id) {
-        document.getElementById('cerrado-msg').style.display = 'block';
-        document.getElementById('btnFacturaDirecta').style.display = 'none';
+        const cerradoMsg = document.getElementById('cerrado-msg');
+        if (cerradoMsg) cerradoMsg.style.display = 'block';
+        const btnFacturaDirecta = document.getElementById('btnFacturaDirecta');
+        if (btnFacturaDirecta) btnFacturaDirecta.style.display = 'none';
       }
       notificarCliente(`pedido-${d.pedido_id}-cerrado`, `Pedido #${d.pedido_id} cerrado`, 'success');
       
@@ -2074,24 +2113,36 @@ function conectar() {
     } else if (d.tipo === 'factura_final') {
       facturaFinalCliente = true;
       renderCuentaFinal(d.factura);
+      programarRecargaFactura(d.factura);
       switchTab('invoice');
-      document.querySelector('#view-invoice .cliente-amber-btn').style.display = 'none';
       document.getElementById('btnFacturaDirecta').style.display = 'none';
       notificarCliente(`factura-${d.factura.id}`, `Factura final: ${d.factura.total_cup} CUP`, 'success');
       
     } else if (d.tipo === 'mesa_actualizada') {
       mesaDisponible = d.mesa.abierta;
       if (!mesaDisponible) {
-        pedidosCliente = [];
+        pedidosCliente = pedidosCliente.map(pedido => ({
+          ...pedido,
+          estado: 'cerrado',
+          estado_display: 'Cerrado',
+        }));
         pedidoActual = null;
-        if (!facturaFinalCliente) {
-          document.getElementById('cuentaFinalContainer').style.display = 'none';
-        }
+        carrito = [];
+        const notaPedido = document.getElementById('notaPedido');
+        if (notaPedido) notaPedido.value = '';
+        const estadoBox = document.getElementById('estado-box');
+        if (estadoBox) estadoBox.style.display = 'none';
+        const btnFacturaDirecta = document.getElementById('btnFacturaDirecta');
+        if (btnFacturaDirecta) btnFacturaDirecta.style.display = 'none';
+        const modalConfirmarCuenta = document.getElementById('modalConfirmarCuenta');
+        if (modalConfirmarCuenta) modalConfirmarCuenta.classList.add('hidden');
+        renderCartItems();
+        actualizarBadges();
         renderHistorialCliente();
+        if (facturaFinalCliente) switchTab('invoice');
         notificarCliente(`mesa-${MESA}-cerrada`, 'La mesa está cerrada', 'warning');
       } else {
-        facturaFinalCliente = false;
-        document.querySelector('#view-invoice .cliente-amber-btn').style.display = '';
+        limpiarEstadoFacturaFinal();
         ws.send(JSON.stringify({ accion: 'cargar_historial' }));
         notificarCliente(`mesa-${MESA}-abierta`, 'La mesa está abierta', 'success');
       }
@@ -2327,6 +2378,32 @@ function renderCuentaFinal(factura) {
   if (!factura) return;
   const container = document.getElementById('cuentaFinalContainer');
   if (!container) return;
+
+  if (facturaFinalCliente && factura.pdf_url) {
+    const pdfUrl = escapeHtml(factura.pdf_url);
+    const pdfPreviewUrl = escapeHtml(`${factura.pdf_url}?inline=1`);
+    container.style.display = 'block';
+    container.innerHTML = `
+      <div class="cliente-order-header">
+        <span class="cliente-order-id">Factura #${factura.id || '—'}</span>
+      </div>
+      <div class="cliente-order-total-row">
+        <span>Total pagado</span>
+        <span class="total-valor">${fmt(toNumber(factura.total_cup || factura.total || 0))} CUP</span>
+      </div>
+      <iframe
+        src="${pdfPreviewUrl}"
+        title="Factura PDF #${factura.id || ''}"
+        style="display:block;width:100%;height:65vh;min-height:380px;border:0;margin-top:12px;background:#fff;"
+      ></iframe>
+      <div class="cliente-cuenta-final-actions">
+        <a class="cliente-amber-btn flex-1 text-center" href="${pdfUrl}" target="_blank" rel="noopener noreferrer">
+          <i class="fa-solid fa-file-pdf"></i> Abrir o descargar factura PDF
+        </a>
+      </div>
+    `;
+    return;
+  }
   
   const items = (factura.items_snapshot || factura.items || []).map(item => {
     const subtotal = toNumber(item.subtotal) || 0;
@@ -2339,17 +2416,6 @@ function renderCuentaFinal(factura) {
   }).join('');
   
   const total = toNumber(factura.total_cup || factura.total || 0);
-  const enlacesFactura = factura.pdf_url && factura.web_url
-    ? `    <div class="cliente-cuenta-final-actions">
-        <a class="cliente-primary-btn flex-1 text-center" href="${escapeHtml(factura.web_url)}" target="_blank" rel="noopener noreferrer">
-          <i class="fa-solid fa-eye"></i> Ver factura digital
-        </a>
-        <a class="cliente-amber-btn flex-1 text-center" href="${escapeHtml(factura.pdf_url)}" target="_blank" rel="noopener noreferrer">
-          <i class="fa-solid fa-download"></i> Descargar PDF
-        </a>
-      </div>`
-    : '';
-  
   container.style.display = 'block';
   container.innerHTML = `
     <div class="cliente-order-header">
@@ -2361,7 +2427,6 @@ function renderCuentaFinal(factura) {
       <span class="total-valor">${fmt(total)} CUP</span>
     </div>
     <div style="font-size:10px;color:var(--gc-text-muted);margin-top:4px;">${factura.creado_en || ''}</div>
-    ${enlacesFactura}
   `;
 }
 

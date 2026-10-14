@@ -1,0 +1,14 @@
+<nav class="p-3 space-y-1" aria-label="Navegación de caja">
+  <a href="{% url 'pedidos:caja' %}" class="w-full flex items-center gap-3 px-3 py-3 rounded-xl font-medium text-sm text-slate-400 hover:text-white hover:bg-slate-800/50 transition-all">
+    <i class="fa-solid fa-cash-register text-lg w-6 text-center" aria-hidden="true"></i><span class="hidden lg:inline">Caja</span>
+  </a>
+  <a href="{% url 'pedidos:caja_estadisticas_pagina' %}" class="w-full flex items-center gap-3 px-3 py-3 rounded-xl font-medium text-sm text-slate-400 hover:text-white hover:bg-slate-800/50 transition-all">
+    <i class="fa-solid fa-chart-column text-lg w-6 text-center" aria-hidden="true"></i><span class="hidden lg:inline">Estadísticas</span>
+  </a>
+  <a href="{% url 'usuarios:dashboard' %}" class="w-full flex items-center gap-3 px-3 py-3 rounded-xl font-medium text-sm text-slate-400 hover:text-white hover:bg-slate-800/50 transition-all">
+    <i class="fa-solid fa-clock-rotate-left text-lg w-6 text-center" aria-hidden="true"></i><span class="hidden lg:inline">Detalle del turno</span>
+  </a>
+  <a href="{% url 'usuarios:historial_turnos' %}" class="w-full flex items-center gap-3 px-3 py-3 rounded-xl font-medium text-sm transition-all {% if seccion_activa == 'historial' %}bg-emerald-500/10 text-emerald-400 border border-emerald-500/20{% else %}text-slate-400 hover:text-white hover:bg-slate-800/50{% endif %}" {% if seccion_activa == 'historial' %}aria-current="page"{% endif %}>
+    <i class="fa-solid fa-clock-rotate-left text-lg w-6 text-center" aria-hidden="true"></i><span class="hidden lg:inline">Historial</span>
+  </a>
+</nav>

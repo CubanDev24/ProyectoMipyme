@@ -528,6 +528,62 @@ class FacturaWorkflowTests(TestCase):
         self.mesa.refresh_from_db()
         self.assertTrue(self.mesa.abierta)
 
+    def test_caja_cierra_mesa_sin_borrar_pedidos_y_cliente_recupera_factura_pdf(self):
+        self.pedido.estado = 'servido'
+        self.pedido.cuenta_solicitada = True
+        self.pedido.save(update_fields=['estado', 'cuenta_solicitada'])
+        pedido_adicional = Pedido.objects.create(
+            mesa=self.mesa,
+            sesion_id=self.mesa.sesion_id,
+            estado='servido',
+            cuenta_solicitada=True,
+        )
+        ItemPedido.objects.create(pedido=pedido_adicional, plato=self.plato, cantidad=1)
+
+        factura_data, error = async_to_sync(CajaConsumer().cerrar_pedido_con_pago)(
+            self.pedido.pk,
+            'efectivo_cup',
+            None,
+        )
+
+        self.assertIsNone(error)
+        self.assertEqual(set(factura_data['pedido_ids']), {self.pedido.pk, pedido_adicional.pk})
+        self.assertEqual(len(factura_data['items_snapshot']), 2)
+        self.mesa.refresh_from_db()
+        self.assertFalse(self.mesa.abierta)
+        self.assertEqual(
+            set(Pedido.objects.filter(mesa=self.mesa).values_list('pk', flat=True)),
+            {self.pedido.pk, pedido_adicional.pk},
+        )
+        self.assertEqual(
+            set(Pedido.objects.filter(mesa=self.mesa).values_list('estado', flat=True)),
+            {'cerrado'},
+        )
+
+        cliente = ClienteConsumer()
+        cliente.mesa_numero = str(self.mesa.numero)
+        pedidos, factura, mesa_abierta = async_to_sync(cliente.get_historial_cliente)()
+
+        self.assertFalse(mesa_abierta)
+        self.assertEqual({pedido['id'] for pedido in pedidos}, {self.pedido.pk, pedido_adicional.pk})
+        self.assertEqual(factura['pdf_url'], f'/pedidos/caja/factura/{factura_data["id"]}/imprimir/')
+
+        _, error = async_to_sync(MeseraConsumer().abrir_mesa)(self.mesa.pk)
+
+        self.assertIsNone(error)
+        self.mesa.refresh_from_db()
+        pedidos_nueva_sesion, factura_nueva_sesion, mesa_abierta = async_to_sync(
+            cliente.get_historial_cliente
+        )()
+        self.assertTrue(mesa_abierta)
+        self.assertEqual(pedidos_nueva_sesion, [])
+        self.assertIsNone(factura_nueva_sesion)
+        self.assertEqual(
+            Pedido.objects.filter(mesa=self.mesa).count(),
+            2,
+            'Los pedidos cobrados permanecen guardados para el historial administrativo.',
+        )
+
     def test_caja_rechaza_cobrar_ticket_para_llevar_no_entregado(self):
         grupo = uuid.uuid4()
         pedido = Pedido.objects.create(
@@ -882,6 +938,15 @@ class FacturaWorkflowTests(TestCase):
         self.assertEqual(response['Content-Type'], 'application/pdf')
         self.assertIn('attachment; filename=', response['Content-Disposition'])
         self.assertTrue(response.content.startswith(b'%PDF'))
+
+        inline_response = self.client.get(
+            f'/pedidos/caja/factura/{factura.id}/imprimir/?inline=1'
+        )
+
+        self.assertEqual(inline_response.status_code, 200)
+        self.assertEqual(inline_response['Content-Type'], 'application/pdf')
+        self.assertIn('inline; filename=', inline_response['Content-Disposition'])
+        self.assertTrue(inline_response.content.startswith(b'%PDF'))
 
     def test_factura_imprimir_web_devuelve_ticket_para_impresora(self):
         factura = Factura.objects.create(

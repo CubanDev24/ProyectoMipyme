@@ -27,6 +27,7 @@ ROLE_HOME = {
     'mesera': 'pedidos:mesera',
     'cajera': 'pedidos:caja',
 }
+ROLES_CON_ACCESO_FINANCIERO = {'administrador', 'cajera'}
 
 
 @never_cache
@@ -82,6 +83,7 @@ def login_view(request):
 @login_required
 def dashboard(request):
     hoy = timezone.localdate()
+    puede_ver_datos_financieros = request.user.role in ROLES_CON_ACCESO_FINANCIERO
     turno = get_turno_abierto()
     turno_anterior = None
     turno_abierto_pendiente = None
@@ -107,7 +109,7 @@ def dashboard(request):
             mesa.qr_url, mesa.qr_data = generar_qr_mesa(request, mesa)
     notificaciones = Notificacion.objects.filter(destinatario=request.user).order_by('-creada_en')[:10]
     facturas_turno = Factura.objects.none()
-    if turno:
+    if turno and puede_ver_datos_financieros:
         fin_turno = turno.cierre or timezone.now()
         facturas_turno = Factura.objects.filter(
             creado_en__gte=turno.apertura,
@@ -117,8 +119,9 @@ def dashboard(request):
         'turno': turno,
         'hoy': hoy,
         'turno_anterior': turno_anterior,
-        'resumen_turno_anterior': turno_anterior.resumen_financiero if turno_anterior else None,
-        'resumen_turno': turno.resumen_financiero if turno else None,
+        'resumen_turno_anterior': turno_anterior.resumen_financiero if turno_anterior and puede_ver_datos_financieros else None,
+        'resumen_turno': turno.resumen_financiero if turno and puede_ver_datos_financieros else None,
+        'puede_ver_datos_financieros': puede_ver_datos_financieros,
         'turno_abierto_pendiente': turno_abierto_pendiente,
         'mesas_admin': mesas_admin,
         'mesas_activas_salon': mesas_activas_salon,
@@ -171,6 +174,9 @@ def _decimal_o_cero(valor):
 
 @login_required
 def inventario_ventas_turno(request):
+    if request.user.role not in ROLES_CON_ACCESO_FINANCIERO:
+        return JsonResponse({'error': 'Sin permiso'}, status=403)
+
     turno = get_turno_abierto()
     if turno is None:
         return JsonResponse({
@@ -538,7 +544,7 @@ def cerrar_turno_view(request):
             turno=turno_pendiente,
         )
         messages.success(request, f'Turno cerrado correctamente. Resumen: {turno.resumen}')
-        if request.user.role == 'administrador':
+        if request.user.role in ROLES_CON_ACCESO_FINANCIERO:
             return redirect('usuarios:historial_turno_detalle', turno_id=turno.pk)
     except PermissionError as exc:
         messages.error(request, str(exc))
@@ -549,8 +555,8 @@ def cerrar_turno_view(request):
 
 @login_required
 def historial_turnos_view(request):
-    if request.user.role != 'administrador':
-        messages.error(request, 'Solo el administrador puede ver el historial de turnos.')
+    if request.user.role not in ROLES_CON_ACCESO_FINANCIERO:
+        messages.error(request, 'Solo el administrador y la cajera pueden ver el historial de turnos.')
         return redirect('usuarios:dashboard')
 
     turnos = Turno.objects.filter(estado='cerrado').prefetch_related('usuarios').order_by('-cierre', '-fecha')
@@ -597,8 +603,8 @@ def historial_turnos_view(request):
 
 @login_required
 def historial_turno_detalle_view(request, turno_id):
-    if request.user.role != 'administrador':
-        messages.error(request, 'Solo el administrador puede ver el detalle de un turno.')
+    if request.user.role not in ROLES_CON_ACCESO_FINANCIERO:
+        messages.error(request, 'Solo el administrador y la cajera pueden ver el detalle de un turno.')
         return redirect('usuarios:dashboard')
 
     turno = get_object_or_404(Turno.objects.prefetch_related('usuarios'), pk=turno_id)
@@ -617,7 +623,7 @@ def ipv_turno(request, turno_id):
     Devuelve el inventario perpetuo de ventas (IPV) de un turno concreto.
     Funciona tanto para turnos cerrados (histórico) como para el turno abierto (tiempo real).
     """
-    if request.user.role != 'administrador':
+    if request.user.role not in ROLES_CON_ACCESO_FINANCIERO:
         return JsonResponse({'error': 'Sin permiso'}, status=403)
 
     turno = get_object_or_404(Turno, pk=turno_id)
