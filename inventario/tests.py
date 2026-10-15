@@ -11,7 +11,7 @@ from carta.models import Categoria, Plato
 from inventario.models import CategoriaInventario, Insumo, MovimientoInventario, RecetaItem, TasaCambio
 from inventario.services import descontar_inventario_por_pedido
 from pedidos.models import Factura, ItemPedido, Mesa, Pedido
-from usuarios.models import Turno
+from usuarios.models import ConfiguracionWifi, Turno
 
 
 class InventarioFlowTests(TestCase):
@@ -32,6 +32,34 @@ class InventarioFlowTests(TestCase):
 
         self.assertEqual(response.status_code, 302)
         self.assertTrue(Categoria.objects.filter(nombre='Bebidas').exists())
+
+    def test_admin_can_configure_wifi_and_view_its_qr(self):
+        response = self.client.post(
+            reverse('inventario:configurar_wifi'),
+            {'ssid': 'WiFi del local', 'password': 'clave-segura'},
+        )
+
+        self.assertRedirects(response, f'{reverse("inventario:administrador")}#wifi')
+        configuracion = ConfiguracionWifi.objects.get(pk=1)
+        self.assertEqual(configuracion.ssid, 'WiFi del local')
+        self.assertEqual(configuracion.password, 'clave-segura')
+
+        response = self.client.get(reverse('inventario:administrador'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'id="nav-wifi"')
+        self.assertContains(response, 'id="admin-view-wifi"')
+        self.assertContains(response, 'alt="Código QR para conectarse a la red Wi-Fi WiFi del local"')
+        self.assertContains(response, 'data:image/png;base64,')
+
+    def test_admin_cannot_save_a_wifi_password_shorter_than_eight_characters(self):
+        response = self.client.post(
+            reverse('inventario:configurar_wifi'),
+            {'ssid': 'WiFi del local', 'password': 'corta'},
+        )
+
+        self.assertRedirects(response, f'{reverse("inventario:administrador")}#wifi')
+        self.assertFalse(ConfiguracionWifi.objects.exists())
 
     def test_admin_can_rename_a_category(self):
         response = self.client.post(

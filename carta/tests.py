@@ -1,7 +1,29 @@
+from unittest.mock import patch
+
 from django.test import TestCase
 from django.urls import reverse
 
+from carta.qr import generar_qr_wifi
 from pedidos.models import Mesa
+
+
+class WifiQrTests(TestCase):
+    def test_wifi_qr_uses_escaped_wpa_credentials(self):
+        with patch('carta.qr.qrcode.make') as make_qr:
+            make_qr.return_value.save.side_effect = lambda buffer, format: buffer.write(b'png')
+
+            resultado = generar_qr_wifi(r'Red;Local:5', r'clave;segura:2026')
+
+        make_qr.assert_called_once_with(r'WIFI:T:WPA;S:Red\;Local\:5;P:clave\;segura\:2026;;')
+        self.assertEqual(resultado, 'data:image/png;base64,cG5n')
+
+    def test_wifi_qr_supports_an_open_network(self):
+        with patch('carta.qr.qrcode.make') as make_qr:
+            make_qr.return_value.save.side_effect = lambda buffer, format: buffer.write(b'png')
+
+            generar_qr_wifi('Red abierta', '')
+
+        make_qr.assert_called_once_with('WIFI:T:nopass;S:Red abierta;;')
 
 
 class CartaQrTests(TestCase):
@@ -13,6 +35,10 @@ class CartaQrTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'Mesa 1')
         self.assertContains(response, 'QR')
+        self.assertContains(response, 'class="qr-mesa-card"')
+        self.assertContains(response, 'Escanea este código con la cámara de tu teléfono')
+        self.assertContains(response, 'css/qr-mesa.css')
+        self.assertContains(response, 'href="http://testserver/carta/mesa/1/"')
         self.assertTrue(response.headers.get('X-Frame-Options') in (None, 'ALLOWALL'))
 
     def test_qr_y_carta_muestran_la_etiqueta_de_exteriores(self):

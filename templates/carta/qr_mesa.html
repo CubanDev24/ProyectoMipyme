@@ -1,12 +1,36 @@
 {% extends 'base.html' %}
-{% block title %}QR {{ mesa.etiqueta }}{% endblock %}
+{% load static %}
+{% block title %}QR {{ mesa.etiqueta }} | Las Cuquis{% endblock %}
+{% block body_class %}qr-mesa-page{% endblock %}
 {% block topbar %}{% endblock %}
+{% block extra_head %}
+<link rel="stylesheet" href="{% static 'css/qr-mesa.css' %}?v=20261015">
+{% endblock %}
 {% block content %}
-<div style="">
+<main class="qr-mesa-shell">
+  <article class="qr-mesa-card" aria-labelledby="qr-mesa-title">
+    <div class="qr-mesa-brand" aria-label="Las Cuquis">
+      <span class="qr-mesa-brand-icon" aria-hidden="true">LC</span>
+      <span>Las Cuquis</span>
+    </div>
 
-  <img src="{{ qr_data }}" alt="Código QR de {{ mesa.etiqueta }}" style="width: 100%; max-width: 320px; border-radius: 16px; background: white; padding: 10px; margin-left: 40px;">
-  <div style="margin-top: 1.25rem; font-size: .85rem; color: #dfe6f3; word-break: break-all; align-items: center;">{{ qr_url }}</div>
-  <div style="margin-top: 1.5rem;">
-    <a href="{{ qr_url }}" class="btn btn-primary" target="_blank" rel="noopener noreferrer">Abrir carta</a>
-  </div>
+    <div class="qr-mesa-heading">
+      <span class="qr-mesa-kicker">Bienvenido/a</span>
+      <h1 id="qr-mesa-title">{{ mesa.etiqueta }}</h1>
+      <p>Escanea este código con la cámara de tu teléfono para consultar nuestra carta.</p>
+    </div>
+
+    <div class="qr-mesa-code-frame">
+      <img src="{{ qr_data }}" alt="Código QR para abrir la carta de {{ mesa.etiqueta }}" class="qr-mesa-code">
+    </div>
+
+    <p class="qr-mesa-instruction"><span aria-hidden="true">✦</span> Apunta la cámara hacia el código QR</p>
+
+    <a href="{{ qr_url }}" class="qr-mesa-button" target="_blank" rel="noopener noreferrer">
+      Abrir carta
+      <span aria-hidden="true">→</span>
+    </a>
+    <p class="qr-mesa-footer">Te esperamos. ¡Buen provecho!</p>
+  </article>
+</main>
 {% endblock %}
