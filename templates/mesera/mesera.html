@@ -53,6 +53,610 @@
             color: #f87171 !important;
         }
 
+        .takeaway-floating-actions {
+            position: fixed;
+            z-index: 45;
+            right: 24px;
+            bottom: 24px;
+            display: flex;
+            gap: 12px;
+        }
+
+        .takeaway-floating-actions.hidden,
+        .takeaway-modal-backdrop.hidden,
+        .takeaway-floating-badge.hidden {
+            display: none;
+        }
+
+        .takeaway-floating-button {
+            position: relative;
+            display: inline-flex;
+            min-height: 54px;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: 999px;
+            padding: 0 22px;
+            color: #f8fafc;
+            font-size: 14px;
+            font-weight: 800;
+            box-shadow: 0 12px 35px rgba(2, 6, 23, 0.45);
+            transition: transform 150ms ease, filter 150ms ease;
+        }
+
+        .takeaway-floating-button:hover {
+            transform: translateY(-2px);
+            filter: brightness(1.08);
+        }
+
+        .takeaway-floating-button:focus-visible {
+            outline: 3px solid #fff;
+            outline-offset: 3px;
+        }
+
+        .takeaway-floating-order {
+            background: #10b981;
+            color: #022c22;
+        }
+
+        .takeaway-floating-tickets {
+            background: #0284c7;
+        }
+
+        .takeaway-floating-badge {
+            position: absolute;
+            top: -7px;
+            right: -4px;
+            display: inline-flex;
+            min-width: 22px;
+            height: 22px;
+            align-items: center;
+            justify-content: center;
+            border: 2px solid rgba(255, 255, 255, 0.75);
+            border-radius: 999px;
+            background: #ef4444;
+            padding: 0 5px;
+            color: white;
+            font-size: 11px;
+            line-height: 1;
+        }
+
+        .takeaway-modal-backdrop {
+            position: fixed;
+            z-index: 55;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(2, 6, 23, 0.82);
+            padding: 20px;
+            backdrop-filter: blur(8px);
+        }
+
+        #payment-modal {
+            z-index: 2147483647;
+        }
+
+        #payment-modal.hidden {
+            display: none !important;
+        }
+
+        .takeaway-modal-panel {
+            display: flex;
+            width: min(100%, 900px);
+            min-height: 0;
+            max-height: min(90dvh, 900px);
+            flex-direction: column;
+            overflow: hidden;
+            border: 1px solid #334155;
+            border-radius: 22px;
+            background: #0f172a;
+            box-shadow: 0 28px 90px rgba(0, 0, 0, 0.55);
+        }
+
+        .takeaway-modal-header {
+            display: flex;
+            min-height: 76px;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+            border-bottom: 1px solid #1e293b;
+            background: #020617;
+            padding: 16px 20px;
+        }
+
+        .takeaway-modal-heading {
+            min-width: 0;
+        }
+
+        .takeaway-modal-heading h3 {
+            margin: 0;
+            color: #f8fafc;
+            font-size: 16px;
+            font-weight: 800;
+            line-height: 1.35;
+        }
+
+        .takeaway-modal-heading p {
+            margin: 5px 0 0;
+            color: #94a3b8;
+            font-size: 12px;
+            line-height: 1.4;
+        }
+
+        .takeaway-modal-close {
+            display: inline-grid;
+            width: 40px;
+            height: 40px;
+            flex: 0 0 40px;
+            place-items: center;
+            border: 1px solid #334155;
+            border-radius: 12px;
+            background: #1e293b;
+            color: #cbd5e1;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background-color 150ms ease, color 150ms ease;
+        }
+
+        .takeaway-modal-close:hover {
+            background: #334155;
+            color: #fff;
+        }
+
+        .takeaway-modal-close:focus-visible,
+        .takeaway-modal-panel button:focus-visible,
+        .takeaway-modal-panel input:focus-visible,
+        .takeaway-modal-panel textarea:focus-visible {
+            outline: 2px solid #34d399;
+            outline-offset: 2px;
+        }
+
+        .takeaway-view:not(.hidden) {
+            display: flex;
+            flex-direction: column;
+            gap: 1.25rem;
+            padding-bottom: 92px;
+        }
+
+        .takeaway-menu-sections {
+            display: grid;
+            gap: 1.75rem;
+        }
+
+        .takeaway-menu-sections > section {
+            min-width: 0;
+        }
+
+        .takeaway-menu-category-heading {
+            display: flex;
+            align-items: baseline;
+            justify-content: space-between;
+            gap: 12px;
+            margin-bottom: 12px;
+            border-bottom: 1px solid #1e293b;
+            padding: 0 2px 9px;
+        }
+
+        .takeaway-menu-category-heading h4 {
+            min-width: 0;
+            margin: 0;
+            color: #f8fafc;
+            font-size: 16px;
+            font-weight: 800;
+            line-height: 1.3;
+            overflow-wrap: anywhere;
+        }
+
+        .takeaway-menu-category-heading span {
+            flex: 0 0 auto;
+            color: #94a3b8;
+            font-size: 12px;
+        }
+
+        .takeaway-menu-image {
+            width: 100%;
+            height: auto;
+            flex: 0 0 auto;
+            aspect-ratio: 1.55 / 1;
+            border-radius: 12px;
+            background: #1e293b;
+            object-fit: cover;
+        }
+
+        .takeaway-menu-placeholder {
+            display: grid;
+            width: 100%;
+            flex: 0 0 auto;
+            aspect-ratio: 1.55 / 1;
+            place-items: center;
+            border-radius: 12px;
+            background: #1e293b;
+            color: #94a3b8;
+            font-size: 22px;
+        }
+
+        .takeaway-menu-category {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            align-items: start;
+            gap: 12px;
+        }
+
+        .takeaway-product-card {
+            position: relative;
+            display: flex;
+            min-width: 0;
+            aspect-ratio: 1 / 1;
+            flex-direction: column;
+            align-items: stretch;
+            gap: 9px;
+            border: 1px solid #1e293b;
+            border-radius: 16px;
+            background: rgba(2, 6, 23, 0.72);
+            padding: 10px;
+            transition: border-color 150ms ease, background-color 150ms ease, transform 150ms ease;
+        }
+
+        .takeaway-product-card:hover {
+            transform: translateY(-1px);
+            border-color: rgba(52, 211, 153, 0.45);
+            background: rgba(15, 23, 42, 0.96);
+        }
+
+        .takeaway-product-info {
+            min-width: 0;
+            flex: 1 1 auto;
+            padding-right: 42px;
+        }
+
+        .takeaway-menu-name {
+            display: -webkit-box;
+            overflow: hidden;
+            -webkit-box-orient: vertical;
+            -webkit-line-clamp: 2;
+            line-clamp: 2;
+            margin: 0;
+            color: #f8fafc;
+            font-size: 14px;
+            font-weight: 800;
+            line-height: 1.35;
+            overflow-wrap: anywhere;
+        }
+
+        .takeaway-product-description {
+            margin: 5px 0 0;
+            overflow: hidden;
+            color: #94a3b8;
+            font-size: 11px;
+            line-height: 1.35;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .takeaway-product-price {
+            margin: 8px 0 0;
+            color: #6ee7b7;
+            font-size: 14px;
+            font-weight: 800;
+        }
+
+        .takeaway-product-price small {
+            color: #94a3b8;
+            font-size: 10px;
+            font-weight: 700;
+        }
+
+        .takeaway-product-add {
+            position: absolute;
+            right: 10px;
+            bottom: 10px;
+            display: inline-grid;
+            width: 42px;
+            height: 42px;
+            place-items: center;
+            border: 1px solid rgba(52, 211, 153, 0.45);
+            border-radius: 12px;
+            background: #10b981;
+            color: #022c22;
+            cursor: pointer;
+            font-size: 15px;
+            transition: background-color 150ms ease, transform 150ms ease;
+        }
+
+        .takeaway-product-add:hover {
+            transform: scale(1.04);
+            background: #34d399;
+        }
+
+        .takeaway-product-add:focus-visible {
+            outline: 2px solid #a7f3d0;
+            outline-offset: 2px;
+        }
+
+        .takeaway-order-layout {
+            display: grid;
+            min-height: 0;
+            flex: 1 1 auto;
+            grid-template-columns: minmax(0, 1fr);
+            gap: 1.25rem;
+            overflow-y: auto;
+            padding: 1.25rem;
+        }
+
+        .takeaway-cart-section,
+        .takeaway-order-summary {
+            min-width: 0;
+        }
+
+        .takeaway-cart-list {
+            display: grid;
+            max-height: min(48vh, 460px);
+            gap: 8px;
+            overflow-y: auto;
+            padding: 2px 5px 2px 0;
+            overscroll-behavior: contain;
+        }
+
+        .takeaway-cart-empty {
+            display: grid;
+            min-height: 140px;
+            place-content: center;
+            gap: 8px;
+            border: 1px dashed #334155;
+            border-radius: 14px;
+            padding: 20px;
+            color: #94a3b8;
+            font-size: 13px;
+            text-align: center;
+        }
+
+        .takeaway-cart-empty i {
+            color: #64748b;
+            font-size: 24px;
+        }
+
+        .takeaway-cart-item {
+            display: flex;
+            min-width: 0;
+            min-height: 58px;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            border: 1px solid #334155;
+            border-radius: 12px;
+            background: #111c30;
+            padding: 9px 10px 9px 14px;
+        }
+
+        .takeaway-cart-item-name {
+            min-width: 0;
+            overflow: hidden;
+            color: #e2e8f0;
+            font-size: 13px;
+            font-weight: 700;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .takeaway-cart-item-info {
+            display: grid;
+            min-width: 0;
+            flex: 1 1 auto;
+            gap: 3px;
+        }
+
+        .takeaway-cart-item-price {
+            color: #6ee7b7;
+            font-size: 12px;
+            font-weight: 700;
+            line-height: 1.2;
+        }
+
+        .takeaway-quantity-control {
+            display: flex;
+            flex: 0 0 auto;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .takeaway-quantity-button {
+            display: inline-grid;
+            width: 34px;
+            height: 34px;
+            place-items: center;
+            border: 1px solid #475569;
+            border-radius: 9px;
+            background: #0f172a;
+            color: #cbd5e1;
+            cursor: pointer;
+            font-size: 12px;
+            transition: border-color 150ms ease, background-color 150ms ease, color 150ms ease;
+        }
+
+        .takeaway-quantity-button:hover {
+            border-color: #34d399;
+            background: rgba(16, 185, 129, 0.12);
+            color: #6ee7b7;
+        }
+
+        .takeaway-quantity-value {
+            min-width: 22px;
+            color: #f8fafc;
+            font-size: 13px;
+            font-weight: 800;
+            text-align: center;
+        }
+
+        .takeaway-tickets-list {
+            min-height: 0;
+            flex: 1 1 auto;
+            overflow-y: auto;
+            padding: 1.25rem;
+        }
+
+        .takeaway-order-summary {
+            align-self: start;
+            border: 1px solid #1e293b;
+            border-radius: 14px;
+            background: rgba(2, 6, 23, 0.6);
+            padding: 16px;
+        }
+
+        .takeaway-order-summary input,
+        .takeaway-order-summary textarea {
+            display: block;
+            width: 100%;
+            min-width: 0;
+            border: 1px solid #334155;
+            border-radius: 10px;
+            background: #0f172a;
+            padding: 10px 12px;
+            color: #f8fafc;
+            font: inherit;
+            font-size: 14px;
+        }
+
+        .takeaway-order-summary input::placeholder,
+        .takeaway-order-summary textarea::placeholder {
+            color: #64748b;
+        }
+
+        .takeaway-order-summary textarea {
+            min-height: 82px;
+            resize: vertical;
+        }
+
+        .takeaway-summary-heading {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            border-bottom: 1px solid #1e293b;
+            padding-bottom: 12px;
+        }
+
+        .takeaway-submit-button {
+            display: inline-flex;
+            width: 100%;
+            min-height: 48px;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            border: 1px solid #34d399;
+            border-radius: 11px;
+            background: #10b981;
+            padding: 10px 14px;
+            color: #022c22;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 800;
+            text-align: center;
+            transition: background-color 150ms ease, transform 150ms ease;
+        }
+
+        .takeaway-submit-button:hover:not(:disabled) {
+            transform: translateY(-1px);
+            background: #34d399;
+        }
+
+        .takeaway-submit-button:disabled {
+            border-color: #475569;
+            background: #334155;
+            color: #94a3b8;
+            cursor: not-allowed;
+        }
+
+        .takeaway-ticket-card {
+            min-width: 0;
+            border: 1px solid rgba(14, 165, 233, 0.24);
+            border-radius: 15px;
+            background: #020617;
+            padding: 16px;
+        }
+
+        .takeaway-ticket-card button {
+            display: inline-flex;
+            min-height: 42px;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 800;
+            line-height: 1.3;
+            text-align: center;
+        }
+
+        .takeaway-ticket-card button:only-of-type {
+            width: 100%;
+        }
+
+        .takeaway-ticket-card .takeaway-deliver-button {
+            border: 1px solid #38bdf8;
+            background: #0284c7;
+            padding: 9px 12px;
+            color: #f8fafc;
+        }
+
+        .takeaway-ticket-card .takeaway-deliver-button:hover {
+            background: #0ea5e9;
+        }
+
+        .takeaway-ticket-card .takeaway-charge-button {
+            border: 1px solid #34d399;
+            background: #10b981;
+            padding: 10px 14px;
+            color: #022c22;
+            font-size: 13px;
+        }
+
+        .takeaway-ticket-card .takeaway-charge-button:hover {
+            background: #34d399;
+        }
+
+        .takeaway-ticket-line {
+            min-width: 0;
+            border: 1px solid #1e293b;
+            border-radius: 11px;
+            background: #0f172a;
+            padding: 12px;
+        }
+
+        .takeaway-ticket-line-item {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 12px;
+            padding: 6px 0;
+            color: #cbd5e1;
+            font-size: 12px;
+            line-height: 1.4;
+        }
+
+        .takeaway-ticket-line-item > span:first-child {
+            min-width: 0;
+            overflow-wrap: anywhere;
+        }
+
+        .takeaway-ticket-line-item > span:last-child {
+            flex: 0 0 auto;
+            color: #94a3b8;
+            white-space: nowrap;
+        }
+
+        .mobile-order-toggle {
+            display: none;
+        }
+
+        @media (min-width: 768px) {
+            .takeaway-order-layout {
+                grid-template-columns: minmax(0, 1fr) minmax(280px, .72fr);
+            }
+        }
+
         .receipt-upload-button {
             display: inline-flex;
             min-height: 40px;
@@ -68,6 +672,13 @@
             font-size: 12px;
             font-weight: 700;
             white-space: nowrap;
+        }
+
+        .receipt-upload-actions {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: flex-end;
+            gap: 8px;
         }
 
         .receipt-upload-button:hover {
@@ -359,6 +970,7 @@
             #menu-catalog {
                 grid-template-columns: repeat(2, minmax(0, 1fr));
             }
+
         }
 
         @media (max-width: 767px) {
@@ -638,24 +1250,142 @@
                 gap: 10px;
             }
 
-            #view-takeaway > .grid {
+            .takeaway-view:not(.hidden) {
                 gap: 12px;
-            }
-
-            #view-takeaway section {
-                min-width: 0;
-                padding: 12px;
-            }
-
-            #takeaway-menu {
-                grid-template-columns: minmax(0, 1fr);
+                padding-bottom: 84px;
             }
 
             #table-modal,
             #payment-modal,
-            #qr-modal {
+            #qr-modal,
+            #takeaway-order-modal,
+            #takeaway-tickets-modal {
                 align-items: flex-end;
                 padding: 0;
+            }
+
+            .takeaway-floating-actions {
+                right: 12px;
+                bottom: calc(76px + env(safe-area-inset-bottom));
+                left: 12px;
+                justify-content: center;
+                gap: 8px;
+            }
+
+            .takeaway-floating-button {
+                min-height: 48px;
+                flex: 1 1 0;
+                gap: 7px;
+                padding: 0 12px;
+                font-size: 12px;
+            }
+
+            .takeaway-modal-panel {
+                width: 100%;
+                min-height: 0;
+                max-height: 94dvh;
+                border-right: 0;
+                border-bottom: 0;
+                border-left: 0;
+                border-radius: 18px 18px 0 0;
+                padding-bottom: env(safe-area-inset-bottom);
+            }
+
+            .takeaway-modal-header {
+                min-height: 68px;
+                gap: 10px;
+                padding: 12px 14px;
+            }
+
+            .takeaway-modal-heading h3 {
+                font-size: 14px;
+            }
+
+            .takeaway-modal-heading p {
+                font-size: 11px;
+            }
+
+            .takeaway-order-layout,
+            .takeaway-tickets-list {
+                padding: 12px;
+            }
+
+            .takeaway-order-layout {
+                grid-template-columns: minmax(0, 1fr);
+                gap: 12px;
+            }
+
+            .takeaway-cart-list {
+                max-height: 34dvh;
+            }
+
+            .takeaway-cart-item {
+                gap: 8px;
+                padding: 8px;
+            }
+
+            .takeaway-cart-item-name {
+                font-size: 12px;
+            }
+
+            .takeaway-quantity-control {
+                gap: 5px;
+            }
+
+            .takeaway-quantity-button {
+                width: 32px;
+                height: 32px;
+            }
+
+            .takeaway-order-summary {
+                padding: 13px;
+            }
+
+            .takeaway-ticket-card {
+                padding: 12px;
+            }
+
+            .takeaway-ticket-card button {
+                min-height: 44px;
+                padding: 9px 10px;
+            }
+
+            .takeaway-menu-category {
+                grid-template-columns: repeat(auto-fill, minmax(min(100%, 135px), 1fr));
+                gap: 8px;
+            }
+
+            .takeaway-menu-sections {
+                gap: 20px;
+            }
+
+            .takeaway-product-card {
+                gap: 7px;
+                border-radius: 13px;
+                padding: 8px;
+            }
+
+            .takeaway-product-info {
+                padding-right: 36px;
+            }
+
+            .takeaway-menu-category-heading {
+                margin-bottom: 9px;
+            }
+
+            .takeaway-menu-category-heading h4 {
+                font-size: 15px;
+            }
+
+            .takeaway-menu-name {
+                font-size: 13px;
+            }
+
+            .takeaway-product-add {
+                right: 8px;
+                bottom: 8px;
+                width: 40px;
+                height: 40px;
             }
 
             #modal-panel {
@@ -715,12 +1445,18 @@
 
             #modal-order-panel {
                 width: 100%;
-                min-height: 145px;
-                max-height: 36%;
-                flex: 0 0 34%;
+                min-height: clamp(140px, 25dvh, 180px);
+                max-height: min(52dvh, 420px);
+                flex: 0 1 48dvh;
                 gap: 8px;
                 overflow: hidden;
                 padding: 10px;
+            }
+
+            #modal-order-panel.is-collapsed {
+                min-height: 144px;
+                max-height: 144px;
+                flex: 0 0 144px;
             }
 
             #modal-order-panel > div:first-child {
@@ -730,11 +1466,58 @@
                 flex-direction: column;
             }
 
+            #modal-order-panel.is-collapsed > div:first-child {
+                flex: 0 0 auto;
+            }
+
+            #modal-order-panel.is-collapsed > div:first-child > div:first-child {
+                margin-bottom: 6px;
+                padding-bottom: 6px;
+            }
+
+            #modal-order-panel.is-collapsed > div:last-child {
+                flex: 0 0 auto;
+                gap: 4px;
+                padding-top: 6px;
+            }
+
+            #modal-order-panel.is-collapsed > div:last-child > div + div {
+                margin-top: 4px;
+                padding-top: 4px;
+            }
+
             #order-items-container {
                 min-height: 0;
                 max-height: none;
                 flex: 1;
                 overscroll-behavior: contain;
+            }
+
+            #modal-order-panel.is-collapsed #order-items-container {
+                display: none;
+            }
+
+            .mobile-order-toggle {
+                display: inline-flex;
+                min-width: 36px;
+                min-height: 36px;
+                align-items: center;
+                justify-content: center;
+                border: 1px solid #334155;
+                border-radius: 9px;
+                background: #0f172a;
+                color: #cbd5e1;
+                cursor: pointer;
+            }
+
+            .mobile-order-toggle:hover {
+                border-color: #34d399;
+                color: #6ee7b7;
+            }
+
+            .mobile-order-toggle:focus-visible {
+                outline: 2px solid #34d399;
+                outline-offset: 2px;
             }
 
             #order-items-container button {
@@ -951,43 +1734,12 @@
                 <div id="bar-orders-container" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4"></div>
             </section>
 
-            <section id="view-takeaway" class="hidden space-y-5">
+            <section id="view-takeaway" class="hidden takeaway-view">
                 <div>
                     <h3 class="text-base font-bold text-white flex items-center gap-2"><i class="fa-solid fa-bag-shopping text-sky-300"></i> Pedidos para llevar</h3>
-                    <p class="mt-1 text-xs text-slate-400">Crea tickets separados del salón; cuando estén listos, márcalos como entregados.</p>
+                    <p class="mt-1 text-xs text-slate-400">Elige platos por categoría y usa los botones de abajo para crear pedidos o revisar tickets.</p>
                 </div>
-                <div class="grid grid-cols-1 xl:grid-cols-[minmax(0,1.15fr)_minmax(340px,.85fr)] gap-5 items-start">
-                    <section class="rounded-xl border border-slate-800 bg-slate-950/60 p-4">
-                        <div class="flex items-center justify-between gap-3 border-b border-slate-800 pb-3">
-                            <h4 class="text-sm font-bold text-white">Carta</h4>
-                            <span class="text-xs text-slate-400">Selecciona productos</span>
-                        </div>
-                        <div id="takeaway-menu" class="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2"></div>
-                        <div class="mt-5 border-t border-slate-800 pt-4">
-                            <div class="flex items-center justify-between"><h4 class="text-sm font-bold text-white">Nuevo ticket</h4><span id="takeaway-cart-total" class="text-sm font-bold text-emerald-300">0.00 CUP</span></div>
-                            <div id="takeaway-cart" class="mt-3 space-y-2"></div>
-                            <label for="takeaway-customer-name" class="mt-4 mb-1 block text-xs font-semibold text-slate-400">Nombre de quien solicita</label>
-                            <input id="takeaway-customer-name" type="text" maxlength="120" autocomplete="name" required class="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white placeholder-slate-500 focus:border-emerald-500 focus:outline-none" placeholder="Nombre de la persona">
-                            <label for="takeaway-customer-phone" class="mt-3 mb-1 block text-xs font-semibold text-slate-400">Teléfono</label>
-                            <input id="takeaway-customer-phone" type="tel" maxlength="30" autocomplete="tel" required class="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white placeholder-slate-500 focus:border-emerald-500 focus:outline-none" placeholder="Teléfono de contacto">
-                            <label for="takeaway-note" class="mt-4 mb-1 block text-xs font-semibold text-slate-400">Nota del pedido</label>
-                            <textarea id="takeaway-note" rows="2" maxlength="500" class="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white placeholder-slate-500 focus:border-emerald-500 focus:outline-none" placeholder="Indicaciones para cocina o barra"></textarea>
-                            {% if turno %}
-                            <button type="button" id="takeaway-submit" onclick="crearPedidoParaLlevar()" class="mt-3 w-full rounded-lg bg-emerald-500 px-4 py-2.5 text-sm font-bold text-slate-950 hover:bg-emerald-400"><i class="fa-solid fa-paper-plane mr-2"></i>Enviar pedido</button>
-                            {% else %}
-                            <p class="mt-3 rounded-lg border border-amber-400/20 bg-amber-400/10 px-3 py-2 text-xs text-amber-200">El administrador debe abrir el turno para recibir pedidos.</p>
-                            <button type="button" id="takeaway-submit" disabled class="mt-2 w-full cursor-not-allowed rounded-lg bg-slate-700 px-4 py-2.5 text-sm font-bold text-slate-400"><i class="fa-solid fa-lock mr-2"></i>Turno cerrado</button>
-                            {% endif %}
-                        </div>
-                    </section>
-                    <section class="rounded-xl border border-slate-800 bg-slate-950/60 p-4">
-                        <div class="flex items-center justify-between gap-3 border-b border-slate-800 pb-3">
-                            <h4 class="text-sm font-bold text-white">Tickets activos</h4>
-                            <span id="takeaway-active-count" class="rounded-full bg-slate-800 px-2 py-1 text-xs font-bold text-slate-300">0</span>
-                        </div>
-                        <div id="takeaway-orders-container" class="mt-3 space-y-3"></div>
-                    </section>
-                </div>
+                <div id="takeaway-menu" class="takeaway-menu-sections"></div>
             </section>
 
             <!-- VISTA: MENÚ/CARTA -->
@@ -1002,6 +1754,75 @@
 
         </div>
     </main>
+
+    <div id="takeaway-floating-actions" class="takeaway-floating-actions hidden" aria-label="Acciones de pedidos para llevar">
+        <button type="button" onclick="abrirModalPedidoParaLlevar()" class="takeaway-floating-button takeaway-floating-order">
+            <i class="fa-solid fa-cart-shopping" aria-hidden="true"></i>
+            <span>Nuevo pedido</span>
+            <span id="takeaway-cart-count" class="takeaway-floating-badge hidden" aria-label="Artículos en el carrito">0</span>
+        </button>
+        <button type="button" onclick="abrirModalTicketsParaLlevar()" class="takeaway-floating-button takeaway-floating-tickets">
+            <i class="fa-solid fa-receipt" aria-hidden="true"></i>
+            <span>Tickets activos</span>
+            <span id="takeaway-unseen-count" class="takeaway-floating-badge hidden" aria-label="Tickets nuevos sin revisar" aria-live="polite">0</span>
+        </button>
+    </div>
+
+    <div id="takeaway-order-modal" class="takeaway-modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="takeaway-order-title" aria-hidden="true">
+        <section class="takeaway-modal-panel">
+            <header class="takeaway-modal-header">
+                <div class="takeaway-modal-heading">
+                    <h3 id="takeaway-order-title" class="text-base font-bold text-white"><i class="fa-solid fa-cart-shopping mr-2 text-emerald-300"></i>Nuevo pedido para llevar</h3>
+                    <p class="mt-1 text-xs text-slate-400">Revisa el carrito y los datos del cliente antes de enviar.</p>
+                </div>
+                <button type="button" onclick="cerrarModalPedidoParaLlevar()" class="takeaway-modal-close" aria-label="Cerrar carrito">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </header>
+            <div class="takeaway-order-layout">
+                <section class="takeaway-cart-section">
+                    <h4 class="mb-3 text-sm font-bold text-white">Carrito</h4>
+                    <div id="takeaway-cart" class="takeaway-cart-list"></div>
+                </section>
+                <div class="takeaway-order-summary rounded-xl border border-slate-800 bg-slate-950/60 p-4">
+                    <div class="takeaway-summary-heading">
+                        <h4 class="text-sm font-bold text-white">Resumen</h4>
+                        <span id="takeaway-cart-total" class="text-sm font-bold text-emerald-300">0.00 CUP</span>
+                    </div>
+                    <label for="takeaway-customer-name" class="mb-1 mt-4 block text-xs font-semibold text-slate-400">Nombre de quien solicita</label>
+                    <input id="takeaway-customer-name" type="text" maxlength="120" autocomplete="name" required class="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white placeholder-slate-500 focus:border-emerald-500 focus:outline-none" placeholder="Nombre de la persona">
+                    <label for="takeaway-customer-phone" class="mb-1 mt-3 block text-xs font-semibold text-slate-400">Teléfono</label>
+                    <input id="takeaway-customer-phone" type="tel" maxlength="30" autocomplete="tel" required class="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white placeholder-slate-500 focus:border-emerald-500 focus:outline-none" placeholder="Teléfono de contacto">
+                    <label for="takeaway-note" class="mb-1 mt-4 block text-xs font-semibold text-slate-400">Nota del pedido</label>
+                    <textarea id="takeaway-note" rows="3" maxlength="500" class="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white placeholder-slate-500 focus:border-emerald-500 focus:outline-none" placeholder="Indicaciones para cocina o barra"></textarea>
+                    {% if turno %}
+                    <button type="button" id="takeaway-submit" onclick="crearPedidoParaLlevar()" class="takeaway-submit-button mt-4"><i class="fa-solid fa-paper-plane" aria-hidden="true"></i>Enviar pedido</button>
+                    {% else %}
+                    <p class="mt-4 rounded-lg border border-amber-400/20 bg-amber-400/10 px-3 py-2 text-xs text-amber-200">El administrador debe abrir el turno para recibir pedidos.</p>
+                    <button type="button" id="takeaway-submit" disabled class="takeaway-submit-button mt-2"><i class="fa-solid fa-lock" aria-hidden="true"></i>Turno cerrado</button>
+                    {% endif %}
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <div id="takeaway-tickets-modal" class="takeaway-modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="takeaway-tickets-title" aria-hidden="true">
+        <section class="takeaway-modal-panel">
+            <header class="takeaway-modal-header">
+                <div class="takeaway-modal-heading flex items-center gap-3">
+                    <div>
+                        <h3 id="takeaway-tickets-title" class="text-base font-bold text-white"><i class="fa-solid fa-receipt mr-2 text-sky-300"></i>Tickets para llevar</h3>
+                        <p class="mt-1 text-xs text-slate-400">Pedidos activos, estado de preparación y entrega.</p>
+                    </div>
+                    <span id="takeaway-active-count" class="rounded-full bg-slate-800 px-2.5 py-1 text-xs font-bold text-slate-300">0</span>
+                </div>
+                <button type="button" onclick="cerrarModalTicketsParaLlevar()" class="takeaway-modal-close" aria-label="Cerrar tickets">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </header>
+            <div id="takeaway-orders-container" class="takeaway-tickets-list space-y-3"></div>
+        </section>
+    </div>
 
     <div id="call-alert" class="call-alert-backdrop hidden fixed inset-0 z-[100] flex items-center justify-center p-4" role="alertdialog" aria-modal="true" aria-labelledby="call-alert-title" aria-describedby="call-alert-description">
         <div class="call-alert-panel">
@@ -1134,6 +1955,9 @@
                             <div class="flex items-center gap-2">
                                 <span id="modal-order-count" aria-live="polite" class="rounded-full bg-emerald-500/10 px-2 py-1 text-[10px] font-semibold text-emerald-300">0 artículos</span>
                                 <span class="text-xs text-slate-500" id="modal-order-time">--:--</span>
+                                <button type="button" id="mobile-order-toggle" class="mobile-order-toggle" onclick="toggleMobileTableOrder()" aria-expanded="false" aria-controls="order-items-container" aria-label="Expandir comanda actual" title="Expandir comanda actual">
+                                    <i class="fa-solid fa-chevron-up" aria-hidden="true"></i>
+                                </button>
                             </div>
                         </div>
 
@@ -1169,7 +1993,7 @@
     </div>
 
     <!-- MODAL FACTURA / PAGO -->
-    <div id="payment-modal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 opacity-0 pointer-events-none transition-all duration-300">
+    <div id="payment-modal" class="hidden fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 opacity-0 pointer-events-none transition-all duration-300">
         <form onsubmit="event.preventDefault(); confirmPayment();" class="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-md max-h-[calc(100vh-2rem)] overflow-y-auto p-6 shadow-2xl space-y-6">
             {% csrf_token %}
             <div class="flex justify-between items-center border-b border-slate-800 pb-4">
@@ -1218,10 +2042,16 @@
                                     <p class="mt-1 text-[10px] text-slate-500">Imagen JPG o PNG · máximo 5 MB</p>
                                 </div>
                             </div>
-                            <label for="comprobante-transferencia" class="receipt-upload-button">
-                                <i class="fa-solid fa-arrow-up-from-bracket"></i> Seleccionar imagen
-                                <input id="comprobante-transferencia" type="file" accept="image/*" class="sr-only">
-                            </label>
+                            <div class="receipt-upload-actions">
+                                <label for="comprobante-transferencia-camera" class="receipt-upload-button">
+                                    <i class="fa-solid fa-camera" aria-hidden="true"></i> Tomar foto
+                                    <input id="comprobante-transferencia-camera" type="file" accept="image/*" capture="environment" class="sr-only">
+                                </label>
+                                <label for="comprobante-transferencia" class="receipt-upload-button">
+                                    <i class="fa-solid fa-images" aria-hidden="true"></i> Seleccionar imagen
+                                    <input id="comprobante-transferencia" type="file" accept="image/*" class="sr-only">
+                                </label>
+                            </div>
                         </div>
                         <div id="comprobante-transferencia-preview-wrap" class="hidden flex-wrap items-center justify-between gap-3 border-t border-slate-800 pt-3">
                             <div class="flex min-w-0 items-center gap-3">
@@ -1279,6 +2109,9 @@
         let pedidoListoMesaId = null;
         let pedidosParaLlevar = [];
         let carritoParaLlevar = [];
+        let gruposTicketParaLlevarConocidos = new Set();
+        let ticketsParaLlevarNoVistos = new Set();
+        const TICKETS_PARA_LLEVAR_STORAGE_KEY = 'mesera-tickets-para-llevar-{{ request.user.pk }}';
         const pagosParaLlevarAbiertos = new Set();
         const WS_URL = `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws/mesera/`;
         let ws = null;
@@ -1288,6 +2121,7 @@
         let cuentaEnProceso = null;
         let formaPagoSeleccionada = 'efectivo_cup';
         let comprobantePreviewObjectUrl = null;
+        let comprobanteTransferenciaSeleccionado = null;
         let cobroMeseraEnCurso = false;
 
         function escaparHtml(value) {
@@ -1296,8 +2130,95 @@
             })[character]);
         }
 
+        function cargarEstadoTicketsParaLlevar() {
+            try {
+                const estado = JSON.parse(localStorage.getItem(TICKETS_PARA_LLEVAR_STORAGE_KEY) || '{}');
+                if (Array.isArray(estado.conocidos)) gruposTicketParaLlevarConocidos = new Set(estado.conocidos);
+                if (Array.isArray(estado.no_vistos)) ticketsParaLlevarNoVistos = new Set(estado.no_vistos);
+            } catch (error) {
+                console.error('No se pudo cargar el estado de tickets para llevar guardado.', error);
+            }
+        }
+
+        function guardarEstadoTicketsParaLlevar() {
+            try {
+                localStorage.setItem(TICKETS_PARA_LLEVAR_STORAGE_KEY, JSON.stringify({
+                    conocidos: [...gruposTicketParaLlevarConocidos],
+                    no_vistos: [...ticketsParaLlevarNoVistos],
+                }));
+            } catch (error) {
+                console.error('No se pudo guardar el estado de tickets para llevar.', error);
+            }
+        }
+
+        function registrarTicketParaLlevar(grupoId, noVisto = false) {
+            if (!grupoId) return;
+            const id = String(grupoId);
+            const ticketsVisibles = !document.getElementById('takeaway-tickets-modal').classList.contains('hidden');
+            if (noVisto && !ticketsVisibles && !gruposTicketParaLlevarConocidos.has(id)) {
+                ticketsParaLlevarNoVistos.add(id);
+            }
+            if (ticketsVisibles) ticketsParaLlevarNoVistos.delete(id);
+            gruposTicketParaLlevarConocidos.add(id);
+            guardarEstadoTicketsParaLlevar();
+            actualizarBadgeTicketsParaLlevar();
+        }
+
+        function sincronizarTicketsParaLlevarIniciales() {
+            const gruposActivos = new Set(pedidosParaLlevar
+                .filter(pedido => pedido.estado !== 'cerrado' && pedido.grupo_para_llevar)
+                .map(pedido => String(pedido.grupo_para_llevar)));
+            gruposActivos.forEach(grupoId => registrarTicketParaLlevar(grupoId, true));
+            [...ticketsParaLlevarNoVistos].forEach(grupoId => {
+                if (!gruposActivos.has(grupoId)) ticketsParaLlevarNoVistos.delete(grupoId);
+            });
+            guardarEstadoTicketsParaLlevar();
+            actualizarBadgeTicketsParaLlevar();
+        }
+
+        function actualizarBadgeTicketsParaLlevar() {
+            const badge = document.getElementById('takeaway-unseen-count');
+            if (!badge) return;
+            badge.textContent = ticketsParaLlevarNoVistos.size > 99 ? '99+' : ticketsParaLlevarNoVistos.size;
+            badge.classList.toggle('hidden', ticketsParaLlevarNoVistos.size === 0);
+        }
+
+        function abrirModalPedidoParaLlevar() {
+            const modal = document.getElementById('takeaway-order-modal');
+            modal.classList.remove('hidden');
+            modal.setAttribute('aria-hidden', 'false');
+            document.getElementById('takeaway-customer-name').focus();
+        }
+
+        function cerrarModalPedidoParaLlevar() {
+            const modal = document.getElementById('takeaway-order-modal');
+            modal.classList.add('hidden');
+            modal.setAttribute('aria-hidden', 'true');
+        }
+
+        function abrirModalTicketsParaLlevar() {
+            const modal = document.getElementById('takeaway-tickets-modal');
+            pedidosParaLlevar
+                .filter(pedido => pedido.estado !== 'cerrado')
+                .forEach(pedido => registrarTicketParaLlevar(pedido.grupo_para_llevar));
+            ticketsParaLlevarNoVistos.clear();
+            guardarEstadoTicketsParaLlevar();
+            actualizarBadgeTicketsParaLlevar();
+            renderVistaParaLlevar();
+            modal.classList.remove('hidden');
+            modal.setAttribute('aria-hidden', 'false');
+            modal.querySelector('button[aria-label="Cerrar tickets"]').focus();
+        }
+
+        function cerrarModalTicketsParaLlevar() {
+            const modal = document.getElementById('takeaway-tickets-modal');
+            modal.classList.add('hidden');
+            modal.setAttribute('aria-hidden', 'true');
+        }
+
         // INICIALIZACIÓN
         document.addEventListener('DOMContentLoaded', () => {
+            cargarEstadoTicketsParaLlevar();
             const vistasDisponibles = ['tables', 'exterior-tables', 'active-orders', 'bar', 'takeaway', 'menu'];
             const vistaInicial = location.hash.slice(1);
             switchView(vistasDisponibles.includes(vistaInicial) ? vistaInicial : 'tables');
@@ -1308,13 +2229,27 @@
             renderMenuCatalog();
             renderMenuParaLlevar();
             renderVistaParaLlevar();
+            document.addEventListener('keydown', event => {
+                if (event.key === 'Escape') {
+                    cerrarModalPedidoParaLlevar();
+                    cerrarModalTicketsParaLlevar();
+                }
+            });
+            document.getElementById('takeaway-order-modal').addEventListener('click', event => {
+                if (event.target === event.currentTarget) cerrarModalPedidoParaLlevar();
+            });
+            document.getElementById('takeaway-tickets-modal').addEventListener('click', event => {
+                if (event.target === event.currentTarget) cerrarModalTicketsParaLlevar();
+            });
             conectarMesera();
-            document.getElementById('comprobante-transferencia').addEventListener('change', event => {
-                const archivo = event.target.files[0];
-                mostrarEnlaceComprobante(
-                    archivo ? URL.createObjectURL(archivo) : cuentaEnProceso?.comprobante_url,
-                    archivo?.name || 'Captura guardada'
-                );
+            ['comprobante-transferencia', 'comprobante-transferencia-camera'].forEach(inputId => {
+                document.getElementById(inputId).addEventListener('change', event => {
+                    const archivo = event.target.files[0] || null;
+                    if (archivo) {
+                        comprobanteTransferenciaSeleccionado = archivo;
+                        mostrarEnlaceComprobante(URL.createObjectURL(archivo), archivo.name);
+                    }
+                });
             });
         });
 
@@ -1340,11 +2275,11 @@
                     data.pedidos.forEach(pedido => pedido.es_para_llevar
                         ? actualizarPedidoParaLlevar(pedido)
                         : aplicarPedidoEnMesa(pedido));
+                    sincronizarTicketsParaLlevarIniciales();
                     renderTables();
                     updateHeaderStats();
                     renderBarView();
                     renderVistaParaLlevar();
-                    abrirPagoPendienteParaLlevar();
                 } else if (data.tipo === 'pedido_nuevo' || data.tipo === 'pedido_actualizado') {
                     const tablaActual = tables.find(item => item.id === data.pedido.mesa_id);
                     const pedidoAnterior = tablaActual?.pedidos?.find(item => item.id === data.pedido.id);
@@ -1353,15 +2288,15 @@
                         && data.pedido.estado === 'listo'
                         && pedidoAnterior?.estado !== 'listo'
                         && pedidoParaLlevarAnterior?.estado !== 'listo';
-                    if (data.pedido.es_para_llevar) actualizarPedidoParaLlevar(data.pedido);
+                    if (data.pedido.es_para_llevar) {
+                        registrarTicketParaLlevar(data.pedido.grupo_para_llevar, true);
+                        actualizarPedidoParaLlevar(data.pedido);
+                    }
                     else aplicarPedidoEnMesa(data.pedido);
                     renderTables();
                     updateHeaderStats();
                     renderBarView();
                     renderVistaParaLlevar();
-                    if (data.pedido.es_para_llevar) {
-                        abrirPagoTicketEntregado(data.pedido.grupo_para_llevar);
-                    }
                     if (data.pedido.mesa_id && activeTableId === data.pedido.mesa_id) openTableModal(activeTableId);
                     if (data.tipo === 'pedido_nuevo' && data.pedido.estado === 'por_confirmar') {
                         showToast('Solicitud del cliente', `${data.pedido.etiqueta || `Mesa ${data.pedido.mesa_numero}`} espera que envíes su pedido a cocina.`);
@@ -1405,12 +2340,14 @@
                         table.comandaRequestId = null;
                     }
                     if (data.pedido.es_para_llevar) {
+                        registrarTicketParaLlevar(data.pedido.grupo_para_llevar);
                         actualizarPedidoParaLlevar(data.pedido);
                         carritoParaLlevar = [];
                         document.getElementById('takeaway-customer-name').value = '';
                         document.getElementById('takeaway-customer-phone').value = '';
                         document.getElementById('takeaway-note').value = '';
                         renderCarritoParaLlevar();
+                        cerrarModalPedidoParaLlevar();
                     } else if (table) aplicarPedidoEnMesa(data.pedido);
                     renderTables();
                     renderBarView();
@@ -1573,6 +2510,11 @@
             document.getElementById('view-bar').classList.add('hidden');
             document.getElementById('view-takeaway').classList.add('hidden');
             document.getElementById('view-menu').classList.add('hidden');
+            document.getElementById('takeaway-floating-actions').classList.toggle('hidden', viewName !== 'takeaway');
+            if (viewName !== 'takeaway') {
+                cerrarModalPedidoParaLlevar();
+                cerrarModalTicketsParaLlevar();
+            }
 
             document.getElementById('nav-tables').className = "w-full flex items-center gap-3 px-3 py-3 rounded-xl font-medium text-sm text-slate-400 hover:text-white hover:bg-slate-800/50 transition-all";
             document.getElementById('nav-exteriors').className = "w-full flex items-center gap-3 px-3 py-3 rounded-xl font-medium text-sm text-slate-400 hover:text-white hover:bg-slate-800/50 transition-all";
@@ -1787,6 +2729,14 @@
             const table = tables.find(t => t.id === tableId);
             if (!table) return;
 
+            const orderPanel = document.getElementById('modal-order-panel');
+            const orderToggle = document.getElementById('mobile-order-toggle');
+            const mobileOrderPanel = window.matchMedia('(max-width: 767px)').matches;
+            orderPanel.classList.toggle('is-collapsed', mobileOrderPanel);
+            orderToggle.setAttribute('aria-expanded', 'false');
+            orderToggle.setAttribute('aria-label', 'Expandir comanda actual');
+            orderToggle.title = 'Expandir comanda actual';
+
             // Info Básica Modal
             document.getElementById('modal-table-badge').textContent = table.numeroZona;
             document.getElementById('modal-table-name').textContent = table.name;
@@ -1811,6 +2761,18 @@
             const panel = document.getElementById('modal-panel');
             modal.classList.remove('opacity-0', 'pointer-events-none');
             panel.classList.remove('translate-x-full');
+        }
+
+        function toggleMobileTableOrder() {
+            if (!window.matchMedia('(max-width: 767px)').matches) return;
+            const orderPanel = document.getElementById('modal-order-panel');
+            const orderToggle = document.getElementById('mobile-order-toggle');
+            const isExpanded = !orderPanel.classList.toggle('is-collapsed');
+            const label = isExpanded ? 'Recoger comanda actual' : 'Expandir comanda actual';
+            orderToggle.setAttribute('aria-expanded', String(isExpanded));
+            orderToggle.setAttribute('aria-label', label);
+            orderToggle.title = label;
+            orderToggle.innerHTML = `<i class="fa-solid ${isExpanded ? 'fa-chevron-down' : 'fa-chevron-up'}" aria-hidden="true"></i>`;
         }
 
         // CERRAR MODAL
@@ -2132,10 +3094,13 @@
             
             document.getElementById('pay-total-amount').textContent = `$${total.toFixed(2)}`;
             document.getElementById('comprobante-transferencia').value = '';
+            document.getElementById('comprobante-transferencia-camera').value = '';
+            comprobanteTransferenciaSeleccionado = null;
             document.getElementById('comprobante-transferencia-error').classList.add('hidden');
             mostrarEnlaceComprobante(cuentaEnProceso?.comprobante_url);
             
             const pModal = document.getElementById('payment-modal');
+            pModal.classList.remove('hidden');
             pModal.classList.remove('opacity-0', 'pointer-events-none');
         }
 
@@ -2143,6 +3108,7 @@
             if (cobroMeseraEnCurso) return;
             const pModal = document.getElementById('payment-modal');
             pModal.classList.add('opacity-0', 'pointer-events-none');
+            pModal.classList.add('hidden');
             cuentaEnProceso = null;
         }
 
@@ -2178,6 +3144,8 @@
             document.getElementById('comprobante-transferencia-wrap').classList.toggle('hidden', !requiereComprobante);
             if (!requiereComprobante) {
                 document.getElementById('comprobante-transferencia').value = '';
+                document.getElementById('comprobante-transferencia-camera').value = '';
+                comprobanteTransferenciaSeleccionado = null;
                 mostrarEnlaceComprobante(cuentaEnProceso?.comprobante_url);
             }
         }
@@ -2195,7 +3163,7 @@
                 }
             }
             let comprobanteUrl = null;
-            const archivo = document.getElementById('comprobante-transferencia').files[0];
+            const archivo = comprobanteTransferenciaSeleccionado;
             const errorComprobante = document.getElementById('comprobante-transferencia-error');
             errorComprobante.classList.add('hidden');
             if ((formaPagoSeleccionada === 'transferencia' || formaPagoSeleccionada === 'mixto') && archivo) {
@@ -2248,14 +3216,39 @@
             const menu = document.getElementById('takeaway-menu');
             if (!menu) return;
             if (!menuItems.length) {
-                menu.innerHTML = '<div class="col-span-full py-6 text-center text-xs text-slate-500">No hay productos disponibles.</div>';
+                menu.innerHTML = '<div class="rounded-xl border border-slate-800 bg-slate-950/60 py-10 text-center text-sm text-slate-500">No hay productos disponibles.</div>';
                 return;
             }
-            menu.innerHTML = menuItems.map(item => `
-                <button type="button" onclick="agregarAlCarritoParaLlevar(${item.id})" class="flex min-h-[68px] items-center justify-between gap-3 rounded-lg border border-slate-800 bg-slate-900 px-3 py-2 text-left hover:border-emerald-500/50">
-                    <span class="min-w-0"><strong class="block truncate text-xs text-white">${escaparHtml(item.name)}</strong><small class="mt-1 block truncate text-[10px] text-slate-500">${escaparHtml(item.category)}</small></span>
-                    <span class="shrink-0 text-xs font-bold text-emerald-300">${Number(item.price).toFixed(2)}</span>
-                </button>`).join('');
+            const grupos = new Map();
+            menuItems.forEach(item => {
+                if (!grupos.has(item.category)) grupos.set(item.category, []);
+                grupos.get(item.category).push(item);
+            });
+            menu.innerHTML = [...grupos.entries()].map(([categoria, productos]) => `
+                <section aria-label="${escaparHtml(categoria)}">
+                    <div class="takeaway-menu-category-heading">
+                        <h4>${escaparHtml(categoria)}</h4>
+                        <span class="text-xs text-slate-500">${productos.length} ${productos.length === 1 ? 'plato' : 'platos'}</span>
+                    </div>
+                    <div class="takeaway-menu-category">
+                        ${productos.map(item => {
+                            const imagen = item.image
+                                ? `<img src="${escaparHtml(item.image)}" alt="${escaparHtml(item.name)}" loading="lazy" class="takeaway-menu-image">`
+                                : '<span class="takeaway-menu-placeholder" aria-hidden="true"><i class="fa-solid fa-utensils"></i></span>';
+                            return `<article class="takeaway-product-card">
+                                ${imagen}
+                                <div class="takeaway-product-info">
+                                    <h5 class="takeaway-menu-name">${escaparHtml(item.name)}</h5>
+                                    ${item.desc ? `<p class="takeaway-product-description">${escaparHtml(item.desc)}</p>` : ''}
+                                    <p class="takeaway-product-price">${Number(item.price).toFixed(2)} <small>CUP</small></p>
+                                </div>
+                                <button type="button" onclick="agregarAlCarritoParaLlevar(${item.id})" class="takeaway-product-add" aria-label="Agregar ${escaparHtml(item.name)} al carrito">
+                                    <i class="fa-solid fa-plus" aria-hidden="true"></i>
+                                </button>
+                            </article>`;
+                        }).join('')}
+                    </div>
+                </section>`).join('');
         }
 
         function agregarAlCarritoParaLlevar(itemId) {
@@ -2277,19 +3270,25 @@
             const container = document.getElementById('takeaway-cart');
             const totalElement = document.getElementById('takeaway-cart-total');
             if (!container || !totalElement) return;
+            const cantidadArticulos = carritoParaLlevar.reduce((sum, linea) => sum + linea.cantidad, 0);
+            const cartBadge = document.getElementById('takeaway-cart-count');
+            cartBadge.textContent = cantidadArticulos > 99 ? '99+' : cantidadArticulos;
+            cartBadge.classList.toggle('hidden', cantidadArticulos === 0);
             const total = carritoParaLlevar.reduce((sum, linea) => {
                 const item = menuItems.find(producto => producto.id === linea.itemId);
                 return sum + (item ? Number(item.price) * linea.cantidad : 0);
             }, 0);
             totalElement.textContent = `${total.toFixed(2)} CUP`;
             if (!carritoParaLlevar.length) {
-                container.innerHTML = '<p class="py-3 text-center text-xs text-slate-500">Agrega productos para crear el ticket.</p>';
+                container.innerHTML = '<div class="takeaway-cart-empty"><i class="fa-solid fa-basket-shopping" aria-hidden="true"></i><span>Agrega productos para crear el ticket.</span></div>';
                 return;
             }
             container.innerHTML = carritoParaLlevar.map(linea => {
                 const item = menuItems.find(producto => producto.id === linea.itemId);
                 if (!item) return '';
-                return `<div class="flex items-center justify-between gap-2 rounded-lg border border-slate-800 bg-slate-900 px-3 py-2"><span class="min-w-0 truncate text-xs font-semibold text-slate-200">${escaparHtml(item.name)}</span><span class="flex shrink-0 items-center gap-2"><button type="button" onclick="cambiarCantidadParaLlevar(${item.id}, -1)" aria-label="Quitar una unidad" class="grid h-7 w-7 place-items-center rounded border border-slate-700 text-slate-300 hover:text-rose-300"><i class="fa-solid fa-minus text-[10px]"></i></button><strong class="w-4 text-center text-xs">${linea.cantidad}</strong><button type="button" onclick="cambiarCantidadParaLlevar(${item.id}, 1)" aria-label="Agregar una unidad" class="grid h-7 w-7 place-items-center rounded border border-slate-700 text-slate-300 hover:text-emerald-300"><i class="fa-solid fa-plus text-[10px]"></i></button></span></div>`;
+                const precioUnitario = Number(item.price);
+                const subtotalProducto = precioUnitario * linea.cantidad;
+                return `<div class="takeaway-cart-item"><div class="takeaway-cart-item-info"><span class="takeaway-cart-item-name" title="${escaparHtml(item.name)}">${escaparHtml(item.name)}</span><span class="takeaway-cart-item-price">${precioUnitario.toFixed(2)} CUP × ${linea.cantidad} = ${subtotalProducto.toFixed(2)} CUP</span></div><span class="takeaway-quantity-control"><button type="button" onclick="cambiarCantidadParaLlevar(${item.id}, -1)" aria-label="Quitar una unidad de ${escaparHtml(item.name)}" class="takeaway-quantity-button"><i class="fa-solid fa-minus" aria-hidden="true"></i></button><strong class="takeaway-quantity-value" aria-label="Cantidad">${linea.cantidad}</strong><button type="button" onclick="cambiarCantidadParaLlevar(${item.id}, 1)" aria-label="Agregar una unidad de ${escaparHtml(item.name)}" class="takeaway-quantity-button"><i class="fa-solid fa-plus" aria-hidden="true"></i></button></span></div>`;
             }).join('');
         }
 
@@ -2323,6 +3322,12 @@
                 if (!grupos.has(ticketId)) grupos.set(ticketId, []);
                 grupos.get(ticketId).push(pedido);
             });
+            const gruposActivos = new Set(grupos.keys());
+            [...ticketsParaLlevarNoVistos].forEach(grupoId => {
+                if (!gruposActivos.has(grupoId)) ticketsParaLlevarNoVistos.delete(grupoId);
+            });
+            guardarEstadoTicketsParaLlevar();
+            actualizarBadgeTicketsParaLlevar();
             count.textContent = grupos.size;
             if (!grupos.size) {
                 container.innerHTML = '<div class="py-10 text-center text-slate-500"><i class="fa-solid fa-bag-shopping mb-3 block text-2xl text-slate-700"></i><p class="text-xs">No hay tickets para llevar activos.</p></div>';
@@ -2335,22 +3340,22 @@
                 const listoParaCaja = partes.every(pedido => pedido.estado === 'entregado');
                 const total = partes.reduce((sum, pedido) => sum + Number(pedido.total || 0), 0);
                 const lineas = partes.map(pedido => `
-                    <div class="rounded-lg border border-slate-800 bg-slate-900 p-3">
+                    <div class="takeaway-ticket-line">
                         <div class="mb-2 flex items-center justify-between gap-2"><span class="text-[10px] font-bold uppercase text-slate-500">${pedido.destino === 'barra' ? 'Barra' : 'Cocina'}</span><span class="text-[10px] font-semibold ${pedido.estado === 'entregado' ? 'text-sky-300' : pedido.estado === 'listo' ? 'text-emerald-300' : 'text-amber-300'}">${escaparHtml(pedido.estado_display)}</span></div>
-                        ${pedido.items.map(item => `<div class="flex justify-between gap-2 py-1 text-xs"><span class="text-slate-200">${escaparHtml(item.cantidad)}x ${escaparHtml(item.plato)}</span><span class="shrink-0 text-slate-400">${escaparHtml(item.subtotal)} CUP</span></div>`).join('')}
+                        ${pedido.items.map(item => `<div class="takeaway-ticket-line-item"><span>${escaparHtml(item.cantidad)}x ${escaparHtml(item.plato)}</span><span>${escaparHtml(item.subtotal)} CUP</span></div>`).join('')}
                         ${pedido.nota ? `<p class="mt-2 text-[10px] text-slate-400">Nota: ${escaparHtml(pedido.nota)}</p>` : ''}
                     </div>`).join('');
                 const entregaAction = listoParaCaja
                     ? '<div class="mt-3 rounded-lg border border-sky-400/20 bg-sky-400/10 px-3 py-2 text-center text-xs font-semibold text-sky-200"><i class="fa-solid fa-bag-shopping mr-1"></i>Ticket entregado</div>'
                     : listoParaEntrega
-                        ? `<button type="button" onclick="marcarTicketParaLlevarEntregado('${ticket.grupo_para_llevar}')" class="mt-3 w-full rounded-lg bg-sky-500 px-3 py-2 text-xs font-bold text-white hover:bg-sky-400"><i class="fa-solid fa-bag-shopping mr-1"></i>Marcar ticket completo como entregado</button>`
+                        ? `<button type="button" onclick="marcarTicketParaLlevarEntregado('${ticket.grupo_para_llevar}')" class="takeaway-deliver-button mt-3 w-full rounded-lg bg-sky-500 px-3 py-2 text-xs font-bold text-white hover:bg-sky-400"><i class="fa-solid fa-bag-shopping" aria-hidden="true"></i>Marcar ticket completo como entregado</button>`
                         : '<p class="mt-3 text-center text-[10px] text-slate-500">La entrega conjunta estará disponible cuando cocina y barra estén listas.</p>';
                 const cuentaAction = cuentaSolicitada
                     ? '<div class="mt-3 rounded-lg border border-amber-400/20 bg-amber-400/10 px-3 py-2 text-center text-xs font-semibold text-amber-200"><i class="fa-solid fa-cash-register mr-1"></i>Cuenta enviada a caja</div>'
                     : listoParaCaja
-                        ? `<button type="button" onclick="iniciarPagoParaLlevar('${ticket.grupo_para_llevar}')" class="mt-3 w-full rounded-lg border border-emerald-300 bg-emerald-500 px-4 py-3 text-sm font-extrabold text-slate-950 shadow-lg shadow-emerald-500/20 transition-colors hover:border-emerald-200 hover:bg-emerald-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-300"><i class="fa-solid fa-cash-register mr-2"></i>Elegir forma de pago y enviar a caja</button>`
+                        ? `<button type="button" onclick="iniciarPagoParaLlevar('${ticket.grupo_para_llevar}')" class="takeaway-charge-button mt-3 w-full rounded-lg border border-emerald-300 bg-emerald-500 px-4 py-3 text-sm font-extrabold text-slate-950 shadow-lg shadow-emerald-500/20 transition-colors hover:border-emerald-200 hover:bg-emerald-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-300"><i class="fa-solid fa-cash-register" aria-hidden="true"></i>Elegir forma de pago y enviar a caja</button>`
                         : '<p class="mt-3 text-center text-[10px] text-slate-500">La cuenta estará disponible cuando el ticket esté entregado.</p>';
-                return `<article class="rounded-xl border border-sky-500/20 bg-slate-950 p-4"><div class="mb-3 flex items-start justify-between gap-3 border-b border-slate-800 pb-3"><div><h5 class="text-sm font-bold text-white">${escaparHtml(ticket.etiqueta)}</h5><p class="mt-1 text-[10px] text-slate-500">${escaparHtml(ticket.creado_en)} · ${partes.length} ${partes.length === 1 ? 'comanda' : 'comandas'}</p><p class="mt-2 text-xs font-semibold text-slate-200"><i class="fa-solid fa-user mr-1 text-sky-300"></i>${escaparHtml(ticket.nombre_cliente || 'Sin nombre')}</p><p class="mt-1 text-xs text-slate-400"><i class="fa-solid fa-phone mr-1 text-sky-300"></i>${escaparHtml(ticket.telefono_cliente || 'Sin teléfono')}</p></div><span class="text-sm font-bold text-emerald-300">${total.toFixed(2)} CUP</span></div><div class="space-y-2">${lineas}</div>${entregaAction}${cuentaAction}</article>`;
+                return `<article class="takeaway-ticket-card"><div class="mb-3 flex items-start justify-between gap-3 border-b border-slate-800 pb-3"><div class="min-w-0"><h5 class="text-sm font-bold text-white">${escaparHtml(ticket.etiqueta)}</h5><p class="mt-1 text-[10px] text-slate-500">${escaparHtml(ticket.creado_en)} · ${partes.length} ${partes.length === 1 ? 'comanda' : 'comandas'}</p><p class="mt-2 text-xs font-semibold text-slate-200"><i class="fa-solid fa-user mr-1 text-sky-300" aria-hidden="true"></i>${escaparHtml(ticket.nombre_cliente || 'Sin nombre')}</p><p class="mt-1 text-xs text-slate-400"><i class="fa-solid fa-phone mr-1 text-sky-300" aria-hidden="true"></i>${escaparHtml(ticket.telefono_cliente || 'Sin teléfono')}</p></div><span class="shrink-0 text-sm font-bold text-emerald-300">${total.toFixed(2)} CUP</span></div><div class="space-y-2">${lineas}</div>${entregaAction}${cuentaAction}</article>`;
             }).join('');
         }
 
@@ -2382,20 +3387,6 @@
             formaPagoSeleccionada = 'efectivo_cup';
             selectPaymentMethod(formaPagoSeleccionada);
             openPaymentModal();
-        }
-
-        function abrirPagoTicketEntregado(grupoParaLlevar) {
-            if (!grupoParaLlevar || pagosParaLlevarAbiertos.has(grupoParaLlevar)) return;
-            const partes = pedidosParaLlevar.filter(pedido => pedido.grupo_para_llevar === grupoParaLlevar);
-            if (!partes.length || partes.some(pedido => pedido.cuenta_solicitada || pedido.estado !== 'entregado')) return;
-            const modal = document.getElementById('payment-modal');
-            if (!modal.classList.contains('pointer-events-none')) return;
-            iniciarPagoParaLlevar(grupoParaLlevar);
-        }
-
-        function abrirPagoPendienteParaLlevar() {
-            const grupos = new Set(pedidosParaLlevar.map(pedido => pedido.grupo_para_llevar));
-            grupos.forEach(abrirPagoTicketEntregado);
         }
 
         function renderBarView() {
@@ -2442,7 +3433,7 @@
                     : pedido.estado !== 'listo'
                         ? `<button type="button" onclick="marcarPedidoBarraListo(${pedido.id})" class="mt-4 w-full rounded-lg bg-amber-400 px-4 py-2.5 text-sm font-bold text-slate-950 hover:bg-amber-300"><i class="fa-solid fa-check mr-2"></i>Marcar listo</button>`
                         : pedido.es_para_llevar
-                            ? `<button type="button" onclick="switchView('takeaway')" class="mt-4 w-full rounded-lg bg-sky-500 px-4 py-2.5 text-sm font-bold text-slate-950 hover:bg-sky-400"><i class="fa-solid fa-bag-shopping mr-2"></i>Revisar entrega del ticket</button>`
+                            ? `<button type="button" onclick="switchView('takeaway'); abrirModalTicketsParaLlevar()" class="mt-4 w-full rounded-lg bg-sky-500 px-4 py-2.5 text-sm font-bold text-slate-950 hover:bg-sky-400"><i class="fa-solid fa-bag-shopping mr-2"></i>Revisar entrega del ticket</button>`
                             : `<button type="button" onclick="marcarServidoMesera(${pedido.id})" class="mt-4 w-full rounded-lg bg-emerald-500 px-4 py-2.5 text-sm font-bold text-slate-950 hover:bg-emerald-400"><i class="fa-solid fa-hand-holding-heart mr-2"></i>Marcar servido</button>`;
 
                 card.innerHTML = `
