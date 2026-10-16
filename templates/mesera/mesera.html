@@ -481,6 +481,16 @@
             color: #6ee7b7;
         }
 
+        .takeaway-remove-button {
+            color: #fda4af;
+        }
+
+        .takeaway-remove-button:hover {
+            border-color: #fb7185;
+            background: rgba(244, 63, 94, 0.12);
+            color: #fecdd3;
+        }
+
         .takeaway-quantity-value {
             min-width: 22px;
             color: #f8fafc;
@@ -3152,6 +3162,21 @@
             renderTables();
         }
 
+        function removeOrderItem(itemId) {
+            const table = tables.find(t => t.id === activeTableId);
+            if (!table || table.comandaEnviandose) return;
+
+            const item = menuItems.find(menuItem => menuItem.id === itemId);
+            const orderLength = (table.newOrder || []).length;
+            table.newOrder = (table.newOrder || []).filter(orderItem => orderItem.itemId !== itemId);
+            if (table.newOrder.length === orderLength) return;
+
+            renderOrderItems();
+            renderTables();
+            updateHeaderStats();
+            showToast('Producto eliminado', `${item?.name || 'El producto'} se quitó de la comanda sin enviar.`);
+        }
+
         // RENDERIZAR COMANDA DEL MODAL
         function renderOrderItems() {
             const container = document.getElementById('order-items-container');
@@ -3201,6 +3226,7 @@
                             <span class="font-bold text-white text-xs">${ord.qty}</span>
                             ${ord.pedidoId ? '' : `<button onclick="updateOrderQty(${item.id}, 1)" class="text-slate-400 hover:text-emerald-400"><i class="fa-solid fa-plus text-[10px]"></i></button>`}
                         </div>
+                        ${!ord.pedidoId ? `<button type="button" onclick="removeOrderItem(${item.id})" ${table.comandaEnviandose ? 'disabled' : ''} aria-label="Eliminar ${escaparHtml(item.name)} de la comanda" title="Eliminar producto de la comanda" class="grid h-8 w-8 place-items-center rounded-lg border border-rose-500/20 bg-rose-500/10 text-rose-300 transition-colors hover:border-rose-400/50 hover:bg-rose-500/20 disabled:cursor-not-allowed disabled:opacity-40"><i class="fa-solid fa-trash-can" aria-hidden="true"></i></button>` : ''}
                         ${ord.estado === 'pendiente' ? `<input type="text" disabled placeholder="Sin notas" value="${ord.note || ''}" onchange="updateOrderNote(${item.id}, this.value)" class="bg-slate-950 border border-slate-800 text-[10px] text-slate-300 rounded px-2 py-1 focus:outline-none focus:border-emerald-500 w-32">` : `<span class="text-[10px] text-slate-400">${ord.note?.trim() || 'Sin notas'}</span>`}
                     </div>
                     ${mostrarEnviarSolicitud ? `<button type="button" onclick="aceptarPedidoCliente(${ord.pedidoId})" class="w-full rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-300 hover:bg-amber-400 hover:text-slate-950 py-1.5 text-[10px] font-bold transition-all"><i class="fa-solid ${ord.destino === 'barra' ? 'fa-martini-glass-citrus' : 'fa-paper-plane'}"></i> ${ord.destino === 'barra' ? 'Aceptar pedido en barra' : 'Enviar pedido del cliente a cocina'}</button>` : ''}
@@ -3475,6 +3501,13 @@
             renderCarritoParaLlevar();
         }
 
+        function eliminarDelCarritoParaLlevar(itemId) {
+            const lineaExiste = carritoParaLlevar.some(item => item.itemId === itemId);
+            if (!lineaExiste) return;
+            carritoParaLlevar = carritoParaLlevar.filter(item => item.itemId !== itemId);
+            renderCarritoParaLlevar();
+        }
+
         function renderCarritoParaLlevar() {
             const container = document.getElementById('takeaway-cart');
             const totalElement = document.getElementById('takeaway-cart-total');
@@ -3497,7 +3530,7 @@
                 if (!item) return '';
                 const precioUnitario = Number(item.price);
                 const subtotalProducto = precioUnitario * linea.cantidad;
-                return `<div class="takeaway-cart-item"><div class="takeaway-cart-item-info"><span class="takeaway-cart-item-name" title="${escaparHtml(item.name)}">${escaparHtml(item.name)}</span><span class="takeaway-cart-item-price">${precioUnitario.toFixed(2)} CUP × ${linea.cantidad} = ${subtotalProducto.toFixed(2)} CUP</span></div><span class="takeaway-quantity-control"><button type="button" onclick="cambiarCantidadParaLlevar(${item.id}, -1)" aria-label="Quitar una unidad de ${escaparHtml(item.name)}" class="takeaway-quantity-button"><i class="fa-solid fa-minus" aria-hidden="true"></i></button><strong class="takeaway-quantity-value" aria-label="Cantidad">${linea.cantidad}</strong><button type="button" onclick="cambiarCantidadParaLlevar(${item.id}, 1)" aria-label="Agregar una unidad de ${escaparHtml(item.name)}" class="takeaway-quantity-button"><i class="fa-solid fa-plus" aria-hidden="true"></i></button></span></div>`;
+                return `<div class="takeaway-cart-item"><div class="takeaway-cart-item-info"><span class="takeaway-cart-item-name" title="${escaparHtml(item.name)}">${escaparHtml(item.name)}</span><span class="takeaway-cart-item-price">${precioUnitario.toFixed(2)} CUP × ${linea.cantidad} = ${subtotalProducto.toFixed(2)} CUP</span></div><span class="takeaway-quantity-control"><button type="button" onclick="cambiarCantidadParaLlevar(${item.id}, -1)" aria-label="Quitar una unidad de ${escaparHtml(item.name)}" class="takeaway-quantity-button"><i class="fa-solid fa-minus" aria-hidden="true"></i></button><strong class="takeaway-quantity-value" aria-label="Cantidad">${linea.cantidad}</strong><button type="button" onclick="cambiarCantidadParaLlevar(${item.id}, 1)" aria-label="Agregar una unidad de ${escaparHtml(item.name)}" class="takeaway-quantity-button"><i class="fa-solid fa-plus" aria-hidden="true"></i></button><button type="button" onclick="eliminarDelCarritoParaLlevar(${item.id})" aria-label="Eliminar ${escaparHtml(item.name)} del ticket" title="Eliminar producto" class="takeaway-quantity-button takeaway-remove-button"><i class="fa-solid fa-trash-can" aria-hidden="true"></i></button></span></div>`;
             }).join('');
         }
 

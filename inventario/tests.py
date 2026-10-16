@@ -24,6 +24,14 @@ class InventarioFlowTests(TestCase):
         self.insumo_1 = Insumo.objects.create(nombre='Pollo', unidad='kg', stock_actual=10, stock_minimo=2)
         self.insumo_2 = Insumo.objects.create(nombre='Arroz', unidad='kg', stock_actual=10, stock_minimo=2)
 
+    def test_admin_sidebar_links_to_reports(self):
+        response = self.client.get(reverse('inventario:administrador'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, f'href="{reverse("usuarios:reportes")}"')
+        self.assertContains(response, 'Reportes')
+        self.assertContains(response, 'id="nav-wifi"')
+
     def test_admin_can_create_a_category_from_configuration(self):
         response = self.client.post(
             reverse('inventario:categoria_crear'),

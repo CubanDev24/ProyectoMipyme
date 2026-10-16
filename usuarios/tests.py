@@ -89,6 +89,7 @@ class UsuarioTurnoTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'Detalle del turno actual')
+        self.assertContains(response, f'href="{reverse("inventario:administrador")}#wifi"')
         self.assertEqual(list(response.context['facturas_turno']), [factura_turno])
         self.assertContains(response, f'Factura #{factura_turno.pk}')
         self.assertContains(response, 'Plato de prueba')
@@ -265,10 +266,14 @@ class UsuarioTurnoTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, f'href="{reverse("usuarios:reportes")}"')
+        self.assertContains(response, f'href="{reverse("inventario:administrador")}#wifi"')
         self.assertEqual(response.context['cantidad_facturas'], 2)
         self.assertEqual(response.context['total_cup'], Decimal('300.00'))
         self.assertEqual(response.context['total_unidades'], 6)
         self.assertEqual(response.context['productos_mas_vendidos'][0]['cantidad'], 5)
+        self.assertEqual(response.context['ventas_por_categoria'][0]['participacion'], 83)
+        self.assertIn('#34d399', response.context['categorias_donut'])
+        self.assertTrue(response.context['pagos_donut'])
         categorias = {
             categoria['nombre']: categoria['cantidad']
             for categoria in response.context['ventas_por_categoria']
@@ -276,6 +281,8 @@ class UsuarioTurnoTests(TestCase):
         self.assertEqual(categorias, {'Bebidas': 5, 'Comidas': 1})
         self.assertContains(response, 'Semana actual')
         self.assertContains(response, 'Recaudación por día')
+        self.assertContains(response, 'report-timeline-bar')
+        self.assertContains(response, 'report-donut')
 
         response_rango = self.client.get(reverse('usuarios:reportes'), {
             'periodo': 'rango',
@@ -324,6 +331,7 @@ class UsuarioTurnoTests(TestCase):
         self.assertContains(response, 'Abrir turno de hoy')
         self.assertContains(response, 'El turno anterior fue el')
         self.assertContains(response, reverse('usuarios:historial_turno_detalle', args=[turno_anterior.pk]))
+        self.assertContains(response, f'href="{reverse("usuarios:reportes")}"')
         self.assertContains(response, f'href="{reverse("inventario:administrador")}#inventario-restaurante"')
         self.assertContains(response, f'href="{reverse("inventario:administrador")}#inventario-cocina"')
         self.assertNotContains(response, 'Crear usuario')

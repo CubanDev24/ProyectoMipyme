@@ -549,11 +549,14 @@ class FacturaWorkflowTests(TestCase):
             self.pedido.pk,
             'efectivo_cup',
             None,
+            '80.00',
         )
 
         self.assertIsNone(error)
         self.assertEqual(set(factura_data['pedido_ids']), {self.pedido.pk, pedido_adicional.pk})
         self.assertEqual(len(factura_data['items_snapshot']), 2)
+        self.assertEqual(factura_data['monto_recibido_cup'], '80.00')
+        self.assertEqual(factura_data['cambio_cup'], '5.00')
         self.mesa.refresh_from_db()
         self.assertFalse(self.mesa.abierta)
         self.assertEqual(
@@ -710,7 +713,13 @@ class FacturaWorkflowTests(TestCase):
         self.assertEqual(cuenta_en_caja['telefono_cliente'], '55500002')
 
         factura_data, error = async_to_sync(CajaConsumer().cerrar_pedido_con_pago)(
-            pedido_id, 'usd', '40.00', mesera_nombre='Ana', cajera_nombre='Celia',
+            pedido_id,
+            'usd',
+            '40.00',
+            None,
+            '2.00',
+            mesera_nombre='Ana',
+            cajera_nombre='Celia',
         )
 
         self.assertIsNone(error)
@@ -723,6 +732,10 @@ class FacturaWorkflowTests(TestCase):
         self.assertEqual(factura.total_cup, 57)
         self.assertEqual(factura.forma_pago, 'usd')
         self.assertEqual(factura.tasa_cambio, 40)
+        self.assertEqual(factura.monto_recibido_usd, Decimal('2.00'))
+        self.assertEqual(factura.cambio_usd, Decimal('0.57'))
+        self.assertEqual(factura_data['monto_recibido_usd'], '2.00')
+        self.assertEqual(factura_data['cambio_usd'], '0.57')
         self.assertEqual(
             {item['categoria'] for item in factura.items_snapshot},
             {self.categoria.nombre, categoria_bebidas.nombre},
@@ -797,6 +810,9 @@ class FacturaWorkflowTests(TestCase):
         self.assertContains(response, 'id="send-order-${table.id}"')
         self.assertContains(response, 'function actualizarEstadoBotonEnviarComanda(table)')
         self.assertContains(response, 'table.comandaEnviandose || !(table.newOrder || []).some(item => item.qty > 0)')
+        self.assertContains(response, 'function removeOrderItem(itemId)')
+        self.assertContains(response, 'onclick="removeOrderItem(${item.id})"')
+        self.assertContains(response, 'ord.pedidoId ?')
         self.assertContains(response, '${(table.pedidos || []).length ? `')
         self.assertContains(response, "if (table && !(table.pedidos || []).length && !itemsCuenta.length)")
         self.assertContains(response, 'No hay pedidos')
@@ -819,6 +835,8 @@ class FacturaWorkflowTests(TestCase):
         self.assertContains(response, 'id="view-takeaway"')
         self.assertContains(response, 'El administrador debe abrir el turno para recibir pedidos.')
         self.assertContains(response, 'function renderVistaParaLlevar()')
+        self.assertContains(response, 'function eliminarDelCarritoParaLlevar(itemId)')
+        self.assertContains(response, 'onclick="eliminarDelCarritoParaLlevar(${item.id})"')
         self.assertContains(response, 'function marcarPedidoParaLlevarListo(pedidoId)')
         self.assertContains(response, 'function iniciarPagoParaLlevar(grupoParaLlevar)')
         self.assertContains(response, 'onclick="iniciarPagoParaLlevar')
@@ -995,6 +1013,51 @@ class FacturaWorkflowTests(TestCase):
         self.assertContains(response, 'Reparto Puente Nuevo, Marianao')
         self.assertContains(response, 'El ingrediente secreto siempre es tu visita.')
         self.assertContains(response, '¡Vuelve pronto!')
+
+    def test_factura_impresa_muestra_importe_recibido_y_cambio(self):
+        factura = Factura.objects.create(
+            pedido=self.pedido,
+            mesa_numero=self.mesa.numero,
+            forma_pago='efectivo_cup',
+            total_cup='50.00',
+            monto_efectivo_cup='50.00',
+            monto_recibido_cup='60.00',
+            cambio_cup='10.00',
+            items_snapshot=[],
+        )
+
+        response = self.client.get(reverse('pedidos:factura_imprimir_web', args=[factura.pk]))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, '60.00')
+        self.assertContains(response, '10.00')
+
+    def test_caja_exige_importe_recibido_y_no_cierra_con_pago_insuficiente(self):
+        self.pedido.estado = 'servido'
+        self.pedido.cuenta_solicitada = True
+        self.pedido.save(update_fields=['estado', 'cuenta_solicitada'])
+
+        for monto_recibido in (None, '49.99'):
+            with self.subTest(monto_recibido=monto_recibido):
+                factura, error = async_to_sync(CajaConsumer().cerrar_pedido_con_pago)(
+                    self.pedido.pk,
+                    'efectivo_cup',
+                    None,
+                    monto_recibido,
+                )
+                self.assertIsNone(factura)
+                self.assertIn('recibido', error)
+
+        factura_usd, error_usd = async_to_sync(CajaConsumer().cerrar_pedido_con_pago)(
+            self.pedido.pk,
+            'usd',
+            '40.00',
+            None,
+            '1.24',
+        )
+        self.assertIsNone(factura_usd)
+        self.assertIn('USD recibido', error_usd)
+        self.assertFalse(Factura.objects.filter(pedido=self.pedido).exists())
 
     def test_vista_estadisticas_caja_existe_y_usa_template(self):
         User = get_user_model()

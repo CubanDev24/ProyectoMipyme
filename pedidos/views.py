@@ -346,6 +346,9 @@ def factura_imprimir(request, pk):
     historia.extend([pago, Spacer(1, 4)])
     if factura.forma_pago == 'efectivo_cup':
         agregar_dato('Efectivo CUP', factura.monto_efectivo_cup)
+        if factura.monto_recibido_cup:
+            agregar_dato('Recibido', f'{factura.monto_recibido_cup} CUP')
+            agregar_dato('Cambio', f'{factura.cambio_cup} CUP')
     elif factura.forma_pago == 'transferencia':
         agregar_dato('Transferencia', factura.monto_transferencia_cup)
     elif factura.forma_pago == 'mixto':
@@ -354,6 +357,9 @@ def factura_imprimir(request, pk):
     elif factura.forma_pago == 'usd':
         agregar_dato('Monto USD', f'{factura.monto_usd} USD')
         agregar_dato('Tasa', f'1 USD = {factura.tasa_cambio} CUP')
+        if factura.monto_recibido_usd:
+            agregar_dato('Recibido', f'{factura.monto_recibido_usd} USD')
+            agregar_dato('Cambio', f'{factura.cambio_usd} USD')
     if factura.monto_usd and factura.forma_pago != 'usd':
         agregar_dato('Total USD', f'{factura.monto_usd} USD')
 
