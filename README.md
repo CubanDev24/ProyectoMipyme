@@ -102,6 +102,10 @@ con el botón **Imprimir QR**.
   alertas recientes en la pantalla de Caja.
 - Los historiales de movimientos, facturas y turnos, así como las listas de productos
   de inventario, se muestran paginados para facilitar la consulta de registros extensos.
+- El administrador tiene una sección de **Reportes** con ventas por producto y
+  categoría, recaudación y formas de pago. Los informes se pueden consultar por
+  semana actual, mes actual, mes anterior, año actual o un rango de fechas
+  personalizado; las facturas guardan también la categoría del plato al cobrarse.
 
 ## Facturación
 
@@ -161,11 +165,8 @@ con el botón **Imprimir QR**.
 
 
 
-## por hacer:
+## Mejoras:
 - pedir agregos a un plato o un trago.
-- corregir los permisos de los usuarios para las vistas. 
 - Al agregar un pedido para llevar si tiene algun producto de cocina, agregar un termopad a la compra.
-
-
 - mejorar las tablas de administracion con funcionalidades de excel.
 - crear nuevos roles con permisos definidos para el admin

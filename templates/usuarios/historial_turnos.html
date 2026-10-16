@@ -184,20 +184,23 @@
 
   <div class="admin-grid" id="historial-turnos">
     <section class="admin-card" aria-label="Filtros del historial">
-      <form id="turn-filter-form">
+      <form id="turn-filter-form" method="get" action="{% url 'usuarios:historial_turnos' %}">
         <div class="turn-filter-grid">
           <label class="turn-filter-field" for="filtro-texto">Buscar por texto
-            <span class="turn-filter-control"><i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i><input type="search" id="filtro-texto" placeholder="Participante o notas" autocomplete="off"></span>
+            <span class="turn-filter-control"><i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i><input type="search" id="filtro-texto" name="texto" value="{{ texto_filtro }}" placeholder="Participante o notas" autocomplete="off"></span>
           </label>
           <div class="turn-filter-field" role="group" aria-labelledby="filtro-periodo-label">
             <span id="filtro-periodo-label">Filtrar por mes y año</span>
             <span class="turn-filter-control"><i class="fa-solid fa-calendar-days" aria-hidden="true"></i>
               <span class="turn-filter-date-parts">
-                <select id="filtro-mes" aria-label="Mes">
+                <select id="filtro-mes" name="mes" aria-label="Mes" data-selected="{{ mes_filtro }}">
                   <option value="">Mes</option>
                 </select>
-                <select id="filtro-anio" aria-label="Año">
+                <select id="filtro-anio" name="anio" aria-label="Año">
                   <option value="">Año</option>
+                  {% for anio in anios_disponibles %}
+                    <option value="{{ anio }}"{% if anio_filtro == anio|stringformat:"s" %} selected{% endif %}>{{ anio }}</option>
+                  {% endfor %}
                 </select>
               </span>
             </span>
@@ -206,10 +209,10 @@
             <span id="filtro-rango-label">Filtrar por rango de fechas</span>
             <span class="turn-filter-range">
               <label class="turn-filter-date-field" for="filtro-fecha-desde">Desde
-                <input type="date" id="filtro-fecha-desde" aria-label="Fecha desde">
+                <input type="date" id="filtro-fecha-desde" name="fecha_desde" value="{{ fecha_desde_filtro }}" aria-label="Fecha desde">
               </label>
               <label class="turn-filter-date-field" for="filtro-fecha-hasta">Hasta
-                <input type="date" id="filtro-fecha-hasta" aria-label="Fecha hasta">
+                <input type="date" id="filtro-fecha-hasta" name="fecha_hasta" value="{{ fecha_hasta_filtro }}" aria-label="Fecha hasta">
               </label>
             </span>
           </div>
@@ -219,7 +222,9 @@
           </div>
         </div>
       </form>
-      <p class="turn-filter-status" id="turn-filter-status" role="status" aria-live="polite"></p>
+      <p class="turn-filter-status" id="turn-filter-status" role="status" aria-live="polite">
+        {% if error_filtros %}{{ error_filtros }}{% elif filtros_aplicados %}{{ historial.paginator.count }} turnos coinciden con los filtros.{% elif historial.paginator.count %}{{ historial.paginator.count }} turnos cerrados.{% else %}Aún no se registran cierres de turno.{% endif %}
+      </p>
     </section>
 
     <section class="admin-card turn-dashboard-card" aria-labelledby="resumen-general-heading">
@@ -237,7 +242,7 @@
 
     {% if historial %}
       {% for item in historial %}
-      <section class="admin-card turn-history-card turn-dashboard-card" data-turn-date="{{ item.turno.fecha|date:'Y-m-d' }}" data-search-text="{{ item.turno.pk }} {% for user in item.turno.usuarios.all %}{{ user.username }} {{ user.get_full_name }} {% endfor %}{{ item.turno.resumen }} {{ item.turno.observaciones }}" aria-labelledby="turno-heading-{{ forloop.counter }}">
+      <section class="admin-card turn-history-card turn-dashboard-card" aria-labelledby="turno-heading-{{ forloop.counter }}">
         <div class="turn-card-heading"><div class="turn-section-icon" aria-hidden="true"><i class="fa-solid fa-calendar-check"></i></div><div><p class="panel-kicker">Cierre registrado</p><h2 id="turno-heading-{{ forloop.counter }}">Turno {{ item.turno.fecha|date:'d/m/Y' }}</h2></div><span class="turn-status-value">{{ item.turno.get_estado_display }}</span></div>
         <div class="turn-history-meta">
           <span><i class="fa-solid fa-users" aria-hidden="true"></i> <span class="sr-only">Participantes:</span>{% for user in item.turno.usuarios.all %}{{ user.username }}{% if not forloop.last %}, {% endif %}{% empty %}Sin participantes{% endfor %}</span>
@@ -264,8 +269,8 @@
       <section class="admin-card">
         <div class="flex flex-col items-center text-center gap-2 py-6">
           <i class="fa-solid fa-calendar-xmark text-3xl text-slate-700" aria-hidden="true"></i>
-          <h2>No hay turnos cerrados</h2>
-          <p class="text-sm text-slate-400">Aún no se registran cierres de turno.</p>
+          <h2>{% if filtros_aplicados %}No hay turnos que coincidan con estos filtros{% else %}No hay turnos cerrados{% endif %}</h2>
+          <p class="text-sm text-slate-400">{% if filtros_aplicados %}Prueba con otro rango o ajusta los filtros.{% else %}Aún no se registran cierres de turno.{% endif %}</p>
         </div>
       </section>
     {% endif %}
@@ -277,19 +282,11 @@
     actualizarReloj();
     setInterval(actualizarReloj,30000);
 
-    const filtroTexto = document.getElementById('filtro-texto');
     const filtroMes = document.getElementById('filtro-mes');
-    const filtroAnio = document.getElementById('filtro-anio');
-    const filtroFechaDesde = document.getElementById('filtro-fecha-desde');
-    const filtroFechaHasta = document.getElementById('filtro-fecha-hasta');
     const formularioFiltros = document.getElementById('turn-filter-form');
     const botonLimpiar = document.getElementById('limpiar-filtros');
-    const estadoFiltros = document.getElementById('turn-filter-status');
-    const tarjetasTurno = Array.from(document.querySelectorAll('[data-turn-date]'));
     const formatoMes = new Intl.DateTimeFormat('es', { month: 'long', timeZone: 'UTC' });
     const meses = Array.from({ length: 12 }, (_, index) => index + 1);
-    const anios = [...new Set(tarjetasTurno.map((tarjeta) => tarjeta.dataset.turnDate.slice(0, 4)))]
-      .sort((a, b) => Number(b) - Number(a));
 
     meses.forEach((mes) => {
       const opcion = document.createElement('option');
@@ -298,68 +295,10 @@
       opcion.textContent = nombreMes.charAt(0).toLocaleUpperCase('es') + nombreMes.slice(1);
       filtroMes.append(opcion);
     });
-
-    anios.forEach((anio) => {
-      const opcion = document.createElement('option');
-      opcion.value = anio;
-      opcion.textContent = anio;
-      filtroAnio.append(opcion);
-    });
-
-    const normalizarTexto = (texto) => texto
-      .toLocaleLowerCase('es')
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '');
-
-    function filtrarTurnos() {
-      const texto = normalizarTexto(filtroTexto.value.trim());
-      const mes = filtroMes.value;
-      const anio = filtroAnio.value;
-      const fechaDesde = filtroFechaDesde.value;
-      const fechaHasta = filtroFechaHasta.value;
-      let visibles = 0;
-
-      if (fechaDesde && fechaHasta && fechaDesde > fechaHasta) {
-        estadoFiltros.textContent = 'La fecha inicial debe ser anterior o igual a la fecha final.';
-        return;
-      }
-
-      tarjetasTurno.forEach((tarjeta) => {
-        const fechaTurno = tarjeta.dataset.turnDate;
-        const [anioTurno, mesTurno] = fechaTurno.split('-');
-        const textoTarjeta = `${tarjeta.dataset.searchText} ${tarjeta.textContent}`;
-        const coincideTexto = !texto || normalizarTexto(textoTarjeta).includes(texto);
-        const coincideMes = !mes || mesTurno === mes;
-        const coincideAnio = !anio || anioTurno === anio;
-        const coincideFechaDesde = !fechaDesde || fechaTurno >= fechaDesde;
-        const coincideFechaHasta = !fechaHasta || fechaTurno <= fechaHasta;
-        const visible = coincideTexto && coincideMes && coincideAnio && coincideFechaDesde && coincideFechaHasta;
-
-        tarjeta.hidden = !visible;
-        if (visible) visibles += 1;
-      });
-
-      estadoFiltros.textContent = visibles
-        ? `Mostrando ${visibles} de ${tarjetasTurno.length} turnos`
-        : tarjetasTurno.length
-          ? 'No hay turnos que coincidan con estos filtros.'
-          : 'Aún no se registran cierres de turno.';
-    }
-
-    formularioFiltros.addEventListener('submit', (event) => {
-      event.preventDefault();
-      filtrarTurnos();
-    });
+    filtroMes.value = filtroMes.dataset.selected;
     botonLimpiar.addEventListener('click', () => {
-      formularioFiltros.reset();
-      filtroMes.value = '';
-      filtroAnio.value = '';
-      filtrarTurnos();
-      filtroTexto.focus();
+      window.location.assign(formularioFiltros.action);
     });
-    estadoFiltros.textContent = tarjetasTurno.length
-      ? `Mostrando ${tarjetasTurno.length} de ${tarjetasTurno.length} turnos`
-      : 'Aún no se registran cierres de turno.';
   </script>
 </body>
 </html>

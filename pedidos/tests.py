@@ -723,6 +723,10 @@ class FacturaWorkflowTests(TestCase):
         self.assertEqual(factura.total_cup, 57)
         self.assertEqual(factura.forma_pago, 'usd')
         self.assertEqual(factura.tasa_cambio, 40)
+        self.assertEqual(
+            {item['categoria'] for item in factura.items_snapshot},
+            {self.categoria.nombre, categoria_bebidas.nombre},
+        )
         response = self.client.get(reverse('pedidos:factura_imprimir_web', args=[factura.pk]))
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'Para llevar')

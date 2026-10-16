@@ -1,4 +1,4 @@
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from io import BytesIO
 from decimal import Decimal
 
@@ -170,6 +170,134 @@ class UsuarioTurnoTests(TestCase):
         self.assertEqual(response.context['historial'].paginator.count, 11)
         self.assertEqual(len(response.context['historial']), 1)
 
+    def test_resumen_acumulado_respeta_el_rango_de_fechas(self):
+        hoy = timezone.localdate()
+        turnos = [
+            (hoy - timedelta(days=3), 'efectivo_cup', Decimal('100.00')),
+            (hoy - timedelta(days=2), 'transferencia', Decimal('200.00')),
+            (hoy - timedelta(days=1), 'efectivo_cup', Decimal('300.00')),
+        ]
+        mesa = Mesa.objects.create(numero=72, abierta=True)
+
+        for fecha_turno, forma_pago, total in turnos:
+            Turno.objects.create(estado='cerrado', fecha=fecha_turno)
+            factura = Factura.objects.create(
+                pedido=Pedido.objects.create(mesa=mesa, estado='cerrado'),
+                mesa_numero=mesa.numero,
+                forma_pago=forma_pago,
+                total_cup=total,
+                monto_efectivo_cup=total if forma_pago == 'efectivo_cup' else Decimal('0'),
+                monto_transferencia_cup=total if forma_pago == 'transferencia' else Decimal('0'),
+            )
+            creado_en = timezone.make_aware(datetime.combine(fecha_turno, datetime.min.time()))
+            Factura.objects.filter(pk=factura.pk).update(creado_en=creado_en)
+
+        self.client.force_login(self.admin)
+        response = self.client.get(reverse('usuarios:historial_turnos'), {
+            'fecha_desde': (hoy - timedelta(days=3)).isoformat(),
+            'fecha_hasta': (hoy - timedelta(days=2)).isoformat(),
+        })
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context['historial'].paginator.count, 2)
+        self.assertEqual(response.context['resumen_general']['turnos_cerrados'], 2)
+        self.assertEqual(response.context['resumen_general']['total_general_cup'], Decimal('300.00'))
+        self.assertEqual(response.context['resumen_general']['total_efectivo_cup'], Decimal('100.00'))
+        self.assertEqual(response.context['resumen_general']['total_transferencia_cup'], Decimal('200.00'))
+        self.assertContains(response, (hoy - timedelta(days=3)).isoformat())
+        self.assertContains(response, (hoy - timedelta(days=2)).isoformat())
+
+    def test_reportes_muestran_ventas_y_categorias_del_periodo_seleccionado(self):
+        hoy = timezone.localdate()
+        categoria_bebidas = Categoria.objects.create(nombre='Bebidas')
+        categoria_comidas = Categoria.objects.create(nombre='Comidas')
+        plato = Plato.objects.create(nombre='Jugo', categoria=categoria_bebidas, precio='25.00')
+        otro_plato = Plato.objects.create(nombre='Sándwich', categoria=categoria_comidas, precio='50.00')
+        mesa = Mesa.objects.create(numero=73, abierta=True)
+        ventas = [
+            (
+                hoy - timedelta(days=1),
+                'efectivo_cup',
+                Decimal('100.00'),
+                Decimal('100.00'),
+                Decimal('0'),
+                Decimal('0'),
+                [
+                    {'plato': plato.nombre, 'categoria': categoria_bebidas.nombre, 'cantidad': 2},
+                    {'plato': otro_plato.nombre, 'categoria': categoria_comidas.nombre, 'cantidad': 1},
+                ],
+            ),
+            (
+                hoy,
+                'transferencia',
+                Decimal('200.00'),
+                Decimal('0'),
+                Decimal('200.00'),
+                Decimal('0'),
+                [{'plato': plato.nombre, 'categoria': categoria_bebidas.nombre, 'cantidad': 3}],
+            ),
+            (
+                hoy - timedelta(days=8),
+                'usd',
+                Decimal('75.00'),
+                Decimal('0'),
+                Decimal('0'),
+                Decimal('3.00'),
+                [{'plato': plato.nombre, 'categoria': categoria_bebidas.nombre, 'cantidad': 4}],
+            ),
+        ]
+        for fecha, forma_pago, total, efectivo, transferencia, usd, items in ventas:
+            factura = Factura.objects.create(
+                pedido=Pedido.objects.create(mesa=mesa, estado='cerrado'),
+                mesa_numero=mesa.numero,
+                forma_pago=forma_pago,
+                total_cup=total,
+                monto_efectivo_cup=efectivo,
+                monto_transferencia_cup=transferencia,
+                monto_usd=usd,
+                items_snapshot=items,
+            )
+            creado_en = timezone.make_aware(datetime.combine(fecha, datetime.min.time()))
+            Factura.objects.filter(pk=factura.pk).update(creado_en=creado_en)
+
+        self.client.force_login(self.admin)
+        response = self.client.get(reverse('usuarios:reportes'), {'periodo': 'semana'})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, f'href="{reverse("usuarios:reportes")}"')
+        self.assertEqual(response.context['cantidad_facturas'], 2)
+        self.assertEqual(response.context['total_cup'], Decimal('300.00'))
+        self.assertEqual(response.context['total_unidades'], 6)
+        self.assertEqual(response.context['productos_mas_vendidos'][0]['cantidad'], 5)
+        categorias = {
+            categoria['nombre']: categoria['cantidad']
+            for categoria in response.context['ventas_por_categoria']
+        }
+        self.assertEqual(categorias, {'Bebidas': 5, 'Comidas': 1})
+        self.assertContains(response, 'Semana actual')
+        self.assertContains(response, 'Recaudación por día')
+
+        response_rango = self.client.get(reverse('usuarios:reportes'), {
+            'periodo': 'rango',
+            'fecha_desde': hoy.isoformat(),
+            'fecha_hasta': hoy.isoformat(),
+        })
+        self.assertEqual(response_rango.context['cantidad_facturas'], 1)
+        self.assertEqual(response_rango.context['total_cup'], Decimal('200.00'))
+
+    def test_reportes_son_solo_para_el_administrador_y_validan_el_rango(self):
+        self.client.force_login(self.cajera)
+        self.assertEqual(self.client.get(reverse('usuarios:reportes')).status_code, 302)
+
+        self.client.force_login(self.admin)
+        response = self.client.get(reverse('usuarios:reportes'), {
+            'periodo': 'rango',
+            'fecha_desde': '2026-12-31',
+            'fecha_hasta': '2026-01-01',
+        })
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'La fecha inicial debe ser anterior o igual a la fecha final.')
+
     def test_dashboard_de_mesera_usa_navegacion_movil_del_panel(self):
         self.client.force_login(self.mesera)
 
@@ -216,7 +344,7 @@ class UsuarioTurnoTests(TestCase):
         self.assertContains(response, reverse('usuarios:historial_turnos'))
         self.assertNotContains(response, 'Abrir turno de hoy')
 
-    def test_historial_turnos_entrega_datos_para_filtrado_en_el_navegador(self):
+    def test_historial_turnos_filtra_desde_el_servidor_y_mantiene_los_filtros(self):
         turno_mayo_10 = Turno.objects.create(
             fecha=date(2024, 5, 10),
             estado='cerrado',
@@ -265,14 +393,24 @@ class UsuarioTurnoTests(TestCase):
         self.assertContains(response, 'Filtrar por mes y año')
         self.assertContains(response, 'id="turn-filter-form"')
         self.assertContains(response, 'id="limpiar-filtros"')
-        self.assertContains(response, 'data-turn-date="2024-05-10"')
-        self.assertContains(response, 'data-search-text="')
-        self.assertContains(response, "addEventListener('submit'")
+        self.assertContains(response, 'method="get"')
+        self.assertContains(response, 'name="fecha_desde"')
+        self.assertContains(response, 'name="fecha_hasta"')
         self.assertContains(response, "addEventListener('click'")
-        self.assertContains(response, 'const [anioTurno, mesTurno] = fechaTurno.split')
-        self.assertContains(response, 'fechaTurno >= fechaDesde')
-        self.assertContains(response, 'fechaTurno <= fechaHasta')
-        self.assertContains(response, 'fechaDesde > fechaHasta')
+
+        response_filtrada = self.client.get(reverse('usuarios:historial_turnos'), {
+            'fecha_desde': '2024-05-10',
+            'fecha_hasta': '2024-05-20',
+        })
+        self.assertEqual(response_filtrada.status_code, 200)
+        self.assertEqual(response_filtrada.context['historial'].paginator.count, 2)
+        self.assertEqual(response_filtrada.context['resumen_general']['turnos_cerrados'], 2)
+        self.assertEqual(
+            {item['turno'].pk for item in response_filtrada.context['historial']},
+            {turno_mayo_10.pk, turno_mayo_20.pk},
+        )
+        self.assertContains(response_filtrada, 'value="2024-05-10"')
+        self.assertContains(response_filtrada, 'value="2024-05-20"')
 
     def test_admin_tiene_seccion_separada_para_gestionar_usuarios(self):
         self.client.force_login(self.admin)

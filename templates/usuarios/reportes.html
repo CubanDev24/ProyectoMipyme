@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+{% load static %}
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Reportes - GourmetControl</title>
+  <link rel="icon" type="image/svg+xml" href="{% static 'img/favicon.svg' %}?v=20261013">
+  <link rel="stylesheet" href="{% static 'css/tailwind.css' %}">
+  <link rel="stylesheet" href="{% static 'vendor/fontawesome/css/all.min.css' %}">
+  <link rel="stylesheet" href="{% static 'css/main.css' %}?v=20261014-status-flash-icons">
+  <script src="{% static 'js/responsive-sidebar.js' %}?v=20261001-sidebar-logout" defer></script>
+  <style>
+    .report-period-tabs {
+      display: flex;
+      flex-wrap: wrap;
+      gap: .5rem;
+    }
+    .report-period-tabs a {
+      padding: .65rem .9rem;
+      border: 1px solid rgb(51 65 85);
+      border-radius: .75rem;
+      color: #cbd5e1;
+      font-size: .8rem;
+      font-weight: 650;
+      text-decoration: none;
+    }
+    .report-period-tabs a:hover,
+    .report-period-tabs a[aria-current="page"] {
+      border-color: rgb(16 185 129 / .5);
+      background: rgb(16 185 129 / .12);
+      color: #6ee7b7;
+    }
+    .report-date-form {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: end;
+      gap: .75rem;
+      margin-top: 1rem;
+    }
+    .report-date-form label {
+      display: grid;
+      gap: .35rem;
+      color: #cbd5e1;
+      font-size: .75rem;
+      font-weight: 650;
+    }
+    .report-date-form input {
+      min-height: 42px;
+      border: 1px solid rgb(71 85 105);
+      border-radius: .6rem;
+      background: #020817;
+      padding: 0 .7rem;
+      color: #f8fafc;
+      color-scheme: dark;
+    }
+    .report-date-form button {
+      min-height: 42px;
+    }
+    .report-error {
+      margin-top: .85rem;
+      color: #fca5a5;
+      font-size: .85rem;
+    }
+    .report-metric-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(155px, 1fr));
+      gap: .8rem;
+      margin-top: 1rem;
+    }
+    .report-metric {
+      display: grid;
+      gap: .45rem;
+      padding: 1rem;
+      border: 1px solid rgb(51 65 85 / .8);
+      border-radius: .9rem;
+      background: rgb(2 8 23 / .55);
+    }
+    .report-metric span {
+      color: #94a3b8;
+      font-size: .75rem;
+    }
+    .report-metric strong {
+      color: #f8fafc;
+      font-size: 1.2rem;
+      overflow-wrap: anywhere;
+    }
+    .report-chart {
+      display: grid;
+      gap: .9rem;
+      margin-top: 1rem;
+    }
+    .report-bar-row {
+      display: grid;
+      grid-template-columns: minmax(90px, 1fr) minmax(90px, 2fr) auto;
+      align-items: center;
+      gap: .75rem;
+      font-size: .8rem;
+    }
+    .report-bar-label {
+      color: #cbd5e1;
+      overflow-wrap: anywhere;
+    }
+    .report-bar-track {
+      height: .65rem;
+      overflow: hidden;
+      border-radius: 999px;
+      background: #1e293b;
+    }
+    .report-bar {
+      height: 100%;
+      border-radius: inherit;
+      background: linear-gradient(90deg, #10b981, #2dd4bf);
+    }
+    .report-bar-value {
+      color: #f8fafc;
+      text-align: right;
+      white-space: nowrap;
+    }
+    .report-payments {
+      display: grid;
+      gap: 1rem;
+      margin-top: 1rem;
+    }
+    .report-payment {
+      display: grid;
+      gap: .55rem;
+    }
+    .report-payment-meta {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      gap: .5rem;
+      color: #cbd5e1;
+      font-size: .8rem;
+    }
+    .report-payment-meta strong {
+      color: #f8fafc;
+    }
+    @media (max-width: 520px) {
+      .report-bar-row {
+        grid-template-columns: minmax(75px, .9fr) minmax(50px, 1fr);
+      }
+      .report-bar-value {
+        grid-column: 1 / -1;
+        text-align: left;
+      }
+    }
+  </style>
+</head>
+<body class="bg-slate-900 text-slate-100 font-sans min-h-screen flex flex-col md:flex-row overflow-x-hidden">
+  <aside class="w-full md:w-20 lg:w-64 bg-slate-950 border-r border-slate-800 flex flex-col justify-between shrink-0">
+    <div>
+      <div class="p-4 lg:p-6 flex items-center gap-3 border-b border-slate-800/80">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-500 to-teal-400 flex items-center justify-center text-slate-950 text-xl" aria-hidden="true"><i class="fa-solid fa-utensils"></i></div>
+        <div class="hidden lg:block"><h1 class="font-bold text-lg leading-none text-white">GourmetControl</h1><span class="text-xs text-slate-400">Administración</span></div>
+      </div>
+      <div class="p-4 border-b border-slate-800/50 hidden lg:flex items-center gap-3 bg-slate-900/40">
+        <div class="w-10 h-10 rounded-full bg-emerald-500/15 border-2 border-emerald-500 flex items-center justify-center text-emerald-400" aria-hidden="true"><i class="fa-solid fa-user-shield"></i></div>
+        <div><p class="text-sm font-semibold text-white leading-tight">{{ request.user.get_full_name|default:request.user.username }}</p><p class="text-xs text-emerald-400 font-medium">{{ request.user.get_role_display }} &bull; Activo</p></div>
+      </div>
+      {% include "usuarios/_admin_sidebar_nav.html" with seccion_activa="reportes" %}
+    </div>
+    <div class="p-3 border-t border-slate-800/80"><a href="{% url 'usuarios:logout' %}" class="w-full flex items-center justify-center lg:justify-start gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold text-rose-400 hover:bg-rose-500/10 transition-all"><i class="fa-solid fa-right-from-bracket text-base" aria-hidden="true"></i><span class="hidden lg:inline">Cerrar sesión</span></a></div>
+  </aside>
+  <main class="flex-1 flex flex-col h-screen overflow-hidden">
+    <header class="h-16 border-b border-slate-800 bg-slate-950/60 backdrop-blur px-6 flex items-center justify-between shrink-0">
+      <h2 class="text-lg font-bold text-white flex items-center gap-2 leading-none"><i class="fa-solid fa-chart-pie text-emerald-400 text-base" aria-hidden="true"></i><span>Reportes</span></h2>
+      <span class="text-[11px] bg-slate-800 text-slate-300 px-2.5 py-1 rounded-full border border-slate-700 font-medium">{{ periodo_label }}</span>
+    </header>
+    <div class="flex-1 overflow-y-auto">
+      <div class="admin-body">
+        <div class="turn-page-heading"><div><p class="panel-kicker">Administración</p><h1 class="admin-h1">Reportes</h1><p class="turn-page-subtitle">Ventas, productos y formas de pago por periodo.</p></div></div>
+        <div class="admin-grid">
+          <section class="admin-card turn-dashboard-card" aria-labelledby="periodo-heading">
+            <div class="turn-card-heading"><div class="turn-section-icon" aria-hidden="true"><i class="fa-solid fa-calendar-days"></i></div><div><p class="panel-kicker">Periodo del informe</p><h2 id="periodo-heading">{{ periodo_label }}{% if fecha_desde and fecha_hasta %} · {{ fecha_desde|date:"d/m/Y" }}–{{ fecha_hasta|date:"d/m/Y" }}{% endif %}</h2></div></div>
+            <nav class="report-period-tabs mt-4" aria-label="Periodos de reportes">
+              <a href="?periodo=semana" {% if periodo == "semana" %}aria-current="page"{% endif %}>Semana actual</a>
+              <a href="?periodo=mes" {% if periodo == "mes" %}aria-current="page"{% endif %}>Mes actual</a>
+              <a href="?periodo=mes_anterior" {% if periodo == "mes_anterior" %}aria-current="page"{% endif %}>Mes anterior</a>
+              <a href="?periodo=ano" {% if periodo == "ano" %}aria-current="page"{% endif %}>Año actual</a>
+              <a href="?periodo=rango" {% if periodo == "rango" %}aria-current="page"{% endif %}>Rango de fechas</a>
+            </nav>
+            {% if periodo == "rango" %}
+              <form method="get" action="{% url 'usuarios:reportes' %}" class="report-date-form">
+                <input type="hidden" name="periodo" value="rango">
+                <label for="fecha-desde">Desde<input id="fecha-desde" type="date" name="fecha_desde" value="{{ fecha_desde_raw }}" required></label>
+                <label for="fecha-hasta">Hasta<input id="fecha-hasta" type="date" name="fecha_hasta" value="{{ fecha_hasta_raw }}" required></label>
+                <button type="submit" class="btn btn-primary"><i class="fa-solid fa-filter" aria-hidden="true"></i> Aplicar periodo</button>
+              </form>
+            {% endif %}
+            {% if error_fechas %}<p class="report-error" role="alert">{{ error_fechas }}</p>{% endif %}
+          </section>
+
+          <section class="admin-card turn-dashboard-card" aria-label="Totales de ventas">
+            <div class="turn-card-heading"><div class="turn-section-icon" aria-hidden="true"><i class="fa-solid fa-coins"></i></div><div><p class="panel-kicker">Resumen de ventas</p><h2>Totales del periodo</h2></div></div>
+            <div class="report-metric-grid">
+              <div class="report-metric"><span>Recaudación total (CUP)</span><strong>{{ total_cup|floatformat:2 }}</strong></div>
+              <div class="report-metric"><span>Recaudado en USD</span><strong>{{ total_usd|floatformat:2 }} USD</strong></div>
+              <div class="report-metric"><span>Facturas</span><strong>{{ cantidad_facturas }}</strong></div>
+              <div class="report-metric"><span>Promedio por factura</span><strong>{{ promedio_factura|floatformat:2 }} CUP</strong></div>
+              <div class="report-metric"><span>Unidades vendidas</span><strong>{{ total_unidades }}</strong></div>
+              <div class="report-metric"><span>Productos vendidos</span><strong>{{ productos_unicos }}</strong></div>
+            </div>
+            <p class="turn-page-subtitle mt-4">El total en CUP incluye la equivalencia de las ventas cobradas en USD; el importe USD se muestra aparte.</p>
+            {% if items_invalidos %}<p class="report-error" role="status">{{ items_invalidos }} artículos con datos inválidos no se incluyeron en los gráficos de productos.</p>{% endif %}
+          </section>
+
+          <section class="admin-card turn-dashboard-card" aria-labelledby="productos-heading">
+            <div class="turn-card-heading"><div class="turn-section-icon" aria-hidden="true"><i class="fa-solid fa-fire"></i></div><div><p class="panel-kicker">Demanda</p><h2 id="productos-heading">Productos más vendidos</h2></div></div>
+            {% if productos_mas_vendidos %}
+              <div class="report-chart" role="list" aria-label="Unidades vendidas por producto">
+                {% for producto in productos_mas_vendidos %}
+                  <div class="report-bar-row" role="listitem"><span class="report-bar-label">{{ producto.nombre }}</span><div class="report-bar-track" aria-hidden="true"><div class="report-bar" style="width: {{ producto.porcentaje }}%"></div></div><strong class="report-bar-value">{{ producto.cantidad }} unidades</strong></div>
+                {% endfor %}
+              </div>
+            {% else %}<p class="turn-page-subtitle mt-4">No hay productos vendidos en este periodo.</p>{% endif %}
+          </section>
+
+          <section class="admin-card turn-dashboard-card" aria-labelledby="categorias-heading">
+            <div class="turn-card-heading"><div class="turn-section-icon" aria-hidden="true"><i class="fa-solid fa-layer-group"></i></div><div><p class="panel-kicker">Composición</p><h2 id="categorias-heading">Unidades por categoría</h2></div></div>
+            {% if ventas_por_categoria %}
+              <div class="report-chart" role="list" aria-label="Unidades vendidas por categoría">
+                {% for categoria in ventas_por_categoria %}
+                  <div class="report-bar-row" role="listitem"><span class="report-bar-label">{{ categoria.nombre }}</span><div class="report-bar-track" aria-hidden="true"><div class="report-bar" style="width: {{ categoria.porcentaje }}%"></div></div><strong class="report-bar-value">{{ categoria.cantidad }} unidades</strong></div>
+                {% endfor %}
+              </div>
+            {% else %}<p class="turn-page-subtitle mt-4">No hay ventas por categoría en este periodo.</p>{% endif %}
+          </section>
+
+          <section class="admin-card turn-dashboard-card" aria-labelledby="pagos-heading">
+            <div class="turn-card-heading"><div class="turn-section-icon" aria-hidden="true"><i class="fa-solid fa-money-bill-transfer"></i></div><div><p class="panel-kicker">Cobros</p><h2 id="pagos-heading">Recaudación por forma de pago</h2></div></div>
+            <div class="report-payments">
+              {% for pago in pagos %}
+                <div class="report-payment">
+                  <div class="report-payment-meta"><span>{{ pago.nombre }} · {{ pago.facturas }} facturas</span><strong>{{ pago.total_cup|floatformat:2 }} CUP{% if pago.total_usd %} · {{ pago.total_usd|floatformat:2 }} USD{% endif %}</strong></div>
+                  <div class="report-bar-track" role="img" aria-label="{{ pago.nombre }}: {{ pago.total_cup|floatformat:2 }} CUP"><div class="report-bar" style="width: {{ pago.porcentaje }}%"></div></div>
+                </div>
+              {% endfor %}
+            </div>
+            <p class="turn-page-subtitle mt-4">Efectivo: {{ total_efectivo_cup|floatformat:2 }} CUP · Transferencia: {{ total_transferencia_cup|floatformat:2 }} CUP</p>
+          </section>
+
+          <section class="admin-card turn-dashboard-card" aria-labelledby="recaudacion-heading">
+            <div class="turn-card-heading"><div class="turn-section-icon" aria-hidden="true"><i class="fa-solid fa-chart-column"></i></div><div><p class="panel-kicker">Evolución</p><h2 id="recaudacion-heading">Recaudación por {% if agrupar_por_mes %}mes{% else %}día{% endif %}</h2></div></div>
+            {% if recaudacion_grafico %}
+              <div class="report-chart" role="list" aria-label="Recaudación en CUP por fecha">
+                {% for punto in recaudacion_grafico %}
+                  <div class="report-bar-row" role="listitem"><span class="report-bar-label">{{ punto.etiqueta }}</span><div class="report-bar-track" aria-hidden="true"><div class="report-bar" style="width: {{ punto.porcentaje }}%"></div></div><strong class="report-bar-value">{{ punto.total|floatformat:2 }} CUP</strong></div>
+                {% endfor %}
+              </div>
+            {% else %}<p class="turn-page-subtitle mt-4">No hay recaudación en este periodo.</p>{% endif %}
+          </section>
+        </div>
+      </div>
+    </div>
+  </main>
+</body>
+</html>

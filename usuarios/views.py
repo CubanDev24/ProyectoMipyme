@@ -1,3 +1,5 @@
+from collections import defaultdict
+from datetime import datetime, timedelta
 from decimal import Decimal
 from io import BytesIO
 from xml.sax.saxutils import escape
@@ -6,12 +8,13 @@ from django.contrib import messages
 from django.contrib.auth import logout, login, authenticate, get_user, update_session_auth_hash
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
-from django.db.models import Max, Sum
+from django.db.models import Max, Q, Sum
 from django.db.models.functions import Coalesce
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
+from django.utils.dateparse import parse_date
 from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_http_methods
 from django.views.csrf import csrf_failure as django_csrf_failure
@@ -570,6 +573,53 @@ def historial_turnos_view(request):
         return redirect('usuarios:dashboard')
 
     turnos = Turno.objects.filter(estado='cerrado').prefetch_related('usuarios').order_by('-cierre', '-fecha')
+    texto = request.GET.get('texto', '').strip()
+    mes = request.GET.get('mes', '').strip()
+    anio = request.GET.get('anio', '').strip()
+    fecha_desde = request.GET.get('fecha_desde', '').strip()
+    fecha_hasta = request.GET.get('fecha_hasta', '').strip()
+    error_filtros = ''
+
+    fecha_desde_valor = parse_date(fecha_desde) if fecha_desde else None
+    fecha_hasta_valor = parse_date(fecha_hasta) if fecha_hasta else None
+    if (fecha_desde and fecha_desde_valor is None) or (fecha_hasta and fecha_hasta_valor is None):
+        error_filtros = 'Introduce un rango de fechas válido.'
+    elif fecha_desde_valor and fecha_hasta_valor and fecha_desde_valor > fecha_hasta_valor:
+        error_filtros = 'La fecha inicial debe ser anterior o igual a la fecha final.'
+
+    if error_filtros:
+        turnos = turnos.none()
+    else:
+        if fecha_desde_valor:
+            turnos = turnos.filter(fecha__gte=fecha_desde_valor)
+        if fecha_hasta_valor:
+            turnos = turnos.filter(fecha__lte=fecha_hasta_valor)
+
+        if mes:
+            if mes.isdecimal() and 1 <= int(mes) <= 12:
+                turnos = turnos.filter(fecha__month=int(mes))
+            else:
+                error_filtros = 'El mes seleccionado no es válido.'
+                turnos = turnos.none()
+        if anio:
+            if anio.isdecimal() and len(anio) == 4:
+                turnos = turnos.filter(fecha__year=int(anio))
+            else:
+                error_filtros = 'El año seleccionado no es válido.'
+                turnos = turnos.none()
+
+        if texto:
+            busqueda = (
+                Q(usuarios__username__icontains=texto)
+                | Q(usuarios__first_name__icontains=texto)
+                | Q(usuarios__last_name__icontains=texto)
+                | Q(resumen__icontains=texto)
+                | Q(observaciones__icontains=texto)
+            )
+            if texto.isdecimal():
+                busqueda |= Q(pk=int(texto))
+            turnos = turnos.filter(busqueda).distinct()
+
     historial = []
     total_general = Decimal('0')
     total_efectivo = Decimal('0')
@@ -593,10 +643,21 @@ def historial_turnos_view(request):
     turnos_paginados = Paginator(historial, 10).get_page(request.GET.get('page'))
     pagination_query = request.GET.copy()
     pagination_query.pop('page', None)
+    anios_disponibles = [
+        fecha.year for fecha in Turno.objects.filter(estado='cerrado').dates('fecha', 'year', order='DESC')
+    ]
 
     context = {
         'historial': turnos_paginados,
         'historial_pagination_query': pagination_query.urlencode(),
+        'texto_filtro': texto,
+        'mes_filtro': mes,
+        'anio_filtro': anio,
+        'fecha_desde_filtro': fecha_desde,
+        'fecha_hasta_filtro': fecha_hasta,
+        'anios_disponibles': anios_disponibles,
+        'error_filtros': error_filtros,
+        'filtros_aplicados': any((texto, mes, anio, fecha_desde, fecha_hasta)),
         'resumen_general': {
             'total_general_cup': total_general,
             'total_efectivo_cup': total_efectivo,
@@ -609,6 +670,199 @@ def historial_turnos_view(request):
         },
     }
     return render(request, 'usuarios/historial_turnos.html', context)
+
+
+@login_required
+def reportes_view(request):
+    if request.user.role != 'administrador':
+        messages.error(request, 'Solo el administrador puede consultar los reportes.')
+        return redirect('usuarios:dashboard')
+
+    hoy = timezone.localdate()
+    periodo = request.GET.get('periodo', 'semana')
+    fecha_desde_raw = request.GET.get('fecha_desde', '').strip()
+    fecha_hasta_raw = request.GET.get('fecha_hasta', '').strip()
+    error_fechas = ''
+
+    if periodo == 'mes':
+        fecha_desde = hoy.replace(day=1)
+        fecha_hasta = hoy
+        periodo_label = 'Mes actual'
+    elif periodo == 'mes_anterior':
+        inicio_mes_actual = hoy.replace(day=1)
+        fecha_hasta = inicio_mes_actual - timedelta(days=1)
+        fecha_desde = fecha_hasta.replace(day=1)
+        periodo_label = 'Mes anterior'
+    elif periodo == 'ano':
+        fecha_desde = hoy.replace(month=1, day=1)
+        fecha_hasta = hoy
+        periodo_label = 'Año actual'
+    elif periodo == 'rango':
+        try:
+            fecha_desde = parse_date(fecha_desde_raw) if fecha_desde_raw else None
+            fecha_hasta = parse_date(fecha_hasta_raw) if fecha_hasta_raw else None
+        except ValueError:
+            fecha_desde = None
+            fecha_hasta = None
+        periodo_label = 'Rango personalizado'
+        if not fecha_desde or not fecha_hasta:
+            error_fechas = 'Selecciona las fechas inicial y final para consultar el periodo.'
+        elif fecha_desde > fecha_hasta:
+            error_fechas = 'La fecha inicial debe ser anterior o igual a la fecha final.'
+    else:
+        periodo = 'semana'
+        fecha_desde = hoy - timedelta(days=hoy.weekday())
+        fecha_hasta = hoy
+        periodo_label = 'Semana actual'
+
+    facturas = Factura.objects.none()
+    if not error_fechas:
+        desde = timezone.make_aware(datetime.combine(fecha_desde, datetime.min.time()))
+        hasta = timezone.make_aware(datetime.combine(fecha_hasta, datetime.max.time()))
+        facturas = Factura.objects.filter(creado_en__gte=desde, creado_en__lte=hasta).order_by('creado_en')
+
+    categorias_por_producto = {
+        nombre.strip().casefold(): categoria or 'Sin categoría'
+        for nombre, categoria in Plato.objects.values_list('nombre', 'categoria__nombre')
+    }
+    cantidades_productos = defaultdict(int)
+    cantidades_categorias = defaultdict(int)
+    recaudacion_por_forma = {
+        forma: {
+            'nombre': nombre,
+            'facturas': 0,
+            'total_cup': Decimal('0'),
+            'total_usd': Decimal('0'),
+        }
+        for forma, nombre in Factura.FORMA_PAGO_CHOICES
+    }
+    recaudacion_por_periodo = defaultdict(lambda: Decimal('0'))
+    total_cup = Decimal('0')
+    total_usd = Decimal('0')
+    total_efectivo_cup = Decimal('0')
+    total_transferencia_cup = Decimal('0')
+    total_unidades = 0
+    items_invalidos = 0
+    cantidad_facturas = 0
+
+    for factura in facturas.values(
+        'forma_pago',
+        'total_cup',
+        'monto_usd',
+        'monto_efectivo_cup',
+        'monto_transferencia_cup',
+        'items_snapshot',
+        'creado_en',
+    ).iterator(chunk_size=500):
+        cantidad_facturas += 1
+        total_cup += factura['total_cup']
+        total_usd += factura['monto_usd']
+        total_efectivo_cup += factura['monto_efectivo_cup']
+        total_transferencia_cup += factura['monto_transferencia_cup']
+
+        forma_pago = factura['forma_pago']
+        if forma_pago in recaudacion_por_forma:
+            resumen_pago = recaudacion_por_forma[forma_pago]
+            resumen_pago['facturas'] += 1
+            resumen_pago['total_cup'] += factura['total_cup']
+            resumen_pago['total_usd'] += factura['monto_usd']
+
+        fecha_factura = timezone.localtime(factura['creado_en']).date()
+        clave_periodo = fecha_factura.replace(day=1) if (fecha_hasta - fecha_desde).days > 30 else fecha_factura
+        recaudacion_por_periodo[clave_periodo] += factura['total_cup']
+
+        for item in factura['items_snapshot'] or []:
+            if not isinstance(item, dict):
+                items_invalidos += 1
+                continue
+            try:
+                cantidad = int(item.get('cantidad', 1))
+            except (TypeError, ValueError):
+                items_invalidos += 1
+                continue
+            if cantidad <= 0:
+                items_invalidos += 1
+                continue
+            nombre_producto = str(item.get('plato') or 'Producto sin nombre').strip()
+            nombre_categoria = str(
+                item.get('categoria')
+                or categorias_por_producto.get(nombre_producto.casefold(), 'Sin categoría')
+            ).strip()
+            cantidades_productos[nombre_producto] += cantidad
+            cantidades_categorias[nombre_categoria] += cantidad
+            total_unidades += cantidad
+
+    max_producto = max(cantidades_productos.values(), default=0)
+    max_categoria = max(cantidades_categorias.values(), default=0)
+    productos_mas_vendidos = [
+        {
+            'nombre': nombre,
+            'cantidad': cantidad,
+            'porcentaje': max(2, round(cantidad * 100 / max_producto)),
+        }
+        for nombre, cantidad in sorted(
+            cantidades_productos.items(),
+            key=lambda fila: (-fila[1], fila[0].casefold()),
+        )[:10]
+    ] if max_producto else []
+    ventas_por_categoria = [
+        {
+            'nombre': nombre,
+            'cantidad': cantidad,
+            'porcentaje': max(2, round(cantidad * 100 / max_categoria)),
+        }
+        for nombre, cantidad in sorted(
+            cantidades_categorias.items(),
+            key=lambda fila: (-fila[1], fila[0].casefold()),
+        )
+    ] if max_categoria else []
+
+    max_pago = max(
+        (resumen['total_cup'] for resumen in recaudacion_por_forma.values()),
+        default=Decimal('0'),
+    )
+    pagos = [
+        {
+            **resumen,
+            'porcentaje': max(2, round(resumen['total_cup'] * 100 / max_pago)),
+        }
+        for resumen in recaudacion_por_forma.values()
+    ] if max_pago else list(recaudacion_por_forma.values())
+
+    max_recaudacion = max(recaudacion_por_periodo.values(), default=Decimal('0'))
+    recaudacion_grafico = [
+        {
+            'etiqueta': fecha.strftime('%b %Y' if (fecha_hasta - fecha_desde).days > 30 else '%d/%m'),
+            'total': total,
+            'porcentaje': max(2, round(total * 100 / max_recaudacion)),
+        }
+        for fecha, total in sorted(recaudacion_por_periodo.items())
+    ] if max_recaudacion else []
+
+    context = {
+        'periodo': periodo,
+        'periodo_label': periodo_label,
+        'fecha_desde': fecha_desde,
+        'fecha_hasta': fecha_hasta,
+        'agrupar_por_mes': not error_fechas and (fecha_hasta - fecha_desde).days > 30,
+        'fecha_desde_raw': fecha_desde_raw,
+        'fecha_hasta_raw': fecha_hasta_raw,
+        'error_fechas': error_fechas,
+        'total_cup': total_cup,
+        'total_usd': total_usd,
+        'total_efectivo_cup': total_efectivo_cup,
+        'total_transferencia_cup': total_transferencia_cup,
+        'cantidad_facturas': cantidad_facturas,
+        'promedio_factura': total_cup / cantidad_facturas if cantidad_facturas else Decimal('0'),
+        'total_unidades': total_unidades,
+        'items_invalidos': items_invalidos,
+        'productos_unicos': len(cantidades_productos),
+        'productos_mas_vendidos': productos_mas_vendidos,
+        'ventas_por_categoria': ventas_por_categoria,
+        'pagos': pagos,
+        'recaudacion_grafico': recaudacion_grafico,
+    }
+    return render(request, 'usuarios/reportes.html', context)
 
 
 @login_required
