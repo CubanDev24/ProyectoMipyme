@@ -3,7 +3,7 @@ from unittest.mock import patch
 from django.test import TestCase
 from django.urls import reverse
 
-from carta.qr import generar_qr_wifi
+from carta.qr import generar_qr_sistema, generar_qr_wifi
 from pedidos.models import Mesa
 
 
@@ -24,6 +24,18 @@ class WifiQrTests(TestCase):
             generar_qr_wifi('Red abierta', '')
 
         make_qr.assert_called_once_with('WIFI:T:nopass;S:Red abierta;;')
+
+    def test_system_qr_contains_the_current_host_and_port(self):
+        request = self.client.get('/', HTTP_HOST='192.168.1.25:8765').wsgi_request
+
+        with patch('carta.qr.qrcode.make') as make_qr:
+            make_qr.return_value.save.side_effect = lambda buffer, format: buffer.write(b'png')
+
+            url, qr = generar_qr_sistema(request)
+
+        self.assertEqual(url, 'http://192.168.1.25:8765/')
+        make_qr.assert_called_once_with(url)
+        self.assertEqual(qr, 'data:image/png;base64,cG5n')
 
 
 class CartaQrTests(TestCase):

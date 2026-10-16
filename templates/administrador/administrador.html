@@ -8,7 +8,7 @@
   <link rel="icon" type="image/svg+xml" href="{% static 'img/favicon.svg' %}?v=20261013">
   <link rel="stylesheet" href="{% static 'css/tailwind.css' %}">
   <link rel="stylesheet" href="{% static 'vendor/fontawesome/css/all.min.css' %}">
-  <link rel="stylesheet" href="{% static 'css/main.css' %}?v=20261014-status-flash-icons">
+  <link rel="stylesheet" href="{% static 'css/main.css' %}?v=20261016-qr-export">
   <script src="{% static 'js/responsive-sidebar.js' %}?v=20261001-sidebar-logout" defer></script>
 </head>
 <body class="bg-slate-900 text-slate-100 font-sans min-h-screen flex flex-col md:flex-row overflow-x-hidden">
@@ -246,16 +246,32 @@
           <button type="submit" class="btn btn-primary"><i class="fa-solid fa-floppy-disk"></i> Guardar y generar QR</button>
         </form>
       </section>
-      <section class="admin-card">
+      <section class="admin-card qr-export-card">
         <div class="turn-card-heading"><div class="turn-section-icon"><i class="fa-solid fa-qrcode"></i></div><div><p class="panel-kicker">Código para los clientes</p><h2>QR de la Wi-Fi</h2></div></div>
         {% if wifi_qr %}
         <div class="text-center">
-          <img src="{{ wifi_qr }}" alt="Código QR para conectarse a la red Wi-Fi {{ wifi_configuracion.ssid }}" class="mx-auto" style="width: min(100%, 320px); image-rendering: pixelated;">
+          <img id="wifi-qr-image" src="{{ wifi_qr }}" alt="Código QR para conectarse a la red Wi-Fi {{ wifi_configuracion.ssid }}" class="mx-auto qr-export-image" style="width: min(100%, 320px); image-rendering: pixelated;">
           <p class="admin-hint">{{ wifi_configuracion.ssid }}</p>
+          <div class="qr-export-actions">
+            <button type="button" class="btn btn-outline" onclick="descargarQrJpg('wifi-qr-image', 'qr-wifi.jpg')"><i class="fa-solid fa-download"></i> Guardar JPG</button>
+            <button type="button" class="btn btn-primary" onclick="imprimirQr('wifi')"><i class="fa-solid fa-print"></i> Imprimir QR</button>
+          </div>
         </div>
         {% else %}
         <p class="admin-empty">Guarda el nombre de la red y su contraseña para mostrar aquí el QR de conexión.</p>
         {% endif %}
+      </section>
+      <section class="admin-card qr-export-card">
+        <div class="turn-card-heading"><div class="turn-section-icon"><i class="fa-solid fa-display"></i></div><div><p class="panel-kicker">Acceso al restaurante</p><h2>QR del sistema</h2></div></div>
+        <p class="admin-hint">Escanea este código para abrir el sistema en este equipo. La dirección incluye el IP y el puerto usados para acceder a esta página.</p>
+        <div class="text-center">
+          <img id="sistema-qr-image" src="{{ sistema_qr }}" alt="Código QR para abrir el sistema en {{ sistema_url }}" class="mx-auto qr-export-image" style="width: min(100%, 320px); image-rendering: pixelated;">
+          <p class="admin-hint"><a href="{{ sistema_url }}">{{ sistema_url }}</a></p>
+          <div class="qr-export-actions">
+            <button type="button" class="btn btn-outline" onclick="descargarQrJpg('sistema-qr-image', 'qr-sistema.jpg')"><i class="fa-solid fa-download"></i> Guardar JPG</button>
+            <button type="button" class="btn btn-primary" onclick="imprimirQr('sistema')"><i class="fa-solid fa-print"></i> Imprimir QR</button>
+          </div>
+        </div>
       </section>
     </div>
     {% for area in inventarios %}
@@ -489,6 +505,48 @@
     formEditarPlato.querySelector('input[name="imagen"]').addEventListener('change', event => { const file = event.target.files[0]; if (file) previewPlato.innerHTML = `<img src="${URL.createObjectURL(file)}" alt="Vista previa">`; });
     modalPlato.addEventListener('click', event => { if (event.target === modalPlato) cerrarEdicionPlato(); });
     document.addEventListener('keydown', event => { if (event.key === 'Escape' && modalPlato.classList.contains('visible')) cerrarEdicionPlato(); });
+  </script>
+  <script>
+    async function descargarQrJpg(imageId, nombreArchivo) {
+      const imagen = document.getElementById(imageId);
+      if (!imagen) {
+        alert('No se encontró el código QR que quieres guardar.');
+        return;
+      }
+
+      try {
+        await imagen.decode();
+        const canvas = document.createElement('canvas');
+        canvas.width = imagen.naturalWidth;
+        canvas.height = imagen.naturalHeight;
+        const contexto = canvas.getContext('2d');
+        if (!contexto) throw new Error('El navegador no pudo preparar la imagen.');
+        contexto.fillStyle = '#fff';
+        contexto.fillRect(0, 0, canvas.width, canvas.height);
+        contexto.drawImage(imagen, 0, 0);
+        const jpg = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.95));
+        if (!jpg) throw new Error('El navegador no pudo convertir el QR a JPG.');
+
+        const urlDescarga = URL.createObjectURL(jpg);
+        const enlace = document.createElement('a');
+        enlace.href = urlDescarga;
+        enlace.download = nombreArchivo;
+        enlace.click();
+        window.setTimeout(() => URL.revokeObjectURL(urlDescarga), 1000);
+      } catch (error) {
+        alert(`No se pudo guardar el QR como JPG: ${error.message}`);
+      }
+    }
+
+    function imprimirQr(tipo) {
+      document.body.dataset.qrParaImprimir = tipo;
+      document.body.classList.add('imprimir-qrs');
+      window.addEventListener('afterprint', () => {
+        document.body.classList.remove('imprimir-qrs');
+        delete document.body.dataset.qrParaImprimir;
+      }, { once: true });
+      window.print();
+    }
   </script>
   <script>
     function actualizarReloj() { document.getElementById('clock-display').textContent = new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}); }
