@@ -68,7 +68,7 @@ LOGGING = {
     'handlers': {
         'file': {
             'class': 'logging.handlers.TimedRotatingFileHandler',
-            'filename': BASE_DIR / 'logs.txt',
+            'filename': str(BASE_DIR / 'logs.txt'),
             'when': 'midnight',
             'interval': 1,
             'backupCount': 30,

@@ -652,6 +652,52 @@
         }
 
         @media (min-width: 768px) {
+            #modal-content {
+                min-height: 0;
+                overflow: hidden;
+                flex-direction: row;
+                align-items: stretch;
+            }
+
+            #modal-menu-section {
+                display: flex;
+                min-height: 0;
+                overflow: hidden;
+                flex-direction: column;
+            }
+
+            #menu-items-list {
+                min-height: 0;
+                max-height: none;
+                flex: 1;
+                overscroll-behavior: contain;
+            }
+
+            #modal-order-panel {
+                min-height: 0;
+                flex: 0 0 20rem;
+            }
+
+            #modal-order-panel > div:first-child {
+                display: flex;
+                min-height: 0;
+                flex: 1;
+                flex-direction: column;
+            }
+
+            #order-items-container {
+                min-height: 0;
+                max-height: none;
+                flex: 1;
+                overscroll-behavior: contain;
+            }
+
+            #modal-order-panel > div:last-child {
+                flex: 0 0 auto;
+            }
+        }
+
+        @media (min-width: 768px) {
             .takeaway-order-layout {
                 grid-template-columns: minmax(0, 1fr) minmax(280px, .72fr);
             }
@@ -971,6 +1017,156 @@
                 grid-template-columns: repeat(2, minmax(0, 1fr));
             }
 
+        }
+
+        @media (min-width: 768px) and (max-width: 1024px) {
+            #modal-content {
+                flex-direction: row;
+                gap: 10px;
+                overflow: hidden;
+            }
+
+            #modal-menu-section {
+                display: flex;
+                min-height: 0;
+                overflow: hidden;
+                flex-direction: column;
+            }
+
+            #menu-items-list {
+                min-height: 0;
+                max-height: none;
+                flex: 1;
+                overscroll-behavior: contain;
+            }
+
+            #modal-order-panel {
+                width: 48%;
+                min-height: 140px;
+                max-height: none;
+                flex: 0 0 48%;
+                gap: 8px;
+                overflow: hidden;
+                padding: 10px;
+            }
+
+            #modal-order-panel.is-collapsed {
+                min-height: 144px;
+                max-height: 144px;
+                flex: 0 0 144px;
+            }
+
+            #modal-order-panel > div:first-child {
+                display: flex;
+                min-height: 0;
+                flex: 1;
+                flex-direction: column;
+            }
+
+            #modal-order-panel.is-collapsed > div:first-child {
+                flex: 0 0 auto;
+            }
+
+            #modal-order-panel.is-collapsed > div:first-child > div:first-child {
+                margin-bottom: 6px;
+                padding-bottom: 6px;
+            }
+
+            #modal-order-panel.is-collapsed > div:last-child {
+                flex: 0 0 auto;
+                gap: 4px;
+                padding-top: 6px;
+            }
+
+            #modal-order-panel.is-collapsed > div:last-child > div + div {
+                margin-top: 4px;
+                padding-top: 4px;
+            }
+
+            #order-items-container {
+                min-height: 0;
+                max-height: none;
+                flex: 1;
+                overscroll-behavior: contain;
+            }
+
+            #modal-order-panel.is-collapsed #order-items-container {
+                display: none;
+            }
+
+            .mobile-order-toggle {
+                display: none;
+                min-width: 36px;
+                min-height: 36px;
+                align-items: center;
+                justify-content: center;
+                border: 1px solid #334155;
+                border-radius: 9px;
+                background: #0f172a;
+                color: #cbd5e1;
+                cursor: pointer;
+            }
+
+            .mobile-order-toggle:hover {
+                border-color: #34d399;
+                color: #6ee7b7;
+            }
+
+            .mobile-order-toggle:focus-visible {
+                outline: 2px solid #34d399;
+                outline-offset: 2px;
+            }
+        }
+
+        @media (min-width: 768px) and (max-width: 1024px) {
+            #modal-order-panel.is-collapsed {
+                width: 144px;
+                min-height: 0;
+                max-height: none;
+                flex: 0 0 144px;
+            }
+
+            #modal-order-panel.is-collapsed #order-items-container {
+                display: none;
+            }
+
+            #modal-order-panel.is-collapsed > div:first-child {
+                flex: 0 0 auto;
+            }
+
+            #modal-order-panel.is-collapsed > div:last-child {
+                flex: 0 0 auto;
+                gap: 4px;
+                padding-top: 6px;
+            }
+
+            #modal-order-panel.is-collapsed > div:last-child > div + div {
+                margin-top: 4px;
+                padding-top: 4px;
+            }
+
+            .mobile-order-toggle {
+                display: none;
+                min-width: 36px;
+                min-height: 36px;
+                align-items: center;
+                justify-content: center;
+                border: 1px solid #334155;
+                border-radius: 9px;
+                background: #0f172a;
+                color: #cbd5e1;
+                cursor: pointer;
+            }
+
+            .mobile-order-toggle:hover {
+                border-color: #34d399;
+                color: #6ee7b7;
+            }
+
+            .mobile-order-toggle:focus-visible {
+                outline: 2px solid #34d399;
+                outline-offset: 2px;
+            }
         }
 
         @media (max-width: 767px) {
@@ -2730,12 +2926,9 @@
             if (!table) return;
 
             const orderPanel = document.getElementById('modal-order-panel');
-            const orderToggle = document.getElementById('mobile-order-toggle');
-            const mobileOrderPanel = window.matchMedia('(max-width: 767px)').matches;
-            orderPanel.classList.toggle('is-collapsed', mobileOrderPanel);
-            orderToggle.setAttribute('aria-expanded', 'false');
-            orderToggle.setAttribute('aria-label', 'Expandir comanda actual');
-            orderToggle.title = 'Expandir comanda actual';
+            const compactOrderPanel = window.matchMedia('(max-width: 767px)').matches;
+            orderPanel.classList.toggle('is-collapsed', compactOrderPanel);
+            actualizarControlComanda(!compactOrderPanel);
 
             // Info Básica Modal
             document.getElementById('modal-table-badge').textContent = table.numeroZona;
@@ -2766,14 +2959,30 @@
         function toggleMobileTableOrder() {
             if (!window.matchMedia('(max-width: 767px)').matches) return;
             const orderPanel = document.getElementById('modal-order-panel');
-            const orderToggle = document.getElementById('mobile-order-toggle');
             const isExpanded = !orderPanel.classList.toggle('is-collapsed');
+            actualizarControlComanda(isExpanded);
+        }
+
+        function actualizarControlComanda(isExpanded) {
+            const orderToggle = document.getElementById('mobile-order-toggle');
             const label = isExpanded ? 'Recoger comanda actual' : 'Expandir comanda actual';
             orderToggle.setAttribute('aria-expanded', String(isExpanded));
             orderToggle.setAttribute('aria-label', label);
             orderToggle.title = label;
             orderToggle.innerHTML = `<i class="fa-solid ${isExpanded ? 'fa-chevron-down' : 'fa-chevron-up'}" aria-hidden="true"></i>`;
         }
+
+        window.matchMedia('(max-width: 767px)').addEventListener('change', event => {
+            if (activeTableId === null) return;
+            document.getElementById('modal-order-panel').classList.toggle('is-collapsed', event.matches);
+            actualizarControlComanda(!event.matches);
+        });
+
+        window.matchMedia('(max-width: 1024px)').addEventListener('change', event => {
+            if (activeTableId === null || event.matches) return;
+            document.getElementById('modal-order-panel').classList.remove('is-collapsed');
+            actualizarControlComanda(true);
+        });
 
         // CERRAR MODAL
         function closeModal() {
