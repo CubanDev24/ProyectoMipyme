@@ -53,6 +53,20 @@ class FacturaWorkflowTests(TestCase):
         self.assertEqual(cuenta['total'], '50.00')
         self.assertEqual(cuenta['items'][0]['plato'], self.plato.nombre)
 
+    def test_pedidos_rechazados_no_se_suman_en_el_total_de_la_cuenta(self):
+        pedido_rechazado = Pedido.objects.create(
+            mesa=self.mesa,
+            estado='rechazado',
+            sesion_id=self.mesa.sesion_id,
+        )
+        ItemPedido.objects.create(pedido=pedido_rechazado, plato=self.plato, cantidad=3)
+
+        cuenta = serializar_cuenta([self.pedido, pedido_rechazado])
+
+        self.assertEqual(cuenta['total'], '50.00')
+        self.assertEqual(len(cuenta['items']), 1)
+        self.assertEqual(cuenta['items'][0]['cantidad'], 2)
+
     def test_pedido_serializado_incluye_imagen_opcional_del_plato(self):
         self.plato.imagen = 'carta/pizza.png'
         self.plato.save(update_fields=['imagen'])
@@ -303,6 +317,37 @@ class FacturaWorkflowTests(TestCase):
         pedidos_cocina = async_to_sync(CocinaConsumer().get_pedidos_cocina)()
         self.assertIn(solicitud_id, [pedido['id'] for pedido in pedidos_cocina])
 
+    def test_mesera_puede_rechazar_solicitud_cliente_sin_enviarla_a_estacion(self):
+        cliente = ClienteConsumer()
+        cliente.mesa_numero = str(self.mesa.numero)
+        solicitud = async_to_sync(cliente.crear_pedido)([
+            {'plato_id': self.plato.pk, 'cantidad': 1},
+        ], '')[0]
+        mesera = MeseraConsumer()
+        mesera.scope = {'user': None}
+        mesera.channel_layer = AsyncMock()
+        mesera.send = AsyncMock()
+
+        async_to_sync(mesera.receive)(json.dumps({
+            'accion': 'rechazar_pedido_cliente',
+            'pedido_id': solicitud['id'],
+        }))
+
+        pedido_rechazado = Pedido.objects.get(pk=solicitud['id'])
+        self.assertEqual(pedido_rechazado.estado, 'rechazado')
+        self.assertIsNone(async_to_sync(mesera.enviar_pedido_a_estacion)(solicitud['id']))
+        pedidos_activos = async_to_sync(mesera.get_pedidos_activos)()
+        self.assertNotIn(solicitud['id'], [pedido['id'] for pedido in pedidos_activos])
+        pedidos_cocina = async_to_sync(CocinaConsumer().get_pedidos_cocina)()
+        self.assertNotIn(solicitud['id'], [pedido['id'] for pedido in pedidos_cocina])
+        historial_cliente, _, _ = async_to_sync(cliente.get_historial_cliente)()
+        pedido_cliente = next(pedido for pedido in historial_cliente if pedido['id'] == solicitud['id'])
+        self.assertEqual(pedido_cliente['estado_display'], 'Rechazado por la mesera')
+        self.assertEqual(
+            {call.args[0] for call in mesera.channel_layer.group_send.await_args_list},
+            {'mesera', f'cliente_{self.mesa.numero}'},
+        )
+
     def test_mesera_envia_toda_la_comanda_y_separa_cocina_de_barra(self):
         categoria_bebidas = Categoria.objects.create(nombre='Bebidas para enviar', orden=2)
         bebida = Plato.objects.create(
@@ -544,6 +589,12 @@ class FacturaWorkflowTests(TestCase):
             cuenta_solicitada=True,
         )
         ItemPedido.objects.create(pedido=pedido_adicional, plato=self.plato, cantidad=1)
+        pedido_rechazado = Pedido.objects.create(
+            mesa=self.mesa,
+            sesion_id=self.mesa.sesion_id,
+            estado='rechazado',
+        )
+        ItemPedido.objects.create(pedido=pedido_rechazado, plato=self.plato, cantidad=3)
 
         factura_data, error = async_to_sync(CajaConsumer().cerrar_pedido_con_pago)(
             self.pedido.pk,
@@ -555,25 +606,35 @@ class FacturaWorkflowTests(TestCase):
         self.assertIsNone(error)
         self.assertEqual(set(factura_data['pedido_ids']), {self.pedido.pk, pedido_adicional.pk})
         self.assertEqual(len(factura_data['items_snapshot']), 2)
+        self.assertEqual(factura_data['total_cup'], '75.00')
         self.assertEqual(factura_data['monto_recibido_cup'], '80.00')
         self.assertEqual(factura_data['cambio_cup'], '5.00')
+        pedido_rechazado.refresh_from_db()
+        self.assertEqual(pedido_rechazado.estado, 'rechazado')
         self.mesa.refresh_from_db()
         self.assertFalse(self.mesa.abierta)
         self.assertEqual(
             set(Pedido.objects.filter(mesa=self.mesa).values_list('pk', flat=True)),
-            {self.pedido.pk, pedido_adicional.pk},
+            {self.pedido.pk, pedido_adicional.pk, pedido_rechazado.pk},
         )
-        self.assertEqual(
-            set(Pedido.objects.filter(mesa=self.mesa).values_list('estado', flat=True)),
-            {'cerrado'},
-        )
+        self.pedido.refresh_from_db()
+        self.assertEqual(self.pedido.estado, 'cerrado')
+        pedido_adicional.refresh_from_db()
+        self.assertEqual(pedido_adicional.estado, 'cerrado')
 
         cliente = ClienteConsumer()
         cliente.mesa_numero = str(self.mesa.numero)
         pedidos, factura, mesa_abierta = async_to_sync(cliente.get_historial_cliente)()
 
         self.assertFalse(mesa_abierta)
-        self.assertEqual({pedido['id'] for pedido in pedidos}, {self.pedido.pk, pedido_adicional.pk})
+        self.assertEqual(
+            {pedido['id']: pedido['estado'] for pedido in pedidos}[pedido_rechazado.pk],
+            'rechazado',
+        )
+        self.assertEqual(
+            {pedido['id'] for pedido in pedidos},
+            {self.pedido.pk, pedido_adicional.pk, pedido_rechazado.pk},
+        )
         self.assertEqual(factura['pdf_url'], f'/pedidos/caja/factura/{factura_data["id"]}/imprimir/')
 
         _, error = async_to_sync(MeseraConsumer().abrir_mesa)(self.mesa.pk)
@@ -588,8 +649,8 @@ class FacturaWorkflowTests(TestCase):
         self.assertIsNone(factura_nueva_sesion)
         self.assertEqual(
             Pedido.objects.filter(mesa=self.mesa).count(),
-            2,
-            'Los pedidos cobrados permanecen guardados para el historial administrativo.',
+            3,
+            'Los pedidos cobrados y rechazados permanecen guardados para el historial administrativo.',
         )
 
     def test_caja_rechaza_cobrar_ticket_para_llevar_no_entregado(self):

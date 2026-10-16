@@ -124,7 +124,7 @@ def crear_pedidos_por_destino(
 
 
 def serializar_cuenta(pedidos):
-    pedidos = list(pedidos)
+    pedidos = [pedido for pedido in pedidos if pedido.estado != 'rechazado']
     if not pedidos:
         return None
     items = []
@@ -305,6 +305,23 @@ class MeseraConsumer(AsyncWebsocketConsumer):
                     'tipo': 'pedido_enviado_barra' if pedido['destino'] == 'barra' else 'pedido_enviado_cocina',
                     'pedido_id': pedido['id'],
                 }))
+            else:
+                await self.send(text_data=json.dumps({
+                    'tipo': 'error_pedido',
+                    'mensaje': 'La solicitud ya no está pendiente o la mesa está cerrada.',
+                }))
+
+        elif accion == 'rechazar_pedido_cliente':
+            pedido = await self.rechazar_pedido_cliente(data.get('pedido_id'))
+            if pedido:
+                await self.channel_layer.group_send(
+                    'mesera',
+                    {'type': 'pedido_actualizado', 'pedido': pedido},
+                )
+                await self.channel_layer.group_send(
+                    f"cliente_{pedido['mesa_numero']}",
+                    {'type': 'pedido_actualizado', 'pedido': pedido},
+                )
             else:
                 await self.send(text_data=json.dumps({
                     'tipo': 'error_pedido',
@@ -529,7 +546,7 @@ class MeseraConsumer(AsyncWebsocketConsumer):
         if turno:
             pedidos_para_llevar = Q(modalidad='para_llevar', creado_en__gte=turno.apertura)
         qs = Pedido.objects.filter(pedidos_mesa | pedidos_para_llevar).exclude(
-            estado='cerrado',
+            estado__in=['cerrado', 'rechazado'],
         ).prefetch_related('items__plato').select_related('mesa')
         return [serializar_pedido(p) for p in qs]
 
@@ -581,7 +598,7 @@ class MeseraConsumer(AsyncWebsocketConsumer):
             return None, 'La mesa ya está cerrada.'
         if Pedido.objects.filter(
             mesa=mesa, sesion_id=mesa.sesion_id,
-        ).exclude(estado='cerrado').exists():
+        ).exclude(estado__in=['cerrado', 'rechazado']).exists():
             return None, 'Cobra y cierra primero los pedidos activos de esta mesa.'
         mesa.abierta = False
         mesa.save(update_fields=['abierta'])
@@ -631,19 +648,43 @@ class MeseraConsumer(AsyncWebsocketConsumer):
     @database_sync_to_async
     def enviar_pedido_a_estacion(self, pedido_id):
         try:
-            pedido = Pedido.objects.select_related('mesa').get(
-                pk=pedido_id,
-                estado='por_confirmar',
-                mesa__abierta=True,
-                sesion_id=F('mesa__sesion_id'),
-            )
+            with transaction.atomic():
+                pedido = Pedido.objects.select_for_update().select_related('mesa').get(
+                    pk=pedido_id,
+                    estado='por_confirmar',
+                    mesa__abierta=True,
+                    sesion_id=F('mesa__sesion_id'),
+                )
+                pedido.estado = 'pendiente'
+                pedido.save(update_fields=['estado', 'actualizado_en'])
+                pedido = Pedido.objects.prefetch_related('items__plato').select_related('mesa').get(
+                    pk=pedido.pk,
+                )
+                return serializar_pedido(pedido)
         except (Pedido.DoesNotExist, TypeError, ValueError):
             return None
-        pedido.estado = 'pendiente'
-        pedido.save(update_fields=['estado', 'actualizado_en'])
-        return serializar_pedido(
-            Pedido.objects.prefetch_related('items__plato').select_related('mesa').get(pk=pedido.pk)
-        )
+
+    @database_sync_to_async
+    def rechazar_pedido_cliente(self, pedido_id):
+        try:
+            with transaction.atomic():
+                pedido = Pedido.objects.select_for_update().select_related('mesa').filter(
+                    pk=pedido_id,
+                    estado='por_confirmar',
+                    modalidad='mesa',
+                    mesa__abierta=True,
+                    sesion_id=F('mesa__sesion_id'),
+                ).first()
+                if not pedido:
+                    return None
+                pedido.estado = 'rechazado'
+                pedido.save(update_fields=['estado', 'actualizado_en'])
+                pedido = Pedido.objects.prefetch_related('items__plato').select_related('mesa').get(
+                    pk=pedido.pk,
+                )
+                return serializar_pedido(pedido)
+        except (TypeError, ValueError):
+            return None
 
     @database_sync_to_async
     def cambiar_estado(self, pedido_id, estado):
@@ -782,7 +823,7 @@ class MeseraConsumer(AsyncWebsocketConsumer):
             pedidos = list(Pedido.objects.select_for_update().filter(
                 mesa=mesa,
                 sesion_id=mesa.sesion_id,
-            ).exclude(estado='cerrado').prefetch_related('items__plato__categoria'))
+            ).exclude(estado__in=['cerrado', 'rechazado']).prefetch_related('items__plato__categoria'))
             if not pedidos:
                 return None, 'No hay una cuenta pendiente para esta mesa.'
             if any(pedido.estado != 'servido' for pedido in pedidos):
@@ -815,7 +856,7 @@ class MeseraConsumer(AsyncWebsocketConsumer):
             mesa__numero=mesa_numero,
             sesion_id=F('mesa__sesion_id'),
             cuenta_solicitada=True,
-        ).exclude(estado='cerrado').select_related('mesa').prefetch_related('items__plato'))
+        ).exclude(estado__in=['cerrado', 'rechazado']).select_related('mesa').prefetch_related('items__plato'))
 
 
 # ─── COCINA ──────────────────────────────────────────────────────────────────
@@ -994,7 +1035,7 @@ class CajaConsumer(AsyncWebsocketConsumer):
         ).distinct()
         cuentas = [serializar_cuenta(Pedido.objects.filter(
             mesa=mesa, cuenta_solicitada=True,
-        ).exclude(estado='cerrado').select_related('mesa').prefetch_related('items__plato')) for mesa in mesas]
+        ).exclude(estado__in=['cerrado', 'rechazado']).select_related('mesa').prefetch_related('items__plato')) for mesa in mesas]
         grupos = Pedido.objects.filter(
             modalidad='para_llevar',
             cuenta_solicitada=True,
@@ -1035,13 +1076,13 @@ class CajaConsumer(AsyncWebsocketConsumer):
         Pedido.objects.filter(pk__in=[p.pk for p in pedidos]).update(cuenta_solicitada=True)
         return serializar_cuenta(Pedido.objects.filter(
             mesa_id=mesa_id, cuenta_solicitada=True,
-        ).exclude(estado='cerrado').select_related('mesa').prefetch_related('items__plato'))
+        ).exclude(estado__in=['cerrado', 'rechazado']).select_related('mesa').prefetch_related('items__plato'))
 
     @database_sync_to_async
     def get_cuenta_mesa(self, mesa_numero):
         return serializar_cuenta(Pedido.objects.filter(
             mesa__numero=mesa_numero, cuenta_solicitada=True,
-        ).exclude(estado='cerrado').select_related('mesa').prefetch_related('items__plato'))
+        ).exclude(estado__in=['cerrado', 'rechazado']).select_related('mesa').prefetch_related('items__plato'))
 
     @database_sync_to_async
     def get_cuenta_para_llevar(self, grupo_para_llevar):
@@ -1139,7 +1180,7 @@ class CajaConsumer(AsyncWebsocketConsumer):
             pedidos = list(Pedido.objects.select_for_update().filter(
                 mesa=principal.mesa,
                 sesion_id=principal.sesion_id,
-            ).exclude(estado='cerrado').prefetch_related('items__plato'))
+            ).exclude(estado__in=['cerrado', 'rechazado']).prefetch_related('items__plato'))
             if any(pedido.estado != 'servido' for pedido in pedidos):
                 return None, 'No se puede cobrar hasta que todos los pedidos de la mesa estén servidos.'
         if not pedidos:

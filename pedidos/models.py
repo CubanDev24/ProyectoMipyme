@@ -48,6 +48,7 @@ class Pedido(models.Model):
     ]
     ESTADO_CHOICES = [
         ('por_confirmar', 'Esperando a la mesera'),
+        ('rechazado', 'Rechazado por la mesera'),
         ('pendiente', 'Pendiente'),
         ('en_preparacion', 'En preparación'),
         ('listo', 'Listo'),

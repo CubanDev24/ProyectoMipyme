@@ -1321,6 +1321,12 @@
   animation: pulse 2s infinite;
 }
 
+.cliente-order-status.rechazado {
+  background: rgba(239, 68, 68, 0.12);
+  color: #fca5a5;
+  border-color: rgba(239, 68, 68, 0.35);
+}
+
 @keyframes pulse {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.6; }
@@ -2186,23 +2192,37 @@ function conectar() {
       showToast('No se pudo avisar', d.mensaje, 'error');
       
     } else if (d.tipo === 'pedido_actualizado') {
-      const indice = pedidosCliente.findIndex(p => p.id === d.pedido.id);
-      if (indice >= 0) pedidosCliente[indice] = d.pedido;
-      else pedidosCliente.push(d.pedido);
+      if (Array.isArray(d.pedido.pedido_ids)) {
+        d.pedido.pedido_ids.forEach(pedidoId => {
+          const pedido = pedidosCliente.find(item => item.id === pedidoId);
+          if (pedido) pedido.cuenta_solicitada = d.pedido.cuenta_solicitada;
+        });
+      } else {
+        const indice = pedidosCliente.findIndex(p => p.id === d.pedido.id);
+        if (indice >= 0) pedidosCliente[indice] = d.pedido;
+        else pedidosCliente.push(d.pedido);
+      }
       renderHistorialCliente();
+      if (d.pedido.estado === 'rechazado') {
+        showToast('Pedido rechazado', 'La mesera no enviará esta solicitud a cocina o a la barra.', 'error');
+      }
       if (pedidoActual && (d.pedido.id === pedidoActual.id || (d.pedido.pedido_ids && d.pedido.pedido_ids.includes(pedidoActual.id)))) {
-        pedidoActual = d.pedido;
-        mostrarEstado(d.pedido);
+        if (Array.isArray(d.pedido.pedido_ids)) {
+          pedidoActual.cuenta_solicitada = d.pedido.cuenta_solicitada;
+        } else {
+          pedidoActual = d.pedido;
+        }
+        mostrarEstado(pedidoActual);
       }
       
     } else if (d.tipo === 'pedido_cerrado') {
       const pedido = pedidosCliente.find(p => p.id === d.pedido_id);
-      if (pedido) { 
+      if (pedido && pedido.estado !== 'rechazado') {
         pedido.estado = 'cerrado'; 
         pedido.estado_display = 'Cerrado'; 
         renderHistorialCliente(); 
       }
-      if (pedidoActual && d.pedido_id === pedidoActual.id) {
+      if (pedidoActual && d.pedido_id === pedidoActual.id && pedidoActual.estado !== 'rechazado') {
         document.getElementById('cerrado-msg').style.display = 'block';
         document.getElementById('btnFacturaDirecta').style.display = 'none';
       }
@@ -2411,6 +2431,9 @@ function renderHistorialCliente() {
     if (pedido.estado === 'por_confirmar') {
       statusClass = '';
       statusIcon = '<i class="fa-regular fa-clock"></i> ';
+    } else if (pedido.estado === 'rechazado') {
+      statusClass = 'rechazado';
+      statusIcon = '<i class="fa-solid fa-ban"></i> ';
     } else if (pedido.estado === 'pendiente' || pedido.estado === 'Enviado a cocina') {
       statusClass = '';
       statusIcon = '<i class="fa-solid fa-paper-plane"></i> ';
@@ -2438,11 +2461,13 @@ function renderHistorialCliente() {
     }).join('');
     
     const total = toNumber(pedido.total);
-    totalAcumulado += total;
-    totalUnidades += (pedido.items || []).reduce(
-      (cantidad, item) => cantidad + (toNumber(item.cantidad) || 1),
-      0
-    );
+    if (pedido.estado !== 'rechazado') {
+      totalAcumulado += total;
+      totalUnidades += (pedido.items || []).reduce(
+        (cantidad, item) => cantidad + (toNumber(item.cantidad) || 1),
+        0
+      );
+    }
     
     const card = document.createElement('div');
     card.className = 'cliente-order-card';
@@ -2456,8 +2481,8 @@ function renderHistorialCliente() {
       </div>
       <div class="cliente-order-items">${itemsHtml}</div>
       <div class="cliente-order-total-row">
-        <span>Total</span>
-        <span class="total-valor">${fmt(total)} CUP</span>
+        <span>${pedido.estado === 'rechazado' ? 'No se cobrará' : 'Total'}</span>
+        <span class="total-valor">${pedido.estado === 'rechazado' ? 'Rechazado' : `${fmt(total)} CUP`}</span>
       </div>
     `;
     lista.appendChild(card);
@@ -2475,7 +2500,7 @@ function renderHistorialCliente() {
 
 function numeroVisiblePedido(pedido) {
   const indice = pedidosCliente.findIndex(item => item.id === pedido.id);
-  return indice === -1 ? pedidosCliente.length : pedidosCliente.length - indice;
+  return indice === -1 ? pedidosCliente.length : indice + 1;
 }
 
 function mostrarEstado(p) {
@@ -2484,7 +2509,7 @@ function mostrarEstado(p) {
   const estadoBox = document.getElementById('estado-box');
   if (estadoBox) {
     estadoBox.style.display = 'block';
-    const iconos = { pendiente: '⏳', en_preparacion: '👨‍🍳', listo: '✅', servido: '🍽️', cerrado: '✓' };
+    const iconos = { por_confirmar: '⏳', rechazado: '✕', pendiente: '⏳', en_preparacion: '👨‍🍳', listo: '✅', servido: '🍽️', cerrado: '✓' };
     const estadoTxt = document.getElementById('estado-txt');
     if (estadoTxt) estadoTxt.textContent = `${iconos[p.estado] || '📋'} ${p.estado_display || p.estado}`;
     const estadoItems = document.getElementById('estado-items');

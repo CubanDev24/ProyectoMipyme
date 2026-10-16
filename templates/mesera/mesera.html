@@ -661,6 +661,38 @@
             display: none;
         }
 
+        .order-item-remove {
+            display: inline-grid;
+            width: 36px;
+            height: 36px;
+            flex: 0 0 36px;
+            place-items: center;
+            border: 1px solid rgba(248, 113, 113, .35);
+            border-radius: 10px;
+            background: linear-gradient(145deg, rgba(127, 29, 29, .4), rgba(69, 10, 10, .3));
+            color: #fca5a5;
+            cursor: pointer;
+            transition: background-color 150ms ease, border-color 150ms ease, color 150ms ease, transform 150ms ease, box-shadow 150ms ease;
+        }
+
+        .order-item-remove:hover:not(:disabled) {
+            transform: translateY(-1px);
+            border-color: rgba(248, 113, 113, .75);
+            background: rgba(127, 29, 29, .65);
+            color: #fff;
+            box-shadow: 0 4px 12px rgba(127, 29, 29, .25);
+        }
+
+        .order-item-remove:focus-visible {
+            outline: 2px solid #f87171;
+            outline-offset: 2px;
+        }
+
+        .order-item-remove:disabled {
+            cursor: not-allowed;
+            opacity: .4;
+        }
+
         @media (min-width: 768px) {
             #modal-content {
                 min-height: 0;
@@ -2497,8 +2529,12 @@
                     if (data.pedido.es_para_llevar) {
                         registrarTicketParaLlevar(data.pedido.grupo_para_llevar, true);
                         actualizarPedidoParaLlevar(data.pedido);
-                    }
-                    else aplicarPedidoEnMesa(data.pedido);
+                    } else if (data.pedido.estado === 'rechazado') {
+                        if (tablaActual) {
+                            tablaActual.pedidos = (tablaActual.pedidos || []).filter(pedido => pedido.id !== data.pedido.id);
+                            sincronizarPedidoMesa(tablaActual);
+                        }
+                    } else aplicarPedidoEnMesa(data.pedido);
                     renderTables();
                     updateHeaderStats();
                     renderBarView();
@@ -2506,6 +2542,9 @@
                     if (data.pedido.mesa_id && activeTableId === data.pedido.mesa_id) openTableModal(activeTableId);
                     if (data.tipo === 'pedido_nuevo' && data.pedido.estado === 'por_confirmar') {
                         showToast('Solicitud del cliente', `${data.pedido.etiqueta || `Mesa ${data.pedido.mesa_numero}`} espera que envíes su pedido a cocina.`);
+                    }
+                    if (data.tipo === 'pedido_actualizado' && data.pedido.estado === 'rechazado') {
+                        showToast('Solicitud rechazada', `Se rechazó el pedido de ${data.pedido.etiqueta || `Mesa ${data.pedido.mesa_numero}`}.`);
                     }
                     if (cambioAListo && data.pedido.es_para_llevar) showToast('Pedido para llevar listo', `${data.pedido.etiqueta} está listo para entregar.`);
                     else if (cambioAListo) mostrarAlertaPedidoListo(data.pedido);
@@ -2677,6 +2716,7 @@
         function estadoPlato(ord) {
             const labels = {
                 por_confirmar: 'Pendiente de envío',
+                rechazado: 'Rechazado',
                 pendiente: 'Pendiente',
                 en_preparacion: 'En preparación',
                 listo: 'Listo',
@@ -3226,10 +3266,10 @@
                             <span class="font-bold text-white text-xs">${ord.qty}</span>
                             ${ord.pedidoId ? '' : `<button onclick="updateOrderQty(${item.id}, 1)" class="text-slate-400 hover:text-emerald-400"><i class="fa-solid fa-plus text-[10px]"></i></button>`}
                         </div>
-                        ${!ord.pedidoId ? `<button type="button" onclick="removeOrderItem(${item.id})" ${table.comandaEnviandose ? 'disabled' : ''} aria-label="Eliminar ${escaparHtml(item.name)} de la comanda" title="Eliminar producto de la comanda" class="grid h-8 w-8 place-items-center rounded-lg border border-rose-500/20 bg-rose-500/10 text-rose-300 transition-colors hover:border-rose-400/50 hover:bg-rose-500/20 disabled:cursor-not-allowed disabled:opacity-40"><i class="fa-solid fa-trash-can" aria-hidden="true"></i></button>` : ''}
+                        ${!ord.pedidoId ? `<button type="button" onclick="removeOrderItem(${item.id})" ${table.comandaEnviandose ? 'disabled' : ''} aria-label="Eliminar ${escaparHtml(item.name)} de la comanda" title="Eliminar producto sin enviar" class="order-item-remove"><i class="fa-solid fa-trash-can" aria-hidden="true"></i></button>` : ''}
                         ${ord.estado === 'pendiente' ? `<input type="text" disabled placeholder="Sin notas" value="${ord.note || ''}" onchange="updateOrderNote(${item.id}, this.value)" class="bg-slate-950 border border-slate-800 text-[10px] text-slate-300 rounded px-2 py-1 focus:outline-none focus:border-emerald-500 w-32">` : `<span class="text-[10px] text-slate-400">${ord.note?.trim() || 'Sin notas'}</span>`}
                     </div>
-                    ${mostrarEnviarSolicitud ? `<button type="button" onclick="aceptarPedidoCliente(${ord.pedidoId})" class="w-full rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-300 hover:bg-amber-400 hover:text-slate-950 py-1.5 text-[10px] font-bold transition-all"><i class="fa-solid ${ord.destino === 'barra' ? 'fa-martini-glass-citrus' : 'fa-paper-plane'}"></i> ${ord.destino === 'barra' ? 'Aceptar pedido en barra' : 'Enviar pedido del cliente a cocina'}</button>` : ''}
+                    ${mostrarEnviarSolicitud ? `<div class="flex gap-2"><button type="button" onclick="aceptarPedidoCliente(${ord.pedidoId})" class="min-w-0 flex-1 rounded-lg border border-amber-500/20 bg-amber-500/10 px-2 py-2 text-[10px] font-bold text-amber-300 transition-all hover:bg-amber-400 hover:text-slate-950"><i class="fa-solid ${ord.destino === 'barra' ? 'fa-martini-glass-citrus' : 'fa-paper-plane'} mr-1"></i>${ord.destino === 'barra' ? 'Enviar a barra' : 'Enviar a cocina'}</button><button type="button" onclick="rechazarPedidoCliente(${ord.pedidoId})" aria-label="Rechazar solicitud de pedido" title="Rechazar solicitud" class="min-w-0 flex-1 rounded-lg border border-rose-500/25 bg-rose-500/10 px-2 py-2 text-[10px] font-bold text-rose-300 transition-all hover:border-rose-400/60 hover:bg-rose-500/20 hover:text-rose-100"><i class="fa-solid fa-ban mr-1" aria-hidden="true"></i>Rechazar</button></div>` : ''}
                     ${ord.pedidoId && ord.estado === 'listo' ? `<button type="button" onclick="marcarServidoMesera(${ord.pedidoId})" class="w-full rounded-lg bg-sky-500/10 border border-sky-500/20 text-sky-300 hover:bg-sky-500 hover:text-slate-950 py-1.5 text-[10px] font-bold transition-all"><i class="fa-solid fa-hand-holding-heart"></i> Marcar servido</button>` : ''}
                 `;
                 container.appendChild(row);
@@ -3259,6 +3299,14 @@
                 return;
             }
             ws.send(JSON.stringify({ accion: 'enviar_pedido_a_estacion', pedido_id: pedidoId }));
+        }
+
+        function rechazarPedidoCliente(pedidoId) {
+            if (!ws || ws.readyState !== WebSocket.OPEN) {
+                showToast('Sin conexión', 'No se pudo rechazar la solicitud del cliente.');
+                return;
+            }
+            ws.send(JSON.stringify({ accion: 'rechazar_pedido_cliente', pedido_id: pedidoId }));
         }
 
         function updateOrderNote(itemId, note) {
