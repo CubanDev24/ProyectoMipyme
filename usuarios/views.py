@@ -792,6 +792,7 @@ def reportes_view(request):
             cantidades_categorias[nombre_categoria] += cantidad
             total_unidades += cantidad
 
+    colores_grafico = ['#34d399', '#38bdf8', '#a78bfa', '#fbbf24', '#fb7185', '#2dd4bf', '#818cf8', '#f97316']
     max_producto = max(cantidades_productos.values(), default=0)
     max_categoria = max(cantidades_categorias.values(), default=0)
     productos_mas_vendidos = [
@@ -805,6 +806,9 @@ def reportes_view(request):
             key=lambda fila: (-fila[1], fila[0].casefold()),
         )[:10]
     ] if max_producto else []
+    for indice, producto in enumerate(productos_mas_vendidos):
+        producto['color'] = colores_grafico[indice % len(colores_grafico)]
+
     ventas_por_categoria = [
         {
             'nombre': nombre,
@@ -817,6 +821,10 @@ def reportes_view(request):
         )
     ] if max_categoria else []
 
+    for indice, categoria in enumerate(ventas_por_categoria):
+        categoria['color'] = colores_grafico[indice % len(colores_grafico)]
+        categoria['participacion'] = round(categoria['cantidad'] * 100 / total_unidades) if total_unidades else 0
+
     max_pago = max(
         (resumen['total_cup'] for resumen in recaudacion_por_forma.values()),
         default=Decimal('0'),
@@ -825,9 +833,27 @@ def reportes_view(request):
         {
             **resumen,
             'porcentaje': max(2, round(resumen['total_cup'] * 100 / max_pago)),
+            'participacion': round(resumen['total_cup'] * 100 / total_cup) if total_cup else 0,
+            'color': colores_grafico[indice % len(colores_grafico)],
         }
-        for resumen in recaudacion_por_forma.values()
+        for indice, resumen in enumerate(recaudacion_por_forma.values())
     ] if max_pago else list(recaudacion_por_forma.values())
+
+    pagos_con_recaudacion = [pago for pago in pagos if pago['total_cup'] > 0]
+    segmentos_categorias = []
+    acumulado_categorias = Decimal('0')
+    for indice, categoria in enumerate(ventas_por_categoria):
+        inicio = acumulado_categorias
+        acumulado_categorias += Decimal(categoria['cantidad']) * Decimal('100') / Decimal(total_unidades)
+        fin = Decimal('100') if indice == len(ventas_por_categoria) - 1 else acumulado_categorias
+        segmentos_categorias.append(f"{categoria['color']} {inicio:.2f}% {fin:.2f}%")
+    segmentos_pagos = []
+    acumulado_pagos = Decimal('0')
+    for indice, pago in enumerate(pagos_con_recaudacion):
+        inicio = acumulado_pagos
+        acumulado_pagos += pago['total_cup'] * Decimal('100') / total_cup
+        fin = Decimal('100') if indice == len(pagos_con_recaudacion) - 1 else acumulado_pagos
+        segmentos_pagos.append(f"{pago['color']} {inicio:.2f}% {fin:.2f}%")
 
     max_recaudacion = max(recaudacion_por_periodo.values(), default=Decimal('0'))
     recaudacion_grafico = [
@@ -838,6 +864,9 @@ def reportes_view(request):
         }
         for fecha, total in sorted(recaudacion_por_periodo.items())
     ] if max_recaudacion else []
+
+    for indice, punto in enumerate(recaudacion_grafico):
+        punto['color'] = colores_grafico[indice % len(colores_grafico)]
 
     context = {
         'periodo': periodo,
@@ -860,6 +889,9 @@ def reportes_view(request):
         'productos_mas_vendidos': productos_mas_vendidos,
         'ventas_por_categoria': ventas_por_categoria,
         'pagos': pagos,
+        'pagos_con_recaudacion': pagos_con_recaudacion,
+        'categorias_donut': ', '.join(segmentos_categorias),
+        'pagos_donut': ', '.join(segmentos_pagos),
         'recaudacion_grafico': recaudacion_grafico,
     }
     return render(request, 'usuarios/reportes.html', context)

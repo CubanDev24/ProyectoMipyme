@@ -12,6 +12,138 @@
     </script>
     <link rel="stylesheet" href="{% static 'css/main.css' %}?v=20261013-caja-panel">
     <script src="{% static 'js/responsive-sidebar.js' %}?v=20261001-sidebar-logout" defer></script>
+    <style>
+        .caja-pago-resumen {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-bottom: 1rem;
+            padding: .9rem 1rem;
+            border: 1px solid rgba(52, 211, 153, .22);
+            border-radius: 14px;
+            background: linear-gradient(135deg, rgba(16, 185, 129, .11), rgba(2, 8, 23, .68));
+        }
+        .caja-pago-resumen span {
+            color: #a7f3d0;
+            font-size: .7rem;
+            font-weight: 800;
+            letter-spacing: .11em;
+            text-transform: uppercase;
+        }
+        .caja-pago-resumen strong {
+            color: #f8fafc;
+            font-size: 1.2rem;
+            font-variant-numeric: tabular-nums;
+        }
+        .caja-recibido-field {
+            display: grid;
+            gap: .5rem;
+            margin-top: .8rem;
+        }
+        .caja-recibido-label {
+            display: flex;
+            align-items: center;
+            gap: .5rem;
+            color: #e2e8f0;
+            font-size: .78rem;
+            font-weight: 700;
+        }
+        .caja-recibido-label i {
+            color: #34d399;
+        }
+        .caja-recibido-control {
+            display: flex;
+            min-height: 54px;
+            align-items: center;
+            gap: .7rem;
+            border: 1px solid rgba(148, 163, 184, .28);
+            border-radius: 12px;
+            background: #020817;
+            padding: 0 .9rem;
+            transition: border-color .18s ease, box-shadow .18s ease;
+        }
+        .caja-recibido-control:focus-within {
+            border-color: rgba(52, 211, 153, .8);
+            box-shadow: 0 0 0 3px rgba(16, 185, 129, .14);
+        }
+        .caja-recibido-control > i {
+            color: #64748b;
+        }
+        .caja-recibido-control input {
+            width: 100%;
+            min-width: 0;
+            border: 0;
+            outline: 0;
+            background: transparent;
+            color: #f8fafc;
+            font: inherit;
+            font-size: 1.15rem;
+            font-weight: 750;
+            font-variant-numeric: tabular-nums;
+        }
+        .caja-recibido-control input[type="number"] {
+            appearance: textfield;
+            -moz-appearance: textfield;
+        }
+        .caja-recibido-control input[type="number"]::-webkit-inner-spin-button,
+        .caja-recibido-control input[type="number"]::-webkit-outer-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+        .caja-recibido-control input::placeholder {
+            color: #475569;
+            font-size: .9rem;
+            font-weight: 500;
+        }
+        .caja-recibido-moneda {
+            color: #94a3b8;
+            font-size: .75rem;
+            font-weight: 800;
+        }
+        .caja-recibido-ayuda {
+            margin: -.15rem 0 .2rem;
+            color: #94a3b8;
+            font-size: .7rem;
+            line-height: 1.45;
+        }
+        .caja-cambio-resumen {
+            display: flex;
+            min-height: 52px;
+            align-items: center;
+            justify-content: space-between;
+            gap: .8rem;
+            margin-top: 1rem;
+            border: 1px solid rgba(148, 163, 184, .16);
+            border-radius: 12px;
+            background: rgba(15, 23, 42, .72);
+            padding: .75rem .9rem;
+        }
+        .caja-cambio-resumen span {
+            color: #cbd5e1;
+            font-size: .78rem;
+            font-weight: 650;
+        }
+        .caja-cambio-resumen strong {
+            color: #94a3b8;
+            font-size: 1rem;
+            font-variant-numeric: tabular-nums;
+        }
+        .caja-cambio-resumen.is-valid {
+            border-color: rgba(52, 211, 153, .38);
+            background: rgba(6, 78, 59, .24);
+        }
+        .caja-cambio-resumen.is-valid strong {
+            color: #6ee7b7;
+        }
+        .caja-cambio-resumen.is-invalid {
+            border-color: rgba(248, 113, 113, .32);
+            background: rgba(127, 29, 29, .16);
+        }
+        .caja-cambio-resumen.is-invalid strong {
+            color: #fca5a5;
+        }
+    </style>
 </head>
 <body class="bg-slate-900 text-slate-100 font-sans min-h-screen flex flex-col md:flex-row overflow-x-hidden">
     <aside class="w-full md:w-20 lg:w-64 bg-slate-950 border-r border-slate-800 flex flex-col justify-between shrink-0">
@@ -303,6 +435,9 @@
         } else if (d.tipo === 'error_cobro') {
           toast(d.mensaje, 'red');
           sonidoError();
+          if (formaPagoSeleccionada === 'efectivo_cup') actualizarCambio();
+          else if (formaPagoSeleccionada === 'usd') actualizarCambioUsd();
+          else document.getElementById('btn-cobrar').disabled = false;
         }
       };
     }
@@ -373,13 +508,11 @@
       document.getElementById('pago-formas').style.display = soloAceptar ? 'none' : 'grid';
       document.getElementById('pago-box-titulo').textContent = soloAceptar ? 'Método seleccionado por la mesera' : 'Forma de pago';
       document.getElementById('btn-cobrar-texto').textContent = soloAceptar ? 'Aceptar cuenta y registrar factura' : 'Registrar factura y cerrar cuenta';
-      document.getElementById('btn-cobrar').disabled = !formaPagoSeleccionada;
+      document.getElementById('btn-cobrar').disabled = true;
       document.getElementById('btn-cobrar').style.display = 'block';
       document.getElementById('btn-imprimir').style.display = 'none';
       if (soloAceptar) {
-        const nombre = { efectivo_cup: 'Efectivo CUP', transferencia: 'Transferencia', mixto: 'Mixto', usd: 'USD' }[p.forma_pago] || p.forma_pago;
-        document.getElementById('pago-detalle').style.display = 'block';
-        document.getElementById('pago-detalle').innerHTML = `<div class="pago-detalle-linea"><span>${nombre}</span><strong>Seleccionado</strong></div>`;
+        renderDetallePago();
       } else {
         document.getElementById('pago-detalle').style.display = 'none';
       }
@@ -404,7 +537,6 @@
         el.classList.toggle('seleccionada', el.dataset.forma === forma);
       });
       renderDetallePago();
-      document.getElementById('btn-cobrar').disabled = false;
     }
 
     function renderDetallePago() {
@@ -414,7 +546,15 @@
       cont.style.display = 'block';
 
       if (formaPagoSeleccionada === 'efectivo_cup') {
-        cont.innerHTML = `<div class="pago-detalle-linea"><span>Efectivo CUP</span><strong>${total.toFixed(2)} CUP</strong></div>`;
+        cont.innerHTML = `
+          <div class="caja-pago-resumen"><span>Total a cobrar</span><strong>${total.toFixed(2)} CUP</strong></div>
+          <label class="caja-recibido-field" for="input-recibido-cup">
+            <span class="caja-recibido-label"><i class="fa-solid fa-money-bill-wave" aria-hidden="true"></i> Efectivo entregado</span>
+            <span class="caja-recibido-control"><i class="fa-solid fa-hand-holding-dollar" aria-hidden="true"></i><input type="number" step="0.01" min="${total.toFixed(2)}" id="input-recibido-cup" inputmode="decimal" placeholder="Escribe el importe" oninput="actualizarCambio()"><span class="caja-recibido-moneda">CUP</span></span>
+            <span class="caja-recibido-ayuda">Ingresa el monto exacto que entrega el cliente.</span>
+          </label>
+          <div class="caja-cambio-resumen" id="caja-cambio-cup"><span><i class="fa-solid fa-arrow-rotate-left mr-1" aria-hidden="true"></i> Cambio a devolver</span><strong id="cambio-cup-calc">—</strong></div>`;
+        actualizarCambio();
       } else if (formaPagoSeleccionada === 'transferencia') {
         cont.innerHTML = `<div class="pago-detalle-linea"><span>Transferencia</span><strong>${total.toFixed(2)} CUP</strong></div>`;
       } else if (formaPagoSeleccionada === 'mixto') {
@@ -424,15 +564,65 @@
           <div class="pago-detalle-linea"><span>Efectivo CUP</span><strong>${mitad.toFixed(2)} CUP</strong></div>
           <div class="pago-detalle-linea"><span>Transferencia</span><strong>${resto.toFixed(2)} CUP</strong></div>`;
       } else if (formaPagoSeleccionada === 'usd') {
-        const tasaInicial = TASA_ACTUAL !== null ? TASA_ACTUAL : '';
+        const tasaInicial = pedidoSeleccionado.tasa_cambio || (TASA_ACTUAL !== null ? TASA_ACTUAL : '');
         cont.innerHTML = `
-          <div class="pago-detalle-linea"><span>Total</span><strong>${total.toFixed(2)} CUP</strong></div>
-          <label style="display:block;margin-top:.3rem">Tasa de cambio (CUP por 1 USD)
-            <input type="number" step="0.01" min="0.01" id="input-tasa-usd" class="pago-tasa-input" value="${tasaInicial}" oninput="actualizarMontoUsd()">
+          <div class="caja-pago-resumen"><span>Total de la cuenta</span><strong>${total.toFixed(2)} CUP</strong></div>
+          <label class="caja-recibido-field" for="input-tasa-usd">
+            <span class="caja-recibido-label"><i class="fa-solid fa-arrow-right-arrow-left" aria-hidden="true"></i> Tasa de cambio</span>
+            <span class="caja-recibido-control"><i class="fa-solid fa-coins" aria-hidden="true"></i><input type="number" step="0.01" min="0.01" id="input-tasa-usd" value="${tasaInicial}" inputmode="decimal" placeholder="CUP por 1 USD" oninput="actualizarMontoUsd()"><span class="caja-recibido-moneda">CUP/USD</span></span>
           </label>
-          <div class="pago-detalle-linea" style="margin-top:.4rem"><span>A cobrar en USD</span><strong id="monto-usd-calc">—</strong></div>`;
+          <div class="caja-cambio-resumen"><span>Monto a cobrar en USD</span><strong id="monto-usd-calc">—</strong></div>
+          <label class="caja-recibido-field" for="input-recibido-usd">
+            <span class="caja-recibido-label"><i class="fa-solid fa-money-bill-wave" aria-hidden="true"></i> Efectivo entregado</span>
+            <span class="caja-recibido-control"><i class="fa-solid fa-hand-holding-dollar" aria-hidden="true"></i><input type="number" step="0.01" min="0" id="input-recibido-usd" inputmode="decimal" placeholder="Escribe el importe" oninput="actualizarCambioUsd()"><span class="caja-recibido-moneda">USD</span></span>
+            <span class="caja-recibido-ayuda">Ingresa el monto exacto que entrega el cliente.</span>
+          </label>
+          <div class="caja-cambio-resumen" id="caja-cambio-usd"><span><i class="fa-solid fa-arrow-rotate-left mr-1" aria-hidden="true"></i> Cambio a devolver</span><strong id="cambio-usd-calc">—</strong></div>`;
         actualizarMontoUsd();
       }
+      if (['transferencia', 'mixto'].includes(formaPagoSeleccionada)) {
+        document.getElementById('btn-cobrar').disabled = false;
+      }
+    }
+
+    function redondearMoneda(valor) {
+      return Math.round((valor + Number.EPSILON) * 100) / 100;
+    }
+
+    function actualizarCambio() {
+      const input = document.getElementById('input-recibido-cup');
+      const output = document.getElementById('cambio-cup-calc');
+      if (!input || !output || !pedidoSeleccionado) return;
+      const recibido = Number(input.value);
+      const total = Number(pedidoSeleccionado.total);
+      const valido = input.value !== '' && Number.isFinite(recibido) && recibido >= total;
+      const cambioResumen = document.getElementById('caja-cambio-cup');
+      cambioResumen.classList.toggle('is-valid', valido);
+      cambioResumen.classList.toggle('is-invalid', input.value !== '' && !valido);
+      output.textContent = valido
+        ? `${redondearMoneda(recibido - total).toFixed(2)} CUP`
+        : input.value ? 'Importe insuficiente' : '—';
+      document.getElementById('btn-cobrar').disabled = !valido;
+    }
+
+    function actualizarCambioUsd() {
+      const recibidoInput = document.getElementById('input-recibido-usd');
+      const cambioOutput = document.getElementById('cambio-usd-calc');
+      const montoOutput = document.getElementById('monto-usd-calc');
+      const tasaInput = document.getElementById('input-tasa-usd');
+      if (!recibidoInput || !cambioOutput || !montoOutput || !tasaInput || !pedidoSeleccionado) return;
+      const tasa = Number(tasaInput.value);
+      const recibido = Number(recibidoInput.value);
+      const totalUsd = tasa > 0 ? redondearMoneda(Number(pedidoSeleccionado.total) / tasa) : NaN;
+      montoOutput.textContent = Number.isFinite(totalUsd) ? `${totalUsd.toFixed(2)} USD` : '—';
+      const valido = recibidoInput.value !== '' && Number.isFinite(recibido) && Number.isFinite(totalUsd) && recibido >= totalUsd;
+      const cambioResumen = document.getElementById('caja-cambio-usd');
+      cambioResumen.classList.toggle('is-valid', valido);
+      cambioResumen.classList.toggle('is-invalid', recibidoInput.value !== '' && !valido);
+      cambioOutput.textContent = valido
+        ? `${redondearMoneda(recibido - totalUsd).toFixed(2)} USD`
+        : recibidoInput.value ? 'Importe insuficiente' : '—';
+      document.getElementById('btn-cobrar').disabled = !valido;
     }
 
     function comprobanteHtml(pedido) {
@@ -466,9 +656,13 @@
       const out = document.getElementById('monto-usd-calc');
       if (!input || !out || !pedidoSeleccionado) return;
       const tasa = parseFloat(input.value);
-      if (!tasa || tasa <= 0) { out.textContent = '—'; return; }
-      const total = parseFloat(pedidoSeleccionado.total);
-      out.textContent = `${(total/tasa).toFixed(2)} USD`;
+      if (!tasa || tasa <= 0) {
+        out.textContent = '—';
+      } else {
+        const total = parseFloat(pedidoSeleccionado.total);
+        out.textContent = `${redondearMoneda(total / tasa).toFixed(2)} USD`;
+      }
+      actualizarCambioUsd();
     }
 
     function cerrarPedido() {
@@ -479,6 +673,16 @@
         tasa_cambio = pedidoSeleccionado.tasa_cambio || (input ? parseFloat(input.value) : null);
         if (!tasa_cambio || tasa_cambio <= 0) { toast('Indica una tasa de cambio válida', 'red'); return; }
       }
+      const montoRecibidoCup = document.getElementById('input-recibido-cup')?.value;
+      const montoRecibidoUsd = document.getElementById('input-recibido-usd')?.value;
+      if (formaPagoSeleccionada === 'efectivo_cup' && (!montoRecibidoCup || Number(montoRecibidoCup) < Number(pedidoSeleccionado.total))) {
+        toast('El efectivo recibido debe cubrir el total de la cuenta', 'red');
+        return;
+      }
+      if (formaPagoSeleccionada === 'usd' && (!montoRecibidoUsd || !Number.isFinite(Number(montoRecibidoUsd)))) {
+        toast('Indica el efectivo USD recibido', 'red');
+        return;
+      }
       document.getElementById('btn-cobrar').disabled = true;
       ws.send(JSON.stringify({
         accion: 'cerrar_pedido',
@@ -486,6 +690,8 @@
         mesa_numero: pedidoSeleccionado.mesa_numero,
         forma_pago: formaPagoSeleccionada,
         tasa_cambio: tasa_cambio,
+        monto_recibido_cup: montoRecibidoCup || null,
+        monto_recibido_usd: montoRecibidoUsd || null,
         mesera_nombre: pedidoSeleccionado.mesera_nombre || '',
       }));
     }

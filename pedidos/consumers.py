@@ -184,6 +184,10 @@ def serializar_factura(factura):
         'monto_efectivo_cup': str(factura.monto_efectivo_cup),
         'monto_transferencia_cup': str(factura.monto_transferencia_cup),
         'monto_usd': str(factura.monto_usd),
+        'monto_recibido_cup': str(factura.monto_recibido_cup),
+        'cambio_cup': str(factura.cambio_cup),
+        'monto_recibido_usd': str(factura.monto_recibido_usd),
+        'cambio_usd': str(factura.cambio_usd),
         'tasa_cambio': str(factura.tasa_cambio) if factura.tasa_cambio else None,
         'mesera_nombre': getattr(factura, 'mesera_nombre', '') or '',
         'cajera_nombre': getattr(factura, 'cajera_nombre', '') or '',
@@ -915,7 +919,15 @@ class CajaConsumer(AsyncWebsocketConsumer):
                 cajera_nombre = user.get_full_name() or user.username
             else:
                 cajera_nombre = user.username if user else ''
-            resultado, error = await self.cerrar_pedido_con_pago(pedido_id, forma_pago, tasa_cambio, mesera_nombre=mesera_nombre, cajera_nombre=cajera_nombre)
+            resultado, error = await self.cerrar_pedido_con_pago(
+                pedido_id,
+                forma_pago,
+                tasa_cambio,
+                data.get('monto_recibido_cup'),
+                data.get('monto_recibido_usd'),
+                mesera_nombre=mesera_nombre,
+                cajera_nombre=cajera_nombre,
+            )
             if error:
                 await self.send(text_data=json.dumps({'tipo': 'error_cobro', 'mensaje': error}))
             elif resultado:
@@ -1088,7 +1100,16 @@ class CajaConsumer(AsyncWebsocketConsumer):
 
     @database_sync_to_async
     @transaction.atomic
-    def cerrar_pedido_con_pago(self, pedido_id, forma_pago, tasa_cambio_raw, mesera_nombre='', cajera_nombre=''):
+    def cerrar_pedido_con_pago(
+        self,
+        pedido_id,
+        forma_pago,
+        tasa_cambio_raw,
+        monto_recibido_cup_raw=None,
+        monto_recibido_usd_raw=None,
+        mesera_nombre='',
+        cajera_nombre='',
+    ):
         """
         Verifica el pedido, calcula el monto según la forma de pago elegida
         por la cajera y registra la factura antes de cerrar la cuenta.
@@ -1133,10 +1154,25 @@ class CajaConsumer(AsyncWebsocketConsumer):
         monto_efectivo_cup = Decimal('0')
         monto_transferencia_cup = Decimal('0')
         monto_usd = Decimal('0')
+        monto_recibido_cup = Decimal('0')
+        cambio_cup = Decimal('0')
+        monto_recibido_usd = Decimal('0')
+        cambio_usd = Decimal('0')
         tasa_cambio = None
 
         if forma_pago == 'efectivo_cup':
             monto_efectivo_cup = total
+            monto_recibido_cup = _to_decimal(monto_recibido_cup_raw)
+            if (
+                monto_recibido_cup is None
+                or not monto_recibido_cup.is_finite()
+                or monto_recibido_cup > Decimal('99999999.99')
+            ):
+                return None, 'Indica el importe recibido en efectivo CUP.'
+            monto_recibido_cup = _redondear(monto_recibido_cup)
+            if monto_recibido_cup < total:
+                return None, 'El efectivo recibido no puede ser menor que el total de la cuenta.'
+            cambio_cup = monto_recibido_cup - total
         elif forma_pago == 'transferencia':
             monto_transferencia_cup = total
         elif forma_pago == 'mixto':
@@ -1145,9 +1181,30 @@ class CajaConsumer(AsyncWebsocketConsumer):
             monto_transferencia_cup = total - mitad
         elif forma_pago == 'usd':
             tasa_cambio = _to_decimal(tasa_cambio_raw)
-            if not tasa_cambio or tasa_cambio <= 0:
+            if (
+                tasa_cambio is None
+                or not tasa_cambio.is_finite()
+                or tasa_cambio <= 0
+                or tasa_cambio > Decimal('999999.99')
+            ):
+                return None, 'Indica una tasa de cambio válida para cobrar en USD.'
+            tasa_cambio = _redondear(tasa_cambio)
+            if tasa_cambio <= 0:
                 return None, 'Indica una tasa de cambio válida para cobrar en USD.'
             monto_usd = _redondear(total / tasa_cambio)
+            if monto_usd <= 0:
+                return None, 'El total de la cuenta es demasiado pequeño para cobrarlo en USD.'
+            monto_recibido_usd = _to_decimal(monto_recibido_usd_raw)
+            if (
+                monto_recibido_usd is None
+                or not monto_recibido_usd.is_finite()
+                or monto_recibido_usd > Decimal('99999999.99')
+            ):
+                return None, 'Indica el importe recibido en efectivo USD.'
+            monto_recibido_usd = _redondear(monto_recibido_usd)
+            if monto_recibido_usd < monto_usd:
+                return None, 'El efectivo USD recibido no puede ser menor que el monto a cobrar.'
+            cambio_usd = monto_recibido_usd - monto_usd
 
         items_snapshot = [
             {
@@ -1169,6 +1226,10 @@ class CajaConsumer(AsyncWebsocketConsumer):
             monto_efectivo_cup=monto_efectivo_cup,
             monto_transferencia_cup=monto_transferencia_cup,
             monto_usd=monto_usd,
+            monto_recibido_cup=monto_recibido_cup,
+            cambio_cup=cambio_cup,
+            monto_recibido_usd=monto_recibido_usd,
+            cambio_usd=cambio_usd,
             tasa_cambio=tasa_cambio,
             mesera_nombre=mesera_nombre,
             cajera_nombre=cajera_nombre,
@@ -1198,6 +1259,10 @@ class CajaConsumer(AsyncWebsocketConsumer):
             'monto_efectivo_cup': str(factura.monto_efectivo_cup),
             'monto_transferencia_cup': str(factura.monto_transferencia_cup),
             'monto_usd': str(factura.monto_usd),
+            'monto_recibido_cup': str(factura.monto_recibido_cup),
+            'cambio_cup': str(factura.cambio_cup),
+            'monto_recibido_usd': str(factura.monto_recibido_usd),
+            'cambio_usd': str(factura.cambio_usd),
             'tasa_cambio': str(factura.tasa_cambio) if factura.tasa_cambio else None,
             'mesera_nombre': factura.mesera_nombre,
             'cajera_nombre': factura.cajera_nombre,

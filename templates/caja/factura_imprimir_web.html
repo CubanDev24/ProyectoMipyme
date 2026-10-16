@@ -300,6 +300,10 @@
         <div class="payment-method">{{ factura.get_forma_pago_display }}</div>
         {% if factura.forma_pago == 'efectivo_cup' %}
           <div class="meta-info"><span>Efectivo CUP</span><span>{{ factura.monto_efectivo_cup|unlocalize }} <small>CUP</small></span></div>
+          {% if factura.monto_recibido_cup %}
+          <div class="meta-info"><span>Recibido</span><span>{{ factura.monto_recibido_cup|unlocalize }} <small>CUP</small></span></div>
+          <div class="meta-info change"><span>Cambio</span><span>{{ factura.cambio_cup|unlocalize }} <small>CUP</small></span></div>
+          {% endif %}
         {% elif factura.forma_pago == 'transferencia' %}
           <div class="meta-info"><span>Transferencia</span><span>{{ factura.monto_transferencia_cup|unlocalize }} <small>CUP</small></span></div>
         {% elif factura.forma_pago == 'mixto' %}
@@ -308,14 +312,14 @@
         {% elif factura.forma_pago == 'usd' %}
           <div class="meta-info"><span>Monto USD</span><span>{{ factura.monto_usd|unlocalize }} <small>USD</small></span></div>
           <div class="meta-info"><span>Tasa</span><span>1 USD = {{ factura.tasa_cambio }} CUP</span></div>
+          {% if factura.monto_recibido_usd %}
+          <div class="meta-info"><span>Recibido</span><span>{{ factura.monto_recibido_usd|unlocalize }} <small>USD</small></span></div>
+          <div class="meta-info change"><span>Cambio</span><span>{{ factura.cambio_usd|unlocalize }} <small>USD</small></span></div>
+          {% endif %}
         {% endif %}
         {% if factura.monto_usd and factura.forma_pago != 'usd' %}
           <div class="meta-info"><span>Total USD</span><span>{{ factura.monto_usd|unlocalize }} <small>USD</small></span></div>
         {% endif %}
-        {% if factura.cambio_cup %}
-          <div class="meta-info change"><span>Cambio</span><span>{{ factura.cambio_cup|unlocalize }} <small>CUP</small></span></div>
-        {% endif %}
-
         <div class="ornament"><i></i></div>
 
         <!-- Pie -->
