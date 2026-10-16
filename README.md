@@ -116,6 +116,9 @@ con el botón **Imprimir QR**.
 - Los montos a cobrar siempre se calculan en el servidor a partir del total real
   del pedido (no se confía en lo que envíe el navegador), y no se puede cerrar
   dos veces la misma cuenta.
+- En Caja, los pagos en efectivo CUP y USD requieren registrar el importe
+  recibido; el sistema valida que cubra la cuenta, calcula el cambio y lo guarda
+  en la factura para mostrarlo en el ticket impreso.
 - `/pedidos/caja/factura/<id>/imprimir/` abre una facturita lista para imprimir
   (se puede abrir en una pestaña nueva desde el botón "Imprimir facturita").
 
