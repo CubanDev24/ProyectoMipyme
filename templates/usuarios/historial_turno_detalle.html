@@ -45,6 +45,37 @@
       color: #64748b;
       margin-top: .15rem;
     }
+    .ipv-caption-actions {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: .5rem;
+      flex-wrap: wrap;
+    }
+    .ipv-export-link {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: .4rem;
+      min-height: 34px;
+      padding: .4rem .7rem;
+      border: 1px solid rgba(148,163,184,.25);
+      border-radius: 9px;
+      color: #e2e8f0;
+      background: rgba(15,23,42,.65);
+      font-size: .68rem;
+      font-weight: 700;
+      text-decoration: none;
+      transition: border-color .15s ease, background .15s ease;
+    }
+    .ipv-export-link:hover {
+      border-color: rgba(52,211,153,.55);
+      background: rgba(52,211,153,.1);
+    }
+    .ipv-export-link:focus-visible {
+      outline: 2px solid #6ee7b7;
+      outline-offset: 2px;
+    }
     .ipv-badge-live {
       display: inline-flex;
       align-items: center;
@@ -327,11 +358,19 @@
                   {% if turno.cierre %} — {{ turno.cierre|date:'H:i' }}{% endif %}
                 </div>
               </div>
-              {% if turno.estado == 'abierto' %}
-              <div class="ipv-badge-live">
-                <span class="dot"></span> Actualizando en tiempo real
+              <div class="ipv-caption-actions">
+                <a class="ipv-export-link" href="{% url 'usuarios:ipv_turno_pdf' turno.pk %}">
+                  <i class="fa-solid fa-file-pdf" aria-hidden="true"></i> Exportar PDF
+                </a>
+                <a class="ipv-export-link" href="{% url 'usuarios:ipv_turno_excel' turno.pk %}">
+                  <i class="fa-solid fa-file-excel" aria-hidden="true"></i> Exportar Excel
+                </a>
+                {% if turno.estado == 'abierto' %}
+                <div class="ipv-badge-live">
+                  <span class="dot"></span> Actualizando en tiempo real
+                </div>
+                {% endif %}
               </div>
-              {% endif %}
             </div>
 
             <!-- Table container -->

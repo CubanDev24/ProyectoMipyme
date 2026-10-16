@@ -1,4 +1,6 @@
 from decimal import Decimal
+from io import BytesIO
+from xml.sax.saxutils import escape
 
 from django.contrib import messages
 from django.contrib.auth import logout, login, authenticate, get_user, update_session_auth_hash
@@ -6,13 +8,21 @@ from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
 from django.db.models import Max, Sum
 from django.db.models.functions import Coalesce
-from django.http import JsonResponse
+from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_http_methods
 from django.views.csrf import csrf_failure as django_csrf_failure
+from openpyxl import Workbook
+from openpyxl.styles import Alignment, Font, PatternFill
+from reportlab.lib import colors
+from reportlab.lib.enums import TA_RIGHT
+from reportlab.lib.pagesizes import A4, landscape
+from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
+from reportlab.lib.units import mm
+from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 
 from carta.models import Plato
 from carta.qr import generar_qr_mesa
@@ -627,7 +637,10 @@ def ipv_turno(request, turno_id):
         return JsonResponse({'error': 'Sin permiso'}, status=403)
 
     turno = get_object_or_404(Turno, pk=turno_id)
+    return JsonResponse(_datos_ipv_turno(turno))
 
+
+def _datos_ipv_turno(turno):
     apertura = turno.apertura
     # Para turno cerrado usamos el cierre exacto; para el abierto, ahora mismo.
     cierre = turno.cierre if turno.estado == 'cerrado' else timezone.now()
@@ -772,11 +785,203 @@ def ipv_turno(request, turno_id):
 
     filas.sort(key=lambda f: f['nombre'].casefold())
 
-    return JsonResponse({
-        'turno_id': turno_id,
+    return {
+        'turno_id': turno.pk,
         'estado': turno.estado,
         'fecha': turno.fecha.strftime('%d/%m/%Y'),
         'actualizado_en': timezone.localtime(cierre).strftime('%H:%M:%S'),
         'total_importe': str(total_importe),
         'filas': filas,
-    })
+    }
+
+
+IPV_COLUMNAS = (
+    ('Descripción', 'nombre'),
+    ('Categoría', 'categoria'),
+    ('Saldo inicial', 'saldo_inicial'),
+    ('Entradas', 'entradas'),
+    ('En existencia', 'cantidad_existencia'),
+    ('Saldo final', 'saldo_final'),
+    ('Cant. vendida', 'cantidad_vendida'),
+    ('Precio venta', 'precio_venta'),
+    ('Importe', 'importe_venta'),
+    ('Merma / rotura', 'merma_rotura'),
+)
+
+
+@login_required
+def ipv_turno_pdf(request, turno_id):
+    if request.user.role not in ROLES_CON_ACCESO_FINANCIERO:
+        return JsonResponse({'error': 'Sin permiso'}, status=403)
+
+    turno = get_object_or_404(Turno, pk=turno_id)
+    datos = _datos_ipv_turno(turno)
+    buffer = BytesIO()
+    pagina = landscape(A4)
+    documento = SimpleDocTemplate(
+        buffer,
+        pagesize=pagina,
+        leftMargin=10 * mm,
+        rightMargin=10 * mm,
+        topMargin=10 * mm,
+        bottomMargin=10 * mm,
+        title=f"IPV turno {turno.pk}",
+    )
+    estilos = getSampleStyleSheet()
+    estilo_celda = ParagraphStyle(
+        'IPVCelda',
+        parent=estilos['BodyText'],
+        fontName='Helvetica',
+        fontSize=6,
+        leading=7,
+        spaceAfter=0,
+    )
+    estilo_numero = ParagraphStyle(
+        'IPVNumero',
+        parent=estilo_celda,
+        alignment=TA_RIGHT,
+    )
+    estilo_encabezado = ParagraphStyle(
+        'IPVEncabezado',
+        parent=estilo_celda,
+        fontName='Helvetica-Bold',
+        textColor=colors.white,
+    )
+    encabezados = [Paragraph(escape(titulo), estilo_encabezado) for titulo, _ in IPV_COLUMNAS]
+    filas_tabla = [encabezados]
+    for fila in datos['filas']:
+        filas_tabla.append([
+            Paragraph(
+                escape(str(fila[clave]) if fila[clave] is not None else '—'),
+                estilo_celda if indice < 2 else estilo_numero,
+            )
+            for indice, (_, clave) in enumerate(IPV_COLUMNAS)
+        ])
+    filas_tabla.append([
+        Paragraph('Total importe de ventas', estilo_celda),
+        '', '', '', '', '', '', '',
+        Paragraph(escape(datos['total_importe']), estilo_numero),
+        '',
+    ])
+    ancho_disponible = pagina[0] - 20 * mm
+    proporciones = (0.19, 0.12, 0.08, 0.08, 0.10, 0.08, 0.10, 0.09, 0.09, 0.07)
+    tabla = Table(
+        filas_tabla,
+        colWidths=[ancho_disponible * proporcion for proporcion in proporciones],
+        repeatRows=1,
+    )
+    estilos_tabla = [
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1e293b')),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('BACKGROUND', (0, -1), (-1, -1), colors.HexColor('#e2e8f0')),
+        ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'),
+        ('SPAN', (0, -1), (7, -1)),
+        ('GRID', (0, 0), (-1, -1), 0.25, colors.HexColor('#cbd5e1')),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('ALIGN', (2, 1), (-1, -1), 'RIGHT'),
+        ('LEFTPADDING', (0, 0), (-1, -1), 4),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 4),
+        ('TOPPADDING', (0, 0), (-1, -1), 4),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+    ]
+    if datos['filas']:
+        estilos_tabla.append(('BACKGROUND', (0, 1), (-1, -2), colors.HexColor('#f8fafc')))
+        estilos_tabla.append(
+            ('ROWBACKGROUNDS', (0, 1), (-1, -2), [colors.white, colors.HexColor('#f1f5f9')]),
+        )
+    tabla.setStyle(TableStyle(estilos_tabla))
+    contenido = [
+        Paragraph('Inventario Perpetuo de Ventas (IPV)', estilos['Title']),
+        Paragraph(
+            f"Turno {escape(datos['fecha'])} · "
+            f"{'Abierto' if turno.estado == 'abierto' else 'Cerrado'} · "
+            f"Actualizado {escape(datos['actualizado_en'])}",
+            estilos['Normal'],
+        ),
+        Spacer(1, 8 * mm),
+        tabla,
+    ]
+    documento.build(contenido)
+    respuesta = HttpResponse(buffer.getvalue(), content_type='application/pdf')
+    respuesta['Content-Disposition'] = f'attachment; filename="ipv_turno_{turno.pk}.pdf"'
+    return respuesta
+
+
+@login_required
+def ipv_turno_excel(request, turno_id):
+    if request.user.role not in ROLES_CON_ACCESO_FINANCIERO:
+        return JsonResponse({'error': 'Sin permiso'}, status=403)
+
+    turno = get_object_or_404(Turno, pk=turno_id)
+    datos = _datos_ipv_turno(turno)
+    libro = Workbook()
+    hoja = libro.active
+    hoja.title = 'IPV'
+    hoja.append(['Inventario Perpetuo de Ventas (IPV)'])
+    hoja.append([
+        'Turno',
+        datos['fecha'],
+        'Estado',
+        'Abierto' if turno.estado == 'abierto' else 'Cerrado',
+        'Actualizado',
+        datos['actualizado_en'],
+    ])
+    hoja.append([])
+    hoja.append([titulo for titulo, _ in IPV_COLUMNAS])
+    for celda in hoja[4]:
+        celda.font = Font(bold=True, color='FFFFFF')
+        celda.fill = PatternFill('solid', fgColor='1E293B')
+        celda.alignment = Alignment(horizontal='center', wrap_text=True)
+
+    for fila in datos['filas']:
+        valores = []
+        for _, clave in IPV_COLUMNAS:
+            valor = fila[clave]
+            if valor is None:
+                valores.append(None)
+            elif clave in {
+                'saldo_inicial',
+                'entradas',
+                'cantidad_existencia',
+                'saldo_final',
+                'cantidad_vendida',
+                'precio_venta',
+                'importe_venta',
+                'merma_rotura',
+            }:
+                valores.append(Decimal(valor))
+            else:
+                valores.append(str(valor))
+        hoja.append(valores)
+
+    fila_total = hoja.max_row + 1
+    hoja.cell(row=fila_total, column=1, value='Total importe de ventas')
+    hoja.cell(row=fila_total, column=9, value=Decimal(datos['total_importe']))
+    for celda in hoja[fila_total]:
+        celda.font = Font(bold=True)
+        celda.fill = PatternFill('solid', fgColor='E2E8F0')
+
+    hoja.freeze_panes = 'A5'
+    hoja.auto_filter.ref = f'A4:J{fila_total - 1}'
+    anchos = (32, 22, 16, 14, 16, 14, 16, 16, 16, 18)
+    for indice, ancho in enumerate(anchos, start=1):
+        hoja.column_dimensions[chr(64 + indice)].width = ancho
+    for fila in hoja.iter_rows(min_row=5, max_row=fila_total):
+        for indice in range(3, 11):
+            celda = fila[indice - 1]
+            if celda.value is not None:
+                celda.number_format = '#,##0.00'
+        for indice in (1, 2):
+            celda = fila[indice - 1]
+            if celda.value is not None:
+                celda.data_type = 's'
+
+    buffer = BytesIO()
+    libro.save(buffer)
+    respuesta = HttpResponse(
+        buffer.getvalue(),
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    )
+    respuesta['Content-Disposition'] = f'attachment; filename="ipv_turno_{turno.pk}.xlsx"'
+    return respuesta
