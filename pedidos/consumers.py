@@ -194,6 +194,7 @@ def serializar_factura(factura):
                 'cantidad': item['cantidad'],
                 'precio_unit': item['precio_unit'],
                 'subtotal': item['subtotal'],
+                **({'categoria': item['categoria']} if 'categoria' in item else {}),
             }
             for item in factura.items_snapshot
         ],
@@ -777,7 +778,7 @@ class MeseraConsumer(AsyncWebsocketConsumer):
             pedidos = list(Pedido.objects.select_for_update().filter(
                 mesa=mesa,
                 sesion_id=mesa.sesion_id,
-            ).exclude(estado='cerrado').prefetch_related('items__plato'))
+            ).exclude(estado='cerrado').prefetch_related('items__plato__categoria'))
             if not pedidos:
                 return None, 'No hay una cuenta pendiente para esta mesa.'
             if any(pedido.estado != 'servido' for pedido in pedidos):
@@ -1110,7 +1111,7 @@ class CajaConsumer(AsyncWebsocketConsumer):
             pedidos = list(Pedido.objects.select_for_update().filter(
                 modalidad='para_llevar',
                 grupo_para_llevar=principal.grupo_para_llevar,
-            ).exclude(estado='cerrado').prefetch_related('items__plato'))
+            ).exclude(estado='cerrado').prefetch_related('items__plato__categoria'))
             if any(pedido.estado != 'entregado' for pedido in pedidos):
                 return None, 'No se puede cobrar hasta que todos los pedidos para llevar estén entregados.'
         else:
@@ -1151,6 +1152,7 @@ class CajaConsumer(AsyncWebsocketConsumer):
         items_snapshot = [
             {
                 'plato': i.plato.nombre,
+                'categoria': i.plato.categoria.nombre if i.plato.categoria else 'Sin categoría',
                 'cantidad': i.cantidad,
                 'precio_unit': str(i.plato.precio),
                 'subtotal': str(i.subtotal()),
@@ -1203,6 +1205,7 @@ class CajaConsumer(AsyncWebsocketConsumer):
             'items': [
                 {
                     'plato': item['plato'],
+                    'categoria': item['categoria'],
                     'cantidad': item['cantidad'],
                     'precio_unit': item['precio_unit'],
                     'subtotal': item['subtotal'],
