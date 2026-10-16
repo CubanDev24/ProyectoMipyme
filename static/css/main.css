@@ -463,6 +463,31 @@ body.login-page .topbar{display:none !important}
 .carta-header-nav{position:absolute;left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:.3rem;padding:.3rem;background:rgba(2,8,23,.78);border:1px solid rgba(52,211,153,.18);border-radius:12px;box-shadow:0 8px 22px rgba(2,6,23,.2)}
 .carta-header-nav[hidden]{display:none}
 .carta-header-nav button{display:inline-flex;align-items:center;justify-content:center;gap:.45rem;min-height:36px;padding:.5rem .8rem;border:1px solid transparent;border-radius:9px;background:transparent;color:#94a3b8;font:inherit;font-size:.78rem;font-weight:700;white-space:nowrap;cursor:pointer;transition:color .18s ease,background .18s ease,border-color .18s ease}
+
+.qr-export-actions{display:flex;justify-content:center;flex-wrap:wrap;gap:.6rem;margin-top:1rem}
+.qr-export-actions .btn:disabled{opacity:.55;cursor:not-allowed}
+@media print{
+  body.imprimir-qrs{display:block!important;min-height:0!important;background:#fff!important;color:#111!important}
+  body.imprimir-qrs>aside,
+  body.imprimir-qrs main>header,
+  body.imprimir-qrs #toast-container{display:none!important}
+  body.imprimir-qrs main{display:block!important;height:auto!important;overflow:visible!important}
+  body.imprimir-qrs main>.flex-1{display:block!important;overflow:visible!important}
+  body.imprimir-qrs .admin-body{width:100%;max-width:none;padding:0!important}
+  body.imprimir-qrs .admin-body>:not(.admin-grid){display:none!important}
+  body.imprimir-qrs .admin-grid{display:block!important}
+  body.imprimir-qrs .admin-view:not(#admin-view-wifi){display:none!important}
+  body.imprimir-qrs #admin-view-wifi{display:block!important}
+  body.imprimir-qrs #admin-view-wifi>:not(.qr-export-card){display:none!important}
+  body.imprimir-qrs[data-qr-para-imprimir="wifi"] #admin-view-wifi .qr-export-card:not(:nth-of-type(2)),
+  body.imprimir-qrs[data-qr-para-imprimir="sistema"] #admin-view-wifi .qr-export-card:not(:nth-of-type(3)){display:none!important}
+  body.imprimir-qrs .qr-export-card{display:block!important;break-inside:avoid;padding:1rem;border:1px solid #bbb!important;border-radius:0;background:#fff!important;box-shadow:none!important;color:#111!important}
+  body.imprimir-qrs .qr-export-card h2,
+  body.imprimir-qrs .qr-export-card .admin-hint,
+  body.imprimir-qrs .qr-export-card .admin-hint a{color:#111!important}
+  body.imprimir-qrs .qr-export-image{width:min(100%,220px)!important;margin:1rem auto}
+  body.imprimir-qrs .qr-export-actions{display:none!important}
+}
 .carta-header-nav button:hover{color:#e2e8f0;background:rgba(148,163,184,.08)}
 .carta-header-nav button[aria-selected="true"]{border-color:rgba(52,211,153,.24);background:linear-gradient(135deg,rgba(16,185,129,.2),rgba(20,184,166,.12));color:#6ee7b7}
 .carta-header-nav button:focus-visible{outline:2px solid #34d399;outline-offset:2px}

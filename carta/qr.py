@@ -13,6 +13,14 @@ def generar_qr_mesa(request, mesa):
     return url, 'data:image/png;base64,' + base64.b64encode(buffer.getvalue()).decode()
 
 
+def generar_qr_sistema(request):
+    url = request.build_absolute_uri('/')
+    imagen = qrcode.make(url)
+    buffer = BytesIO()
+    imagen.save(buffer, format='PNG')
+    return url, 'data:image/png;base64,' + base64.b64encode(buffer.getvalue()).decode()
+
+
 def _escapar_valor_wifi(valor):
     return valor.replace('\\', '\\\\').replace(';', r'\;').replace(',', r'\,').replace(':', r'\:')
 

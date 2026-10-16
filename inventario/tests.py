@@ -44,13 +44,25 @@ class InventarioFlowTests(TestCase):
         self.assertEqual(configuracion.ssid, 'WiFi del local')
         self.assertEqual(configuracion.password, 'clave-segura')
 
-        response = self.client.get(reverse('inventario:administrador'))
+        response = self.client.get(
+            reverse('inventario:administrador'),
+            HTTP_HOST='192.168.1.25:8765',
+        )
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'id="nav-wifi"')
         self.assertContains(response, 'id="admin-view-wifi"')
         self.assertContains(response, 'alt="Código QR para conectarse a la red Wi-Fi WiFi del local"')
+        self.assertContains(response, 'alt="Código QR para abrir el sistema en http://192.168.1.25:8765/"')
+        self.assertContains(response, 'http://192.168.1.25:8765/')
         self.assertContains(response, 'data:image/png;base64,')
+        self.assertContains(response, 'id="wifi-qr-image"')
+        self.assertContains(response, "descargarQrJpg('wifi-qr-image', 'qr-wifi.jpg')")
+        self.assertContains(response, 'onclick="imprimirQr(\'wifi\')"')
+        self.assertContains(response, 'id="sistema-qr-image"')
+        self.assertContains(response, "descargarQrJpg('sistema-qr-image', 'qr-sistema.jpg')")
+        self.assertContains(response, 'onclick="imprimirQr(\'sistema\')"')
+        self.assertEqual(response.content.count(b'Imprimir QR</button>'), 2)
 
     def test_admin_cannot_save_a_wifi_password_shorter_than_eight_characters(self):
         response = self.client.post(

@@ -11,7 +11,7 @@ from django.urls import reverse
 from django.views.decorators.http import require_POST
 
 from carta.models import Categoria, Plato
-from carta.qr import generar_qr_wifi
+from carta.qr import generar_qr_sistema, generar_qr_wifi
 from .models import CategoriaInventario, Insumo, MovimientoInventario, RecetaItem, TasaCambio
 from usuarios.models import ConfiguracionWifi
 
@@ -137,6 +137,7 @@ def administrador(request):
         if wifi_configuracion and wifi_configuracion.ssid
         else None
     )
+    sistema_url, sistema_qr = generar_qr_sistema(request)
 
     return render(request, 'administrador/administrador.html', {
         'insumos': insumos,
@@ -160,6 +161,8 @@ def administrador(request):
         'tasa_actual': TasaCambio.actual(),
         'wifi_configuracion': wifi_configuracion,
         'wifi_qr': wifi_qr,
+        'sistema_url': sistema_url,
+        'sistema_qr': sistema_qr,
     })
 
 
