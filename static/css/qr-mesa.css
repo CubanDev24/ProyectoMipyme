@@ -1,0 +1,135 @@
+.qr-mesa-page{
+  min-height:100vh;
+  background:
+    radial-gradient(ellipse at 50% 0,rgba(200,169,110,.17),transparent 45%),
+    linear-gradient(155deg,#171512 0%,#0d0d0d 60%,#15120e 100%);
+}
+.qr-mesa-shell{
+  min-height:100vh;
+  display:grid;
+  place-items:center;
+  padding:clamp(1rem,4vw,3rem);
+}
+.qr-mesa-card{
+  width:min(100%,460px);
+  padding:clamp(1.4rem,5vw,2.5rem);
+  border:1px solid rgba(200,169,110,.25);
+  border-radius:28px;
+  background:linear-gradient(155deg,rgba(35,32,27,.97),rgba(21,20,18,.98));
+  box-shadow:0 28px 90px rgba(0,0,0,.48),inset 0 1px rgba(255,255,255,.04);
+  text-align:center;
+}
+.qr-mesa-brand{
+  display:inline-flex;
+  align-items:center;
+  gap:.65rem;
+  color:#e9d8b7;
+  font-size:.83rem;
+  font-weight:700;
+  letter-spacing:.12em;
+  text-transform:uppercase;
+}
+.qr-mesa-brand-icon{
+  display:grid;
+  width:35px;
+  height:35px;
+  place-items:center;
+  border:1px solid rgba(200,169,110,.45);
+  border-radius:12px;
+  background:rgba(200,169,110,.12);
+  color:#e2c48f;
+  font-family:Georgia,serif;
+  font-size:.9rem;
+  letter-spacing:-.06em;
+}
+.qr-mesa-heading{margin:1.7rem 0 1.4rem}
+.qr-mesa-kicker{
+  color:#d1b47c;
+  font-size:.68rem;
+  font-weight:700;
+  letter-spacing:.19em;
+  text-transform:uppercase;
+}
+.qr-mesa-heading h1{
+  margin:.4rem 0 .55rem;
+  color:#fffaf0;
+  font-family:Georgia,'Times New Roman',serif;
+  font-size:clamp(2rem,8vw,2.8rem);
+  font-weight:600;
+  letter-spacing:-.04em;
+  line-height:1.05;
+}
+.qr-mesa-heading p{
+  max-width:320px;
+  margin:0 auto;
+  color:#b8b2a8;
+  font-size:.9rem;
+  line-height:1.6;
+}
+.qr-mesa-code-frame{
+  width:min(100%,280px);
+  margin:0 auto;
+  padding:14px;
+  border:1px solid rgba(200,169,110,.32);
+  border-radius:22px;
+  background:#fff;
+  box-shadow:0 12px 34px rgba(0,0,0,.28);
+}
+.qr-mesa-code{display:block;width:100%;height:auto;image-rendering:pixelated}
+.qr-mesa-instruction{
+  margin:1rem 0 1.25rem;
+  color:#d1b47c;
+  font-size:.77rem;
+  font-weight:600;
+  letter-spacing:.02em;
+}
+.qr-mesa-instruction span{margin-right:.35rem}
+.qr-mesa-button{
+  display:flex;
+  min-height:52px;
+  align-items:center;
+  justify-content:center;
+  gap:.7rem;
+  border:1px solid #e4c58c;
+  border-radius:14px;
+  background:linear-gradient(135deg,#dfc38e,#c19a58);
+  box-shadow:0 8px 22px rgba(193,154,88,.2);
+  color:#211a10;
+  font-size:.95rem;
+  font-weight:800;
+  text-decoration:none;
+  transition:transform .18s ease,filter .18s ease,box-shadow .18s ease;
+}
+.qr-mesa-button:hover{transform:translateY(-2px);filter:brightness(1.06);box-shadow:0 12px 26px rgba(193,154,88,.28)}
+.qr-mesa-button:focus-visible{outline:3px solid #fff;outline-offset:4px}
+.qr-mesa-button span{font-size:1.2rem}
+.qr-mesa-footer{
+  margin:1.15rem 0 0;
+  color:#827b70;
+  font-family:Georgia,'Times New Roman',serif;
+  font-size:.83rem;
+  font-style:italic;
+}
+@media(max-width:420px){
+  .qr-mesa-card{border-radius:22px}
+  .qr-mesa-code-frame{width:min(100%,250px);padding:11px}
+}
+@media(max-height:820px) and (min-width:600px){
+  .qr-mesa-card{padding:1.35rem 2rem}
+  .qr-mesa-heading{margin:1rem 0}
+  .qr-mesa-code-frame{width:230px;padding:10px}
+  .qr-mesa-instruction{margin:.75rem 0 1rem}
+  .qr-mesa-footer{margin-top:.75rem}
+}
+@media(prefers-reduced-motion:reduce){
+  .qr-mesa-button{transition:none}
+}
+@media print{
+  .qr-mesa-page{background:#fff;color:#111}
+  .qr-mesa-shell{min-height:initial;padding:0}
+  .qr-mesa-card{width:100%;max-width:420px;padding:1rem;border:0;border-radius:0;background:#fff;box-shadow:none}
+  .qr-mesa-brand,.qr-mesa-kicker,.qr-mesa-heading h1,.qr-mesa-heading p,.qr-mesa-instruction,.qr-mesa-footer{color:#111}
+  .qr-mesa-brand-icon{border-color:#aaa;background:#fff;color:#111}
+  .qr-mesa-code-frame{width:260px;border:1px solid #ddd;box-shadow:none}
+  .qr-mesa-button{display:none}
+}

@@ -7,9 +7,13 @@ from django.db import transaction
 from django.db.models import Prefetch
 from django.core.paginator import Paginator
 from django.shortcuts import render, redirect, get_object_or_404
+from django.urls import reverse
+from django.views.decorators.http import require_POST
 
 from carta.models import Categoria, Plato
+from carta.qr import generar_qr_wifi
 from .models import CategoriaInventario, Insumo, MovimientoInventario, RecetaItem, TasaCambio
+from usuarios.models import ConfiguracionWifi
 
 
 def _es_admin(user):
@@ -127,6 +131,12 @@ def administrador(request):
         insumos.filter(tipo_inventario__isnull=True).order_by('nombre'),
         25,
     ).get_page(request.GET.get('sin_clasificar_page'))
+    wifi_configuracion = ConfiguracionWifi.objects.filter(pk=1).first()
+    wifi_qr = (
+        generar_qr_wifi(wifi_configuracion.ssid, wifi_configuracion.password)
+        if wifi_configuracion and wifi_configuracion.ssid
+        else None
+    )
 
     return render(request, 'administrador/administrador.html', {
         'insumos': insumos,
@@ -148,7 +158,32 @@ def administrador(request):
             tipo_inventario__in=['cocina', 'restaurante'],
         ).select_related('categoria_inventario').order_by('tipo_inventario', 'nombre'),
         'tasa_actual': TasaCambio.actual(),
+        'wifi_configuracion': wifi_configuracion,
+        'wifi_qr': wifi_qr,
     })
+
+
+@login_required
+@user_passes_test(_es_admin)
+@require_POST
+def configurar_wifi(request):
+    ssid = request.POST.get('ssid', '')
+    password = request.POST.get('password', '')
+    destino = f'{reverse("inventario:administrador")}#wifi'
+
+    if not ssid.strip():
+        messages.error(request, 'Debes indicar el nombre de la red Wi-Fi.')
+    elif len(ssid.encode('utf-8')) > 32:
+        messages.error(request, 'El nombre de la red Wi-Fi no puede superar 32 bytes.')
+    elif password and not (8 <= len(password) <= 63):
+        messages.error(request, 'La contraseña Wi-Fi debe tener entre 8 y 63 caracteres, o estar vacía para una red abierta.')
+    else:
+        configuracion, _ = ConfiguracionWifi.objects.get_or_create(pk=1)
+        configuracion.ssid = ssid
+        configuracion.password = password
+        configuracion.save(update_fields=['ssid', 'password'])
+        messages.success(request, 'La configuración Wi-Fi y su QR se actualizaron correctamente.')
+    return redirect(destino)
 
 
 @login_required

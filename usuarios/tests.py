@@ -1,6 +1,8 @@
 from datetime import date, timedelta
+from io import BytesIO
 from decimal import Decimal
 
+from openpyxl import load_workbook
 from django.test import Client, RequestFactory, TestCase
 from django.urls import reverse
 from django.utils import timezone
@@ -793,6 +795,14 @@ class UsuarioTurnoTests(TestCase):
         self.assertContains(response, 'Detalle del turno')
         self.assertContains(response, 'IPV')
         self.assertContains(response, '400.00')
+        self.assertContains(
+            response,
+            reverse('usuarios:ipv_turno_pdf', args=[turno_cerrado.pk]),
+        )
+        self.assertContains(
+            response,
+            reverse('usuarios:ipv_turno_excel', args=[turno_cerrado.pk]),
+        )
 
         self.client.force_login(self.cajera)
         response_historial = self.client.get(reverse('usuarios:historial_turnos'))
@@ -850,6 +860,69 @@ class UsuarioTurnoTests(TestCase):
         self.assertEqual(producto['cantidad_existencia'], '13.000')
         self.assertIsNone(producto['saldo_inicial'])
         self.assertIsNone(producto['saldo_final'])
+
+    def test_ipv_turno_se_exporta_a_pdf_y_excel(self):
+        turno = registrar_inicio_turno(self.admin)
+        self.client.force_login(self.admin)
+        insumo = Insumo.objects.create(
+            nombre='=2+3',
+            stock_actual=Decimal('8'),
+            precio=Decimal('125.50'),
+        )
+        MovimientoInventario.objects.create(
+            insumo=insumo,
+            producto_nombre=insumo.nombre,
+            tipo='entrada',
+            cantidad=Decimal('3'),
+            stock_anterior=Decimal('5'),
+            stock_posterior=Decimal('8'),
+        )
+
+        pdf_response = self.client.get(
+            reverse('usuarios:ipv_turno_pdf', args=[turno.pk]),
+        )
+        self.assertEqual(pdf_response.status_code, 200)
+        self.assertEqual(pdf_response['Content-Type'], 'application/pdf')
+        self.assertIn(f'ipv_turno_{turno.pk}.pdf', pdf_response['Content-Disposition'])
+        self.assertTrue(pdf_response.content.startswith(b'%PDF'))
+
+        excel_response = self.client.get(
+            reverse('usuarios:ipv_turno_excel', args=[turno.pk]),
+        )
+        self.assertEqual(excel_response.status_code, 200)
+        self.assertEqual(
+            excel_response['Content-Type'],
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        )
+        self.assertIn(f'ipv_turno_{turno.pk}.xlsx', excel_response['Content-Disposition'])
+        libro = load_workbook(BytesIO(excel_response.content), read_only=True)
+        hoja = libro['IPV']
+        self.assertEqual(hoja['A4'].value, 'Descripción')
+        self.assertEqual(hoja['A5'].value, '=2+3')
+        self.assertEqual(hoja['A5'].data_type, 's')
+        libro.close()
+
+    def test_ipv_exportaciones_funcionan_sin_filas(self):
+        turno = registrar_inicio_turno(self.admin)
+        self.client.force_login(self.admin)
+
+        pdf_response = self.client.get(reverse('usuarios:ipv_turno_pdf', args=[turno.pk]))
+        excel_response = self.client.get(reverse('usuarios:ipv_turno_excel', args=[turno.pk]))
+
+        self.assertEqual(pdf_response.status_code, 200)
+        self.assertTrue(pdf_response.content.startswith(b'%PDF'))
+        libro = load_workbook(BytesIO(excel_response.content), read_only=True)
+        self.assertEqual(libro['IPV']['A4'].value, 'Descripción')
+        libro.close()
+
+    def test_ipv_exportaciones_solo_permiten_roles_financieros(self):
+        turno = registrar_inicio_turno(self.admin)
+        self.client.force_login(self.mesera)
+
+        for nombre_url in ('ipv_turno_pdf', 'ipv_turno_excel'):
+            with self.subTest(exportacion=nombre_url):
+                respuesta = self.client.get(reverse(f'usuarios:{nombre_url}', args=[turno.pk]))
+                self.assertEqual(respuesta.status_code, 403)
 
     def test_admin_puede_crear_usuario_con_rol_y_password_autenticable(self):
         self.client.force_login(self.admin)

@@ -21,6 +21,7 @@
         <button id="nav-restaurante" onclick="mostrarVistaAdmin('restaurante')" class="admin-nav-btn w-full flex items-center gap-3 px-3 py-3 rounded-xl font-medium text-sm text-slate-400 hover:text-white hover:bg-slate-800/50 transition-all"><i class="fa-solid fa-store text-lg w-6 text-center"></i><span class="hidden lg:inline">Restaurante</span></button>
         <button id="nav-cocina" onclick="mostrarVistaAdmin('cocina')" class="admin-nav-btn w-full flex items-center gap-3 px-3 py-3 rounded-xl font-medium text-sm text-slate-400 hover:text-white hover:bg-slate-800/50 transition-all"><i class="fa-solid fa-kitchen-set text-lg w-6 text-center"></i><span class="hidden lg:inline">Cocina</span></button>
         <button id="nav-carta" onclick="mostrarVistaAdmin('carta')" class="admin-nav-btn w-full flex items-center gap-3 px-3 py-3 rounded-xl font-medium text-sm text-slate-400 hover:text-white hover:bg-slate-800/50 transition-all"><i class="fa-solid fa-book-open text-lg w-6 text-center"></i><span class="hidden lg:inline">Carta</span></button>
+        <button id="nav-wifi" onclick="mostrarVistaAdmin('wifi')" class="admin-nav-btn w-full flex items-center gap-3 px-3 py-3 rounded-xl font-medium text-sm text-slate-400 hover:text-white hover:bg-slate-800/50 transition-all"><i class="fa-solid fa-wifi text-lg w-6 text-center"></i><span class="hidden lg:inline">Wi-Fi y QR</span></button>
         <a href="{% url 'usuarios:gestion_usuarios' %}" class="w-full flex items-center gap-3 px-3 py-3 rounded-xl font-medium text-sm text-slate-400 hover:text-white hover:bg-slate-800/50 transition-all"><i class="fa-solid fa-users text-lg w-6 text-center"></i><span class="hidden lg:inline">Usuarios</span></a>
         <a href="{% url 'usuarios:dashboard' %}" class="w-full flex items-center gap-3 px-3 py-3 rounded-xl font-medium text-sm text-slate-400 hover:text-white hover:bg-slate-800/50 transition-all"><i class="fa-solid fa-calendar-day text-lg w-6 text-center"></i><span class="hidden lg:inline">Detalle del turno actual</span></a>
         <a href="{% url 'usuarios:historial_turnos' %}" class="w-full flex items-center gap-3 px-3 py-3 rounded-xl font-medium text-sm text-slate-400 hover:text-white hover:bg-slate-800/50 transition-all"><i class="fa-solid fa-clock-rotate-left text-lg w-6 text-center"></i><span class="hidden lg:inline">Historial</span></a>
@@ -226,6 +227,36 @@
 
     <!-- ── TASA DE CAMBIO ───────────────────────────────────── -->
     </div>
+    <div id="admin-view-wifi" class="admin-view admin-view-hidden">
+      <section class="admin-card">
+        <div class="turn-card-heading"><div class="turn-section-icon"><i class="fa-solid fa-wifi"></i></div><div><p class="panel-kicker">Conexión del local</p><h2>Wi-Fi y código QR</h2></div></div>
+        <p class="admin-hint">Configura la red del local para generar un QR que los clientes puedan escanear y usar para conectarse. Los QR de las mesas no cambian.</p>
+        <form method="post" action="{% url 'inventario:configurar_wifi' %}" class="plato-edit-fields">
+          {% csrf_token %}
+          <div class="carta-form-field">
+            <label for="wifi-ssid">Nombre de la red Wi-Fi</label>
+            <input id="wifi-ssid" type="text" name="ssid" value="{{ wifi_configuracion.ssid|default:'' }}" class="admin-input" maxlength="32" autocomplete="off" required>
+          </div>
+          <div class="carta-form-field">
+            <label for="wifi-password">Contraseña</label>
+            <input id="wifi-password" type="password" name="password" value="{{ wifi_configuracion.password|default:'' }}" class="admin-input" maxlength="63" autocomplete="new-password">
+            <span class="admin-hint">Déjala vacía si la red no tiene contraseña.</span>
+          </div>
+          <button type="submit" class="btn btn-primary"><i class="fa-solid fa-floppy-disk"></i> Guardar y generar QR</button>
+        </form>
+      </section>
+      <section class="admin-card">
+        <div class="turn-card-heading"><div class="turn-section-icon"><i class="fa-solid fa-qrcode"></i></div><div><p class="panel-kicker">Código para los clientes</p><h2>QR de la Wi-Fi</h2></div></div>
+        {% if wifi_qr %}
+        <div class="text-center">
+          <img src="{{ wifi_qr }}" alt="Código QR para conectarse a la red Wi-Fi {{ wifi_configuracion.ssid }}" class="mx-auto" style="width: min(100%, 320px); image-rendering: pixelated;">
+          <p class="admin-hint">{{ wifi_configuracion.ssid }}</p>
+        </div>
+        {% else %}
+        <p class="admin-empty">Guarda el nombre de la red y su contraseña para mostrar aquí el QR de conexión.</p>
+        {% endif %}
+      </section>
+    </div>
     {% for area in inventarios %}
     <div id="admin-view-{{ area.tipo }}" class="admin-view admin-view-hidden">
       <section class="admin-card categoria-panel" id="categorias-{{ area.tipo }}">
@@ -296,7 +327,7 @@
   </script>
   <script>
     function mostrarVistaAdmin(vista, desplazar = true) {
-      const vistas = ['configuracion', 'restaurante', 'cocina', 'carta'];
+      const vistas = ['configuracion', 'restaurante', 'cocina', 'carta', 'wifi'];
       const vistaValida = vistas.includes(vista) ? vista : 'configuracion';
       vistas.forEach(nombre => {
         document.getElementById(`admin-view-${nombre}`).classList.toggle('admin-view-hidden', nombre !== vistaValida);
@@ -311,6 +342,7 @@
         restaurante: 'Inventario de Restaurante',
         cocina: 'Inventario de Cocina',
         carta: 'Carta del restaurante',
+        wifi: 'Wi-Fi y código QR',
       };
       document.getElementById('page-view-title').textContent = titulos[vistaValida];
       document.getElementById('carta-header-nav').hidden = vistaValida !== 'carta';
@@ -342,6 +374,7 @@
     const vistaInicial = hashInicial.includes('restaurante') ? 'restaurante'
       : hashInicial.includes('cocina') ? 'cocina'
       : hashInicial.includes('carta') ? 'carta'
+      : hashInicial.includes('wifi') ? 'wifi'
       : 'configuracion';
     mostrarVistaAdmin(vistaInicial, false);
     mostrarSeccionCarta(location.hash === '#carta-publicada' ? 'publicada' : 'platos');

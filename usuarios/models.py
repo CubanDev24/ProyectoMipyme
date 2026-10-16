@@ -49,6 +49,18 @@ class Usuario(AbstractUser):
         return self.role == 'cajera'
     
 
+class ConfiguracionWifi(models.Model):
+    ssid = models.CharField(max_length=32, blank=True)
+    password = models.CharField(max_length=63, blank=True)
+
+    class Meta:
+        verbose_name = 'Configuración de Wi-Fi'
+        verbose_name_plural = 'Configuración de Wi-Fi'
+
+    def __str__(self):
+        return self.ssid or 'Wi-Fi del local'
+
+
 class Turno(models.Model):
     ESTADO_CHOICES = [
         ('abierto', 'Abierto'),

@@ -21,4 +21,6 @@ urlpatterns = [
     path('turnos/historial/', views.historial_turnos_view, name='historial_turnos'),
     path('turnos/<int:turno_id>/', views.historial_turno_detalle_view, name='historial_turno_detalle'),
     path('turnos/<int:turno_id>/ipv/', views.ipv_turno, name='ipv_turno'),
+    path('turnos/<int:turno_id>/ipv/pdf/', views.ipv_turno_pdf, name='ipv_turno_pdf'),
+    path('turnos/<int:turno_id>/ipv/excel/', views.ipv_turno_excel, name='ipv_turno_excel'),
 ]
