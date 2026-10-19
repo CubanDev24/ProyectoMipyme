@@ -54,7 +54,7 @@ class Insumo(models.Model):
     unidad = models.CharField(max_length=10, choices=UNIDAD_CHOICES, default='unidad')
     stock_actual = models.DecimalField(max_digits=11, decimal_places=3, default=Decimal('0'))
     stock_minimo = models.DecimalField(max_digits=11, decimal_places=3, default=Decimal('0'))
-    stock_maximo = models.DecimalField(max_digits=11, decimal_places=3, default=Decimal('0'))
+    stock_maximo = models.DecimalField(max_digits=12, decimal_places=3, default=Decimal('0'))
     costo = models.DecimalField(max_digits=8, decimal_places=2, default=Decimal('0'))
     precio = models.DecimalField(max_digits=8, decimal_places=2, default=Decimal('0'))
     disponible = models.BooleanField(default=True)

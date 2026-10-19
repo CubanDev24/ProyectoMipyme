@@ -37,6 +37,8 @@ def carta_cliente(request, mesa_id):
     platos_publicados = Plato.objects.filter(
         disponible=True,
         receta__isnull=False,
+    ).exclude(
+        receta__insumo__stock_actual__lte=0,
     ).distinct()
     categorias = Categoria.objects.prefetch_related(
         Prefetch('platos', queryset=platos_publicados),

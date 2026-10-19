@@ -17,6 +17,7 @@ from asgiref.sync import async_to_sync
 from inventario.models import Insumo, RecetaItem
 from pedidos.consumers import CajaConsumer, ClienteConsumer, CocinaConsumer, MeseraConsumer, serializar_cuenta, serializar_factura, serializar_pedido
 from pedidos.models import Factura, ItemPedido, Mesa, Pedido
+from pedidos.order_routing import destino_para_plato
 from pedidos.views import en_turno
 from usuarios.models import Turno, registrar_inicio_turno
 
@@ -35,7 +36,7 @@ class FacturaWorkflowTests(TestCase):
         self.insumo_receta = Insumo.objects.create(
             nombre='Ingrediente de receta de pruebas',
             tipo_inventario='cocina',
-            stock_actual='1000',
+            stock_actual=Decimal('1000'),
         )
         self.asociar_receta(self.plato)
         self.mesa = Mesa.objects.create(numero=7, abierta=True, activa=True)
@@ -82,6 +83,18 @@ class FacturaWorkflowTests(TestCase):
             precio='10.00',
             disponible=True,
         )
+        agotado = Plato.objects.create(
+            categoria=self.categoria,
+            nombre='Plato agotado',
+            precio='10.00',
+            disponible=True,
+        )
+        insumo_agotado = Insumo.objects.create(
+            nombre='Ingrediente agotado',
+            stock_actual=Decimal('0'),
+        )
+        RecetaItem.objects.create(plato=agotado, insumo=insumo_agotado)
+        Plato.objects.filter(pk=agotado.pk).update(disponible=True)
 
         respuesta_carta = self.client.get(reverse('carta:carta', args=[self.mesa.numero]))
         platos_publicados = respuesta_carta.context['categorias'][0].platos.all()
@@ -92,8 +105,16 @@ class FacturaWorkflowTests(TestCase):
         self.client.force_login(mesera)
         respuesta_mesera = self.client.get(reverse('pedidos:mesera'))
         self.assertEqual(list(respuesta_mesera.context['productos']), [self.plato])
+        self.assertEqual(list(respuesta_mesera.context['categorias']), [self.categoria])
         self.assertContains(respuesta_mesera, 'aria-label="Cerrar sesión"')
         self.assertContains(respuesta_mesera, reverse('usuarios:logout'))
+
+        pedidos_mesera = async_to_sync(MeseraConsumer().crear_pedido)(
+            self.mesa.pk,
+            [{'plato_id': agotado.pk, 'cantidad': 1}],
+            '',
+        )
+        self.assertEqual(pedidos_mesera, [])
 
         cliente = ClienteConsumer()
         cliente.mesa_numero = str(self.mesa.numero)
@@ -178,13 +199,21 @@ class FacturaWorkflowTests(TestCase):
         self.assertContains(response, 'Bebidas')
 
     def test_mesera_puede_marcar_listo_un_pedido_de_barra_para_una_mesa(self):
+        categoria_bebidas = Categoria.objects.create(nombre='Bebidas de barra')
+        bebida = Plato.objects.create(
+            categoria=categoria_bebidas,
+            nombre='Refresco listo',
+            precio='8.00',
+            disponible=True,
+        )
+        self.asociar_receta(bebida)
         pedido_barra = Pedido.objects.create(
             mesa=self.mesa,
             sesion_id=self.mesa.sesion_id,
             destino='barra',
             estado='pendiente',
         )
-        ItemPedido.objects.create(pedido=pedido_barra, plato=self.plato)
+        ItemPedido.objects.create(pedido=pedido_barra, plato=bebida)
         mesera = MeseraConsumer()
         mesera.scope = {'user': None}
         mesera.channel_layer = AsyncMock()
@@ -200,6 +229,11 @@ class FacturaWorkflowTests(TestCase):
         self.assertTrue(any(
             call.args[0] == 'mesera'
             and call.args[1]['pedido']['estado'] == 'listo'
+            for call in mesera.channel_layer.group_send.await_args_list
+        ))
+        self.assertFalse(any(
+            call.args[0] == 'cocina'
+            and call.args[1]['pedido']['destino'] == 'barra'
             for call in mesera.channel_layer.group_send.await_args_list
         ))
 
@@ -425,6 +459,80 @@ class FacturaWorkflowTests(TestCase):
         ids_cocina = [pedido['id'] for pedido in pedidos_cocina]
         self.assertIn(pedido_cocina['id'], ids_cocina)
         self.assertNotIn(pedido_barra['id'], ids_cocina)
+
+    def test_solo_bebidas_se_rutean_a_barra_y_postres_a_cocina(self):
+        categoria_bebidas = Categoria.objects.create(nombre='Refrescos')
+        categoria_postres = Categoria.objects.create(nombre='Postres')
+        refresco = Plato.objects.create(
+            categoria=categoria_bebidas,
+            nombre='Soda',
+            precio='8.00',
+            disponible=True,
+        )
+        postre = Plato.objects.create(
+            categoria=categoria_postres,
+            nombre='Flan',
+            precio='12.00',
+            disponible=True,
+        )
+        self.asociar_receta(refresco)
+        self.asociar_receta(postre)
+
+        cliente = ClienteConsumer()
+        cliente.mesa_numero = str(self.mesa.numero)
+        pedidos = async_to_sync(cliente.crear_pedido)(
+            [{'plato_id': refresco.pk}, {'plato_id': postre.pk}],
+            '',
+        )
+
+        pedidos_por_destino = {pedido['destino']: pedido for pedido in pedidos}
+        self.assertEqual(set(pedidos_por_destino), {'barra', 'cocina'})
+        self.assertEqual(pedidos_por_destino['barra']['items'][0]['plato'], refresco.nombre)
+        self.assertEqual(pedidos_por_destino['cocina']['items'][0]['plato'], postre.nombre)
+        self.assertEqual(destino_para_plato(self.plato), 'cocina')
+
+    def test_cocina_ignora_bebidas_mal_clasificadas_y_recibe_postres(self):
+        categoria_bebidas = Categoria.objects.create(nombre='Bebidas')
+        categoria_postres = Categoria.objects.create(nombre='Postres')
+        bebidas = Plato.objects.create(
+            categoria=categoria_bebidas,
+            nombre='Refresco',
+            precio='8.00',
+            disponible=True,
+        )
+        postre = Plato.objects.create(
+            categoria=categoria_postres,
+            nombre='Flan',
+            precio='12.00',
+            disponible=True,
+        )
+        self.asociar_receta(bebidas)
+        self.asociar_receta(postre)
+        bebida_mal_clasificada = Pedido.objects.create(
+            mesa=self.mesa,
+            destino='cocina',
+            estado='listo',
+            sesion_id=self.mesa.sesion_id,
+        )
+        ItemPedido.objects.create(pedido=bebida_mal_clasificada, plato=bebidas)
+        pedido_postre = Pedido.objects.create(
+            mesa=self.mesa,
+            destino='cocina',
+            estado='listo',
+            sesion_id=self.mesa.sesion_id,
+        )
+        ItemPedido.objects.create(pedido=pedido_postre, plato=postre)
+
+        pedidos_cocina = async_to_sync(CocinaConsumer().get_pedidos_cocina)()
+        ids_cocina = {pedido['id'] for pedido in pedidos_cocina}
+
+        self.assertIn(self.pedido.pk, ids_cocina)
+        self.assertNotIn(bebida_mal_clasificada.pk, ids_cocina)
+        self.assertIn(pedido_postre.pk, ids_cocina)
+        self.assertIsNone(async_to_sync(CocinaConsumer().cambiar_estado)(
+            bebida_mal_clasificada.pk,
+            'en_preparacion',
+        ))
 
     def test_pedido_para_llevar_separa_cocina_y_barra_sin_asignar_mesa(self):
         Turno.objects.create()

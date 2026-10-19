@@ -2,12 +2,14 @@ from decimal import Decimal
 from datetime import timedelta
 
 from django.contrib.auth import get_user_model
+from django.core.exceptions import ValidationError
 from django.core.management import CommandError, call_command
 from django.test import TestCase
 from django.urls import reverse
 from django.utils import timezone
 
 from carta.models import Categoria, Plato
+from inventario.admin import InsumoAdminForm
 from inventario.models import CategoriaInventario, Insumo, MovimientoInventario, RecetaItem, TasaCambio
 from inventario.services import descontar_inventario_por_pedido
 from pedidos.models import Factura, ItemPedido, Mesa, Pedido
@@ -31,6 +33,49 @@ class InventarioFlowTests(TestCase):
         self.assertContains(response, f'href="{reverse("usuarios:reportes")}"')
         self.assertContains(response, 'Reportes')
         self.assertContains(response, 'id="nav-wifi"')
+
+    def test_inventory_forms_render_model_length_and_decimal_limits(self):
+        response = self.client.get(reverse('inventario:administrador'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'maxlength="150"')
+        self.assertContains(response, 'step="0.01" min="0" max="999999.99" name="costo"')
+        self.assertContains(response, 'step="0.001" min="0" max="99999999.999" name="stock_actual"')
+
+    def test_django_admin_inventory_form_validates_field_limits(self):
+        form = InsumoAdminForm()
+
+        self.assertEqual(getattr(form.fields['nombre'], 'max_length'), 150)
+        self.assertEqual(getattr(form.fields['precio'], 'max_value'), Decimal('999999.99'))
+        self.assertEqual(getattr(form.fields['stock_actual'], 'max_value'), Decimal('99999999.999'))
+        self.assertEqual(getattr(form.fields['stock_maximo'], 'max_value'), Decimal('999999999.999'))
+        self.assertIsNone(getattr(form.fields['stock_actual'], 'min_value'))
+        with self.assertRaises(ValidationError):
+            form.fields['precio'].clean('1000000.00')
+
+    def test_admin_can_load_legacy_large_max_stock_value(self):
+        insumo = Insumo.objects.create(
+            nombre='Límite amplio',
+            stock_maximo=Decimal('999999999'),
+        )
+
+        insumo.refresh_from_db()
+
+        self.assertEqual(insumo.stock_maximo, Decimal('999999999.000'))
+
+    def test_django_admin_changelist_loads_large_max_stock_value(self):
+        Insumo.objects.create(
+            nombre='Límite en listado admin',
+            stock_maximo=Decimal('999999999'),
+        )
+        self.admin.is_staff = True
+        self.admin.is_superuser = True
+        self.admin.save(update_fields=['is_staff', 'is_superuser'])
+
+        response = self.client.get(reverse('admin:inventario_insumo_changelist'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, '999999999.000')
 
     def test_admin_can_create_a_category_from_configuration(self):
         response = self.client.post(
@@ -476,6 +521,44 @@ class InventarioFlowTests(TestCase):
         self.assertEqual(plato.descripcion, 'Plato manual')
         self.assertEqual(plato.precio, Decimal('25.00'))
         self.assertTrue(plato.disponible)
+
+    def test_restaurant_inventory_item_rejects_price_outside_decimal_field_range(self):
+        response = self.client.post(
+            reverse('inventario:insumo_crear'),
+            {
+                'tipo_inventario': 'restaurante',
+                'nombre': 'Producto con precio fuera de rango',
+                'unidad': 'unidad',
+                'precio': '1234567.00',
+                'stock_actual': '2',
+            },
+            follow=True,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(Insumo.objects.filter(nombre='Producto con precio fuera de rango').exists())
+        self.assertContains(response, 'costo y precio, hasta 6 enteros y 2 decimales')
+
+    def test_inventory_edit_rejects_cost_outside_decimal_field_range(self):
+        response = self.client.post(
+            reverse('inventario:insumo_editar', args=[self.insumo_1.pk]),
+            {
+                'tipo_inventario': 'cocina',
+                'nombre': self.insumo_1.nombre,
+                'unidad': self.insumo_1.unidad,
+                'stock_actual': '10',
+                'stock_minimo': '2',
+                'stock_maximo': '0',
+                'costo': '1000000.00',
+                'precio': '0',
+            },
+            follow=True,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.insumo_1.refresh_from_db()
+        self.assertEqual(self.insumo_1.costo, Decimal('0'))
+        self.assertContains(response, 'costo y precio, hasta 6 enteros y 2 decimales')
 
     def test_new_available_menu_item_requires_a_valid_inventory_recipe(self):
         response = self.client.post(

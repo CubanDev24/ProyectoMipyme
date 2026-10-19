@@ -72,11 +72,23 @@ function conectar() {
   ws.onclose = () => { setDot(false); setTimeout(conectar, 3000); };
   ws.onmessage = e => {
     const d = JSON.parse(e.data);
-    if (d.tipo==='estado_inicial') { pedidos={}; d.pedidos.forEach(p=>pedidos[p.id]=p); renderTodo(); }
-    else if (d.tipo==='pedido_nuevo') { pedidos[d.pedido.id]=d.pedido; renderTodo(); toast(`Nuevo pedido — ${d.pedido.etiqueta || `Mesa ${d.pedido.mesa_numero}`}`,'orange'); sonidoPedidoNuevo(); }
+    if (d.tipo==='estado_inicial') { pedidos={}; d.pedidos.filter(p=>p.destino==='cocina').forEach(p=>pedidos[p.id]=p); renderTodo(); }
+    else if (d.tipo==='pedido_nuevo') {
+      if (d.pedido.destino !== 'cocina') return;
+      pedidos[d.pedido.id]=d.pedido;
+      renderTodo();
+      toast(`Nuevo pedido — ${d.pedido.etiqueta || `Mesa ${d.pedido.mesa_numero}`}`,'orange');
+      sonidoPedidoNuevo();
+    }
     else if (d.tipo==='pedido_actualizado') {
       const anterior = pedidos[d.pedido.id];
-      pedidos[d.pedido.id]=d.pedido;
+      if (d.pedido.destino && d.pedido.destino !== 'cocina') {
+        delete pedidos[d.pedido.id];
+        renderTodo();
+        return;
+      }
+      if (!anterior && d.pedido.destino !== 'cocina') return;
+      pedidos[d.pedido.id]={...(anterior || {}), ...d.pedido};
       renderTodo();
       if (anterior && (anterior.estado !== d.pedido.estado || anterior.cuenta_solicitada !== d.pedido.cuenta_solicitada)) sonidoCambioEstado();
     }

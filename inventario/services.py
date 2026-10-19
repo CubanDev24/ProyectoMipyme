@@ -2,6 +2,14 @@ from django.db import transaction
 from .models import Insumo, MovimientoInventario, RecetaItem
 
 
+def receta_tiene_insumo_sin_stock(receta):
+    return any(insumo.stock_actual <= 0 for insumo, _ in receta)
+
+
+def plato_tiene_insumo_sin_stock(plato):
+    return plato.receta.filter(insumo__stock_actual__lte=0).exists()
+
+
 def _registrar_movimiento(insumo, tipo, cantidad, stock_anterior, stock_posterior, usuario=None, motivo=''):
     MovimientoInventario.objects.create(
         insumo=insumo,

@@ -16,6 +16,7 @@ from inventario.models import (
 )
 from inventario.services import descontar_inventario_por_pedido
 from pedidos.models import Factura, ItemPedido, Mesa, Pedido
+from pedidos.order_routing import destino_para_plato
 from usuarios.models import Notificacion, Turno, Usuario
 
 
@@ -603,11 +604,7 @@ class Command(BaseCommand):
             clave = lista_items[posicion]
             cantidad = int(lista_items[posicion + 1])
             plato = platos[clave]['objeto']
-            destino = (
-                'barra'
-                if plato.categoria.nombre.strip().casefold().startswith('bebid')
-                else 'cocina'
-            )
+            destino = destino_para_plato(plato)
             items_por_destino[destino].append((plato, cantidad))
             subtotal = plato.precio * cantidad
             total += subtotal
@@ -706,11 +703,7 @@ class Command(BaseCommand):
                 mesa=mesa,
                 modalidad=modalidad,
                 estado=estado,
-                destino=(
-                    'barra'
-                    if plato.categoria.nombre.strip().casefold().startswith('bebid')
-                    else 'cocina'
-                ),
+                destino=destino_para_plato(plato),
                 nota='Pedido actual de demostración.',
                 sesion_id=sesion_id if mesa else None,
             )

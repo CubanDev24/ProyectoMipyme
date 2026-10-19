@@ -195,13 +195,13 @@
         <table class="admin-table inventario-table"><thead><tr><th>Producto</th><th>Inventario</th><th>Categoría de inventario</th><th>Unidad</th><th>Existencia</th><th>Mínimo</th><th>Máximo</th><th>Acciones</th></tr></thead><tbody>
           {% for i in insumos_por_clasificar %}
           <tr>
-              <td><form id="clasificar-insumo-{{ i.pk }}" method="post" action="{% url 'inventario:insumo_editar' i.pk %}">{% csrf_token %}<input type="hidden" name="precio" value="{{ i.precio|unlocalize }}"><input type="hidden" name="costo" value="{{ i.costo|unlocalize }}"><input type="hidden" name="unidad" value="{{ i.unidad }}"></form><input form="clasificar-insumo-{{ i.pk }}" type="text" name="nombre" value="{{ i.nombre }}" class="admin-input-inline"></td>
+              <td><form id="clasificar-insumo-{{ i.pk }}" method="post" action="{% url 'inventario:insumo_editar' i.pk %}">{% csrf_token %}<input type="hidden" name="precio" value="{{ i.precio|unlocalize }}"><input type="hidden" name="costo" value="{{ i.costo|unlocalize }}"><input type="hidden" name="unidad" value="{{ i.unidad }}"></form><input form="clasificar-insumo-{{ i.pk }}" type="text" name="nombre" value="{{ i.nombre }}" maxlength="150" required class="admin-input-inline"></td>
               <td><select form="clasificar-insumo-{{ i.pk }}" name="tipo_inventario" class="admin-input-inline" required><option value="">Selecciona</option><option value="cocina">Cocina</option><option value="restaurante">Restaurante</option></select></td>
               <td><select form="clasificar-insumo-{{ i.pk }}" name="categoria_inventario" class="admin-input-inline"><option value="">Sin categoría</option>{% for categoria in categorias_inventario %}<option value="{{ categoria.pk }}">{{ categoria.get_tipo_display }} · {{ categoria.nombre }}</option>{% endfor %}</select></td>
               <td>{{ i.get_unidad_display }}</td>
-              <td><input form="clasificar-insumo-{{ i.pk }}" type="number" name="stock_actual" step="0.001" value="{{ i.stock_actual|unlocalize }}" class="admin-input-inline"></td>
-              <td><input form="clasificar-insumo-{{ i.pk }}" type="number" name="stock_minimo" step="0.001" value="{{ i.stock_minimo|unlocalize }}" class="admin-input-inline"></td>
-              <td><input form="clasificar-insumo-{{ i.pk }}" type="number" name="stock_maximo" step="0.001" value="{{ i.stock_maximo|unlocalize }}" class="admin-input-inline"></td>
+              <td><input form="clasificar-insumo-{{ i.pk }}" type="number" name="stock_actual" step="0.001" max="99999999.999" value="{{ i.stock_actual|unlocalize }}" class="admin-input-inline"></td>
+              <td><input form="clasificar-insumo-{{ i.pk }}" type="number" name="stock_minimo" step="0.001" min="0" max="99999999.999" value="{{ i.stock_minimo|unlocalize }}" class="admin-input-inline"></td>
+              <td><input form="clasificar-insumo-{{ i.pk }}" type="number" name="stock_maximo" step="0.001" min="0" max="999999999.999" value="{{ i.stock_maximo|unlocalize }}" class="admin-input-inline"></td>
               <td class="admin-actions"><button form="clasificar-insumo-{{ i.pk }}" type="submit" class="btn btn-outline btn-sm" title="Guardar clasificación"><i class="fa-solid fa-floppy-disk"></i></button></td>
           </tr>
           {% endfor %}

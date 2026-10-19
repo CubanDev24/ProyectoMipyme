@@ -11,6 +11,7 @@ from .models import Pedido, ItemPedido, Mesa, Factura
 from carta.models import Plato
 from inventario.services import descontar_inventario_por_pedido
 from usuarios.models import get_turno_abierto
+from .order_routing import destino_para_plato
 
 
 def _redondear(valor):
@@ -86,13 +87,14 @@ def crear_pedidos_por_destino(
                 pk=item_data.get('plato_id'),
                 disponible=True,
                 receta__isnull=False,
+            ).exclude(
+                receta__insumo__stock_actual__lte=0,
             ).distinct().select_related('categoria').first()
         except (TypeError, ValueError):
             continue
         if not plato:
             continue
-        categoria = (plato.categoria.nombre if plato.categoria else '').strip().casefold()
-        destino = 'barra' if categoria.startswith('bebid') else 'cocina'
+        destino = destino_para_plato(plato)
         grupos[destino].append((plato, item_data))
 
     pedidos = []
@@ -526,7 +528,10 @@ class MeseraConsumer(AsyncWebsocketConsumer):
         await self.send(text_data=json.dumps({'tipo': 'mesa_actualizada', 'mesa': event['mesa']}))
 
     async def _broadcast_actualizacion(self, pedido):
-        for grupo in ['cocina', 'mesera', 'caja']:
+        grupos = ['mesera', 'caja']
+        if pedido['destino'] == 'cocina':
+            grupos.append('cocina')
+        for grupo in grupos:
             await self.channel_layer.group_send(grupo, {'type': 'pedido_actualizado', 'pedido': pedido})
         if pedido['mesa_numero'] is not None:
             await self.channel_layer.group_send(
@@ -912,7 +917,12 @@ class CocinaConsumer(AsyncWebsocketConsumer):
         else:
             qs = qs.filter(modalidad='mesa')
         qs = qs.prefetch_related('items__plato').select_related('mesa')
-        return [serializar_pedido(p) for p in qs]
+        return [
+            serializar_pedido(pedido)
+            for pedido in qs
+            if pedido.items.all()
+            and all(destino_para_plato(item.plato) == 'cocina' for item in pedido.items.all())
+        ]
 
     @database_sync_to_async
     def cambiar_estado(self, pedido_id, estado):
@@ -921,6 +931,10 @@ class CocinaConsumer(AsyncWebsocketConsumer):
                 pk=pedido_id,
                 destino='cocina',
             )
+            if not p.items.all() or any(
+                destino_para_plato(item.plato) != 'cocina' for item in p.items.all()
+            ):
+                return None
             p.estado = estado
             p.save()
             return serializar_pedido(p)
@@ -1277,7 +1291,7 @@ class CajaConsumer(AsyncWebsocketConsumer):
             items_snapshot=items_snapshot,
         )
 
-        Pedido.objects.filter(pk__in=[pedido.pk for pedido in pedidos]).update(
+        Pedido.objects.filter(pk__in=[pedido.pk for pedido in pedidos]).exclude(estado='rechazado').update(
             estado='cerrado', cerrado_en=timezone.now()
         )
         if principal.mesa_id:

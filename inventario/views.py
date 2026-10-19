@@ -13,6 +13,7 @@ from django.views.decorators.http import require_POST
 from carta.models import Categoria, Plato
 from carta.qr import generar_qr_sistema, generar_qr_wifi
 from .models import CategoriaInventario, Insumo, MovimientoInventario, RecetaItem, TasaCambio
+from .services import receta_tiene_insumo_sin_stock
 from usuarios.models import ConfiguracionWifi
 
 
@@ -22,9 +23,21 @@ def _es_admin(user):
 
 def _to_decimal(valor, default=None):
     try:
-        return Decimal(str(valor).replace(',', '.').strip())
+        decimal = Decimal(str(valor).replace(',', '.').strip())
+        return decimal if decimal.is_finite() else default
     except (InvalidOperation, ValueError, AttributeError):
         return default
+
+
+def _decimal_fits_field(valor, max_digits, decimal_places, allow_negative=False):
+    if valor is None or (valor < 0 and not allow_negative):
+        return False
+    try:
+        cuantizado = valor.quantize(Decimal(1).scaleb(-decimal_places))
+    except InvalidOperation:
+        return False
+    limite = Decimal(1).scaleb(max_digits - decimal_places)
+    return valor == cuantizado and abs(valor) < limite
 
 
 def _pagination_query(request, page_parameter):
@@ -326,6 +339,9 @@ def plato_crear(request):
         if disponible and not receta:
             messages.error(request, 'Agrega al menos un producto de inventario antes de publicar el plato.')
             return redirect('/administrador/#carta')
+        if disponible and receta_tiene_insumo_sin_stock(receta):
+            messages.error(request, 'No se puede publicar el plato porque uno o más productos de su receta no tienen stock.')
+            return redirect('/administrador/#carta')
 
         if categoria_id:
             categoria = get_object_or_404(Categoria, pk=categoria_id)
@@ -377,6 +393,13 @@ def plato_editar(request, pk):
         if disponible and receta is None and not plato.receta.exists():
             messages.error(request, 'Agrega al menos un producto de inventario para publicar este plato.')
             return redirect('/administrador/#carta')
+        receta_para_validar = receta if receta is not None else [
+            (item.insumo, item.cantidad)
+            for item in plato.receta.select_related('insumo')
+        ]
+        if disponible and receta_tiene_insumo_sin_stock(receta_para_validar):
+            messages.error(request, 'No se puede publicar el plato porque uno o más productos de su receta no tienen stock.')
+            return redirect('/administrador/#carta')
         if 'categoria' in request.POST:
             plato.categoria = get_object_or_404(Categoria, pk=categoria_id) if categoria_id else None
         if precio is not None and precio > 0:
@@ -424,6 +447,18 @@ def insumo_crear(request):
         categoria_inventario_id = request.POST.get('categoria_inventario')
         if tipo_inventario not in dict(CategoriaInventario.TIPO_CHOICES):
             messages.error(request, 'Selecciona Cocina o Restaurante para el producto.')
+        elif len(nombre) > 150:
+            messages.error(request, 'El nombre del producto no puede superar 150 caracteres.')
+        elif unidad not in dict(Insumo.UNIDAD_CHOICES):
+            messages.error(request, 'Selecciona una unidad válida.')
+        elif not all((
+            _decimal_fits_field(stock_actual, 11, 3),
+            _decimal_fits_field(stock_minimo, 11, 3),
+            _decimal_fits_field(stock_maximo, 12, 3),
+            _decimal_fits_field(costo, 8, 2),
+            _decimal_fits_field(precio, 8, 2),
+        )):
+            messages.error(request, 'Revisa los valores: existencias admiten hasta 8 enteros y 3 decimales; costo y precio, hasta 6 enteros y 2 decimales. No se permiten negativos.')
         elif not nombre:
             messages.error(request, 'El insumo necesita un nombre.')
         elif Insumo.objects.filter(nombre__iexact=nombre).exists():
@@ -466,18 +501,47 @@ def insumo_crear(request):
 def insumo_editar(request, pk):
     insumo = get_object_or_404(Insumo, pk=pk)
     if request.method == 'POST':
-        insumo.nombre = request.POST.get('nombre', insumo.nombre).strip() or insumo.nombre
-        insumo.unidad = request.POST.get('unidad', insumo.unidad)
+        nombre = request.POST.get('nombre', insumo.nombre).strip() or insumo.nombre
+        unidad = request.POST.get('unidad', insumo.unidad)
         tipo_inventario = request.POST.get('tipo_inventario', insumo.tipo_inventario)
         if tipo_inventario not in dict(CategoriaInventario.TIPO_CHOICES):
             messages.error(request, 'Selecciona Cocina o Restaurante para el producto.')
             return redirect('inventario:administrador')
-        insumo.tipo_inventario = tipo_inventario
         stock_actual = _to_decimal(request.POST.get('stock_actual'))
         stock_minimo = _to_decimal(request.POST.get('stock_minimo'))
         stock_maximo = _to_decimal(request.POST.get('stock_maximo'))
         costo = _to_decimal(request.POST.get('costo'))
         precio = _to_decimal(request.POST.get('precio'))
+        valores_decimales_validos = all((
+            (not request.POST.get(campo, '').strip()) or _decimal_fits_field(
+                valor,
+                max_digits,
+                decimal_places,
+                allow_negative=(campo == 'stock_actual'),
+            )
+            for campo, valor, max_digits, decimal_places in (
+                ('stock_actual', stock_actual, 11, 3),
+                ('stock_minimo', stock_minimo, 11, 3),
+                ('stock_maximo', stock_maximo, 12, 3),
+                ('costo', costo, 8, 2),
+                ('precio', precio, 8, 2),
+            )
+        ))
+        if len(nombre) > 150:
+            messages.error(request, 'El nombre del producto no puede superar 150 caracteres.')
+            return redirect(f'/administrador/#inventario-{tipo_inventario}')
+        if unidad not in dict(Insumo.UNIDAD_CHOICES):
+            messages.error(request, 'Selecciona una unidad válida.')
+            return redirect(f'/administrador/#inventario-{tipo_inventario}')
+        if not valores_decimales_validos:
+            messages.error(request, 'Revisa los valores: existencias admiten hasta 8 enteros y 3 decimales; costo y precio, hasta 6 enteros y 2 decimales. No se permiten negativos excepto en existencia actual.')
+            return redirect(f'/administrador/#inventario-{tipo_inventario}')
+        if Insumo.objects.filter(nombre__iexact=nombre).exclude(pk=insumo.pk).exists():
+            messages.error(request, f'Ya existe un producto llamado "{nombre}".')
+            return redirect(f'/administrador/#inventario-{tipo_inventario}')
+        insumo.nombre = nombre
+        insumo.unidad = unidad
+        insumo.tipo_inventario = tipo_inventario
         categoria_inventario_id = request.POST.get('categoria_inventario')
         categoria_inventario = None
         if categoria_inventario_id:

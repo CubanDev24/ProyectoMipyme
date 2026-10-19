@@ -79,10 +79,11 @@ def mesera(request):
     productos = Plato.objects.filter(
         disponible=True,
         receta__isnull=False,
+    ).exclude(
+        receta__insumo__stock_actual__lte=0,
     ).distinct().select_related('categoria').order_by('categoria__orden', 'categoria__nombre', 'nombre')
     categorias = Categoria.objects.filter(
-        platos__disponible=True,
-        platos__receta__isnull=False,
+        platos__in=productos,
     ).distinct().order_by('orden', 'nombre')
     turno = get_turno_abierto()
     mesas = mesas_del_turno(turno) if turno else Mesa.objects.none()

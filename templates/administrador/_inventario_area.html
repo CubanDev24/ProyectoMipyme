@@ -6,14 +6,14 @@
   <form method="post" action="{% url 'inventario:insumo_crear' %}" class="inventario-create-form">
     {% csrf_token %}
     <input type="hidden" name="tipo_inventario" value="{{ area.tipo }}">
-    <input type="text" name="nombre" placeholder="Nombre del producto o ingrediente" required class="admin-input">
+    <input type="text" name="nombre" placeholder="Nombre del producto o ingrediente" required maxlength="150" class="admin-input">
     <select name="categoria_inventario" class="admin-input"><option value="">Categoría de {{ area.nombre }}</option>{% for categoria in area.categorias %}<option value="{{ categoria.pk }}">{{ categoria.nombre }}</option>{% endfor %}</select>
     <select name="unidad" class="admin-input"><option value="unidad">Unidad</option><option value="kg">Kilogramo</option><option value="g">Gramo</option><option value="l">Litro</option><option value="ml">Mililitro</option></select>
-    <input type="number" step="0.01" min="0" name="costo" placeholder="Costo" class="admin-input">
-    {% if area.tipo == 'restaurante' %}<input type="number" step="0.01" min="0" name="precio" placeholder="Precio venta" class="admin-input">{% else %}<input type="hidden" name="precio" value="0">{% endif %}
-    <input type="number" step="0.001" min="0" name="stock_actual" placeholder="Existencia" class="admin-input">
-    <input type="number" step="0.001" min="0" name="stock_minimo" placeholder="Mínimo" class="admin-input">
-    <input type="number" step="0.001" min="0" name="stock_maximo" placeholder="Máximo" class="admin-input">
+    <input type="number" step="0.01" min="0" max="999999.99" name="costo" placeholder="Costo" class="admin-input">
+    {% if area.tipo == 'restaurante' %}<input type="number" step="0.01" min="0" max="999999.99" name="precio" placeholder="Precio venta" class="admin-input">{% else %}<input type="hidden" name="precio" value="0">{% endif %}
+    <input type="number" step="0.001" min="0" max="99999999.999" name="stock_actual" placeholder="Existencia" class="admin-input">
+    <input type="number" step="0.001" min="0" max="99999999.999" name="stock_minimo" placeholder="Mínimo" class="admin-input">
+    <input type="number" step="0.001" min="0" max="999999999.999" name="stock_maximo" placeholder="Máximo" class="admin-input">
     <button type="submit" class="btn btn-primary"><i class="fa-solid fa-plus"></i> Agregar a {{ area.nombre }}</button>
   </form>
 
@@ -27,14 +27,14 @@
       <tbody>
         {% for i in area.insumos %}
         <tr data-inventario-row data-search="{{ i.nombre|lower }} {{ i.categoria_inventario.nombre|default:'sin categoría'|lower }}" data-stock-state="{% if i.stock_bajo %}bajo{% else %}normal{% endif %}">
-            <td><form id="editar-insumo-{{ i.pk }}" method="post" action="{% url 'inventario:insumo_editar' i.pk %}">{% csrf_token %}<input type="hidden" name="tipo_inventario" value="{{ area.tipo }}"></form><input form="editar-insumo-{{ i.pk }}" type="text" name="nombre" value="{{ i.nombre }}" class="admin-input-inline"></td>
+            <td><form id="editar-insumo-{{ i.pk }}" method="post" action="{% url 'inventario:insumo_editar' i.pk %}">{% csrf_token %}<input type="hidden" name="tipo_inventario" value="{{ area.tipo }}"></form><input form="editar-insumo-{{ i.pk }}" type="text" name="nombre" value="{{ i.nombre }}" maxlength="150" required class="admin-input-inline"></td>
             <td><select form="editar-insumo-{{ i.pk }}" name="categoria_inventario" class="admin-input-inline"><option value="">Sin categoría</option>{% for c in area.categorias %}<option value="{{ c.pk }}" {% if i.categoria_inventario_id == c.pk %}selected{% endif %}>{{ c.nombre }}</option>{% endfor %}</select></td>
             <td><select form="editar-insumo-{{ i.pk }}" name="unidad" class="admin-input-inline">{% for val, label in i.UNIDAD_CHOICES %}<option value="{{ val }}" {% if i.unidad == val %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></td>
-            <td><input form="editar-insumo-{{ i.pk }}" type="number" step="0.01" min="0" name="costo" value="{{ i.costo|unlocalize }}" class="admin-input-inline"></td>
-            {% if area.tipo == 'restaurante' %}<td><input form="editar-insumo-{{ i.pk }}" type="number" step="0.01" min="0" name="precio" value="{{ i.precio|unlocalize }}" class="admin-input-inline"></td>{% else %}<input form="editar-insumo-{{ i.pk }}" type="hidden" name="precio" value="{{ i.precio|unlocalize }}">{% endif %}
-            <td><input form="editar-insumo-{{ i.pk }}" type="number" step="0.001" name="stock_actual" value="{{ i.stock_actual|unlocalize }}" class="admin-input-inline"></td>
-            <td><input form="editar-insumo-{{ i.pk }}" type="number" step="0.001" min="0" name="stock_minimo" value="{{ i.stock_minimo|unlocalize }}" class="admin-input-inline"></td>
-            <td><input form="editar-insumo-{{ i.pk }}" type="number" step="0.001" min="0" name="stock_maximo" value="{{ i.stock_maximo|unlocalize }}" class="admin-input-inline"></td>
+            <td><input form="editar-insumo-{{ i.pk }}" type="number" step="0.01" min="0" max="999999.99" name="costo" value="{{ i.costo|unlocalize }}" class="admin-input-inline"></td>
+            {% if area.tipo == 'restaurante' %}<td><input form="editar-insumo-{{ i.pk }}" type="number" step="0.01" min="0" max="999999.99" name="precio" value="{{ i.precio|unlocalize }}" class="admin-input-inline"></td>{% else %}<input form="editar-insumo-{{ i.pk }}" type="hidden" name="precio" value="{{ i.precio|unlocalize }}">{% endif %}
+            <td><input form="editar-insumo-{{ i.pk }}" type="number" step="0.001" max="99999999.999" name="stock_actual" value="{{ i.stock_actual|unlocalize }}" class="admin-input-inline"></td>
+            <td><input form="editar-insumo-{{ i.pk }}" type="number" step="0.001" min="0" max="99999999.999" name="stock_minimo" value="{{ i.stock_minimo|unlocalize }}" class="admin-input-inline"></td>
+            <td><input form="editar-insumo-{{ i.pk }}" type="number" step="0.001" min="0" max="999999999.999" name="stock_maximo" value="{{ i.stock_maximo|unlocalize }}" class="admin-input-inline"></td>
             <td><span class="inventario-status {% if i.stock_bajo %}is-low{% else %}is-ok{% endif %}">{% if i.stock_bajo %}Bajo{% else %}Normal{% endif %}</span></td>
             <td><select form="editar-insumo-{{ i.pk }}" name="activo" class="admin-input-inline"><option value="on" {% if i.activo %}selected{% endif %}>Sí</option><option value="" {% if not i.activo %}selected{% endif %}>No</option></select></td>
             <td class="admin-actions"><button form="editar-insumo-{{ i.pk }}" type="submit" class="btn btn-outline btn-sm" title="Guardar cambios"><i class="fa-solid fa-floppy-disk"></i></button><form method="post" action="{% url 'inventario:insumo_eliminar' i.pk %}" onsubmit="return confirm('¿Eliminar {{ i.nombre|escapejs }}?');">{% csrf_token %}<button type="submit" class="btn btn-danger btn-sm" title="Eliminar producto"><i class="fa-solid fa-trash"></i></button></form></td>

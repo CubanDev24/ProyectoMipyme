@@ -2247,8 +2247,8 @@ function conectar() {
       if (!mesaDisponible) {
         pedidosCliente = pedidosCliente.map(pedido => ({
           ...pedido,
-          estado: 'cerrado',
-          estado_display: 'Cerrado',
+          estado: pedido.estado === 'rechazado' ? 'rechazado' : 'cerrado',
+          estado_display: pedido.estado === 'rechazado' ? pedido.estado_display : 'Cerrado',
         }));
         pedidoActual = null;
         carrito = [];

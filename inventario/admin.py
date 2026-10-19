@@ -1,5 +1,30 @@
 from django.contrib import admin
+from django import forms
+from decimal import Decimal
 from .models import CategoriaInventario, Insumo, MovimientoInventario, RecetaItem, TasaCambio
+
+
+class InsumoAdminForm(forms.ModelForm):
+    class Meta:
+        model = Insumo
+        fields = '__all__'
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        for nombre in ('stock_actual', 'stock_minimo', 'stock_maximo', 'costo', 'precio'):
+            campo = self.fields[nombre]
+            modelo = Insumo._meta.get_field(nombre)
+            maximo = Decimal(1).scaleb(modelo.max_digits - modelo.decimal_places) - Decimal(1).scaleb(-modelo.decimal_places)
+            campo.max_value = maximo
+            paso = Decimal(1).scaleb(-modelo.decimal_places)
+            attrs = {
+                'step': format(paso, 'f'),
+                'max': format(maximo, 'f'),
+            }
+            if nombre != 'stock_actual':
+                campo.min_value = Decimal('0')
+                attrs['min'] = '0'
+            campo.widget = forms.NumberInput(attrs=attrs)
 
 
 class RecetaItemInline(admin.TabularInline):
@@ -9,6 +34,7 @@ class RecetaItemInline(admin.TabularInline):
 
 @admin.register(Insumo)
 class InsumoAdmin(admin.ModelAdmin):
+    form = InsumoAdminForm
     list_display = ['nombre', 'tipo_inventario', 'categoria_inventario', 'costo', 'precio', 'stock_actual', 'stock_minimo', 'stock_maximo', 'stock_bajo', 'activo']
     list_filter = ['tipo_inventario', 'activo', 'unidad']
     list_editable = ['stock_actual', 'stock_minimo', 'stock_maximo', 'activo']

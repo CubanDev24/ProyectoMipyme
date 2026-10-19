@@ -67,11 +67,8 @@ LOGGING = {
     },
     'handlers': {
         'file': {
-            'class': 'logging.handlers.TimedRotatingFileHandler',
+            'class': 'logging.FileHandler',
             'filename': str(BASE_DIR / 'logs.txt'),
-            'when': 'midnight',
-            'interval': 1,
-            'backupCount': 30,
             'encoding': 'utf-8',
             'formatter': 'file',
             'level': 'ERROR',
