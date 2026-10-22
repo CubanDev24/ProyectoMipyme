@@ -466,7 +466,23 @@ class MeseraConsumer(AsyncWebsocketConsumer):
                     'etiqueta_pedido': pedidos[0]['etiqueta'],
                 })
 
-        elif accion in ['marcar_listo_barra', 'marcar_listo_para_llevar']:
+        elif accion == 'marcar_listo_barra':
+            pedido, alertas = await self.marcar_barra_servido(data.get('pedido_id'))
+            if pedido:
+                await self._broadcast_actualizacion(pedido)
+                if alertas:
+                    await self.channel_layer.group_send('caja', {
+                        'type': 'alerta_inventario',
+                        'alertas': alertas,
+                        'mesa_numero': pedido['mesa_numero'],
+                    })
+            else:
+                await self.send(text_data=json.dumps({
+                    'tipo': 'error_servicio',
+                    'mensaje': 'El pedido de barra ya no está pendiente de preparación.',
+                }))
+
+        elif accion == 'marcar_listo_para_llevar':
             pedido = await self.marcar_listo_para_llevar(data.get('pedido_id'))
             if pedido:
                 await self._broadcast_actualizacion(pedido)
@@ -716,6 +732,31 @@ class MeseraConsumer(AsyncWebsocketConsumer):
         usuario = self.scope.get('user')
         alertas = descontar_inventario_por_pedido(p, usuario=usuario)
         return serializar_pedido(p), alertas
+
+    @database_sync_to_async
+    def marcar_barra_servido(self, pedido_id):
+        try:
+            with transaction.atomic():
+                pedido = Pedido.objects.select_for_update().filter(
+                    pk=pedido_id,
+                    modalidad='mesa',
+                    destino='barra',
+                    estado__in=['pendiente', 'en_preparacion', 'listo'],
+                    mesa__abierta=True,
+                    sesion_id=F('mesa__sesion_id'),
+                ).select_related('mesa').prefetch_related('items__plato').first()
+                if not pedido:
+                    return None, []
+
+                pedido.estado = 'servido'
+                pedido.save(update_fields=['estado', 'actualizado_en'])
+                alertas = descontar_inventario_por_pedido(
+                    pedido,
+                    usuario=self.scope.get('user'),
+                )
+                return serializar_pedido(pedido), alertas
+        except (TypeError, ValueError):
+            return None, []
 
     @database_sync_to_async
     def marcar_ticket_entregado(self, grupo_para_llevar):

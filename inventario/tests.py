@@ -41,6 +41,9 @@ class InventarioFlowTests(TestCase):
         self.assertContains(response, 'maxlength="150"')
         self.assertContains(response, 'step="0.01" min="0" max="999999.99" name="costo"')
         self.assertContains(response, 'step="0.001" min="0" max="99999999.999" name="stock_actual"')
+        self.assertContains(response, 'name="destino"')
+        self.assertContains(response, 'Área de preparación')
+        self.assertContains(response, 'Se elige por separado de los productos de inventario de la receta.')
 
     def test_django_admin_inventory_form_validates_field_limits(self):
         form = InsumoAdminForm()
@@ -453,9 +456,10 @@ class InventarioFlowTests(TestCase):
         self.assertEqual(plato.precio, Decimal('99.00'))
 
     def test_admin_can_create_a_dish_with_multiple_inventory_items(self):
-        Insumo.objects.filter(pk__in=[self.insumo_1.pk, self.insumo_2.pk]).update(
-            tipo_inventario='cocina',
-        )
+        self.insumo_1.tipo_inventario = 'cocina'
+        self.insumo_1.save(update_fields=['tipo_inventario'])
+        self.insumo_2.tipo_inventario = 'restaurante'
+        self.insumo_2.save(update_fields=['tipo_inventario'])
         response = self.client.post(
             reverse('inventario:plato_crear'),
             {
@@ -463,6 +467,7 @@ class InventarioFlowTests(TestCase):
                 'nombre': 'Arroz con pollo',
                 'descripcion': 'Plato del día',
                 'precio': '25.00',
+                'destino': 'barra',
                 'disponible': 'on',
                 'insumo_id': [str(self.insumo_1.id), str(self.insumo_2.id)],
                 'cantidad': ['0.5', '0.25'],
@@ -472,6 +477,7 @@ class InventarioFlowTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         plato = Plato.objects.get(nombre='Arroz con pollo')
+        self.assertEqual(plato.destino, 'barra')
         self.assertEqual(plato.receta.count(), 2)
         self.assertTrue(RecetaItem.objects.filter(plato=plato, insumo=self.insumo_1).exists())
         self.assertTrue(RecetaItem.objects.filter(plato=plato, insumo=self.insumo_2).exists())
@@ -617,6 +623,7 @@ class InventarioFlowTests(TestCase):
                 'nombre': 'Plato editable',
                 'categoria': self.categoria.pk,
                 'precio': '20.00',
+                'destino': 'barra',
                 'disponible': 'on',
                 'receta_enviada': '1',
                 'insumo_id[]': [str(self.insumo_2.pk)],
@@ -625,6 +632,8 @@ class InventarioFlowTests(TestCase):
         )
 
         self.assertEqual(response.status_code, 302)
+        plato.refresh_from_db()
+        self.assertEqual(plato.destino, 'barra')
         self.assertEqual(
             list(plato.receta.values_list('insumo_id', 'cantidad')),
             [(self.insumo_2.pk, Decimal('0.750'))],

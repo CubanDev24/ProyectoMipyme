@@ -577,7 +577,8 @@
             <span class="caja-recibido-control"><i class="fa-solid fa-hand-holding-dollar" aria-hidden="true"></i><input type="number" step="0.01" min="0" id="input-recibido-usd" inputmode="decimal" placeholder="Escribe el importe" oninput="actualizarCambioUsd()"><span class="caja-recibido-moneda">USD</span></span>
             <span class="caja-recibido-ayuda">Ingresa el monto exacto que entrega el cliente.</span>
           </label>
-          <div class="caja-cambio-resumen" id="caja-cambio-usd"><span><i class="fa-solid fa-arrow-rotate-left mr-1" aria-hidden="true"></i> Cambio a devolver</span><strong id="cambio-usd-calc">—</strong></div>`;
+          <div class="caja-cambio-resumen" id="caja-cambio-usd"><span><i class="fa-solid fa-arrow-rotate-left mr-1" aria-hidden="true"></i> Cambio a devolver</span><strong id="cambio-usd-calc">—</strong></div>
+          <div class="caja-cambio-resumen" id="caja-cambio-usd-cup"><span>Equivalente del cambio en CUP</span><strong id="cambio-usd-cup-calc">—</strong></div>`;
         actualizarMontoUsd();
       }
       if (['transferencia', 'mixto'].includes(formaPagoSeleccionada)) {
@@ -608,9 +609,10 @@
     function actualizarCambioUsd() {
       const recibidoInput = document.getElementById('input-recibido-usd');
       const cambioOutput = document.getElementById('cambio-usd-calc');
+      const cambioCupOutput = document.getElementById('cambio-usd-cup-calc');
       const montoOutput = document.getElementById('monto-usd-calc');
       const tasaInput = document.getElementById('input-tasa-usd');
-      if (!recibidoInput || !cambioOutput || !montoOutput || !tasaInput || !pedidoSeleccionado) return;
+      if (!recibidoInput || !cambioOutput || !cambioCupOutput || !montoOutput || !tasaInput || !pedidoSeleccionado) return;
       const tasa = Number(tasaInput.value);
       const recibido = Number(recibidoInput.value);
       const totalUsd = tasa > 0 ? redondearMoneda(Number(pedidoSeleccionado.total) / tasa) : NaN;
@@ -621,6 +623,9 @@
       cambioResumen.classList.toggle('is-invalid', recibidoInput.value !== '' && !valido);
       cambioOutput.textContent = valido
         ? `${redondearMoneda(recibido - totalUsd).toFixed(2)} USD`
+        : recibidoInput.value ? 'Importe insuficiente' : '—';
+      cambioCupOutput.textContent = valido
+        ? `${redondearMoneda(redondearMoneda(recibido - totalUsd) * tasa).toFixed(2)} CUP`
         : recibidoInput.value ? 'Importe insuficiente' : '—';
       document.getElementById('btn-cobrar').disabled = !valido;
     }

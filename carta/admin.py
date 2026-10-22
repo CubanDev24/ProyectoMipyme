@@ -25,6 +25,6 @@ class PlatoAdmin(admin.ModelAdmin):
             fields = '__all__'
 
     form = PlatoForm
-    list_display = ['nombre', 'categoria', 'precio', 'disponible']
-    list_filter = ['categoria', 'disponible']
+    list_display = ['nombre', 'categoria', 'destino', 'precio', 'disponible']
+    list_filter = ['categoria', 'destino', 'disponible']
     list_editable = ['disponible', 'precio']

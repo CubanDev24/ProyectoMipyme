@@ -3721,7 +3721,7 @@
                 const accion = esperandoAprobacion
                     ? `<button type="button" onclick="aceptarPedidoCliente(${pedido.id})" class="mt-4 w-full rounded-lg bg-amber-400 px-4 py-2.5 text-sm font-bold text-slate-950 hover:bg-amber-300"><i class="fa-solid fa-check mr-2"></i>Aceptar y preparar</button>`
                     : pedido.estado !== 'listo'
-                        ? `<button type="button" onclick="marcarPedidoBarraListo(${pedido.id})" class="mt-4 w-full rounded-lg bg-amber-400 px-4 py-2.5 text-sm font-bold text-slate-950 hover:bg-amber-300"><i class="fa-solid fa-check mr-2"></i>Marcar listo</button>`
+                        ? `<button type="button" onclick="marcarPedidoBarraListo(${pedido.id})" class="mt-4 w-full rounded-lg bg-amber-400 px-4 py-2.5 text-sm font-bold text-slate-950 hover:bg-amber-300"><i class="fa-solid fa-check mr-2"></i>${pedido.es_para_llevar ? 'Marcar listo' : 'Marcar listo y servido'}</button>`
                         : pedido.es_para_llevar
                             ? `<button type="button" onclick="switchView('takeaway'); abrirModalTicketsParaLlevar()" class="mt-4 w-full rounded-lg bg-sky-500 px-4 py-2.5 text-sm font-bold text-slate-950 hover:bg-sky-400"><i class="fa-solid fa-bag-shopping mr-2"></i>Revisar entrega del ticket</button>`
                             : `<button type="button" onclick="marcarServidoMesera(${pedido.id})" class="mt-4 w-full rounded-lg bg-emerald-500 px-4 py-2.5 text-sm font-bold text-slate-950 hover:bg-emerald-400"><i class="fa-solid fa-hand-holding-heart mr-2"></i>Marcar servido</button>`;
