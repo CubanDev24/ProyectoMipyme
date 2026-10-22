@@ -322,9 +322,14 @@ def plato_crear(request):
         nombre = request.POST.get('nombre', '').strip()
         descripcion = request.POST.get('descripcion', '').strip()
         precio = _to_decimal(request.POST.get('precio'))
+        destino = request.POST.get('destino', 'cocina')
 
         if not categoria_id and not categoria_nombre:
             messages.error(request, 'Debes elegir una categoría para el plato.')
+            return redirect('/administrador/#carta')
+
+        if destino not in dict(Plato.DESTINO_CHOICES):
+            messages.error(request, 'Selecciona Cocina o Barra como área de preparación.')
             return redirect('/administrador/#carta')
 
         if not nombre or precio is None or precio <= 0:
@@ -359,6 +364,7 @@ def plato_crear(request):
                 nombre=nombre,
                 descripcion=descripcion,
                 precio=precio,
+                destino=destino,
                 disponible=disponible,
                 orden=Plato.objects.count() + 1,
                 imagen=request.FILES.get('imagen'),
@@ -380,6 +386,11 @@ def plato_editar(request, pk):
         nombre = request.POST.get('nombre', plato.nombre).strip() or plato.nombre
         descripcion = request.POST.get('descripcion', plato.descripcion).strip()
         precio = _to_decimal(request.POST.get('precio'))
+        destino = request.POST.get('destino', plato.destino)
+        if destino not in dict(Plato.DESTINO_CHOICES):
+            messages.error(request, 'Selecciona Cocina o Barra como área de preparación.')
+            return redirect('/administrador/#carta')
+
         receta = None
         if 'receta_enviada' in request.POST:
             receta, error_receta = _receta_desde_post(request)
@@ -406,6 +417,7 @@ def plato_editar(request, pk):
             plato.precio = precio
         plato.nombre = nombre
         plato.descripcion = descripcion
+        plato.destino = destino
         plato.disponible = disponible
         if request.FILES.get('imagen'):
             plato.imagen = request.FILES['imagen']

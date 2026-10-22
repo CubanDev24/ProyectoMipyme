@@ -204,6 +204,7 @@ class FacturaWorkflowTests(TestCase):
             categoria=categoria_bebidas,
             nombre='Refresco listo',
             precio='8.00',
+            destino='barra',
             disponible=True,
         )
         self.asociar_receta(bebida)
@@ -225,10 +226,18 @@ class FacturaWorkflowTests(TestCase):
         }))
 
         pedido_barra.refresh_from_db()
-        self.assertEqual(pedido_barra.estado, 'listo')
+        self.assertEqual(pedido_barra.estado, 'servido')
+        self.assertTrue(pedido_barra.inventario_descontado)
+        self.insumo_receta.refresh_from_db()
+        self.assertEqual(self.insumo_receta.stock_actual, Decimal('999'))
         self.assertTrue(any(
             call.args[0] == 'mesera'
-            and call.args[1]['pedido']['estado'] == 'listo'
+            and call.args[1]['pedido']['estado'] == 'servido'
+            for call in mesera.channel_layer.group_send.await_args_list
+        ))
+        self.assertTrue(any(
+            call.args[0] == f'cliente_{self.mesa.numero}'
+            and call.args[1]['pedido']['estado'] == 'servido'
             for call in mesera.channel_layer.group_send.await_args_list
         ))
         self.assertFalse(any(
@@ -236,6 +245,13 @@ class FacturaWorkflowTests(TestCase):
             and call.args[1]['pedido']['destino'] == 'barra'
             for call in mesera.channel_layer.group_send.await_args_list
         ))
+
+        async_to_sync(mesera.receive)(json.dumps({
+            'accion': 'marcar_listo_barra',
+            'pedido_id': pedido_barra.pk,
+        }))
+        self.insumo_receta.refresh_from_db()
+        self.assertEqual(self.insumo_receta.stock_actual, Decimal('999'))
 
     def test_historial_de_facturas_se_pagina(self):
         Factura.objects.create(
@@ -388,6 +404,7 @@ class FacturaWorkflowTests(TestCase):
             categoria=categoria_bebidas,
             nombre='Jugo para enviar',
             precio='10.00',
+            destino='barra',
             disponible=True,
         )
         self.asociar_receta(bebida)
@@ -431,6 +448,7 @@ class FacturaWorkflowTests(TestCase):
             categoria=categoria_bebidas,
             nombre='Jugo',
             precio='10.00',
+            destino='barra',
             disponible=True,
         )
         self.asociar_receta(bebida)
@@ -460,19 +478,21 @@ class FacturaWorkflowTests(TestCase):
         self.assertIn(pedido_cocina['id'], ids_cocina)
         self.assertNotIn(pedido_barra['id'], ids_cocina)
 
-    def test_solo_bebidas_se_rutean_a_barra_y_postres_a_cocina(self):
-        categoria_bebidas = Categoria.objects.create(nombre='Refrescos')
+    def test_pedidos_se_rutean_segun_el_destino_configurado_en_cada_plato(self):
+        categoria_bebidas = Categoria.objects.create(nombre='Bebidas')
         categoria_postres = Categoria.objects.create(nombre='Postres')
         refresco = Plato.objects.create(
-            categoria=categoria_bebidas,
+            categoria=categoria_postres,
             nombre='Soda',
             precio='8.00',
+            destino='barra',
             disponible=True,
         )
         postre = Plato.objects.create(
-            categoria=categoria_postres,
+            categoria=categoria_bebidas,
             nombre='Flan',
             precio='12.00',
+            destino='cocina',
             disponible=True,
         )
         self.asociar_receta(refresco)
@@ -498,6 +518,7 @@ class FacturaWorkflowTests(TestCase):
             categoria=categoria_bebidas,
             nombre='Refresco',
             precio='8.00',
+            destino='barra',
             disponible=True,
         )
         postre = Plato.objects.create(
@@ -537,7 +558,13 @@ class FacturaWorkflowTests(TestCase):
     def test_pedido_para_llevar_separa_cocina_y_barra_sin_asignar_mesa(self):
         Turno.objects.create()
         categoria_bebidas = Categoria.objects.create(nombre='Bebidas para llevar', orden=2)
-        bebida = Plato.objects.create(categoria=categoria_bebidas, nombre='Agua', precio='5.00', disponible=True)
+        bebida = Plato.objects.create(
+            categoria=categoria_bebidas,
+            nombre='Agua',
+            precio='5.00',
+            destino='barra',
+            disponible=True,
+        )
         self.asociar_receta(bebida)
         mesera = MeseraConsumer()
 
@@ -567,7 +594,13 @@ class FacturaWorkflowTests(TestCase):
     def test_websocket_mesera_marca_listo_un_pedido_para_llevar_de_barra(self):
         Turno.objects.create()
         categoria_bebidas = Categoria.objects.create(nombre='Bebidas de barra', orden=2)
-        bebida = Plato.objects.create(categoria=categoria_bebidas, nombre='Limonada', precio='7.00', disponible=True)
+        bebida = Plato.objects.create(
+            categoria=categoria_bebidas,
+            nombre='Limonada',
+            precio='7.00',
+            destino='barra',
+            disponible=True,
+        )
         self.asociar_receta(bebida)
         mesera = MeseraConsumer()
         mesera.scope = {'user': None}
@@ -828,7 +861,13 @@ class FacturaWorkflowTests(TestCase):
         Turno.objects.create()
         insumo = Insumo.objects.create(nombre='Queso de ticket', categoria=self.categoria, stock_actual='10.00')
         categoria_bebidas = Categoria.objects.create(nombre='Bebidas para el ticket', orden=2)
-        bebida = Plato.objects.create(categoria=categoria_bebidas, nombre='Limonada del ticket', precio='7.00', disponible=True)
+        bebida = Plato.objects.create(
+            categoria=categoria_bebidas,
+            nombre='Limonada del ticket',
+            precio='7.00',
+            destino='barra',
+            disponible=True,
+        )
         self.asociar_receta(bebida)
         insumo_bebida = Insumo.objects.create(nombre='Limón de ticket', categoria=categoria_bebidas, stock_actual='8.00')
         RecetaItem.objects.create(plato=self.plato, insumo=insumo, cantidad='0.50')
@@ -1068,6 +1107,21 @@ class FacturaWorkflowTests(TestCase):
         self.assertContains(response, 'Imagen del pago en transferencia')
         self.assertContains(response, 'Ver imagen')
         self.assertNotContains(response, '<img src="${safeUrl}"')
+
+    def test_caja_muestra_equivalente_en_cup_del_cambio_usd(self):
+        User = get_user_model()
+        cajera = User.objects.create_user(username='cajera_cambio_usd', password='123456', role='cajera')
+        self.client.force_login(cajera)
+
+        response = self.client.get(reverse('pedidos:caja'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'id="cambio-usd-cup-calc"')
+        self.assertContains(response, 'Equivalente del cambio en CUP')
+        self.assertContains(
+            response,
+            'redondearMoneda(redondearMoneda(recibido - totalUsd) * tasa).toFixed(2)',
+        )
 
     def test_mesera_puede_subir_y_revisar_comprobante_de_transferencia(self):
         User = get_user_model()

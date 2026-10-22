@@ -22,6 +22,22 @@ from usuarios.models import Notificacion, Turno, Usuario
 
 TASA_DEMO = Decimal('380.00')
 
+PLATOS_DE_BARRA_DEMO = {
+    'refresco',
+    'agua',
+    'jugo',
+    'cafe',
+    'limonada',
+    'red_bull',
+    'cerveza',
+    'ron_botella',
+    'mojito',
+    'cuba_libre',
+    'daiquiri',
+    'vodka_energetico',
+    'pina_colada',
+}
+
 CATEGORIAS_CARTA = (
     ('Entrantes', (
         (
@@ -381,6 +397,7 @@ class Command(BaseCommand):
                         nombre=nombre,
                         descripcion=descripcion,
                         precio=Decimal(precio),
+                        destino='barra' if clave in PLATOS_DE_BARRA_DEMO else 'cocina',
                         disponible=True,
                         orden=orden_plato,
                     ),
