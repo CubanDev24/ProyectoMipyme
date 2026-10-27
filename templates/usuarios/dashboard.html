@@ -239,7 +239,10 @@
         <a href="{% url 'pedidos:mesera' %}#takeaway" aria-label="Para llevar" title="Para llevar" class="w-full flex items-center gap-3 px-3 py-3 rounded-xl font-medium text-sm text-slate-400 hover:text-white hover:bg-slate-800/50 transition-all"><i class="fa-solid fa-bag-shopping text-lg w-6 text-center" aria-hidden="true"></i><span class="hidden lg:inline">Para llevar</span></a>
         <a href="{% url 'pedidos:mesera' %}#menu" aria-label="Carta / Menú" title="Carta / Menú" class="w-full flex items-center gap-3 px-3 py-3 rounded-xl font-medium text-sm text-slate-400 hover:text-white hover:bg-slate-800/50 transition-all"><i class="fa-solid fa-book-open text-lg w-6 text-center" aria-hidden="true"></i><span class="hidden lg:inline">Carta / Menú</span></a>
         {% endif %}
-        {% if user.role == 'cocina' %}<a href="{% url 'pedidos:cocina' %}" class="w-full flex items-center gap-3 px-3 py-3 rounded-xl font-medium text-sm text-slate-400 hover:text-white hover:bg-slate-800/50 transition-all"><i class="fa-solid fa-fire-burner text-lg w-6 text-center" aria-hidden="true"></i><span class="hidden lg:inline">Pedidos</span></a>{% endif %}
+        {% if user.role == 'cocina' %}
+        <a href="{% url 'pedidos:cocina' %}" class="w-full flex items-center gap-3 px-3 py-3 rounded-xl font-medium text-sm text-slate-400 hover:text-white hover:bg-slate-800/50 transition-all"><i class="fa-solid fa-fire-burner text-lg w-6 text-center" aria-hidden="true"></i><span class="hidden lg:inline">Pedidos</span></a>
+        <a href="{% url 'pedidos:cocina' %}?vista=ventas" class="w-full flex items-center gap-3 px-3 py-3 rounded-xl font-medium text-sm text-slate-400 hover:text-white hover:bg-slate-800/50 transition-all"><i class="fa-solid fa-chart-column text-lg w-6 text-center" aria-hidden="true"></i><span class="hidden lg:inline">Ventas del día</span></a>
+        {% endif %}
         {% if user.role == 'cajera' %}<a href="{% url 'pedidos:caja' %}" class="w-full flex items-center gap-3 px-3 py-3 rounded-xl font-medium text-sm text-slate-400 hover:text-white hover:bg-slate-800/50 transition-all"><i class="fa-solid fa-cash-register text-lg w-6 text-center" aria-hidden="true"></i><span class="hidden lg:inline">Caja</span></a>
         <a href="{% url 'pedidos:caja_estadisticas_pagina' %}" class="w-full flex items-center gap-3 px-3 py-3 rounded-xl font-medium text-sm text-slate-400 hover:text-white hover:bg-slate-800/50 transition-all"><i class="fa-solid fa-chart-column text-lg w-6 text-center"></i><span class="hidden lg:inline">Estadísticas</span></a>{% endif %}
         {% if user.role == 'administrador' %}
@@ -252,7 +255,7 @@
         <a href="{% url 'usuarios:reportes' %}" class="w-full flex items-center gap-3 px-3 py-3 rounded-xl font-medium text-sm text-slate-400 hover:text-white hover:bg-slate-800/50 transition-all"><i class="fa-solid fa-chart-pie text-lg w-6 text-center" aria-hidden="true"></i><span class="hidden lg:inline">Reportes</span></a>
         {% endif %}
         <button type="button" class="w-full flex items-center gap-3 px-3 py-3 rounded-xl font-medium text-sm transition-all bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" aria-current="page" aria-label="Detalle del turno" title="Detalle del turno"><i class="fa-solid fa-clock-rotate-left text-lg w-6 text-center" aria-hidden="true"></i><span class="hidden lg:inline">Detalle del turno actual</span></button>
-        {% if user.role == 'administrador' or user.role == 'cajera' %}<a href="{% url 'usuarios:historial_turnos' %}" class="w-full flex items-center gap-3 px-3 py-3 rounded-xl font-medium text-sm text-slate-400 hover:text-white hover:bg-slate-800/50 transition-all"><i class="fa-solid fa-clock-rotate-left text-lg w-6 text-center" aria-hidden="true"></i><span class="hidden lg:inline">Historial</span></a>{% endif %}
+        {% if user.role == 'administrador' %}<a href="{% url 'usuarios:historial_turnos' %}" class="w-full flex items-center gap-3 px-3 py-3 rounded-xl font-medium text-sm text-slate-400 hover:text-white hover:bg-slate-800/50 transition-all"><i class="fa-solid fa-clock-rotate-left text-lg w-6 text-center" aria-hidden="true"></i><span class="hidden lg:inline">Historial</span></a>{% endif %}
         {% if user.role == 'mesera' %}<a href="{% url 'usuarios:logout' %}" aria-label="Cerrar sesión" title="Cerrar sesión" class="turn-dashboard-mobile-logout w-full flex items-center gap-3 px-3 py-3 rounded-xl font-medium text-sm text-rose-400 hover:bg-rose-500/10 transition-all"><i class="fa-solid fa-right-from-bracket text-lg w-6 text-center" aria-hidden="true"></i><span>Cerrar sesión</span></a>{% endif %}
       </nav>
     </div>
@@ -281,11 +284,13 @@
 
   <div class="admin-grid">
     <section class="admin-card turn-dashboard-card turn-current-card" aria-labelledby="turno-actual-heading">
-      <div class="turn-card-heading"><div class="turn-section-icon" aria-hidden="true"><i class="fa-solid fa-calendar-day"></i></div><div><p class="panel-kicker">{{ hoy|date:"d/m/Y" }}</p><h2 id="turno-actual-heading">{% if turno %}Turno del día{% else %}Turno de hoy{% endif %}</h2></div></div>
+      <div class="turn-card-heading"><div class="turn-section-icon" aria-hidden="true"><i class="fa-solid fa-calendar-day"></i></div><div><p class="panel-kicker">{{ hoy|date:"d/m/Y" }}</p><h2 id="turno-actual-heading">{% if turno %}Turno abierto{% else %}Turno de hoy{% endif %}</h2></div></div>
       {% if turno %}
         <div class="turn-info-grid">
           <div><span>Estado</span><strong class="turn-status-value">{{ turno.get_estado_display }}</strong></div>
           <div><span>Fecha</span><strong>{{ turno.fecha|date:"d/m/Y" }}</strong></div>
+          <div><span>Apertura</span><strong>{{ turno.apertura|date:"d/m/Y H:i" }}</strong></div>
+          <div><span>Cierre</span><strong>{{ turno.cierre|date:"d/m/Y H:i"|default:"—" }}</strong></div>
           <div><span>Mesas de salón activas</span><strong>{{ mesas_activas_salon }}</strong></div>
           <div><span>Mesas exteriores activas</span><strong>{{ mesas_activas_exteriores }}</strong></div>
           <div><span>Miembros</span><strong>{% for user in turno.usuarios.all %}{{ user.get_full_name|default:user.username }}{% if not forloop.last %}, {% endif %}{% empty %}Sin participantes{% endfor %}</strong></div>
@@ -301,11 +306,13 @@
         {% if turno.resumen and puede_ver_datos_financieros %}
           <div class="turn-note"><span>Resumen registrado</span><pre class="whitespace-pre-wrap break-words">{{ turno.resumen }}</pre></div>
         {% endif %}
-        {% if user.role == 'administrador' or user.role == 'cajera' %}
+        {% if user.role == 'administrador' %}
           <div class="flex flex-wrap gap-2 mt-4">
             <a href="{% url 'usuarios:historial_turno_detalle' turno.pk %}" class="btn btn-outline btn-sm"><i class="fa-solid fa-eye"></i> Ver detalle del turno</a>
             <a href="{% url 'usuarios:historial_turnos' %}" class="btn btn-primary btn-sm"><i class="fa-solid fa-clock-rotate-left"></i> Historial</a>
           </div>
+        {% elif user.role == 'cajera' and turno.estado == 'abierto' %}
+          <a href="{% url 'usuarios:historial_turno_detalle' turno.pk %}" class="btn btn-outline btn-sm mt-4"><i class="fa-solid fa-eye"></i> Ver detalle del turno actual</a>
         {% endif %}
       {% else %}
         <div class="turn-info-grid"><div><span>Fecha de hoy</span><strong>{{ hoy|date:"d/m/Y" }}</strong></div><div><span>Estado</span><strong>Sin abrir</strong></div></div>
@@ -320,7 +327,7 @@
         {% else %}
           <div class="turn-empty"><i class="fa-regular fa-calendar-xmark" aria-hidden="true"></i><span>No hay turno abierto para hoy.</span></div>
         {% endif %}
-        {% if puede_ver_datos_financieros %}
+        {% if user.role == 'administrador' %}
           {% if turno_anterior %}
             <div class="turn-note mt-4"><span>Turno anterior</span><p>El turno anterior fue el {{ turno_anterior.fecha|date:"d/m/Y" }} y quedó {{ turno_anterior.get_estado_display|lower }}. Ventas: {{ resumen_turno_anterior.total_general_cup|floatformat:2 }} CUP en {{ resumen_turno_anterior.cantidad_facturas }} facturas.</p><a href="{% url 'usuarios:historial_turno_detalle' turno_anterior.pk %}" class="btn btn-outline btn-sm mt-2"><i class="fa-solid fa-eye"></i> Ver detalles del turno anterior</a></div>
           {% else %}
@@ -329,14 +336,20 @@
         {% endif %}
       {% endif %}
       {% if user.role == 'administrador' and turno_abierto_pendiente %}
-        <div class="turn-note mt-4"><span>Turno anterior pendiente</span><p>El turno del {{ turno_abierto_pendiente.fecha|date:"d/m/Y" }} sigue abierto. Debe cerrarse antes de continuar.</p></div>
-        <a href="{% url 'usuarios:historial_turno_detalle' turno_abierto_pendiente.pk %}" class="btn btn-outline btn-sm mt-3"><i class="fa-solid fa-eye"></i> Ver turno pendiente</a>
+        <div class="turn-note mt-4" role="alert"><span>El turno pasó de medianoche</span><p>El turno abierto desde {{ turno_abierto_pendiente.apertura|date:"d/m/Y H:i" }} continúa sin cerrar. ¿Desea mantenerlo abierto o cerrarlo?</p></div>
+        <div class="flex flex-wrap gap-2 mt-3">
+          <form method="post" action="{% url 'usuarios:continuar_turno' %}">
+            {% csrf_token %}<input type="hidden" name="turno_id" value="{{ turno_abierto_pendiente.pk }}">
+            <button type="submit" class="btn btn-primary turn-action-btn"><i class="fa-solid fa-play" aria-hidden="true"></i> Continuar turno</button>
+          </form>
+          <a href="{% url 'usuarios:historial_turno_detalle' turno_abierto_pendiente.pk %}" class="btn btn-outline btn-sm"><i class="fa-solid fa-eye" aria-hidden="true"></i> Ver turno</a>
+        </div>
         <form method="post" action="{% url 'usuarios:cerrar_turno' %}" class="turn-close-form mt-4" onsubmit="return confirm('¿Confirmas el cierre del turno del {{ turno_abierto_pendiente.fecha|date:"d/m/Y" }}? Esta acción no se puede deshacer.');">
           {% csrf_token %}
           <input type="hidden" name="turno_id" value="{{ turno_abierto_pendiente.pk }}">
           <label for="observaciones-cierre-pendiente">Observaciones del cierre</label>
           <textarea id="observaciones-cierre-pendiente" name="observaciones" rows="4" placeholder="Observaciones del cierre" class="admin-input"></textarea>
-          <button type="submit" class="btn btn-orange turn-action-btn"><i class="fa-solid fa-lock" aria-hidden="true"></i> Cerrar turno pendiente</button>
+          <button type="submit" class="btn btn-orange turn-action-btn"><i class="fa-solid fa-lock" aria-hidden="true"></i> Cerrar turno</button>
         </form>
       {% endif %}
     </section>
@@ -392,21 +405,37 @@
     <section class="admin-card turn-dashboard-card inventory-ledger-card" aria-labelledby="inventory-ledger-heading">
       <div class="turn-card-heading">
         <div class="turn-section-icon" aria-hidden="true"><i class="fa-solid fa-scale-balanced"></i></div>
-        <div><p class="panel-kicker">Control de existencias</p><h2 id="inventory-ledger-heading">Inventario perpetuo de ventas</h2></div>
+        <div><p class="panel-kicker">Productos de la carta</p><h2 id="inventory-ledger-heading">Inventario perpetuo de ventas</h2></div>
         <span id="inventory-ledger-updated" class="inventory-ledger-meta" role="status" aria-live="polite">Cargando…</span>
       </div>
+      <div class="turn-metric-grid mt-4">
+        <div><span>Fondo inicial</span><strong id="ipv-fondo-inicial-resumen">0.00 CUP</strong></div>
+        <div><span>Ventas en efectivo</span><strong id="ipv-ventas-efectivo">0.00 CUP</strong></div>
+        <div><span>Efectivo esperado</span><strong id="ipv-efectivo-final">0.00 CUP</strong></div>
+        <div><span>Transferencias</span><strong id="ipv-ventas-transferencia">0.00 CUP</strong></div>
+        <div><span>Ventas USD</span><strong id="ipv-ventas-usd">0.00 USD</strong></div>
+      </div>
+      <form method="post" action="{% url 'usuarios:configurar_ipv_turno' %}" class="mt-4 flex flex-wrap items-end gap-3">
+        {% csrf_token %}
+        <label class="grid gap-1 text-xs font-semibold text-slate-300" for="ipv-fondo-inicial-input">
+          Fondo inicial CUP
+          <input id="ipv-fondo-inicial-input" class="admin-input" type="number" name="fondo_inicial_cup" min="0" step="0.01" value="{{ turno.fondo_inicial_cup }}" required>
+        </label>
+        <button type="submit" class="btn btn-primary btn-sm"><i class="fa-solid fa-floppy-disk" aria-hidden="true"></i> Guardar fondo</button>
+      </form>
+      <form id="ipv-csrf-form" class="hidden">{% csrf_token %}</form>
       <div class="inventory-ledger-wrap">
         <table class="inventory-ledger">
           <thead><tr>
-            <th>Producto</th><th>Saldo inicial</th><th>Entradas</th><th>Existencia</th><th>Vendido</th><th>Saldo final</th><th>Precio venta</th><th>Importe ventas</th><th>Merma rotura</th>
+            <th>Producto</th><th>Saldo inicial</th><th>Entradas</th><th>Disponible</th><th>Vendido</th><th>Saldo final</th><th>Precio venta</th><th>Importe ventas</th><th>Roturas</th><th>Registrar rotura</th>
           </tr></thead>
-          <tbody id="inventory-ledger-body"><tr><td colspan="9" class="inventory-ledger-status">Consultando inventario del turno…</td></tr></tbody>
+          <tbody id="inventory-ledger-body"><tr><td colspan="10" class="inventory-ledger-status">Consultando IPV del turno…</td></tr></tbody>
         </table>
       </div>
     </section>
     {% endif %}
 
-    {% if user.role == 'administrador' or user.role == 'cajera' %}
+    {% if user.role == 'administrador' %}
     <section class="admin-card turn-dashboard-card turn-action-card" aria-labelledby="historial-heading">
       <div class="turn-card-heading"><div class="turn-section-icon" aria-hidden="true"><i class="fa-solid fa-chart-line"></i></div><div><p class="panel-kicker">Rendimiento</p><h2 id="historial-heading">Historial de turnos</h2></div></div>
       <p>Consulta el rendimiento histórico, el IPV y el cierre de cada turno.</p>
@@ -462,6 +491,7 @@
 
     {% if turno and turno.estado == 'abierto' %}
     {% if user.role == 'cajera' or user.role == 'administrador' %}
+    {% if not turno_requiere_confirmacion %}
     <section class="admin-card turn-dashboard-card turn-close-card" aria-labelledby="cierre-turno-heading">
       <div class="turn-card-heading"><div class="turn-section-icon turn-close-icon" aria-hidden="true"><i class="fa-solid fa-lock"></i></div><div><p class="panel-kicker">Finalización</p><h2 id="cierre-turno-heading">Cierre de turno</h2></div></div>
       <form method="post" action="{% url 'usuarios:cerrar_turno' %}" class="turn-close-form" onsubmit="return confirm('¿Confirmas el cierre de este turno? Esta acción no se puede deshacer.');">
@@ -471,6 +501,7 @@
         <button type="submit" class="btn btn-orange turn-action-btn"><i class="fa-solid fa-lock" aria-hidden="true"></i> Cerrar turno</button>
       </form>
     </section>
+    {% endif %}
     {% endif %}
     {% endif %}
 
@@ -518,6 +549,37 @@
       return controlada ? formatoNumero(valor) : '—';
     }
 
+    const ipvCsrfToken = document.querySelector('#ipv-csrf-form input[name="csrfmiddlewaretoken"]')?.value;
+    const ipvCuerpo = document.getElementById('inventory-ledger-body');
+    if (ipvCuerpo) {
+      ipvCuerpo.addEventListener('click', async event => {
+        const boton = event.target.closest('[data-merma-url]');
+        if (!boton) return;
+        const fila = boton.closest('tr');
+        const campo = fila.querySelector('[data-merma-cantidad]');
+        const datos = new FormData();
+        datos.append('cantidad', campo.value);
+        boton.disabled = true;
+        try {
+          const response = await fetch(boton.dataset.mermaUrl, {
+            method: 'POST',
+            headers: { 'X-CSRFToken': ipvCsrfToken },
+            body: datos,
+          });
+          const resultado = await response.json();
+          if (!response.ok) throw new Error(resultado.error || 'No se pudo registrar la rotura.');
+          campo.value = '';
+          await actualizarInventarioTurno();
+        } catch (error) {
+          const estado = document.getElementById('inventory-ledger-updated');
+          estado.textContent = error.message || 'No se pudo registrar la rotura.';
+          estado.classList.add('error');
+        } finally {
+          boton.disabled = false;
+        }
+      });
+    }
+
     async function actualizarInventarioTurno() {
       const cuerpo = document.getElementById('inventory-ledger-body');
       const estado = document.getElementById('inventory-ledger-updated');
@@ -527,24 +589,35 @@
         if (!response.ok) throw new Error('No se pudo cargar el inventario.');
         const data = await response.json();
         if (!data.turno_abierto) {
-          cuerpo.innerHTML = '<tr><td colspan="9" class="inventory-ledger-status">No hay un turno abierto.</td></tr>';
+          cuerpo.innerHTML = '<tr><td colspan="10" class="inventory-ledger-status">No hay un turno abierto.</td></tr>';
           estado.textContent = 'Sin turno activo';
           return;
         }
+        const fondo = document.getElementById('ipv-fondo-inicial-resumen');
+        const efectivo = document.getElementById('ipv-ventas-efectivo');
+        const efectivoFinal = document.getElementById('ipv-efectivo-final');
+        const transferencia = document.getElementById('ipv-ventas-transferencia');
+        const usd = document.getElementById('ipv-ventas-usd');
+        if (fondo) fondo.textContent = `${formatoNumero(data.fondo_inicial_cup)} CUP`;
+        if (efectivo) efectivo.textContent = `${formatoNumero(data.ventas_efectivo_cup)} CUP`;
+        if (efectivoFinal) efectivoFinal.textContent = `${formatoNumero(data.efectivo_final_cup)} CUP`;
+        if (transferencia) transferencia.textContent = `${formatoNumero(data.ventas_transferencia_cup)} CUP`;
+        if (usd) usd.textContent = `${formatoNumero(data.ventas_usd)} USD`;
         if (!data.productos.length) {
-          cuerpo.innerHTML = '<tr><td colspan="9" class="inventory-ledger-status">No hay productos activos en el inventario.</td></tr>';
+          cuerpo.innerHTML = '<tr><td colspan="10" class="inventory-ledger-status">No hay productos configurados para este turno.</td></tr>';
         } else {
           cuerpo.innerHTML = data.productos.map(producto => `
             <tr>
-              <td><span class="ledger-product">${escaparCelda(producto.nombre)}</span><span class="ledger-muted">${escaparCelda(producto.area)} · ${escaparCelda(producto.categoria)} · ${escaparCelda(producto.unidad)} · ${producto.control_existencia ? 'Stock controlado' : 'Sin control de stock'}</span></td>
-              <td class="ledger-number">${formatoExistencia(producto.saldo_inicial, producto.control_existencia)}</td>
-              <td class="ledger-number">${formatoExistencia(producto.entradas, producto.control_existencia)}</td>
-              <td class="ledger-number">${formatoExistencia(producto.cantidad_existencia, producto.control_existencia)}</td>
+              <td><span class="ledger-product">${escaparCelda(producto.nombre)}</span><span class="ledger-muted">${escaparCelda(producto.categoria)}</span></td>
+              <td class="ledger-number">${formatoNumero(producto.saldo_inicial)}</td>
+              <td class="ledger-number">${formatoNumero(producto.entradas)}</td>
+              <td class="ledger-number">${formatoNumero(producto.cantidad_existencia)}</td>
               <td class="ledger-number">${formatoNumero(producto.cantidad_vendida)}</td>
-              <td class="ledger-balance">${formatoExistencia(producto.saldo_final, producto.control_existencia)}</td>
+              <td class="ledger-balance">${formatoNumero(producto.saldo_final)}</td>
               <td class="ledger-number">${formatoNumero(producto.precio_venta)} CUP</td>
               <td class="ledger-sales">${formatoNumero(producto.importe_venta)} CUP</td>
-              <td class="ledger-loss">${formatoExistencia(producto.merma_rotura, producto.control_existencia)}</td>
+              <td class="ledger-loss">${formatoNumero(producto.merma_rotura)}</td>
+              <td><div class="flex gap-1"><input class="admin-input w-24" type="number" min="0.001" step="0.001" data-merma-cantidad aria-label="Cantidad rota de ${escaparCelda(producto.nombre)}"><button type="button" class="btn btn-outline btn-sm" data-merma-url="${escaparCelda(producto.merma_url)}" title="Registrar rotura de ${escaparCelda(producto.nombre)}"><i class="fa-solid fa-plus" aria-hidden="true"></i></button></div></td>
             </tr>`).join('');
         }
         estado.textContent = `Actualizado ${data.actualizado_en}`;

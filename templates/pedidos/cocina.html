@@ -25,7 +25,8 @@
         <div><p class="text-sm font-semibold text-white leading-tight">{{ request.user.get_full_name|default:request.user.username }}</p><p class="text-xs text-emerald-400 font-medium">Cocina • Turno activo</p></div>
       </div>
       <nav class="p-3 space-y-1">
-        <button class="w-full flex items-center gap-3 px-3 py-3 rounded-xl font-medium text-sm transition-all bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"><i class="fa-solid fa-fire-burner text-lg w-6 text-center"></i><span class="hidden lg:inline">Pedidos</span></button>
+        <button type="button" id="nav-cocina-pedidos" class="cocina-nav-btn is-active" aria-current="page" aria-controls="cocina-vista-pedidos" onclick="mostrarSeccionCocina('pedidos')"><i class="fa-solid fa-fire-burner text-lg w-6 text-center" aria-hidden="true"></i><span class="hidden lg:inline">Pedidos</span></button>
+        <button type="button" id="nav-cocina-ventas" class="cocina-nav-btn" aria-controls="cocina-vista-ventas" onclick="mostrarSeccionCocina('ventas')"><i class="fa-solid fa-chart-column text-lg w-6 text-center" aria-hidden="true"></i><span class="hidden lg:inline">Ventas del día</span></button>
         <a href="{% url 'usuarios:dashboard' %}" class="w-full flex items-center gap-3 px-3 py-3 rounded-xl font-medium text-sm text-slate-400 hover:text-white hover:bg-slate-800/50 transition-all"><i class="fa-solid fa-clock-rotate-left text-lg w-6 text-center"></i><span class="hidden lg:inline">Detalle del turno actual</span></a>
       </nav>
     </div>
@@ -33,29 +34,42 @@
   </aside>
   <main class="flex-1 flex flex-col h-screen overflow-hidden">
     <header class="h-16 border-b border-slate-800 bg-slate-950/60 backdrop-blur px-6 flex items-center justify-between shrink-0">
-      <div class="flex items-center gap-4"><h2 class="text-lg font-bold text-white flex items-center gap-2 leading-none"><i class="fa-solid fa-fire-burner text-emerald-400 text-base"></i><span>Pedidos de Cocina</span></h2><span class="text-[11px] bg-slate-800 text-slate-300 px-2.5 py-1 rounded-full border border-slate-700 font-medium tracking-wide" id="clock-display">12:00 PM</span></div>
-      <div class="flex items-center gap-3 text-[11px]"><div class="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400"><span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span><span class="font-medium">Listos: <strong id="header-count-listos">0</strong></span></div></div>
+      <div class="flex items-center gap-4"><h2 class="text-lg font-bold text-white flex items-center gap-2 leading-none"><i id="cocina-vista-icono" class="fa-solid fa-fire-burner text-emerald-400 text-base" aria-hidden="true"></i><span id="cocina-vista-titulo">Pedidos de Cocina</span></h2><span class="text-[11px] bg-slate-800 text-slate-300 px-2.5 py-1 rounded-full border border-slate-700 font-medium tracking-wide" id="clock-display">12:00 PM</span></div>
+      <div id="cocina-pedidos-status" class="flex items-center gap-3 text-[11px]"><div class="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400"><span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span><span class="font-medium">Listos: <strong id="header-count-listos">0</strong></span></div></div>
     </header>
     <div class="flex-1 overflow-y-auto">
       <div class="cocina-body">
-  <div class="cocina-toolbar">
-    <div><strong>Pedidos en tiempo real</strong><span>Las alertas sonoras están activas en esta pantalla.</span></div>
-    <button class="btn btn-outline btn-sm" data-activar-sonido onclick="activarSonido()">Activar sonido</button>
-  </div>
-  <div class="cocina-columnas">
-    <div>
-      <div class="col-header"><div class="col-dot-pendiente"></div> Pendientes <span class="col-header-cnt" id="cnt-p">0</span></div>
-      <div id="col-pendiente"></div>
+  <section id="cocina-vista-pedidos" aria-labelledby="cocina-vista-titulo">
+    <div class="cocina-toolbar">
+      <div><strong>Pedidos en tiempo real</strong><span>Las alertas sonoras están activas en esta pantalla.</span></div>
+      <button class="btn btn-outline btn-sm" data-activar-sonido onclick="activarSonido()">Activar sonido</button>
     </div>
-    <div>
-      <div class="col-header"><div class="col-dot-prep"></div> En preparación <span class="col-header-cnt" id="cnt-prep">0</span></div>
-      <div id="col-preparacion"></div>
+    <div class="cocina-columnas">
+      <div>
+        <div class="col-header"><div class="col-dot-pendiente"></div> Pendientes <span class="col-header-cnt" id="cnt-p">0</span></div>
+        <div id="col-pendiente"></div>
+      </div>
+      <div>
+        <div class="col-header"><div class="col-dot-prep"></div> En preparación <span class="col-header-cnt" id="cnt-prep">0</span></div>
+        <div id="col-preparacion"></div>
+      </div>
+      <div>
+        <div class="col-header"><div class="col-dot-listo"></div> Listos <span class="col-header-cnt" id="cnt-l">0</span></div>
+        <div id="col-listo"></div>
+      </div>
     </div>
-    <div>
-      <div class="col-header"><div class="col-dot-listo"></div> Listos <span class="col-header-cnt" id="cnt-l">0</span></div>
-      <div id="col-listo"></div>
+  </section>
+  <section id="cocina-vista-ventas" class="cocina-ventas-view" aria-labelledby="cocina-ventas-heading" hidden>
+    <div class="cocina-ventas-panel">
+    <div class="cocina-ventas-heading">
+      <div><h2 id="cocina-ventas-heading">Ventas de hoy por plato</h2><p id="cocina-ventas-fecha">Cargando ventas cobradas…</p></div>
+      <span id="cocina-ventas-actualizado" role="status" aria-live="polite"></span>
     </div>
-  </div>
+    <div id="cocina-ventas-lista" class="cocina-ventas-lista" aria-live="polite">
+      <p class="cocina-ventas-vacio">Consultando ventas…</p>
+    </div>
+    </div>
+  </section>
 </div>
       </div>
     </div>
@@ -141,6 +155,60 @@ function urlImagenProducto(value) {
   }
 }
 
+const ventasHoyUrl = '{% url "pedidos:cocina_ventas_hoy" %}';
+
+function mostrarSeccionCocina(seccion) {
+  const mostrarVentas = seccion === 'ventas';
+  document.getElementById('cocina-vista-pedidos').hidden = mostrarVentas;
+  document.getElementById('cocina-vista-ventas').hidden = !mostrarVentas;
+  document.getElementById('cocina-pedidos-status').hidden = mostrarVentas;
+  document.getElementById('cocina-vista-titulo').textContent = mostrarVentas ? 'Ventas del día' : 'Pedidos de Cocina';
+  document.getElementById('cocina-vista-icono').className = `fa-solid ${mostrarVentas ? 'fa-chart-column' : 'fa-fire-burner'} text-emerald-400 text-base`;
+
+  document.getElementById('nav-cocina-pedidos').classList.toggle('is-active', !mostrarVentas);
+  document.getElementById('nav-cocina-ventas').classList.toggle('is-active', mostrarVentas);
+  document.getElementById('nav-cocina-pedidos').toggleAttribute('aria-current', !mostrarVentas);
+  document.getElementById('nav-cocina-ventas').toggleAttribute('aria-current', mostrarVentas);
+  const url = new URL(location.href);
+  if (mostrarVentas) url.searchParams.set('vista', 'ventas');
+  else url.searchParams.delete('vista');
+  history.replaceState(null, '', `${url.pathname}${url.search}${url.hash}`);
+  if (mostrarVentas) actualizarVentasHoy();
+}
+
+async function actualizarVentasHoy() {
+  const lista = document.getElementById('cocina-ventas-lista');
+  const fecha = document.getElementById('cocina-ventas-fecha');
+  const actualizado = document.getElementById('cocina-ventas-actualizado');
+  try {
+    const response = await fetch(ventasHoyUrl, { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+    if (!response.ok) throw new Error('No se pudieron cargar las ventas.');
+    const data = await response.json();
+    fecha.textContent = `Facturas cobradas · ${data.fecha}`;
+    if (!data.ventas.length) {
+      lista.innerHTML = '<p class="cocina-ventas-vacio">Todavía no hay ventas cobradas hoy.</p>';
+    } else {
+      lista.innerHTML = data.ventas.map(venta => `
+        <div class="cocina-ventas-fila">
+          <span>${escaparHtml(venta.plato)}</span>
+          <strong>${escaparHtml(venta.cantidad)} unidades</strong>
+        </div>`).join('');
+    }
+    actualizado.textContent = `Actualizado ${data.actualizado_en}`;
+    actualizado.classList.remove('error');
+  } catch (error) {
+    fecha.textContent = error.message || 'No se pudieron cargar las ventas.';
+    actualizado.classList.add('error');
+  }
+}
+
+if (new URLSearchParams(location.search).get('vista') === 'ventas') {
+  mostrarSeccionCocina('ventas');
+}
+setInterval(() => {
+  if (!document.getElementById('cocina-vista-ventas').hidden) actualizarVentasHoy();
+}, 60000);
+
 function crearCard(p) {
   const div = document.createElement('div');
   div.className='pedido-card';
@@ -149,7 +217,8 @@ function crearCard(p) {
     const foto = imagen
       ? `<img class="cocina-item-imagen" src="${imagen}" alt="${escaparHtml(i.plato)}" loading="lazy">`
       : '<span class="cocina-item-imagen cocina-item-placeholder" aria-hidden="true"><i class="fa-solid fa-utensils"></i></span>';
-    return `<li><span class="cocina-item-info">${foto}<span class="cocina-item-nombre"><span class="cant-badge">${escaparHtml(i.cantidad)}</span>${escaparHtml(i.plato)}</span></span><span style="color:var(--text-muted)">${escaparHtml(i.subtotal)} CUP</span></li>`;
+      const notaItem = i.nota?.trim() ? `<small class="cocina-item-nota">Nota: ${escaparHtml(i.nota.trim())}</small>` : '';
+      return `<li><span class="cocina-item-info">${foto}<span class="cocina-item-texto"><span class="cocina-item-nombre"><span class="cant-badge">${escaparHtml(i.cantidad)}</span>${escaparHtml(i.plato)}</span>${notaItem}</span></span><span style="color:var(--text-muted)">${escaparHtml(i.subtotal)} CUP</span></li>`;
   }).join('');
   const cuentaTag = p.cuenta_solicitada ? `<div class="tag-cuenta-cocina"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg> Pide la cuenta</div>` : '';
   const nota = p.nota ? `<div class="nota-cocina">Nota: ${p.nota}</div>` : '';

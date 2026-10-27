@@ -61,7 +61,8 @@ con el botón **Imprimir QR**.
    - **Caja o el administrador** pueden cerrar el turno desde el panel de turno.
 3. **Cocina** en `/pedidos/cocina/` recibe los platos → los pasa a "En preparación" → "Listo".
    Las bebidas se preparan desde **Barra** en el panel de la mesera, donde se marcan
-   como "Listo" al terminar.
+  como "Listo" al terminar. Cocina también muestra las unidades vendidas hoy por
+  plato, sin mostrar importes.
 4. **Mesera** recoge el pedido listo → lo marca como "Servido". El servidor no permite
    servir un pedido que todavía no esté listo.
    En este momento el sistema descuenta automáticamente el inventario según la
@@ -97,6 +98,11 @@ con el botón **Imprimir QR**.
 - El descuento de stock ocurre una sola vez por pedido (campo
   `Pedido.inventario_descontado`), disparado cuando la mesera marca el pedido
   como "Servido".
+- El IPV se controla por turno con productos seleccionados de la carta, no con
+  insumos ni movimientos de ingredientes. Al iniciar, caja registra el fondo
+  inicial CUP, saldo inicial por producto y entradas del almacén; las roturas se
+  registran durante el turno. Las facturas suman automáticamente las unidades
+  vendidas y el saldo final pasa como sugerencia inicial al siguiente turno.
 - Los avisos de inventario (`stock bajo` o `insuficiente`) se transmiten por
   WebSocket al grupo `caja` y se muestran como notificaciones + un panel de
   alertas recientes en la pantalla de Caja.
@@ -164,6 +170,9 @@ con el botón **Imprimir QR**.
   clasificación manual segura para los productos anteriores.
 - La carta se genera a partir de los productos que decida el administrador del inventario.
 - Ya se eliminan y editan las categorias.
+- Se agrego una reestriccion para que no se pueda cerrar un turno con pedidos o tickets pendientes por cobrar.
+- Se implemento el IPV por productos de la carta y turno, con fondo inicial, entradas, roturas registradas durante el turno y ventas automáticas desde los cobros.
+- Se restringio el historial de turnos cerrados al administrador, se muestran las horas de apertura y cierre, y se agrego el aviso para continuar o cerrar un turno que pasa de medianoche; el cierre de la cajera notifica al administrador.
 
 
 

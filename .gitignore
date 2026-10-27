@@ -8,3 +8,4 @@ staticfiles/
 media/
 *.log
 /logs.txt
+/test_output.txt

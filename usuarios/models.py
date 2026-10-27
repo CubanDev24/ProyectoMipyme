@@ -71,6 +71,8 @@ class Turno(models.Model):
     apertura = models.DateTimeField(auto_now_add=True)
     cierre = models.DateTimeField(null=True, blank=True)
     estado = models.CharField(max_length=20, choices=ESTADO_CHOICES, default='abierto')
+    continuidad_confirmada = models.BooleanField(default=False)
+    fondo_inicial_cup = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal('0'))
     usuarios = models.ManyToManyField(settings.AUTH_USER_MODEL, related_name='turnos', blank=True)
     cantidad_mesas = models.PositiveIntegerField(default=10)
     cantidad_mesas_exteriores = models.PositiveIntegerField(default=0)
@@ -89,7 +91,8 @@ class Turno(models.Model):
     @property
     def facturas_queryset(self):
         from pedidos.models import Factura
-        return Factura.objects.filter(creado_en__date=self.fecha)
+        cierre = self.cierre or timezone.now()
+        return Factura.objects.filter(creado_en__gte=self.apertura, creado_en__lte=cierre)
 
     @property
     def total_general_cup(self):
@@ -149,6 +152,28 @@ class Turno(models.Model):
         }
 
 
+class ProductoIPVTurno(models.Model):
+    turno = models.ForeignKey(Turno, on_delete=models.CASCADE, related_name='productos_ipv')
+    plato = models.ForeignKey(Plato, on_delete=models.PROTECT, related_name='registros_ipv')
+    cantidad_inicial = models.DecimalField(max_digits=12, decimal_places=3, default=Decimal('0'))
+    entradas = models.DecimalField(max_digits=12, decimal_places=3, default=Decimal('0'))
+    merma_rotura = models.DecimalField(max_digits=12, decimal_places=3, default=Decimal('0'))
+
+    class Meta:
+        ordering = ['plato__nombre']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['turno', 'plato'],
+                name='uniq_producto_ipv_turno_plato',
+            ),
+        ]
+        verbose_name = 'Producto IPV del turno'
+        verbose_name_plural = 'Productos IPV del turno'
+
+    def __str__(self):
+        return f'{self.plato.nombre} - Turno {self.turno_id}'
+
+
 class Notificacion(models.Model):
     destinatario = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='notificaciones')
     asunto = models.CharField(max_length=200)
@@ -167,8 +192,10 @@ class Notificacion(models.Model):
 
 
 def get_turno_abierto(fecha=None):
-    fecha = fecha or timezone.localdate()
-    return Turno.objects.filter(fecha=fecha, estado='abierto').order_by('-apertura').first()
+    turnos = Turno.objects.filter(estado='abierto')
+    if fecha is not None:
+        turnos = turnos.filter(fecha=fecha)
+    return turnos.order_by('-apertura').first()
 
 
 def crear_mesas_del_turno(turno):
@@ -267,15 +294,32 @@ def cerrar_turno(usuario, observaciones='', turno=None):
 
     from decimal import Decimal
     from django.db.models import Sum
-    from pedidos.models import Factura
+    from pedidos.models import Factura, Pedido
 
     cierre = timezone.now()
+    pedidos_mesa_pendientes = Pedido.objects.filter(
+        modalidad='mesa',
+        mesa__abierta=True,
+    ).exclude(estado__in=['cerrado', 'rechazado'])
+    if pedidos_mesa_pendientes.exists():
+        raise ValueError('No se puede cerrar el turno: hay pedidos pendientes en una mesa.')
+
+    tickets_sin_cobrar = Pedido.objects.filter(
+        modalidad='para_llevar',
+        creado_en__gte=turno.apertura,
+        creado_en__lte=cierre,
+        factura__isnull=True,
+    ).exclude(estado='rechazado')
+    if tickets_sin_cobrar.exists():
+        raise ValueError('No se puede cerrar el turno: hay tickets para llevar sin cobrar.')
+
     facturas = Factura.objects.filter(creado_en__gte=turno.apertura, creado_en__lte=cierre)
     total = facturas.aggregate(total=Sum('total_cup'))['total'] or Decimal('0')
     efectivo = facturas.aggregate(efectivo=Sum('monto_efectivo_cup'))['efectivo'] or Decimal('0')
     transferencia = facturas.aggregate(transferencia=Sum('monto_transferencia_cup'))['transferencia'] or Decimal('0')
     usd = facturas.aggregate(usd=Sum('monto_usd'))['usd'] or Decimal('0')
     usd_cup_equivalente = facturas.aggregate(cup=Sum('total_cup'))['cup'] or Decimal('0')
+    efectivo_esperado = turno.fondo_inicial_cup + efectivo
 
     turno.cierre = cierre
     turno.estado = 'cerrado'
@@ -284,7 +328,9 @@ def cerrar_turno(usuario, observaciones='', turno=None):
         f'Fecha: {turno.fecha:%d/%m/%Y}\n'
         f'Ventas: {facturas.count()}\n'
         f'USD: {usd:.2f} USD\n'
+        f'Fondo inicial: {turno.fondo_inicial_cup:.2f} CUP\n'
         f'Efectivo CUP: {efectivo:.2f} CUP\n'
+        f'Efectivo esperado: {efectivo_esperado:.2f} CUP\n'
         f'Transferencia CUP: {transferencia:.2f} CUP\n'
         f'Total general: {total:.2f} CUP\n'
         f'Total en USD: {usd_cup_equivalente:.2f} CUP equivalentes\n'

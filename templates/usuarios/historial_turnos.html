@@ -245,6 +245,8 @@
       <section class="admin-card turn-history-card turn-dashboard-card" aria-labelledby="turno-heading-{{ forloop.counter }}">
         <div class="turn-card-heading"><div class="turn-section-icon" aria-hidden="true"><i class="fa-solid fa-calendar-check"></i></div><div><p class="panel-kicker">Cierre registrado</p><h2 id="turno-heading-{{ forloop.counter }}">Turno {{ item.turno.fecha|date:'d/m/Y' }}</h2></div><span class="turn-status-value">{{ item.turno.get_estado_display }}</span></div>
         <div class="turn-history-meta">
+          <span><i class="fa-solid fa-lock-open" aria-hidden="true"></i> Apertura: {{ item.turno.apertura|date:'d/m/Y H:i' }}</span>
+          <span><i class="fa-solid fa-lock" aria-hidden="true"></i> Cierre: {{ item.turno.cierre|date:'d/m/Y H:i'|default:'—' }}</span>
           <span><i class="fa-solid fa-users" aria-hidden="true"></i> <span class="sr-only">Participantes:</span>{% for user in item.turno.usuarios.all %}{{ user.username }}{% if not forloop.last %}, {% endif %}{% empty %}Sin participantes{% endfor %}</span>
           <span><i class="fa-solid fa-receipt" aria-hidden="true"></i> {{ item.cantidad_facturas }} facturas</span>
         </div>

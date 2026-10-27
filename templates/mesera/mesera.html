@@ -2158,7 +2158,8 @@
 
             <div id="modal-account-alert" class="hidden mx-4 md:mx-6 mt-4 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-xs text-amber-300">
                 <div class="flex items-center gap-2 font-bold"><i class="fa-solid fa-file-invoice-dollar"></i> Cuenta solicitada</div>
-                <p class="mt-1 text-amber-200/70">El cliente de esta mesa está esperando atención en caja.</p>
+                <p id="modal-account-requested-summary" class="mt-1 text-amber-100"></p>
+                <p id="modal-account-pending-summary" class="mt-1 hidden text-slate-300"></p>
             </div>
 
             <!-- Modal Content (Layout Dividido: Menú + Comanda Actual) -->
@@ -2501,6 +2502,10 @@
             };
             ws.onmessage = event => {
                 const data = JSON.parse(event.data);
+                if (data.tipo === 'error_nota') {
+                    showToast('Nota no guardada', data.mensaje || 'No se pudo actualizar la nota.', 'error');
+                    return;
+                }
                 if (data.tipo === 'estado_inicial') {
                     data.mesas.forEach(mesa => {
                         const table = tables.find(item => item.id === mesa.id);
@@ -2604,14 +2609,14 @@
                     showToast('Pedido aceptado en barra', 'La bebida aparece en la sección de barra.');
                 } else if (data.tipo === 'factura_solicitada') {
                     const mesa = data.mesa_numero ?? data.factura?.mesa_numero;
-                    const table = tables.find(item => item.numero === Number(mesa) || item.name.endsWith(` ${mesa}`));
+                    const table = findTableByMesaNumero(mesa);
                     if (table) activeTableId = table.id;
                     cuentaEnProceso = data.factura;
                     openPaymentModal(cuentaEnProceso);
                     sonidoCuenta();
                 } else if (data.tipo === 'cobro_preparado') {
                     const mesa = Number(data.mesa_numero);
-                    const table = tables.find(item => item.numero === mesa || item.name.endsWith(` ${mesa}`));
+                    const table = findTableByMesaNumero(mesa);
                     if (table) {
                         (table.pedidos || []).forEach(pedido => {
                             pedido.cuenta_solicitada = true;
@@ -2684,7 +2689,7 @@
                 total: parseFloat(factura?.total_cup || factura?.total || 0),
                 tipo: 'mesera',
                 onAccept: () => {
-                    const table = tables.find(item => item.numero === Number(mesa));
+                    const table = findTableByMesaNumero(mesa);
                     if (table && ((table.newOrder || []).length || (table.pedidos || []).some(pedido => pedido.estado !== 'servido'))) {
                         showToast('Pedidos pendientes', 'Espera a que todos los pedidos estén servidos antes de aceptar la cuenta.');
                         return;
@@ -2700,10 +2705,22 @@
             sonidoCuenta();
         }
 
+        function findTableByMesaNumero(mesaNumero) {
+            const numero = Number(mesaNumero);
+            if (Number.isNaN(numero)) return null;
+
+            const exactNumberMatch = tables.find(table => table.numero === numero);
+            if (exactNumberMatch) return exactNumberMatch;
+
+            const sameDisplayNumberMatch = tables.find(table => table.numeroZona === numero);
+            return sameDisplayNumberMatch || null;
+        }
+
         function sincronizarPedidoMesa(table) {
             table.newOrder = table.newOrder || [];
             table.order = (table.pedidos || []).flatMap(pedido => pedido.items.map(item => ({
                 itemId: item.plato_id,
+                itemPedidoId: item.id,
                 qty: item.cantidad,
                 note: item.nota || '',
                 pedidoId: pedido.id,
@@ -2820,14 +2837,16 @@
 
             filteredTables.forEach(t => {
                 const totalAmount = calculateTableTotal(t.id);
-                const cuentaSolicitada = (t.pedidos || []).some(pedido => pedido.cuenta_solicitada);
+                const resumenCuenta = resumenCuentaMesa(t);
+                const cuentaSolicitada = resumenCuenta.pedidosSolicitados > 0;
+                const cuentaParcial = cuentaSolicitada && resumenCuenta.tienePendiente;
                 
                 let statusBadge = '';
                 let borderClass = '';
                 let bgGradient = '';
 
                 if (cuentaSolicitada) {
-                    statusBadge = `<span class="px-2.5 py-1 rounded-full text-xs font-bold bg-amber-500/10 text-amber-300 border border-amber-500/30">Cuenta solicitada</span>`;
+                    statusBadge = `<span class="px-2.5 py-1 rounded-full text-xs font-bold bg-amber-500/10 text-amber-300 border border-amber-500/30">${cuentaParcial ? 'Cuenta parcial' : 'Cuenta solicitada'}</span>`;
                     borderClass = 'border-amber-500/50 hover:border-amber-400';
                     bgGradient = 'from-slate-900 via-slate-900 to-amber-950/20';
                 } else if (t.status === 'libre') {
@@ -2861,11 +2880,13 @@
                     <div class="space-y-2">
                         ${cuentaSolicitada ? `
                             <div class="bg-amber-500/10 rounded-xl p-3 border border-amber-500/20">
-                                <p class="text-xs text-amber-300 flex items-center gap-2"><i class="fa-solid fa-file-invoice-dollar"></i> El cliente solicitó la cuenta</p>
+                                <p class="text-xs text-amber-300 flex items-center gap-2"><i class="fa-solid fa-file-invoice-dollar"></i> ${cuentaParcial ? 'Cuenta parcial solicitada' : 'Cuenta solicitada'}</p>
+                                <p class="mt-1 text-[11px] text-amber-100">${resumenCuenta.pedidosSolicitados} ${resumenCuenta.pedidosSolicitados === 1 ? 'pedido' : 'pedidos'} · ${resumenCuenta.unidadesSolicitadas} ${resumenCuenta.unidadesSolicitadas === 1 ? 'plato' : 'platos'}</p>
                                 <div class="flex justify-between text-sm font-bold text-white mt-2">
-                                    <span>Total:</span>
-                                    <span class="text-amber-300">$${totalAmount.toFixed(2)}</span>
+                                    <span>Enviado a caja:</span>
+                                    <span class="text-amber-300">$${resumenCuenta.totalSolicitado.toFixed(2)}</span>
                                 </div>
+                                ${cuentaParcial ? `<div class="mt-2 border-t border-amber-500/20 pt-2 text-[11px] text-slate-300"><p>Fuera de esta solicitud: ${resumenCuenta.pedidosPendientes} ${resumenCuenta.pedidosPendientes === 1 ? 'pedido' : 'pedidos'} · ${resumenCuenta.unidadesPendientes} ${resumenCuenta.unidadesPendientes === 1 ? 'plato' : 'platos'}</p><p class="mt-1">Pendiente: <strong class="text-white">$${resumenCuenta.totalPendiente.toFixed(2)}</strong>${resumenCuenta.pendientesSinServir ? ` · ${resumenCuenta.pendientesSinServir} sin servir` : ''}</p></div>` : ''}
                             </div>
                         ` : t.status === 'ocupada' ? `
                             <div class="bg-slate-950/60 rounded-xl p-3 border border-slate-800/80">
@@ -2969,6 +2990,33 @@
             return subtotal ; // Incluye 10% de impuesto
         }
 
+        function resumenCuentaMesa(table) {
+            const pedidosActivos = (table.pedidos || []).filter(pedido => !['cerrado', 'rechazado'].includes(pedido.estado));
+            const pedidosSolicitados = pedidosActivos.filter(pedido => pedido.cuenta_solicitada);
+            const pedidosPendientes = pedidosActivos.filter(pedido => !pedido.cuenta_solicitada);
+            const pedidosSinEnviar = table.newOrder || [];
+            const totalPedidos = pedidos => pedidos.reduce((total, pedido) => total + Number(pedido.total || 0), 0);
+            const unidadesPedidos = pedidos => pedidos.reduce((total, pedido) => (
+                total + (pedido.items || []).reduce((unidades, item) => unidades + Number(item.cantidad || 0), 0)
+            ), 0);
+            const totalSinEnviar = pedidosSinEnviar.reduce((total, linea) => {
+                const producto = menuItems.find(item => item.id === linea.itemId);
+                return total + (producto ? producto.price * Number(linea.qty || 0) : 0);
+            }, 0);
+            const unidadesSinEnviar = pedidosSinEnviar.reduce((total, linea) => total + Number(linea.qty || 0), 0);
+
+            return {
+                pedidosSolicitados: pedidosSolicitados.length,
+                unidadesSolicitadas: unidadesPedidos(pedidosSolicitados),
+                totalSolicitado: totalPedidos(pedidosSolicitados),
+                pedidosPendientes: pedidosPendientes.length,
+                unidadesPendientes: unidadesPedidos(pedidosPendientes) + unidadesSinEnviar,
+                totalPendiente: totalPedidos(pedidosPendientes) + totalSinEnviar,
+                tienePendiente: pedidosPendientes.length > 0 || unidadesSinEnviar > 0,
+                pendientesSinServir: pedidosPendientes.filter(pedido => pedido.estado !== 'servido').length,
+            };
+        }
+
         // ABRIR MODAL DE GESTIÓN MESA
         function openTableModal(tableId) {
             activeTableId = tableId;
@@ -2987,13 +3035,22 @@
             document.getElementById('modal-order-time').textContent = '';
 
             const statusEl = document.getElementById('modal-table-status');
-            const cuentaSolicitada = (table.pedidos || []).some(pedido => pedido.cuenta_solicitada);
-            statusEl.textContent = cuentaSolicitada ? 'CUENTA SOLICITADA' : table.status.toUpperCase();
+            const resumenCuenta = resumenCuentaMesa(table);
+            const cuentaSolicitada = resumenCuenta.pedidosSolicitados > 0;
+            const cuentaParcial = cuentaSolicitada && resumenCuenta.tienePendiente;
+            statusEl.textContent = cuentaParcial ? 'CUENTA PARCIAL' : cuentaSolicitada ? 'CUENTA SOLICITADA' : table.status.toUpperCase();
             if (cuentaSolicitada) statusEl.className = "px-2.5 py-1 rounded-md text-xs font-bold bg-amber-500/10 text-amber-300 border border-amber-500/20";
             else if (table.status === 'libre') statusEl.className = "px-2.5 py-1 rounded-md text-xs font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20";
             else if (table.status === 'ocupada') statusEl.className = "px-2.5 py-1 rounded-md text-xs font-bold bg-rose-500/10 text-rose-400 border border-rose-500/20";
             
-            document.getElementById('modal-account-alert').classList.toggle('hidden', !cuentaSolicitada);
+            const accountAlert = document.getElementById('modal-account-alert');
+            accountAlert.classList.toggle('hidden', !cuentaSolicitada);
+            if (cuentaSolicitada) {
+                document.getElementById('modal-account-requested-summary').textContent = `${resumenCuenta.pedidosSolicitados} ${resumenCuenta.pedidosSolicitados === 1 ? 'pedido' : 'pedidos'} · ${resumenCuenta.unidadesSolicitadas} ${resumenCuenta.unidadesSolicitadas === 1 ? 'plato' : 'platos'} · ${resumenCuenta.totalSolicitado.toFixed(2)} CUP enviados a caja.`;
+                const pendingSummary = document.getElementById('modal-account-pending-summary');
+                pendingSummary.textContent = `Fuera de esta solicitud: ${resumenCuenta.pedidosPendientes} ${resumenCuenta.pedidosPendientes === 1 ? 'pedido' : 'pedidos'}, ${resumenCuenta.unidadesPendientes} ${resumenCuenta.unidadesPendientes === 1 ? 'plato' : 'platos'} · ${resumenCuenta.totalPendiente.toFixed(2)} CUP${resumenCuenta.pendientesSinServir ? ` · ${resumenCuenta.pendientesSinServir} sin servir` : ''}.`;
+                pendingSummary.classList.toggle('hidden', !cuentaParcial);
+            }
 
             renderMenuItemsList('all');
             renderOrderItems();
@@ -3267,7 +3324,7 @@
                             ${ord.pedidoId ? '' : `<button onclick="updateOrderQty(${item.id}, 1)" class="text-slate-400 hover:text-emerald-400"><i class="fa-solid fa-plus text-[10px]"></i></button>`}
                         </div>
                         ${!ord.pedidoId ? `<button type="button" onclick="removeOrderItem(${item.id})" ${table.comandaEnviandose ? 'disabled' : ''} aria-label="Eliminar ${escaparHtml(item.name)} de la comanda" title="Eliminar producto sin enviar" class="order-item-remove"><i class="fa-solid fa-trash-can" aria-hidden="true"></i></button>` : ''}
-                        ${ord.estado === 'pendiente' ? `<input type="text" disabled placeholder="Sin notas" value="${ord.note || ''}" onchange="updateOrderNote(${item.id}, this.value)" class="bg-slate-950 border border-slate-800 text-[10px] text-slate-300 rounded px-2 py-1 focus:outline-none focus:border-emerald-500 w-32">` : `<span class="text-[10px] text-slate-400">${ord.note?.trim() || 'Sin notas'}</span>`}
+                        ${['por_confirmar', 'pendiente'].includes(ord.estado) ? `<input type="text" maxlength="200" placeholder="Añadir nota" aria-label="Nota para ${escaparHtml(item.name)}" value="${escaparHtml(ord.note || '')}" onchange="updateOrderNote(${item.id}, ${ord.pedidoId || 0}, ${ord.itemPedidoId || 0}, this.value)" class="bg-slate-950 border border-slate-800 text-[10px] text-slate-300 rounded px-2 py-1 focus:outline-none focus:border-emerald-500 w-32">` : `<span class="text-[10px] text-slate-400">${escaparHtml(ord.note?.trim() || 'Sin notas')}</span>`}
                     </div>
                     ${mostrarEnviarSolicitud ? `<div class="flex gap-2"><button type="button" onclick="aceptarPedidoCliente(${ord.pedidoId})" class="min-w-0 flex-1 rounded-lg border border-amber-500/20 bg-amber-500/10 px-2 py-2 text-[10px] font-bold text-amber-300 transition-all hover:bg-amber-400 hover:text-slate-950"><i class="fa-solid ${ord.destino === 'barra' ? 'fa-martini-glass-citrus' : 'fa-paper-plane'} mr-1"></i>${ord.destino === 'barra' ? 'Enviar a barra' : 'Enviar a cocina'}</button><button type="button" onclick="rechazarPedidoCliente(${ord.pedidoId})" aria-label="Rechazar solicitud de pedido" title="Rechazar solicitud" class="min-w-0 flex-1 rounded-lg border border-rose-500/25 bg-rose-500/10 px-2 py-2 text-[10px] font-bold text-rose-300 transition-all hover:border-rose-400/60 hover:bg-rose-500/20 hover:text-rose-100"><i class="fa-solid fa-ban mr-1" aria-hidden="true"></i>Rechazar</button></div>` : ''}
                     ${ord.pedidoId && ord.estado === 'listo' ? `<button type="button" onclick="marcarServidoMesera(${ord.pedidoId})" class="w-full rounded-lg bg-sky-500/10 border border-sky-500/20 text-sky-300 hover:bg-sky-500 hover:text-slate-950 py-1.5 text-[10px] font-bold transition-all"><i class="fa-solid fa-hand-holding-heart"></i> Marcar servido</button>` : ''}
@@ -3309,12 +3366,36 @@
             ws.send(JSON.stringify({ accion: 'rechazar_pedido_cliente', pedido_id: pedidoId }));
         }
 
-        function updateOrderNote(itemId, note) {
+        function updateOrderNote(itemId, pedidoId, itemPedidoId, note) {
             const table = tables.find(t => t.id === activeTableId);
             if (!table) return;
-            const ord = (table.newOrder || []).find(o => o.itemId === itemId)
-                || table.order.find(o => o.itemId === itemId && o.estado === 'pendiente');
-            if (ord) ord.note = note;
+            const nota = String(note || '').trim();
+            if (nota.length > 200) {
+                showToast('Nota demasiado larga', 'La nota no puede superar los 200 caracteres.', 'error');
+                return;
+            }
+            if (!pedidoId) {
+                const nuevo = (table.newOrder || []).find(o => o.itemId === itemId);
+                if (nuevo) nuevo.note = nota;
+                return;
+            }
+            const orden = (table.order || []).find(o => (
+                o.pedidoId === pedidoId
+                && o.itemPedidoId === itemPedidoId
+                && ['por_confirmar', 'pendiente'].includes(o.estado)
+            ));
+            if (!orden) return;
+            if (!ws || ws.readyState !== WebSocket.OPEN) {
+                showToast('Sin conexión', 'No se pudo guardar la nota.', 'error');
+                return;
+            }
+            orden.note = nota;
+            enviarMensajeMesera({
+                accion: 'actualizar_nota_item',
+                pedido_id: pedidoId,
+                item_id: itemPedidoId,
+                nota,
+            });
         }
 
         function updateModalTotals(subtotal) {
@@ -3855,7 +3936,8 @@
         }
 
         function etiquetaMesaNumero(mesaNumero) {
-            return tables.find(table => table.numero === Number(mesaNumero))?.name || `Mesa ${mesaNumero}`;
+            const table = findTableByMesaNumero(mesaNumero);
+            return table?.name || `Mesa ${mesaNumero}`;
         }
 
         function mostrarAlertaLlamada(mesaNumero) {

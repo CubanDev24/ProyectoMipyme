@@ -246,7 +246,11 @@
   <main class="flex-1 flex flex-col h-screen overflow-hidden">
     <header class="h-16 border-b border-slate-800 bg-slate-950/60 backdrop-blur px-6 flex items-center justify-between shrink-0">
       <div class="flex items-center gap-4">
+        {% if request.user.role == 'administrador' %}
         <a href="{% url 'usuarios:historial_turnos' %}" class="text-slate-400 hover:text-white transition-colors mr-1" title="Volver al historial">
+        {% else %}
+        <a href="{% url 'usuarios:dashboard' %}" class="text-slate-400 hover:text-white transition-colors mr-1" title="Volver al turno actual">
+        {% endif %}
           <i class="fa-solid fa-arrow-left text-sm"></i>
         </a>
         <h2 class="text-lg font-bold text-white flex items-center gap-2 leading-none">
@@ -313,6 +317,8 @@
               <div><span>Facturas</span><strong>{{ detalles.cantidad_facturas }}</strong></div>
               <div><span>Total general</span><strong>{{ detalles.total_general_cup }} CUP</strong></div>
               <div><span>Efectivo CUP</span><strong>{{ detalles.total_efectivo_cup }} CUP</strong></div>
+              <div><span>Fondo inicial</span><strong>{{ detalles.fondo_inicial_cup }} CUP</strong></div>
+              <div><span>Efectivo esperado</span><strong>{{ detalles.efectivo_esperado_cup }} CUP</strong></div>
               <div><span>Transferencia</span><strong>{{ detalles.total_transferencia_cup }} CUP</strong></div>
               <div><span>Total USD</span><strong>{{ detalles.total_usd|floatformat:2 }} USD</strong></div>
               <div><span>IPV (prom/factura)</span><strong>{{ detalles.ipv }} CUP</strong></div>

@@ -1,4 +1,5 @@
 from collections import defaultdict
+from datetime import datetime, time, timedelta
 from decimal import Decimal
 from html import escape as escape_html
 from io import BytesIO
@@ -11,6 +12,7 @@ from django.core.exceptions import ValidationError
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import render, get_object_or_404
 from django.views.decorators.http import require_POST
+from django.utils import timezone
 from reportlab.lib import colors
 from reportlab.lib.enums import TA_CENTER, TA_RIGHT
 from reportlab.lib.styles import ParagraphStyle
@@ -140,6 +142,41 @@ def subir_comprobante_transferencia(request):
 def cocina(request):
     cocina_en_turno = en_turno(request.user.username)
     return render(request, 'pedidos/cocina.html', {'en_turno': cocina_en_turno})
+
+
+@login_required
+@user_passes_test(_rol_permitido('cocina'))
+def cocina_ventas_hoy(request):
+    hoy = timezone.localdate()
+    inicio = timezone.make_aware(datetime.combine(hoy, time.min))
+    fin = inicio + timedelta(days=1)
+    ventas = {}
+    snapshots = Factura.objects.filter(
+        creado_en__gte=inicio,
+        creado_en__lt=fin,
+    ).values_list('items_snapshot', flat=True)
+
+    for snapshot in snapshots:
+        for item in snapshot or []:
+            plato = str(item.get('plato', '')).strip()
+            if not plato:
+                continue
+            try:
+                cantidad = int(item.get('cantidad', 0))
+                plato_id = int(item['plato_id']) if item.get('plato_id') is not None else None
+            except (TypeError, ValueError):
+                continue
+            if cantidad <= 0:
+                continue
+            clave = ('id', plato_id) if plato_id is not None else ('nombre', plato.casefold())
+            venta = ventas.setdefault(clave, {'plato': plato, 'cantidad': 0})
+            venta['cantidad'] += cantidad
+
+    return JsonResponse({
+        'fecha': hoy.strftime('%d/%m/%Y'),
+        'actualizado_en': timezone.localtime().strftime('%H:%M:%S'),
+        'ventas': sorted(ventas.values(), key=lambda venta: venta['plato'].casefold()),
+    })
 
 
 @login_required
@@ -406,8 +443,10 @@ def factura_imprimir_web(request, pk):
     return render(request, 'caja/factura_imprimir_web.html', {'factura': factura})
 
 def facturas_historial(request):
+    turno = get_turno_abierto()
+    facturas = turno.facturas_queryset if turno else Factura.objects.none()
     pagina = Paginator(
-        Factura.objects.select_related('pedido__mesa').order_by('-creado_en', '-pk'),
+        facturas.select_related('pedido__mesa').order_by('-creado_en', '-pk'),
         10,
     ).get_page(request.GET.get('page'))
     return JsonResponse({

@@ -1,6 +1,7 @@
 import json
 import uuid
 from decimal import Decimal
+from datetime import timedelta
 from io import BytesIO
 from tempfile import TemporaryDirectory
 from unittest.mock import AsyncMock
@@ -10,6 +11,7 @@ from django.test import override_settings
 from django.contrib.auth import get_user_model
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.urls import reverse
+from django.utils import timezone
 from PIL import Image
 
 from carta.models import Categoria, Plato
@@ -165,9 +167,83 @@ class FacturaWorkflowTests(TestCase):
         response = self.client.get(reverse('pedidos:cocina'))
 
         self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'id="nav-cocina-pedidos"')
+        self.assertContains(response, 'id="nav-cocina-ventas"')
+        self.assertContains(response, "onclick=\"mostrarSeccionCocina('ventas')\"")
+        self.assertContains(response, 'id="cocina-vista-ventas"')
+        self.assertContains(response, 'Ventas de hoy por plato')
+        self.assertContains(response, reverse('pedidos:cocina_ventas_hoy'))
+        self.assertContains(response, 'setInterval(() => {')
+        self.assertContains(response, "if (!document.getElementById('cocina-vista-ventas').hidden) actualizarVentasHoy();")
         self.assertContains(response, 'function urlImagenProducto')
         self.assertContains(response, 'class="cocina-item-imagen"')
         self.assertContains(response, 'Listo para recoger')
+
+    def test_cocina_ve_unidades_cobradas_hoy_por_plato_sin_importes(self):
+        User = get_user_model()
+        cocina = User.objects.create_user(username='cocina_ventas', password='123456', role='cocina')
+        Factura.objects.create(
+            pedido=self.pedido,
+            mesa_numero=self.mesa.numero,
+            forma_pago='efectivo_cup',
+            total_cup='999.00',
+            items_snapshot=[{
+                'plato_id': self.plato.pk,
+                'plato': self.plato.nombre,
+                'cantidad': 2,
+                'precio_unit': '25.00',
+                'subtotal': '50.00',
+            }, {
+                'plato_id': self.plato.pk,
+                'plato': self.plato.nombre,
+                'cantidad': 1,
+                'precio_unit': '25.00',
+                'subtotal': '25.00',
+            }],
+        )
+        pedido_adicional = Pedido.objects.create(mesa=self.mesa, estado='cerrado')
+        Factura.objects.create(
+            pedido=pedido_adicional,
+            mesa_numero=self.mesa.numero,
+            forma_pago='transferencia',
+            total_cup='25.00',
+            items_snapshot=[{
+                'plato_id': self.plato.pk,
+                'plato': self.plato.nombre,
+                'cantidad': 1,
+                'precio_unit': '25.00',
+                'subtotal': '25.00',
+            }],
+        )
+        pedido_ayer = Pedido.objects.create(mesa=self.mesa, estado='cerrado')
+        factura_ayer = Factura.objects.create(
+            pedido=pedido_ayer,
+            mesa_numero=self.mesa.numero,
+            forma_pago='efectivo_cup',
+            total_cup='250.00',
+            items_snapshot=[{
+                'plato_id': self.plato.pk,
+                'plato': self.plato.nombre,
+                'cantidad': 10,
+                'precio_unit': '25.00',
+                'subtotal': '250.00',
+            }],
+        )
+        Factura.objects.filter(pk=factura_ayer.pk).update(creado_en=timezone.now() - timedelta(days=1))
+        self.client.force_login(cocina)
+
+        response = self.client.get(reverse('pedidos:cocina_ventas_hoy'))
+
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data['ventas'], [{'plato': self.plato.nombre, 'cantidad': 4}])
+        self.assertEqual(set(data), {'fecha', 'actualizado_en', 'ventas'})
+        self.assertEqual(set(data['ventas'][0]), {'plato', 'cantidad'})
+
+        self.client.force_login(get_user_model().objects.create_user(
+            username='mesera_ventas_no_autorizada', role='mesera',
+        ))
+        self.assertEqual(self.client.get(reverse('pedidos:cocina_ventas_hoy')).status_code, 302)
 
     def test_vista_mesera_agrupa_productos_y_conserva_filtro_por_categoria(self):
         categoria_bebidas = Categoria.objects.create(nombre='Bebidas', orden=2)
@@ -254,6 +330,7 @@ class FacturaWorkflowTests(TestCase):
         self.assertEqual(self.insumo_receta.stock_actual, Decimal('999'))
 
     def test_historial_de_facturas_se_pagina(self):
+        Turno.objects.create()
         Factura.objects.create(
             pedido=self.pedido,
             mesa_numero=self.mesa.numero,
@@ -277,6 +354,43 @@ class FacturaWorkflowTests(TestCase):
         self.assertEqual(response.json()['paginas'], 2)
         self.assertEqual(response.json()['total'], 11)
         self.assertEqual(len(response.json()['facturas']), 1)
+
+    def test_historial_de_facturas_solo_muestra_las_del_turno_abierto(self):
+        factura_anterior = Factura.objects.create(
+            pedido=self.pedido,
+            mesa_numero=self.mesa.numero,
+            forma_pago='efectivo_cup',
+            total_cup='20.00',
+        )
+        Turno.objects.create()
+        pedido_actual = Pedido.objects.create(mesa=self.mesa, estado='cerrado')
+        factura_actual = Factura.objects.create(
+            pedido=pedido_actual,
+            mesa_numero=self.mesa.numero,
+            forma_pago='efectivo_cup',
+            total_cup='30.00',
+        )
+
+        response = self.client.get(reverse('pedidos:facturas_historial'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()['total'], 1)
+        self.assertEqual(response.json()['facturas'][0]['id'], factura_actual.pk)
+        self.assertNotEqual(response.json()['facturas'][0]['id'], factura_anterior.pk)
+
+    def test_historial_de_facturas_vacio_sin_turno_abierto(self):
+        Factura.objects.create(
+            pedido=self.pedido,
+            mesa_numero=self.mesa.numero,
+            forma_pago='efectivo_cup',
+            total_cup='20.00',
+        )
+
+        response = self.client.get(reverse('pedidos:facturas_historial'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()['facturas'], [])
+        self.assertEqual(response.json()['total'], 0)
 
     def test_caja_registra_factura_con_items_y_pdf(self):
         factura = Factura.objects.create(
@@ -346,6 +460,63 @@ class FacturaWorkflowTests(TestCase):
 
     def test_mesera_tiene_handler_para_factura_solicitada(self):
         self.assertTrue(hasattr(MeseraConsumer, 'factura_solicitada'))
+
+    def test_mesera_guarda_nota_en_linea_de_pedido_pendiente(self):
+        User = get_user_model()
+        mesera = User.objects.create_user(username='mesera_nota', role='mesera')
+        pedido = Pedido.objects.create(
+            mesa=self.mesa,
+            sesion_id=self.mesa.sesion_id,
+            estado='pendiente',
+        )
+        item = ItemPedido.objects.create(pedido=pedido, plato=self.plato, nota='Sin cambios')
+        consumer = MeseraConsumer()
+        consumer.scope = {'user': mesera}
+        consumer.channel_layer = AsyncMock()
+        consumer.send = AsyncMock()
+
+        async_to_sync(consumer.receive)(json.dumps({
+            'accion': 'actualizar_nota_item',
+            'pedido_id': pedido.pk,
+            'item_id': item.pk,
+            'nota': 'Sin cebolla',
+        }))
+
+        item.refresh_from_db()
+        self.assertEqual(item.nota, 'Sin cebolla')
+        self.assertTrue(any(
+            llamada.args[0] == 'cocina'
+            and llamada.args[1]['type'] == 'pedido_actualizado'
+            and llamada.args[1]['pedido']['items'][0]['nota'] == 'Sin cebolla'
+            for llamada in consumer.channel_layer.group_send.await_args_list
+        ))
+
+    def test_mesera_no_puede_cambiar_nota_despues_de_iniciar_preparacion(self):
+        User = get_user_model()
+        mesera = User.objects.create_user(username='mesera_nota_tardia', role='mesera')
+        pedido = Pedido.objects.create(
+            mesa=self.mesa,
+            sesion_id=self.mesa.sesion_id,
+            estado='en_preparacion',
+        )
+        item = ItemPedido.objects.create(pedido=pedido, plato=self.plato, nota='Original')
+        consumer = MeseraConsumer()
+        consumer.scope = {'user': mesera}
+        consumer.channel_layer = AsyncMock()
+        consumer.send = AsyncMock()
+
+        async_to_sync(consumer.receive)(json.dumps({
+            'accion': 'actualizar_nota_item',
+            'pedido_id': pedido.pk,
+            'item_id': item.pk,
+            'nota': 'Cambio tardío',
+        }))
+
+        item.refresh_from_db()
+        self.assertEqual(item.nota, 'Original')
+        self.assertEqual(consumer.channel_layer.group_send.await_count, 0)
+        respuesta = json.loads(consumer.send.await_args.kwargs['text_data'])
+        self.assertEqual(respuesta['tipo'], 'error_nota')
 
     def test_solicitud_cliente_no_llega_a_cocina_hasta_que_mesera_la_envia(self):
         cliente = ClienteConsumer()
@@ -747,6 +918,10 @@ class FacturaWorkflowTests(TestCase):
         self.assertIsNone(error)
         self.assertEqual(set(factura_data['pedido_ids']), {self.pedido.pk, pedido_adicional.pk})
         self.assertEqual(len(factura_data['items_snapshot']), 2)
+        self.assertEqual(
+            {item['plato_id'] for item in factura_data['items_snapshot']},
+            {self.plato.pk},
+        )
         self.assertEqual(factura_data['total_cup'], '75.00')
         self.assertEqual(factura_data['monto_recibido_cup'], '80.00')
         self.assertEqual(factura_data['cambio_cup'], '5.00')
@@ -1011,6 +1186,8 @@ class FacturaWorkflowTests(TestCase):
         self.assertContains(response, 'Ver pedido')
         self.assertContains(response, 'id="nav-bar"')
         self.assertContains(response, 'id="view-bar"')
+        self.assertContains(response, 'Cuenta parcial solicitada')
+        self.assertContains(response, 'Fuera de esta solicitud')
         self.assertContains(response, '.mesera-mobile-logout {')
         self.assertContains(response, 'display: none !important;')
         self.assertContains(response, 'display: flex !important;')

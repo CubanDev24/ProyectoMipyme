@@ -10,7 +10,7 @@ from django.utils import timezone
 from inventario.models import Insumo, MovimientoInventario
 from carta.models import Categoria, Plato
 from pedidos.models import Factura, Mesa, Pedido
-from usuarios.models import Usuario, Notificacion, Turno, configurar_turno, get_turno_abierto, registrar_inicio_turno, cerrar_turno, mesas_del_turno
+from usuarios.models import ProductoIPVTurno, Usuario, Notificacion, Turno, configurar_turno, get_turno_abierto, registrar_inicio_turno, cerrar_turno, mesas_del_turno
 from usuarios.views import historial_turnos_view, historial_turno_detalle_view, ipv_turno
 
 
@@ -69,6 +69,12 @@ class UsuarioTurnoTests(TestCase):
             creado_en=turno.apertura - timedelta(seconds=1)
         )
         pedido_turno = Pedido.objects.create(mesa=mesa, estado='cerrado')
+        categoria = Categoria.objects.create(nombre='Bebidas IPV')
+        plato_ipv = Plato.objects.create(
+            categoria=categoria,
+            nombre='Plato de prueba',
+            precio=Decimal('25.00'),
+        )
         factura_turno = Factura.objects.create(
             pedido=pedido_turno,
             mesa_numero=mesa.numero,
@@ -77,6 +83,7 @@ class UsuarioTurnoTests(TestCase):
             monto_efectivo_cup=Decimal('25.00'),
             cajera_nombre='Cajera de prueba',
             items_snapshot=[{
+                'plato_id': plato_ipv.pk,
                 'plato': 'Plato de prueba',
                 'cantidad': 1,
                 'precio_unit': '25.00',
@@ -88,14 +95,16 @@ class UsuarioTurnoTests(TestCase):
         response = self.client.get(reverse('usuarios:dashboard'))
 
         self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'name="fondo_inicial_cup"')
         self.assertContains(response, 'Detalle del turno actual')
         self.assertContains(response, f'href="{reverse("inventario:administrador")}#wifi"')
         self.assertEqual(list(response.context['facturas_turno']), [factura_turno])
         self.assertContains(response, f'Factura #{factura_turno.pk}')
         self.assertContains(response, 'Plato de prueba')
         self.assertContains(response, 'Inventario perpetuo de ventas')
+        self.assertContains(response, 'Fondo inicial')
         self.assertContains(response, 'Saldo inicial')
-        self.assertContains(response, 'Merma rotura')
+        self.assertNotContains(response, 'Configurar IPV del turno')
         self.assertContains(response, 'setInterval(actualizarInventarioTurno, 5000)')
         self.assertNotContains(response, f'Factura #{factura_anterior.pk}')
 
@@ -156,6 +165,39 @@ class UsuarioTurnoTests(TestCase):
                     302,
                 )
 
+    def test_cajera_no_puede_ver_turnos_cerrados_anteriores(self):
+        turno_cerrado = Turno.objects.create(
+            fecha=timezone.localdate() - timedelta(days=1),
+            estado='cerrado',
+            cierre=timezone.now(),
+        )
+        turno_actual = registrar_inicio_turno(self.cajera)
+        self.client.force_login(self.cajera)
+
+        dashboard = self.client.get(reverse('usuarios:dashboard'))
+
+        self.assertEqual(dashboard.status_code, 200)
+        self.assertNotContains(dashboard, reverse('usuarios:historial_turnos'))
+        self.assertContains(
+            dashboard,
+            reverse('usuarios:historial_turno_detalle', args=[turno_actual.pk]),
+        )
+        self.assertEqual(self.client.get(reverse('usuarios:historial_turnos')).status_code, 302)
+        self.assertEqual(
+            self.client.get(reverse('usuarios:historial_turno_detalle', args=[turno_cerrado.pk])).status_code,
+            302,
+        )
+        for nombre_ruta in ('ipv_turno', 'ipv_turno_pdf', 'ipv_turno_excel'):
+            with self.subTest(ruta=nombre_ruta):
+                self.assertEqual(
+                    self.client.get(reverse(f'usuarios:{nombre_ruta}', args=[turno_cerrado.pk])).status_code,
+                    403,
+                )
+        self.assertEqual(
+            self.client.get(reverse('usuarios:historial_turno_detalle', args=[turno_actual.pk])).status_code,
+            200,
+        )
+
     def test_historial_de_turnos_se_pagina(self):
         for indice in range(11):
             turno = Turno.objects.create(estado='cerrado')
@@ -181,7 +223,10 @@ class UsuarioTurnoTests(TestCase):
         mesa = Mesa.objects.create(numero=72, abierta=True)
 
         for fecha_turno, forma_pago, total in turnos:
-            Turno.objects.create(estado='cerrado', fecha=fecha_turno)
+            turno = Turno.objects.create(estado='cerrado', fecha=fecha_turno)
+            apertura = timezone.make_aware(datetime.combine(fecha_turno, datetime.min.time()))
+            cierre = apertura + timedelta(days=1) - timedelta(microseconds=1)
+            Turno.objects.filter(pk=turno.pk).update(apertura=apertura, cierre=cierre)
             factura = Factura.objects.create(
                 pedido=Pedido.objects.create(mesa=mesa, estado='cerrado'),
                 mesa_numero=mesa.numero,
@@ -379,6 +424,16 @@ class UsuarioTurnoTests(TestCase):
         response = self.client.get(reverse('usuarios:historial_turnos'))
 
         self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Apertura:')
+        self.assertContains(response, 'Cierre:')
+        self.assertContains(
+            response,
+            f"Apertura: {timezone.localtime(turno_mayo_10.apertura):%d/%m/%Y %H:%M}",
+        )
+        self.assertContains(
+            response,
+            f"Cierre: {timezone.localtime(turno_mayo_10.cierre):%d/%m/%Y %H:%M}",
+        )
         self.assertEqual(response.content.count(b'<input '), 3)
         self.assertEqual(response.content.count(b'<select '), 2)
         self.assertEqual(response.content.count(b'<button '), 2)
@@ -486,6 +541,11 @@ class UsuarioTurnoTests(TestCase):
                 self.assertEqual(response.status_code, 200)
                 self.assertContains(response, enlace_rol)
                 self.assertContains(response, f'{etiqueta_rol} &bull; Activo')
+                if usuario.role == 'cocina':
+                    self.assertContains(
+                        response,
+                        f'href="{reverse("pedidos:cocina")}?vista=ventas"',
+                    )
                 if usuario.role == 'mesera':
                     for seccion in (
                         'tables',
@@ -505,93 +565,171 @@ class UsuarioTurnoTests(TestCase):
                     self.assertNotContains(response, f'href="{reverse("usuarios:historial_turnos")}"')
 
     def test_reporte_inventario_turno_calcula_ventas_entradas_roturas_y_saldos(self):
-        turno = registrar_inicio_turno(self.mesera)
-        insumo = Insumo.objects.create(nombre='Coca-Cola', stock_actual=Decimal('10'), precio=Decimal('12.50'))
-        movimiento_inicial = MovimientoInventario.objects.create(
-            insumo=insumo,
-            producto_nombre=insumo.nombre,
-            tipo='entrada',
-            cantidad=Decimal('10'),
-            stock_anterior=Decimal('0'),
-            stock_posterior=Decimal('10'),
+        categoria = Categoria.objects.create(nombre='Bebidas IPV', orden=1)
+        plato = Plato.objects.create(categoria=categoria, nombre='Coca-Cola', precio=Decimal('25.00'))
+        insumo = Insumo.objects.create(nombre='Coca-Cola', stock_actual=Decimal('10'))
+        cierre_anterior = timezone.now() - timedelta(days=1)
+        turno_anterior = Turno.objects.create(
+            fecha=timezone.localdate() - timedelta(days=1),
+            estado='cerrado',
+            cierre=cierre_anterior,
         )
-        MovimientoInventario.objects.filter(pk=movimiento_inicial.pk).update(
-            creado_en=turno.apertura - timedelta(seconds=1),
+        Turno.objects.filter(pk=turno_anterior.pk).update(
+            apertura=cierre_anterior - timedelta(hours=8),
         )
-        MovimientoInventario.objects.create(
-            insumo=insumo,
-            producto_nombre=insumo.nombre,
-            tipo='entrada',
-            cantidad=Decimal('5'),
-            stock_anterior=Decimal('10'),
-            stock_posterior=Decimal('15'),
+        ProductoIPVTurno.objects.create(
+            turno=turno_anterior,
+            plato=plato,
+            cantidad_inicial=Decimal('12'),
+            entradas=Decimal('4'),
+            merma_rotura=Decimal('1'),
         )
-        MovimientoInventario.objects.create(
-            insumo=insumo,
-            producto_nombre=insumo.nombre,
-            tipo='salida',
-            cantidad=Decimal('2'),
-            stock_anterior=Decimal('15'),
-            stock_posterior=Decimal('13'),
-            motivo='Pedido vendido',
+        pedido_anterior = Pedido.objects.create(mesa=Mesa.objects.create(numero=50), estado='cerrado')
+        factura_anterior = Factura.objects.create(
+            pedido=pedido_anterior,
+            mesa_numero=pedido_anterior.mesa.numero,
+            forma_pago='efectivo_cup',
+            total_cup=Decimal('75.00'),
+            items_snapshot=[{
+                'plato_id': plato.pk,
+                'plato': plato.nombre,
+                'cantidad': 3,
+                'precio_unit': '25.00',
+                'subtotal': '75.00',
+            }],
         )
-        MovimientoInventario.objects.create(
-            insumo=insumo,
-            producto_nombre=insumo.nombre,
-            tipo='merma',
-            cantidad=Decimal('1'),
-            stock_anterior=Decimal('13'),
-            stock_posterior=Decimal('12'),
-            motivo='Botella rota',
+        Factura.objects.filter(pk=factura_anterior.pk).update(
+            creado_en=cierre_anterior - timedelta(minutes=1),
         )
-        insumo.stock_actual = Decimal('12')
-        insumo.save(update_fields=['stock_actual', 'actualizado_en'])
-        mesa = Mesa.objects.create(numero=50, abierta=True)
+        turno = registrar_inicio_turno(self.cajera)
+        self.client.force_login(self.admin)
+
+        dashboard = self.client.get(reverse('usuarios:dashboard'))
+
+        self.assertEqual(dashboard.status_code, 200)
+        self.assertEqual(dashboard.context['opciones_ipv'][0]['cantidad_inicial'], Decimal('12'))
+
+        self.client.force_login(self.cajera)
+        configuracion = self.client.post(reverse('usuarios:configurar_ipv_turno'), {
+            'fondo_inicial_cup': '100.00',
+            'platos': [str(plato.pk)],
+        }, follow=True)
+
+        self.assertContains(configuracion, 'El IPV del turno quedó configurado.')
+        registro = ProductoIPVTurno.objects.get(turno=turno, plato=plato)
+        self.assertEqual(turno.__class__.objects.get(pk=turno.pk).fondo_inicial_cup, Decimal('100.00'))
+        self.assertEqual(registro.cantidad_inicial, Decimal('12'))
+        self.assertEqual(registro.entradas, Decimal('0'))
+
+        mesa = Mesa.objects.create(numero=51, abierta=True)
         pedido = Pedido.objects.create(mesa=mesa, estado='cerrado')
-        plato_sin_inventario = Plato.objects.create(
-            categoria=Categoria.objects.create(nombre='Platos', orden=1),
-            nombre='Plato de carta',
-            precio=Decimal('30.00'),
-        )
         Factura.objects.create(
             pedido=pedido,
             mesa_numero=mesa.numero,
-            forma_pago='efectivo_cup',
-            total_cup=Decimal('25'),
+            forma_pago='mixto',
+            total_cup=Decimal('75.00'),
+            monto_efectivo_cup=Decimal('40.00'),
+            monto_transferencia_cup=Decimal('35.00'),
             items_snapshot=[{
-                'plato': 'Coca-Cola',
-                'cantidad': 2,
-                'precio_unit': '12.50',
-                'subtotal': '25.00',
-            }, {
-                'plato': plato_sin_inventario.nombre,
-                'cantidad': 1,
-                'precio_unit': '30.00',
-                'subtotal': '30.00',
+                'plato_id': plato.pk,
+                'plato': plato.nombre,
+                'cantidad': 3,
+                'precio_unit': '25.00',
+                'subtotal': '75.00',
             }],
         )
+        respuesta_merma = self.client.post(
+            reverse('usuarios:registrar_merma_ipv', args=[registro.pk]),
+            {'cantidad': '1'},
+        )
+        self.assertEqual(respuesta_merma.status_code, 200)
+        respuesta_merma_excesiva = self.client.post(
+            reverse('usuarios:registrar_merma_ipv', args=[registro.pk]),
+            {'cantidad': '11'},
+        )
+        self.assertEqual(respuesta_merma_excesiva.status_code, 400)
+        registro.refresh_from_db()
+        self.assertEqual(registro.merma_rotura, Decimal('1'))
 
-        self.client.force_login(self.cajera)
         response = self.client.get(reverse('usuarios:inventario_ventas_turno'))
 
         self.assertEqual(response.status_code, 200)
-        producto = next(row for row in response.json()['productos'] if row['nombre'] == 'Coca-Cola')
-        self.assertEqual(producto['saldo_inicial'], '10.000')
-        self.assertEqual(producto['entradas'], '5.000')
-        self.assertEqual(producto['cantidad_existencia'], '12.000')
-        self.assertEqual(producto['cantidad_vendida'], '2')
-        self.assertEqual(producto['saldo_final'], '12.000')
-        self.assertEqual(producto['precio_venta'], '12.50')
-        self.assertEqual(producto['importe_venta'], '25.00')
+        datos = response.json()
+        self.assertEqual([row['nombre'] for row in datos['productos']], [plato.nombre])
+        producto = datos['productos'][0]
+        self.assertEqual(producto['saldo_inicial'], '12.000')
+        self.assertEqual(producto['entradas'], '0.000')
+        self.assertEqual(producto['cantidad_vendida'], '3')
         self.assertEqual(producto['merma_rotura'], '1.000')
-        venta_sin_control = next(row for row in response.json()['productos'] if row['nombre'] == plato_sin_inventario.nombre)
-        self.assertFalse(venta_sin_control['control_existencia'])
-        self.assertEqual(venta_sin_control['cantidad_vendida'], '1')
-        self.assertEqual(venta_sin_control['importe_venta'], '30.00')
+        self.assertEqual(producto['saldo_final'], '8.000')
+        self.assertEqual(producto['precio_venta'], '25.00')
+        self.assertEqual(producto['importe_venta'], '75.00')
+        self.assertEqual(datos['fondo_inicial_cup'], '100.00')
+        self.assertEqual(datos['efectivo_final_cup'], '140.00')
+        self.assertEqual(datos['ventas_transferencia_cup'], '35.00')
+        self.assertEqual(insumo.stock_actual, Decimal('10'))
+        self.assertFalse(MovimientoInventario.objects.exists())
+
+    def test_ipv_se_configura_con_saldo_final_del_turno_anterior_y_sin_entradas_manuales(self):
+        categoria = Categoria.objects.create(nombre='Platos IPV', orden=1)
+        plato = Plato.objects.create(categoria=categoria, nombre='Ropa vieja', precio=Decimal('18.00'))
+        cierre_anterior = timezone.now() - timedelta(days=1)
+        turno_anterior = Turno.objects.create(
+            fecha=timezone.localdate() - timedelta(days=1),
+            estado='cerrado',
+            cierre=cierre_anterior,
+        )
+        Turno.objects.filter(pk=turno_anterior.pk).update(
+            apertura=cierre_anterior - timedelta(hours=8),
+        )
+        ProductoIPVTurno.objects.create(
+            turno=turno_anterior,
+            plato=plato,
+            cantidad_inicial=Decimal('10'),
+            entradas=Decimal('0'),
+            merma_rotura=Decimal('2'),
+        )
+        pedido_anterior = Pedido.objects.create(mesa=Mesa.objects.create(numero=90), estado='cerrado')
+        Factura.objects.create(
+            pedido=pedido_anterior,
+            mesa_numero=pedido_anterior.mesa.numero,
+            forma_pago='efectivo_cup',
+            total_cup=Decimal('54.00'),
+            items_snapshot=[{
+                'plato_id': plato.pk,
+                'plato': plato.nombre,
+                'cantidad': 3,
+                'precio_unit': '18.00',
+                'subtotal': '54.00',
+            }],
+        )
+        Factura.objects.filter(pk__in=Factura.objects.filter(pedido=pedido_anterior).values_list('pk', flat=True)).update(
+            creado_en=cierre_anterior - timedelta(minutes=1),
+        )
+
+        turno = registrar_inicio_turno(self.cajera)
+        self.client.force_login(self.admin)
+        dashboard = self.client.get(reverse('usuarios:dashboard'))
+        self.assertEqual(dashboard.context['opciones_ipv'][0]['cantidad_inicial'], Decimal('5'))
+
+        self.client.force_login(self.cajera)
+        response = self.client.post(reverse('usuarios:configurar_ipv_turno'), {
+            'fondo_inicial_cup': '150.00',
+            'platos': [str(plato.pk)],
+            f'inicial_{plato.pk}': '999',
+            f'entradas_{plato.pk}': '77',
+        }, follow=True)
+
+        self.assertContains(response, 'El IPV del turno quedó configurado.')
+        registro = ProductoIPVTurno.objects.get(turno=turno, plato=plato)
+        self.assertEqual(registro.cantidad_inicial, Decimal('5'))
+        self.assertEqual(registro.entradas, Decimal('0'))
 
     def test_cerrar_turno_crea_resumen_y_notifica_al_admin(self):
         turno = registrar_inicio_turno(self.mesera)
         registrar_inicio_turno(self.cajera)
+        turno.fondo_inicial_cup = Decimal('75.00')
+        turno.save(update_fields=['fondo_inicial_cup'])
 
         mesa = Mesa.objects.create(numero=10, abierta=True)
         pedido = Pedido.objects.create(mesa=mesa, estado='cerrado')
@@ -607,7 +745,65 @@ class UsuarioTurnoTests(TestCase):
 
         self.assertEqual(turno_cerrado.estado, 'cerrado')
         self.assertIn('250.00', turno_cerrado.resumen)
-        self.assertTrue(Notificacion.objects.filter(destinatario=self.admin).exists())
+        self.assertIn('Fondo inicial: 75.00 CUP', turno_cerrado.resumen)
+        self.assertIn('Efectivo esperado: 325.00 CUP', turno_cerrado.resumen)
+        self.assertTrue(Notificacion.objects.filter(
+            destinatario=self.admin,
+            turno=turno,
+            asunto='Cierre de turno realizado',
+            mensaje__contains=f'Cajera {self.cajera.username} cerró el turno',
+        ).exists())
+
+    def test_resumen_financiero_incluye_facturas_de_turno_que_cruza_medianoche(self):
+        turno = Turno.objects.create(estado='cerrado')
+        apertura = timezone.now().replace(hour=23, minute=30, second=0, microsecond=0) - timedelta(days=1)
+        cierre = apertura + timedelta(hours=3)
+        Turno.objects.filter(pk=turno.pk).update(apertura=apertura, cierre=cierre)
+        turno.refresh_from_db()
+        mesa = Mesa.objects.create(numero=12)
+        factura_antes = Factura.objects.create(
+            pedido=Pedido.objects.create(mesa=mesa, estado='cerrado'),
+            mesa_numero=mesa.numero,
+            forma_pago='efectivo_cup',
+            total_cup=Decimal('99.00'),
+            monto_efectivo_cup=Decimal('99.00'),
+        )
+        factura_despues_de_medianoche = Factura.objects.create(
+            pedido=Pedido.objects.create(mesa=mesa, estado='cerrado'),
+            mesa_numero=mesa.numero,
+            forma_pago='efectivo_cup',
+            total_cup=Decimal('25.00'),
+            monto_efectivo_cup=Decimal('25.00'),
+        )
+        Factura.objects.filter(pk=factura_antes.pk).update(creado_en=apertura - timedelta(minutes=1))
+        Factura.objects.filter(pk=factura_despues_de_medianoche.pk).update(
+            creado_en=apertura + timedelta(hours=2),
+        )
+
+        self.assertEqual(turno.total_general_cup, Decimal('25.00'))
+        self.assertEqual(turno.total_efectivo_cup, Decimal('25.00'))
+        self.assertEqual(turno.cantidad_facturas, 1)
+
+    def test_cerrar_turno_rechaza_pedidos_pendientes_en_mesa(self):
+        turno = registrar_inicio_turno(self.cajera)
+        mesa = Mesa.objects.create(numero=10, abierta=True)
+        Pedido.objects.create(mesa=mesa, estado='servido')
+
+        with self.assertRaisesRegex(ValueError, 'pedidos pendientes en una mesa'):
+            cerrar_turno(self.cajera)
+
+        turno.refresh_from_db()
+        self.assertEqual(turno.estado, 'abierto')
+
+    def test_cerrar_turno_rechaza_ticket_para_llevar_sin_cobrar(self):
+        turno = registrar_inicio_turno(self.cajera)
+        Pedido.objects.create(modalidad='para_llevar', estado='entregado')
+
+        with self.assertRaisesRegex(ValueError, 'tickets para llevar sin cobrar'):
+            cerrar_turno(self.cajera)
+
+        turno.refresh_from_db()
+        self.assertEqual(turno.estado, 'abierto')
 
     def test_administrador_puede_cerrar_turno_desde_el_panel(self):
         turno = registrar_inicio_turno(self.admin)
@@ -644,8 +840,9 @@ class UsuarioTurnoTests(TestCase):
 
         dashboard = self.client.get(reverse('usuarios:dashboard'))
 
-        self.assertContains(dashboard, 'Turno anterior pendiente')
-        self.assertContains(dashboard, 'Cerrar turno pendiente')
+        self.assertContains(dashboard, 'El turno pasó de medianoche')
+        self.assertContains(dashboard, 'Continuar turno')
+        self.assertContains(dashboard, 'Cerrar turno')
         self.assertContains(dashboard, f'name="turno_id" value="{turno_anterior.pk}"')
 
         response = self.client.post(reverse('usuarios:cerrar_turno'), {
@@ -669,6 +866,27 @@ class UsuarioTurnoTests(TestCase):
             turno=turno_anterior,
             mensaje__contains='Administrador admin cerró el turno',
         ).exists())
+
+    def test_administrador_puede_confirmar_continuidad_de_turno_tras_medianoche(self):
+        turno = Turno.objects.create(
+            fecha=timezone.localdate() - timedelta(days=1),
+            estado='abierto',
+        )
+        self.client.force_login(self.admin)
+
+        response = self.client.get(reverse('usuarios:dashboard'))
+        self.assertContains(response, 'El turno pasó de medianoche')
+        self.assertNotContains(response, 'id="cierre-turno-heading"')
+
+        response = self.client.post(reverse('usuarios:continuar_turno'), {
+            'turno_id': turno.pk,
+        }, follow=True)
+
+        self.assertContains(response, 'El turno continuará abierto hasta que se realice su cierre')
+        self.assertNotContains(response, 'El turno pasó de medianoche')
+        turno.refresh_from_db()
+        self.assertEqual(turno.estado, 'abierto')
+        self.assertTrue(turno.continuidad_confirmada)
 
     def test_otros_roles_no_pueden_cerrar_turno(self):
         registrar_inicio_turno(self.mesera)
@@ -744,6 +962,20 @@ class UsuarioTurnoTests(TestCase):
             list(mesas.values_list('numero', flat=True)),
             [1, 3, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14],
         )
+
+    def test_mesera_ve_las_mesas_de_un_turno_abierto_de_un_dia_anterior(self):
+        turno = Turno.objects.create(
+            fecha=timezone.localdate() - timedelta(days=1),
+            estado='abierto',
+            cantidad_mesas=3,
+        )
+        self.client.force_login(self.mesera)
+
+        response = self.client.get(reverse('pedidos:mesera'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context['turno'], turno)
+        self.assertEqual(list(response.context['mesas'].values_list('numero_zona', flat=True)), [1, 2, 3])
 
     def test_mesas_activas_fuera_del_rango_anterior_siguen_disponibles(self):
         for numero in range(1, 15):
@@ -952,76 +1184,70 @@ class UsuarioTurnoTests(TestCase):
 
         self.client.force_login(self.cajera)
         response_historial = self.client.get(reverse('usuarios:historial_turnos'))
-        self.assertEqual(response_historial.status_code, 200)
-        self.assertContains(response_historial, '400.00')
+        self.assertEqual(response_historial.status_code, 302)
         response_detalle = self.client.get(
             reverse('usuarios:historial_turno_detalle', args=[turno_cerrado.pk])
         )
-        self.assertEqual(response_detalle.status_code, 200)
-        self.assertContains(response_detalle, 'IPV')
-        self.assertContains(response_detalle, '400.00')
+        self.assertEqual(response_detalle.status_code, 302)
         self.assertEqual(
             self.client.get(reverse('usuarios:ipv_turno', args=[turno_cerrado.pk])).status_code,
-            200,
+            403,
         )
 
     def test_ipv_muestra_existencia_despues_de_restar_salidas(self):
-        turno = registrar_inicio_turno(self.mesera)
-        insumo = Insumo.objects.create(nombre='Producto IPV', stock_actual=Decimal('13'))
-        movimiento_inicial = MovimientoInventario.objects.create(
-            insumo=insumo,
-            producto_nombre=insumo.nombre,
-            tipo='entrada',
-            cantidad=Decimal('10'),
-            stock_anterior=Decimal('0'),
-            stock_posterior=Decimal('10'),
+        turno = registrar_inicio_turno(self.admin)
+        plato = Plato.objects.create(
+            categoria=Categoria.objects.create(nombre='Carta IPV'),
+            nombre='Producto IPV',
+            precio=Decimal('15.00'),
         )
-        MovimientoInventario.objects.filter(pk=movimiento_inicial.pk).update(
-            creado_en=turno.apertura - timedelta(seconds=1),
+        ProductoIPVTurno.objects.create(
+            turno=turno,
+            plato=plato,
+            cantidad_inicial=Decimal('10'),
+            entradas=Decimal('5'),
+            merma_rotura=Decimal('1'),
         )
-        MovimientoInventario.objects.create(
-            insumo=insumo,
-            producto_nombre=insumo.nombre,
-            tipo='entrada',
-            cantidad=Decimal('5'),
-            stock_anterior=Decimal('10'),
-            stock_posterior=Decimal('15'),
-        )
-        MovimientoInventario.objects.create(
-            insumo=insumo,
-            producto_nombre=insumo.nombre,
-            tipo='salida',
-            cantidad=Decimal('2'),
-            stock_anterior=Decimal('15'),
-            stock_posterior=Decimal('13'),
-            motivo='Pedido vendido',
+        mesa = Mesa.objects.create(numero=84)
+        Factura.objects.create(
+            pedido=Pedido.objects.create(mesa=mesa, estado='cerrado'),
+            mesa_numero=mesa.numero,
+            forma_pago='efectivo_cup',
+            total_cup=Decimal('30.00'),
+            items_snapshot=[{
+                'plato_id': plato.pk,
+                'plato': plato.nombre,
+                'cantidad': 2,
+                'precio_unit': '15.00',
+                'subtotal': '30.00',
+            }],
         )
 
         self.client.force_login(self.admin)
         response = self.client.get(reverse('usuarios:ipv_turno', args=[turno.pk]))
 
         self.assertEqual(response.status_code, 200)
-        producto = next(row for row in response.json()['filas'] if row['nombre'] == insumo.nombre)
+        producto = response.json()['filas'][0]
+        self.assertEqual(producto['nombre'], plato.nombre)
         self.assertEqual(producto['entradas'], '5.000')
-        self.assertEqual(producto['cantidad_existencia'], '13.000')
-        self.assertIsNone(producto['saldo_inicial'])
-        self.assertIsNone(producto['saldo_final'])
+        self.assertEqual(producto['cantidad_vendida'], '2')
+        self.assertEqual(producto['cantidad_existencia'], '12.000')
+        self.assertEqual(producto['merma_rotura'], '1.000')
+        self.assertEqual(producto['saldo_final'], '12.000')
 
     def test_ipv_turno_se_exporta_a_pdf_y_excel(self):
         turno = registrar_inicio_turno(self.admin)
         self.client.force_login(self.admin)
-        insumo = Insumo.objects.create(
+        plato = Plato.objects.create(
+            categoria=Categoria.objects.create(nombre='Carta exportación'),
             nombre='=2+3',
-            stock_actual=Decimal('8'),
             precio=Decimal('125.50'),
         )
-        MovimientoInventario.objects.create(
-            insumo=insumo,
-            producto_nombre=insumo.nombre,
-            tipo='entrada',
-            cantidad=Decimal('3'),
-            stock_anterior=Decimal('5'),
-            stock_posterior=Decimal('8'),
+        ProductoIPVTurno.objects.create(
+            turno=turno,
+            plato=plato,
+            cantidad_inicial=Decimal('5'),
+            entradas=Decimal('3'),
         )
 
         pdf_response = self.client.get(
@@ -1043,6 +1269,7 @@ class UsuarioTurnoTests(TestCase):
         self.assertIn(f'ipv_turno_{turno.pk}.xlsx', excel_response['Content-Disposition'])
         libro = load_workbook(BytesIO(excel_response.content), read_only=True)
         hoja = libro['IPV']
+        self.assertEqual(hoja['A3'].value, 'Fondo inicial CUP')
         self.assertEqual(hoja['A4'].value, 'Descripción')
         self.assertEqual(hoja['A5'].value, '=2+3')
         self.assertEqual(hoja['A5'].data_type, 's')
@@ -1058,6 +1285,7 @@ class UsuarioTurnoTests(TestCase):
         self.assertEqual(pdf_response.status_code, 200)
         self.assertTrue(pdf_response.content.startswith(b'%PDF'))
         libro = load_workbook(BytesIO(excel_response.content), read_only=True)
+        self.assertEqual(libro['IPV']['A3'].value, 'Fondo inicial CUP')
         self.assertEqual(libro['IPV']['A4'].value, 'Descripción')
         libro.close()
 

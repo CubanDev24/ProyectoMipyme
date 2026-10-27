@@ -8,6 +8,7 @@ from django.contrib import messages
 from django.contrib.auth import logout, login, authenticate, get_user, update_session_auth_hash
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
+from django.db import transaction
 from django.db.models import Max, Q, Sum
 from django.db.models.functions import Coalesce
 from django.http import HttpResponse, JsonResponse
@@ -16,7 +17,7 @@ from django.urls import reverse
 from django.utils import timezone
 from django.utils.dateparse import parse_date
 from django.views.decorators.cache import never_cache
-from django.views.decorators.http import require_http_methods
+from django.views.decorators.http import require_POST, require_http_methods
 from django.views.csrf import csrf_failure as django_csrf_failure
 from openpyxl import Workbook
 from openpyxl.styles import Alignment, Font, PatternFill
@@ -31,7 +32,7 @@ from carta.models import Plato
 from carta.qr import generar_qr_mesa
 from inventario.models import Insumo, MovimientoInventario
 from pedidos.models import Factura, Mesa, Pedido
-from .models import Notificacion, Turno, Usuario, cerrar_turno, configurar_turno, crear_mesas_del_turno, get_turno_abierto
+from .models import Notificacion, ProductoIPVTurno, Turno, Usuario, cerrar_turno, configurar_turno, crear_mesas_del_turno, get_turno_abierto
 
 
 ROLE_HOME = {
@@ -101,9 +102,19 @@ def dashboard(request):
     turno_anterior = None
     turno_abierto_pendiente = None
     if request.user.role == 'administrador':
-        turno = Turno.objects.filter(fecha=hoy).prefetch_related('usuarios').order_by('-apertura').first()
-        turno_anterior = Turno.objects.filter(fecha__lt=hoy).prefetch_related('usuarios').order_by('-fecha', '-apertura').first()
-        turno_abierto_pendiente = Turno.objects.filter(estado='abierto', fecha__lt=hoy).order_by('-fecha', '-apertura').first()
+        turno = turno or Turno.objects.filter(fecha=hoy).prefetch_related('usuarios').order_by('-apertura').first()
+        turno_anterior = Turno.objects.filter(
+            estado='cerrado', fecha__lt=hoy,
+        ).prefetch_related('usuarios').order_by('-fecha', '-apertura').first()
+        turno_abierto_pendiente = Turno.objects.filter(
+            estado='abierto', fecha__lt=hoy, continuidad_confirmada=False,
+        ).order_by('-fecha', '-apertura').first()
+    turno_requiere_confirmacion = bool(
+        request.user.role == 'administrador'
+        and turno
+        and turno_abierto_pendiente
+        and turno.pk == turno_abierto_pendiente.pk
+    )
     mesas_admin = []
     mesas_activas_salon = 0
     mesas_activas_exteriores = 0
@@ -121,6 +132,37 @@ def dashboard(request):
         for mesa in mesas_admin:
             mesa.qr_url, mesa.qr_data = generar_qr_mesa(request, mesa)
     notificaciones = Notificacion.objects.filter(destinatario=request.user).order_by('-creada_en')[:10]
+    ipv_configurado = False
+    opciones_ipv = []
+    if turno and turno.estado == 'abierto' and request.user.role in ROLES_CON_ACCESO_FINANCIERO:
+        ipv_configurado = ProductoIPVTurno.objects.filter(turno=turno).exists()
+        if not ipv_configurado:
+            platos = list(
+                Plato.objects.filter(disponible=True)
+                .select_related('categoria')
+                .order_by('categoria__orden', 'nombre')
+            )
+            cantidades_iniciales = _cantidades_finales_productos_ipv(platos)
+            registros = [
+                ProductoIPVTurno(
+                    turno=turno,
+                    plato=plato,
+                    cantidad_inicial=cantidades_iniciales.get(plato.pk, Decimal('0')),
+                    entradas=Decimal('0'),
+                )
+                for plato in platos
+            ]
+            ProductoIPVTurno.objects.bulk_create(registros)
+            ipv_configurado = True
+        opciones_ipv = [
+            {
+                'plato': registro.plato,
+                'cantidad_inicial': registro.cantidad_inicial,
+            }
+            for registro in ProductoIPVTurno.objects.filter(turno=turno)
+            .select_related('plato__categoria')
+            .order_by('plato__nombre')
+        ]
     facturas_turno = Factura.objects.none()
     if turno and puede_ver_datos_financieros:
         fin_turno = turno.cierre or timezone.now()
@@ -136,11 +178,14 @@ def dashboard(request):
         'resumen_turno': turno.resumen_financiero if turno and puede_ver_datos_financieros else None,
         'puede_ver_datos_financieros': puede_ver_datos_financieros,
         'turno_abierto_pendiente': turno_abierto_pendiente,
+        'turno_requiere_confirmacion': turno_requiere_confirmacion,
         'mesas_admin': mesas_admin,
         'mesas_activas_salon': mesas_activas_salon,
         'mesas_activas_exteriores': mesas_activas_exteriores,
         'facturas_turno': facturas_turno,
         'notificaciones': notificaciones,
+        'ipv_configurado': ipv_configurado,
+        'opciones_ipv': opciones_ipv,
     })
 
 
@@ -178,11 +223,214 @@ def abrir_turno_view(request):
     return redirect('usuarios:dashboard')
 
 
+@login_required
+@require_POST
+def continuar_turno_view(request):
+    if request.user.role != 'administrador':
+        messages.error(request, 'Solo el administrador puede confirmar la continuidad del turno.')
+        return redirect('usuarios:dashboard')
+
+    turno = get_object_or_404(
+        Turno,
+        pk=request.POST.get('turno_id'),
+        estado='abierto',
+        fecha__lt=timezone.localdate(),
+    )
+    turno.continuidad_confirmada = True
+    turno.save(update_fields=['continuidad_confirmada'])
+    messages.success(request, 'El turno continuará abierto hasta que se realice su cierre.')
+    return redirect('usuarios:dashboard')
+
+
 def _decimal_o_cero(valor):
     try:
         return Decimal(str(valor).replace(',', '.').strip())
     except (ArithmeticError, TypeError, ValueError, AttributeError):
         return Decimal('0')
+
+
+def _decimal_ipv_no_negativo(valor, nombre_campo, decimal_places=3):
+    try:
+        cantidad = Decimal(str(valor).replace(',', '.').strip())
+    except (ArithmeticError, TypeError, ValueError, AttributeError):
+        raise ValueError(f'Introduce una cantidad válida para {nombre_campo}.')
+    if not cantidad.is_finite() or cantidad < 0:
+        raise ValueError(f'{nombre_campo.capitalize()} no puede ser negativo.')
+    if cantidad.as_tuple().exponent < -decimal_places:
+        raise ValueError(f'{nombre_campo.capitalize()} admite como máximo {decimal_places} decimales.')
+    if cantidad and cantidad.adjusted() >= 12 - decimal_places:
+        raise ValueError(f'{nombre_campo.capitalize()} supera el límite permitido.')
+    return cantidad
+
+
+def _ventas_facturadas_por_plato(turno, cierre, platos):
+    platos_por_id = {plato.pk: plato for plato in platos}
+    ids_por_nombre = {}
+    for plato in platos:
+        ids_por_nombre.setdefault(plato.nombre.strip().casefold(), []).append(plato.pk)
+
+    ventas = {
+        plato.pk: {
+            'cantidad': Decimal('0'),
+            'importe': Decimal('0'),
+            'precio_total': Decimal('0'),
+        }
+        for plato in platos
+    }
+    snapshots = Factura.objects.filter(
+        creado_en__gte=turno.apertura,
+        creado_en__lte=cierre,
+    ).values_list('items_snapshot', flat=True)
+    for snapshot in snapshots:
+        for item in snapshot or []:
+            plato_id = item.get('plato_id')
+            try:
+                plato_id = int(plato_id) if plato_id is not None else None
+            except (TypeError, ValueError):
+                plato_id = None
+            if plato_id not in platos_por_id:
+                nombre = str(item.get('plato', '')).strip().casefold()
+                candidatos = ids_por_nombre.get(nombre, [])
+                plato_id = candidatos[0] if len(candidatos) == 1 else None
+            if plato_id is None:
+                continue
+
+            cantidad = _decimal_o_cero(item.get('cantidad'))
+            datos = ventas[plato_id]
+            datos['cantidad'] += cantidad
+            datos['importe'] += _decimal_o_cero(item.get('subtotal'))
+            datos['precio_total'] += _decimal_o_cero(item.get('precio_unit')) * cantidad
+    return ventas
+
+
+def _cantidades_finales_productos_ipv(platos):
+    if not platos:
+        return {}
+    registros = list(ProductoIPVTurno.objects.filter(
+        plato_id__in=[plato.pk for plato in platos],
+        turno__estado='cerrado',
+        turno__cierre__isnull=False,
+    ).select_related('turno', 'plato').order_by(
+        'plato_id', '-turno__cierre', '-turno__apertura',
+    ))
+    ultimos_por_plato = {}
+    for registro in registros:
+        ultimos_por_plato.setdefault(registro.plato_id, registro)
+
+    registros_por_turno = defaultdict(list)
+    for registro in ultimos_por_plato.values():
+        registros_por_turno[registro.turno_id].append(registro)
+
+    cantidades = {}
+    for registros_turno in registros_por_turno.values():
+        turno_anterior = registros_turno[0].turno
+        ventas = _ventas_facturadas_por_plato(
+            turno_anterior,
+            turno_anterior.cierre,
+            [registro.plato for registro in registros_turno],
+        )
+        for registro in registros_turno:
+            cantidades[registro.plato_id] = (
+                registro.cantidad_inicial
+                + registro.entradas
+                - registro.merma_rotura
+                - ventas[registro.plato_id]['cantidad']
+            )
+    return cantidades
+
+
+@login_required
+@require_POST
+def configurar_ipv_turno_view(request):
+    if request.user.role not in ROLES_CON_ACCESO_FINANCIERO:
+        return JsonResponse({'error': 'Sin permiso'}, status=403)
+
+    turno = get_turno_abierto()
+    if turno is None:
+        messages.error(request, 'No hay un turno abierto para configurar el IPV.')
+        return redirect('usuarios:dashboard')
+
+    plato_ids = list(dict.fromkeys(request.POST.getlist('platos')))
+    productos_ipv_existentes = ProductoIPVTurno.objects.filter(turno=turno).exists()
+    platos = []
+    if not productos_ipv_existentes:
+        platos = list(Plato.objects.filter(pk__in=plato_ids, disponible=True).order_by('pk'))
+        if not platos:
+            messages.error(request, 'Selecciona al menos un producto de la carta.')
+            return redirect('usuarios:dashboard')
+        if len(platos) != len(plato_ids):
+            messages.error(request, 'Uno o más productos seleccionados ya no están disponibles.')
+            return redirect('usuarios:dashboard')
+
+    try:
+        fondo_inicial = _decimal_ipv_no_negativo(
+            request.POST.get('fondo_inicial_cup'),
+            'el fondo inicial',
+            decimal_places=2,
+        )
+        cantidades_iniciales = _cantidades_finales_productos_ipv(platos)
+        registros = [
+            ProductoIPVTurno(
+                turno=turno,
+                plato=plato,
+                cantidad_inicial=cantidades_iniciales.get(plato.pk, Decimal('0')),
+                entradas=Decimal('0'),
+            )
+            for plato in platos
+        ]
+    except ValueError as exc:
+        messages.error(request, str(exc))
+        return redirect('usuarios:dashboard')
+
+    with transaction.atomic():
+        turno = Turno.objects.select_for_update().filter(pk=turno.pk, estado='abierto').first()
+        if turno is None:
+            messages.error(request, 'El turno se cerró antes de configurar su IPV.')
+            return redirect('usuarios:dashboard')
+        if not ProductoIPVTurno.objects.filter(turno=turno).exists() and registros:
+            ProductoIPVTurno.objects.bulk_create(registros)
+        turno.fondo_inicial_cup = fondo_inicial
+        turno.save(update_fields=['fondo_inicial_cup'])
+
+    messages.success(request, 'El IPV del turno quedó configurado.')
+    return redirect('usuarios:dashboard')
+
+
+@login_required
+@require_POST
+def registrar_merma_ipv_view(request, producto_turno_id):
+    if request.user.role not in ROLES_CON_ACCESO_FINANCIERO:
+        return JsonResponse({'error': 'Sin permiso'}, status=403)
+    try:
+        cantidad = _decimal_ipv_no_negativo(request.POST.get('cantidad'), 'la rotura')
+        if cantidad <= 0:
+            raise ValueError('La cantidad de rotura debe ser mayor que cero.')
+        with transaction.atomic():
+            registro = ProductoIPVTurno.objects.select_for_update().select_related('turno').get(
+                pk=producto_turno_id,
+                turno__estado='abierto',
+            )
+            cierre = timezone.now()
+            venta = _ventas_facturadas_por_plato(
+                registro.turno,
+                cierre,
+                [registro.plato],
+            )[registro.plato_id]
+            disponible = (
+                registro.cantidad_inicial
+                + registro.entradas
+                - registro.merma_rotura
+                - venta['cantidad']
+            )
+            if cantidad > disponible:
+                raise ValueError('La rotura no puede superar las unidades disponibles.')
+            registro.merma_rotura += cantidad
+            registro.save(update_fields=['merma_rotura'])
+    except ProductoIPVTurno.DoesNotExist:
+        return JsonResponse({'error': 'El producto ya no pertenece a un turno abierto.'}, status=404)
+    except ValueError as exc:
+        return JsonResponse({'error': str(exc)}, status=400)
+    return JsonResponse({'ok': True, 'merma_rotura': str(registro.merma_rotura)})
 
 
 @login_required
@@ -197,128 +445,27 @@ def inventario_ventas_turno(request):
             'productos': [],
             'actualizado_en': timezone.localtime().strftime('%H:%M:%S'),
         })
-
-    ahora = timezone.now()
-    insumos = list(
-        Insumo.objects.filter(activo=True)
-        .select_related('categoria', 'categoria_inventario')
-        .order_by('nombre')
-    )
-    insumo_ids = [insumo.pk for insumo in insumos]
-    movimientos = MovimientoInventario.objects.filter(
-        insumo_id__in=insumo_ids,
-        creado_en__lte=ahora,
-    ).only(
-        'insumo_id', 'tipo', 'cantidad', 'stock_anterior', 'stock_posterior', 'motivo', 'creado_en',
-    ).order_by('insumo_id', 'creado_en', 'pk')
-
-    saldo_previo = {}
-    saldo_apertura = {}
-    movimientos_turno = {}
-    for movimiento in movimientos:
-        insumo_id = movimiento.insumo_id
-        if movimiento.creado_en < turno.apertura:
-            saldo_previo[insumo_id] = movimiento.stock_posterior
-            continue
-        saldo_apertura.setdefault(insumo_id, movimiento.stock_anterior)
-        datos = movimientos_turno.setdefault(insumo_id, {
-            'entradas': Decimal('0'),
-            'salidas': Decimal('0'),
-            'merma': Decimal('0'),
-        })
-        if movimiento.tipo == 'entrada':
-            datos['entradas'] += movimiento.cantidad
-        elif movimiento.tipo == 'merma':
-            datos['merma'] += movimiento.cantidad
-            datos['salidas'] += movimiento.cantidad
-        elif movimiento.tipo == 'salida':
-            datos['salidas'] += movimiento.cantidad
-            if 'rotura' in (movimiento.motivo or '').casefold():
-                datos['merma'] += movimiento.cantidad
-
-    insumo_por_nombre = {insumo.nombre.strip().casefold(): insumo.pk for insumo in insumos}
-    ventas = {}
-    facturas = Factura.objects.filter(
-        creado_en__gte=turno.apertura,
-        creado_en__lte=ahora,
-    ).values_list('items_snapshot', flat=True)
-    for snapshot in facturas:
-        for item in snapshot or []:
-            nombre = str(item.get('plato', '')).strip().casefold()
-            if not nombre:
-                continue
-            datos = ventas.setdefault(nombre, {
-                'nombre': str(item.get('plato', '')).strip(),
-                'cantidad': Decimal('0'),
-                'importe': Decimal('0'),
-                'precio_total': Decimal('0'),
-            })
-            cantidad = _decimal_o_cero(item.get('cantidad'))
-            datos['cantidad'] += cantidad
-            datos['importe'] += _decimal_o_cero(item.get('subtotal'))
-            datos['precio_total'] += _decimal_o_cero(item.get('precio_unit')) * cantidad
-
-    platos_por_nombre = {
-        plato.nombre.strip().casefold(): plato
-        for plato in Plato.objects.select_related('categoria').all()
-    }
-    productos = []
-    for insumo in insumos:
-        mov = movimientos_turno.get(insumo.pk, {})
-        nombre_key = insumo.nombre.strip().casefold()
-        venta = ventas.get(nombre_key, {})
-        inicial = saldo_apertura.get(insumo.pk, saldo_previo.get(insumo.pk, insumo.stock_actual))
-        entradas = mov.get('entradas', Decimal('0'))
-        salidas = mov.get('salidas', Decimal('0'))
-        merma = mov.get('merma', Decimal('0'))
-        productos.append({
-            'nombre': insumo.nombre,
-            'area': insumo.get_tipo_inventario_display() if insumo.tipo_inventario else 'Por clasificar',
-            'categoria': (
-                insumo.categoria_inventario.nombre if insumo.categoria_inventario
-                else insumo.categoria.nombre if insumo.categoria
-                else 'Sin categoría'
-            ),
-            'unidad': insumo.get_unidad_display(),
-            'saldo_inicial': str(inicial),
-            'entradas': str(entradas),
-            'cantidad_existencia': str(insumo.stock_actual),
-            'cantidad_vendida': str(venta.get('cantidad', Decimal('0'))),
-            'saldo_final': str(inicial + entradas - salidas),
-            'precio_venta': str(insumo.precio),
-            'importe_venta': str(venta.get('importe', Decimal('0'))),
-            'merma_rotura': str(merma),
-            'control_existencia': True,
-        })
-
-    for nombre_key, venta in ventas.items():
-        if nombre_key in insumo_por_nombre:
-            continue
-        plato = platos_por_nombre.get(nombre_key)
-        cantidad = venta['cantidad']
-        precio_venta = plato.precio if plato else (
-            venta['precio_total'] / cantidad if cantidad else Decimal('0')
+    if not ProductoIPVTurno.objects.filter(turno=turno).exists():
+        platos = list(
+            Plato.objects.filter(disponible=True)
+            .select_related('categoria')
+            .order_by('categoria__orden', 'nombre')
         )
-        productos.append({
-            'nombre': venta['nombre'],
-            'categoria': plato.categoria.nombre if plato and plato.categoria else 'Sin categoría',
-            'unidad': 'Unidad',
-            'saldo_inicial': None,
-            'entradas': None,
-            'cantidad_existencia': None,
-            'cantidad_vendida': str(cantidad),
-            'saldo_final': None,
-            'precio_venta': str(precio_venta),
-            'importe_venta': str(venta['importe']),
-            'merma_rotura': None,
-            'control_existencia': False,
-        })
-    productos.sort(key=lambda producto: producto['nombre'].casefold())
-
+        cantidades_iniciales = _cantidades_finales_productos_ipv(platos)
+        ProductoIPVTurno.objects.bulk_create([
+            ProductoIPVTurno(
+                turno=turno,
+                plato=plato,
+                cantidad_inicial=cantidades_iniciales.get(plato.pk, Decimal('0')),
+                entradas=Decimal('0'),
+            )
+            for plato in platos
+        ])
+    datos = _datos_ipv_turno(turno)
     return JsonResponse({
+        **datos,
         'turno_abierto': True,
-        'actualizado_en': timezone.localtime(ahora).strftime('%H:%M:%S'),
-        'productos': productos,
+        'productos': datos['filas'],
     })
 
 
@@ -557,7 +704,7 @@ def cerrar_turno_view(request):
             turno=turno_pendiente,
         )
         messages.success(request, f'Turno cerrado correctamente. Resumen: {turno.resumen}')
-        if request.user.role in ROLES_CON_ACCESO_FINANCIERO:
+        if request.user.role == 'administrador':
             return redirect('usuarios:historial_turno_detalle', turno_id=turno.pk)
     except PermissionError as exc:
         messages.error(request, str(exc))
@@ -568,8 +715,8 @@ def cerrar_turno_view(request):
 
 @login_required
 def historial_turnos_view(request):
-    if request.user.role not in ROLES_CON_ACCESO_FINANCIERO:
-        messages.error(request, 'Solo el administrador y la cajera pueden ver el historial de turnos.')
+    if request.user.role != 'administrador':
+        messages.error(request, 'Solo el administrador puede ver el historial de turnos.')
         return redirect('usuarios:dashboard')
 
     turnos = Turno.objects.filter(estado='cerrado').prefetch_related('usuarios').order_by('-cierre', '-fecha')
@@ -900,11 +1047,17 @@ def reportes_view(request):
 @login_required
 def historial_turno_detalle_view(request, turno_id):
     if request.user.role not in ROLES_CON_ACCESO_FINANCIERO:
-        messages.error(request, 'Solo el administrador y la cajera pueden ver el detalle de un turno.')
+        messages.error(request, 'Solo caja o el administrador pueden ver el detalle del turno actual.')
         return redirect('usuarios:dashboard')
 
     turno = get_object_or_404(Turno.objects.prefetch_related('usuarios'), pk=turno_id)
+    if request.user.role == 'cajera' and turno.estado == 'cerrado':
+        messages.error(request, 'La cajera no puede consultar turnos cerrados anteriores.')
+        return redirect('usuarios:dashboard')
     data = turno.resumen_financiero
+    datos_ipv = _datos_ipv_turno(turno)
+    data['fondo_inicial_cup'] = turno.fondo_inicial_cup
+    data['efectivo_esperado_cup'] = Decimal(datos_ipv['efectivo_final_cup'])
     context = {
         'turno': turno,
         'detalles': data,
@@ -923,153 +1076,64 @@ def ipv_turno(request, turno_id):
         return JsonResponse({'error': 'Sin permiso'}, status=403)
 
     turno = get_object_or_404(Turno, pk=turno_id)
+    if request.user.role == 'cajera' and turno.estado == 'cerrado':
+        return JsonResponse({'error': 'Sin permiso'}, status=403)
     return JsonResponse(_datos_ipv_turno(turno))
 
 
 def _datos_ipv_turno(turno):
-    apertura = turno.apertura
-    # Para turno cerrado usamos el cierre exacto; para el abierto, ahora mismo.
-    cierre = turno.cierre if turno.estado == 'cerrado' else timezone.now()
-
-    # ── Movimientos de inventario ──────────────────────────────────────────────
-    insumos = list(
-        Insumo.objects.filter(activo=True)
-        .select_related('categoria', 'categoria_inventario')
-        .order_by('nombre')
+    cierre = turno.cierre if turno.estado == 'cerrado' and turno.cierre else timezone.now()
+    registros = list(
+        ProductoIPVTurno.objects.filter(turno=turno)
+        .select_related('plato__categoria')
+        .order_by('plato__nombre')
     )
-    insumo_ids = [insumo.pk for insumo in insumos]
-
-    movimientos = (
-        MovimientoInventario.objects.filter(
-            insumo_id__in=insumo_ids,
-            creado_en__lte=cierre,
-        )
-        .only(
-            'insumo_id', 'tipo', 'cantidad',
-            'stock_anterior', 'stock_posterior', 'motivo', 'creado_en',
-        )
-        .order_by('insumo_id', 'creado_en', 'pk')
+    ventas = _ventas_facturadas_por_plato(turno, cierre, [registro.plato for registro in registros])
+    facturas = Factura.objects.filter(creado_en__gte=turno.apertura, creado_en__lte=cierre)
+    pagos = facturas.aggregate(
+        efectivo=Sum('monto_efectivo_cup'),
+        transferencia=Sum('monto_transferencia_cup'),
+        usd=Sum('monto_usd'),
     )
-
-    existencia_por_insumo = {}
-    movimientos_turno = {}
-
-    for movimiento in movimientos:
-        iid = movimiento.insumo_id
-        existencia_por_insumo[iid] = movimiento.stock_posterior
-        if movimiento.creado_en < apertura:
-            continue
-        datos = movimientos_turno.setdefault(iid, {
-            'entradas': Decimal('0'),
-            'salidas': Decimal('0'),
-            'merma': Decimal('0'),
-        })
-        if movimiento.tipo == 'entrada':
-            datos['entradas'] += movimiento.cantidad
-        elif movimiento.tipo == 'merma':
-            datos['merma'] += movimiento.cantidad
-            datos['salidas'] += movimiento.cantidad
-        elif movimiento.tipo == 'salida':
-            datos['salidas'] += movimiento.cantidad
-            if 'rotura' in (movimiento.motivo or '').casefold():
-                datos['merma'] += movimiento.cantidad
-
-    # ── Ventas de facturas ─────────────────────────────────────────────────────
-    insumo_por_nombre = {
-        insumo.nombre.strip().casefold(): insumo.pk for insumo in insumos
-    }
-    ventas = {}
-    facturas = Factura.objects.filter(
-        creado_en__gte=apertura,
-        creado_en__lte=cierre,
-    ).values_list('items_snapshot', flat=True)
-
-    for snapshot in facturas:
-        for item in snapshot or []:
-            nombre = str(item.get('plato', '')).strip().casefold()
-            if not nombre:
-                continue
-            datos = ventas.setdefault(nombre, {
-                'nombre': str(item.get('plato', '')).strip(),
-                'cantidad': Decimal('0'),
-                'importe': Decimal('0'),
-                'precio_total_acum': Decimal('0'),
-            })
-            cantidad = _decimal_o_cero(item.get('cantidad'))
-            datos['cantidad'] += cantidad
-            datos['importe'] += _decimal_o_cero(item.get('subtotal'))
-            datos['precio_total_acum'] += _decimal_o_cero(item.get('precio_unit')) * cantidad
-
-    from carta.models import Plato
-    platos_por_nombre = {
-        plato.nombre.strip().casefold(): plato
-        for plato in Plato.objects.select_related('categoria').all()
-    }
-
-    # ── Construcción de filas del IPV ──────────────────────────────────────────
+    efectivo_ventas = pagos['efectivo'] or Decimal('0')
+    fondo_inicial = turno.fondo_inicial_cup
     filas = []
     total_importe = Decimal('0')
-
-    for insumo in insumos:
-        mov = movimientos_turno.get(insumo.pk, {})
-        nombre_key = insumo.nombre.strip().casefold()
-        venta = ventas.get(nombre_key, {})
-        entradas = mov.get('entradas', Decimal('0'))
-        salidas = mov.get('salidas', Decimal('0'))
-        merma = mov.get('merma', Decimal('0'))
-        cantidad_vendida = venta.get('cantidad', Decimal('0'))
-        importe_venta = venta.get('importe', Decimal('0'))
-        existencia = existencia_por_insumo.get(insumo.pk, insumo.stock_actual)
-
-        total_importe += importe_venta
-
-        filas.append({
-            'nombre': insumo.nombre,
-            'area': insumo.get_tipo_inventario_display() if insumo.tipo_inventario else 'Por clasificar',
-            'categoria': (
-                insumo.categoria_inventario.nombre if insumo.categoria_inventario
-                else insumo.categoria.nombre if insumo.categoria
-                else 'Sin categoría'
-            ),
-            'unidad': insumo.get_unidad_display(),
-            'saldo_inicial': None,
-            'entradas': str(entradas),
-            'cantidad_existencia': str(existencia),
-            'cantidad_vendida': str(cantidad_vendida),
-            'saldo_final': None,
-            'precio_venta': str(insumo.precio),
-            'importe_venta': str(importe_venta),
-            'merma_rotura': str(merma),
-            'control_existencia': True,
-        })
-
-    # Productos vendidos sin insumo en inventario (platos sin stock tracking)
-    for nombre_key, venta in ventas.items():
-        if nombre_key in insumo_por_nombre:
-            continue
-        plato = platos_por_nombre.get(nombre_key)
-        cantidad = venta['cantidad']
-        precio_venta = plato.precio if plato else (
-            venta['precio_total_acum'] / cantidad if cantidad else Decimal('0')
-        )
+    for registro in registros:
+        plato = registro.plato
+        venta = ventas[plato.pk]
+        cantidad_vendida = venta['cantidad']
         importe_venta = venta['importe']
+        saldo_final = (
+            registro.cantidad_inicial
+            + registro.entradas
+            - cantidad_vendida
+            - registro.merma_rotura
+        )
+        precio_venta = (
+            importe_venta / cantidad_vendida
+            if cantidad_vendida
+            else plato.precio
+        )
         total_importe += importe_venta
         filas.append({
-            'nombre': venta['nombre'],
-            'categoria': plato.categoria.nombre if plato and plato.categoria else 'Sin categoría',
+            'id': registro.pk,
+            'plato_id': plato.pk,
+            'nombre': plato.nombre,
+            'area': 'Carta',
+            'categoria': plato.categoria.nombre if plato.categoria else 'Sin categoría',
             'unidad': 'Unidad',
-            'saldo_inicial': None,
-            'entradas': None,
-            'cantidad_existencia': None,
-            'cantidad_vendida': str(cantidad),
-            'saldo_final': None,
+            'saldo_inicial': str(registro.cantidad_inicial),
+            'entradas': str(registro.entradas),
+            'cantidad_existencia': str(saldo_final),
+            'cantidad_vendida': str(cantidad_vendida),
+            'saldo_final': str(saldo_final),
             'precio_venta': str(precio_venta),
             'importe_venta': str(importe_venta),
-            'merma_rotura': None,
-            'control_existencia': False,
+            'merma_rotura': str(registro.merma_rotura),
+            'merma_url': reverse('usuarios:registrar_merma_ipv', args=[registro.pk]),
+            'control_existencia': True,
         })
-
-    filas.sort(key=lambda f: f['nombre'].casefold())
 
     return {
         'turno_id': turno.pk,
@@ -1077,6 +1141,11 @@ def _datos_ipv_turno(turno):
         'fecha': turno.fecha.strftime('%d/%m/%Y'),
         'actualizado_en': timezone.localtime(cierre).strftime('%H:%M:%S'),
         'total_importe': str(total_importe),
+        'fondo_inicial_cup': f'{fondo_inicial:.2f}',
+        'ventas_efectivo_cup': f'{efectivo_ventas:.2f}',
+        'efectivo_final_cup': f'{fondo_inicial + efectivo_ventas:.2f}',
+        'ventas_transferencia_cup': f'{pagos["transferencia"] or Decimal("0"):.2f}',
+        'ventas_usd': f'{pagos["usd"] or Decimal("0"):.2f}',
         'filas': filas,
     }
 
@@ -1101,6 +1170,8 @@ def ipv_turno_pdf(request, turno_id):
         return JsonResponse({'error': 'Sin permiso'}, status=403)
 
     turno = get_object_or_404(Turno, pk=turno_id)
+    if request.user.role == 'cajera' and turno.estado == 'cerrado':
+        return JsonResponse({'error': 'Sin permiso'}, status=403)
     datos = _datos_ipv_turno(turno)
     buffer = BytesIO()
     pagina = landscape(A4)
@@ -1185,6 +1256,14 @@ def ipv_turno_pdf(request, turno_id):
             f"Actualizado {escape(datos['actualizado_en'])}",
             estilos['Normal'],
         ),
+        Paragraph(
+            f"Fondo inicial: {escape(datos['fondo_inicial_cup'])} CUP · "
+            f"Efectivo vendido: {escape(datos['ventas_efectivo_cup'])} CUP · "
+            f"Efectivo esperado: {escape(datos['efectivo_final_cup'])} CUP · "
+            f"Transferencias: {escape(datos['ventas_transferencia_cup'])} CUP · "
+            f"USD: {escape(datos['ventas_usd'])}",
+            estilos['Normal'],
+        ),
         Spacer(1, 8 * mm),
         tabla,
     ]
@@ -1200,6 +1279,8 @@ def ipv_turno_excel(request, turno_id):
         return JsonResponse({'error': 'Sin permiso'}, status=403)
 
     turno = get_object_or_404(Turno, pk=turno_id)
+    if request.user.role == 'cajera' and turno.estado == 'cerrado':
+        return JsonResponse({'error': 'Sin permiso'}, status=403)
     datos = _datos_ipv_turno(turno)
     libro = Workbook()
     hoja = libro.active
@@ -1213,7 +1294,13 @@ def ipv_turno_excel(request, turno_id):
         'Actualizado',
         datos['actualizado_en'],
     ])
-    hoja.append([])
+    hoja.append([
+        'Fondo inicial CUP', Decimal(datos['fondo_inicial_cup']),
+        'Efectivo vendido CUP', Decimal(datos['ventas_efectivo_cup']),
+        'Efectivo esperado CUP', Decimal(datos['efectivo_final_cup']),
+        'Transferencias CUP', Decimal(datos['ventas_transferencia_cup']),
+        'Ventas USD', Decimal(datos['ventas_usd']),
+    ])
     hoja.append([titulo for titulo, _ in IPV_COLUMNAS])
     for celda in hoja[4]:
         celda.font = Font(bold=True, color='FFFFFF')

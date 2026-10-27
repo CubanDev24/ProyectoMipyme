@@ -244,7 +244,28 @@ class MeseraConsumer(AsyncWebsocketConsumer):
         data = json.loads(text_data)
         accion = data.get('accion')
 
-        if accion in ['crear_pedido', 'crear_pedido_para_llevar']:
+        if accion == 'actualizar_nota_item':
+            usuario = self.scope.get('user')
+            if not getattr(usuario, 'is_authenticated', False) or getattr(usuario, 'role', None) != 'mesera':
+                await self.send(text_data=json.dumps({
+                    'tipo': 'error_nota',
+                    'mensaje': 'Solo la mesera puede editar notas de pedidos.',
+                }))
+                return
+            pedido, error = await self.actualizar_nota_item(
+                data.get('pedido_id'),
+                data.get('item_id'),
+                data.get('nota', ''),
+            )
+            if pedido:
+                await self._broadcast_actualizacion(pedido)
+            else:
+                await self.send(text_data=json.dumps({
+                    'tipo': 'error_nota',
+                    'mensaje': error or 'No se pudo guardar la nota.',
+                }))
+
+        elif accion in ['crear_pedido', 'crear_pedido_para_llevar']:
             if accion == 'crear_pedido_para_llevar':
                 nombre_cliente = str(data.get('nombre_cliente', '')).strip()
                 telefono_cliente = str(data.get('telefono_cliente', '')).strip()
@@ -570,6 +591,35 @@ class MeseraConsumer(AsyncWebsocketConsumer):
             estado__in=['cerrado', 'rechazado'],
         ).prefetch_related('items__plato').select_related('mesa')
         return [serializar_pedido(p) for p in qs]
+
+    @database_sync_to_async
+    def actualizar_nota_item(self, pedido_id, item_id, nota):
+        nota = str(nota or '').strip()
+        if len(nota) > 200:
+            return None, 'La nota no puede superar los 200 caracteres.'
+        try:
+            with transaction.atomic():
+                pedido = Pedido.objects.select_for_update().filter(
+                    pk=pedido_id,
+                    modalidad='mesa',
+                    mesa__abierta=True,
+                    sesion_id=F('mesa__sesion_id'),
+                    estado__in=['por_confirmar', 'pendiente'],
+                ).select_related('mesa').first()
+                if not pedido:
+                    return None, 'Solo puedes editar notas mientras el pedido espera preparación.'
+                item = ItemPedido.objects.select_for_update().filter(
+                    pk=item_id,
+                    pedido=pedido,
+                ).first()
+                if not item:
+                    return None, 'La línea del pedido ya no existe.'
+                item.nota = nota
+                item.save(update_fields=['nota'])
+                pedido = Pedido.objects.prefetch_related('items__plato').select_related('mesa').get(pk=pedido.pk)
+                return serializar_pedido(pedido), None
+        except (TypeError, ValueError):
+            return None, 'No se pudo guardar la nota.'
 
     @database_sync_to_async
     def get_mesas(self):
@@ -1304,6 +1354,7 @@ class CajaConsumer(AsyncWebsocketConsumer):
 
         items_snapshot = [
             {
+                'plato_id': i.plato_id,
                 'plato': i.plato.nombre,
                 'categoria': i.plato.categoria.nombre if i.plato.categoria else 'Sin categoría',
                 'cantidad': i.cantidad,
