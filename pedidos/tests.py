@@ -182,6 +182,18 @@ class FacturaWorkflowTests(TestCase):
     def test_cocina_ve_unidades_cobradas_hoy_por_plato_sin_importes(self):
         User = get_user_model()
         cocina = User.objects.create_user(username='cocina_ventas', password='123456', role='cocina')
+        self.plato.imagen = 'carta/pizza.png'
+        self.plato.save(update_fields=['imagen'])
+        self.insumo_receta.unidad = 'g'
+        self.insumo_receta.save(update_fields=['unidad'])
+        RecetaItem.objects.filter(plato=self.plato, insumo=self.insumo_receta).update(cantidad='0.500')
+        segundo_insumo = Insumo.objects.create(
+            nombre='Zanahoria para receta de pruebas',
+            tipo_inventario='cocina',
+            stock_actual=Decimal('10'),
+            unidad='kg',
+        )
+        RecetaItem.objects.create(plato=self.plato, insumo=segundo_insumo, cantidad='0.250')
         Factura.objects.create(
             pedido=self.pedido,
             mesa_numero=self.mesa.numero,
@@ -236,9 +248,28 @@ class FacturaWorkflowTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         data = response.json()
-        self.assertEqual(data['ventas'], [{'plato': self.plato.nombre, 'cantidad': 4}])
+        self.assertEqual(data['ventas'], [{
+            'plato': self.plato.nombre,
+            'cantidad': 4,
+            'imagen_url': self.plato.imagen.url,
+            'ingredientes': [
+                {
+                    'insumo': self.insumo_receta.nombre,
+                    'cantidad_por_plato': '0.5',
+                    'cantidad_total': '2',
+                    'unidad': 'gramo',
+                },
+                {
+                    'insumo': segundo_insumo.nombre,
+                    'cantidad_por_plato': '0.25',
+                    'cantidad_total': '1',
+                    'unidad': 'kilogramo',
+                },
+            ],
+        }])
         self.assertEqual(set(data), {'fecha', 'actualizado_en', 'ventas'})
-        self.assertEqual(set(data['ventas'][0]), {'plato', 'cantidad'})
+        self.assertEqual(set(data['ventas'][0]), {'plato', 'cantidad', 'imagen_url', 'ingredientes'})
+        self.assertNotIn('subtotal', data['ventas'][0])
 
         self.client.force_login(get_user_model().objects.create_user(
             username='mesera_ventas_no_autorizada', role='mesera',

@@ -172,6 +172,33 @@ def cocina_ventas_hoy(request):
             venta = ventas.setdefault(clave, {'plato': plato, 'cantidad': 0})
             venta['cantidad'] += cantidad
 
+    ventas_por_plato_id = {
+        clave[1]: venta
+        for clave, venta in ventas.items()
+        if clave[0] == 'id' and clave[1] is not None
+    }
+    for plato in Plato.objects.filter(pk__in=ventas_por_plato_id).only('id', 'imagen'):
+        ventas_por_plato_id[plato.pk]['imagen_url'] = plato.imagen.url if plato.imagen else None
+
+    recetas = RecetaItem.objects.filter(
+        plato_id__in=ventas_por_plato_id,
+    ).select_related('insumo').order_by('plato_id', 'insumo__nombre')
+    for receta in recetas:
+        venta = ventas_por_plato_id[receta.plato_id]
+        venta.setdefault('ingredientes', []).append({
+            'insumo': receta.insumo.nombre,
+            'cantidad_por_plato': format(receta.cantidad.normalize(), 'f'),
+            'cantidad_total': format(
+                (receta.cantidad * venta['cantidad']).normalize(),
+                'f',
+            ),
+            'unidad': receta.insumo.get_unidad_display().lower(),
+        })
+
+    for venta in ventas.values():
+        venta.setdefault('ingredientes', [])
+        venta.setdefault('imagen_url', None)
+
     return JsonResponse({
         'fecha': hoy.strftime('%d/%m/%Y'),
         'actualizado_en': timezone.localtime().strftime('%H:%M:%S'),
