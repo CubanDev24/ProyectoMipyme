@@ -399,6 +399,15 @@
           } else {
             sonidoCambioEstado();
           }
+        } else if (d.tipo === 'pedido_cancelado') {
+          Object.entries(pedidos).forEach(([key, cuenta]) => {
+            const mismaCuenta = d.pedido.es_para_llevar
+              ? cuenta.grupo_para_llevar === d.pedido.grupo_para_llevar
+              : !cuenta.es_para_llevar && cuenta.mesa_numero === d.pedido.mesa_numero;
+            if (mismaCuenta) delete pedidos[key];
+          });
+          renderLista();
+          toast(`${d.pedido.etiqueta} fue cancelado por su estación.`, 'orange');
         } else if (d.tipo === 'factura_solicitada') {
           const etiqueta = d.factura?.etiqueta || (d.mesa_numero != null ? `Mesa ${d.mesa_numero}` : 'Pedido para llevar');
           toast(`${etiqueta} solicitó la factura`, 'orange');

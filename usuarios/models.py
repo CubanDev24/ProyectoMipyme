@@ -300,7 +300,7 @@ def cerrar_turno(usuario, observaciones='', turno=None):
     pedidos_mesa_pendientes = Pedido.objects.filter(
         modalidad='mesa',
         mesa__abierta=True,
-    ).exclude(estado__in=['cerrado', 'rechazado'])
+    ).exclude(estado__in=['cerrado', 'rechazado', 'cancelado'])
     if pedidos_mesa_pendientes.exists():
         raise ValueError('No se puede cerrar el turno: hay pedidos pendientes en una mesa.')
 
@@ -309,7 +309,7 @@ def cerrar_turno(usuario, observaciones='', turno=None):
         creado_en__gte=turno.apertura,
         creado_en__lte=cierre,
         factura__isnull=True,
-    ).exclude(estado='rechazado')
+    ).exclude(estado__in=['rechazado', 'cancelado'])
     if tickets_sin_cobrar.exists():
         raise ValueError('No se puede cerrar el turno: hay tickets para llevar sin cobrar.')
 

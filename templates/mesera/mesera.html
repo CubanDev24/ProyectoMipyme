@@ -2405,7 +2405,7 @@
 
         function sincronizarTicketsParaLlevarIniciales() {
             const gruposActivos = new Set(pedidosParaLlevar
-                .filter(pedido => pedido.estado !== 'cerrado' && pedido.grupo_para_llevar)
+                .filter(pedido => !['cerrado', 'cancelado'].includes(pedido.estado) && pedido.grupo_para_llevar)
                 .map(pedido => String(pedido.grupo_para_llevar)));
             gruposActivos.forEach(grupoId => registrarTicketParaLlevar(grupoId, true));
             [...ticketsParaLlevarNoVistos].forEach(grupoId => {
@@ -2438,7 +2438,7 @@
         function abrirModalTicketsParaLlevar() {
             const modal = document.getElementById('takeaway-tickets-modal');
             pedidosParaLlevar
-                .filter(pedido => pedido.estado !== 'cerrado')
+                .filter(pedido => !['cerrado', 'cancelado'].includes(pedido.estado))
                 .forEach(pedido => registrarTicketParaLlevar(pedido.grupo_para_llevar));
             ticketsParaLlevarNoVistos.clear();
             guardarEstadoTicketsParaLlevar();
@@ -2502,8 +2502,25 @@
             };
             ws.onmessage = event => {
                 const data = JSON.parse(event.data);
+                if (data.tipo === 'error_cancelacion') {
+                    showToast('Cancelación no procesada', data.mensaje || 'No se pudo actualizar la solicitud.', 'error');
+                    document.querySelectorAll('.cancel-order-submit').forEach(button => {
+                        button.disabled = false;
+                        button.innerHTML = '<i class="fa-solid fa-paper-plane" aria-hidden="true"></i>Enviar solicitud';
+                    });
+                    return;
+                }
                 if (data.tipo === 'error_nota') {
                     showToast('Nota no guardada', data.mensaje || 'No se pudo actualizar la nota.', 'error');
+                    return;
+                }
+                if (data.tipo === 'notificacion_cancelacion_barra') {
+                    showToast(
+                        'Cancelación solicitada a Barra',
+                        `${data.pedido.etiqueta || `Mesa ${data.pedido.mesa_numero}`} · ${data.pedido.motivo_cancelacion}`,
+                        'error'
+                    );
+                    sonidoPedidoNuevo();
                     return;
                 }
                 if (data.tipo === 'estado_inicial') {
@@ -2531,7 +2548,17 @@
                         && data.pedido.estado === 'listo'
                         && pedidoAnterior?.estado !== 'listo'
                         && pedidoParaLlevarAnterior?.estado !== 'listo';
-                    if (data.pedido.es_para_llevar) {
+                    const nuevaCancelacion = data.tipo === 'pedido_actualizado'
+                        && data.pedido.cancelacion_solicitada
+                        && !pedidoAnterior?.cancelacion_solicitada
+                        && !pedidoParaLlevarAnterior?.cancelacion_solicitada;
+                    if (data.pedido.estado === 'cancelado') {
+                        if (tablaActual) {
+                            tablaActual.pedidos = (tablaActual.pedidos || []).filter(pedido => pedido.id !== data.pedido.id);
+                            sincronizarPedidoMesa(tablaActual);
+                        }
+                        pedidosParaLlevar = pedidosParaLlevar.filter(pedido => pedido.id !== data.pedido.id);
+                    } else if (data.pedido.es_para_llevar) {
                         registrarTicketParaLlevar(data.pedido.grupo_para_llevar, true);
                         actualizarPedidoParaLlevar(data.pedido);
                     } else if (data.pedido.estado === 'rechazado') {
@@ -2550,6 +2577,12 @@
                     }
                     if (data.tipo === 'pedido_actualizado' && data.pedido.estado === 'rechazado') {
                         showToast('Solicitud rechazada', `Se rechazó el pedido de ${data.pedido.etiqueta || `Mesa ${data.pedido.mesa_numero}`}.`);
+                    }
+                    if (nuevaCancelacion && data.pedido.destino !== 'barra') {
+                        showToast('Cancelación solicitada', `${data.pedido.etiqueta || `Mesa ${data.pedido.mesa_numero}`} · ${data.pedido.motivo_cancelacion}`);
+                    }
+                    if (data.tipo === 'pedido_actualizado' && data.pedido.estado === 'cancelado') {
+                        showToast('Pedido cancelado', `${data.pedido.etiqueta || `Mesa ${data.pedido.mesa_numero}`} fue cancelado por su estación.`);
                     }
                     if (cambioAListo && data.pedido.es_para_llevar) showToast('Pedido para llevar listo', `${data.pedido.etiqueta} está listo para entregar.`);
                     else if (cambioAListo) mostrarAlertaPedidoListo(data.pedido);
@@ -2726,7 +2759,9 @@
                 pedidoId: pedido.id,
                 destino: pedido.destino,
                 estado: pedido.estado,
-                estadoDisplay: pedido.estado_display
+                estadoDisplay: pedido.estado_display,
+                cancelacion_solicitada: pedido.cancelacion_solicitada,
+                motivo_cancelacion: pedido.motivo_cancelacion
             })));
         }
 
@@ -2738,8 +2773,10 @@
                 en_preparacion: 'En preparación',
                 listo: 'Listo',
                 servido: 'Servido',
+                cancelado: 'Cancelado',
                 cerrado: 'Cerrado'
             };
+            if (ord.cancelacion_solicitada) return 'Cancelación solicitada';
             return ord.estadoDisplay || labels[ord.estado] || 'Pendiente';
         }
 
@@ -2973,7 +3010,7 @@
             const badgeBarra = document.getElementById('badge-bar-count');
             badgeBarra.textContent = totalPendientesBarra;
             badgeBarra.classList.toggle('hidden', totalPendientesBarra === 0);
-            const ticketsParaLlevar = new Set(pedidosParaLlevar.filter(pedido => pedido.estado !== 'cerrado').map(pedido => pedido.grupo_para_llevar));
+            const ticketsParaLlevar = new Set(pedidosParaLlevar.filter(pedido => !['cerrado', 'cancelado'].includes(pedido.estado)).map(pedido => pedido.grupo_para_llevar));
             const badgeParaLlevar = document.getElementById('badge-takeaway-count');
             badgeParaLlevar.textContent = ticketsParaLlevar.size;
             badgeParaLlevar.classList.toggle('hidden', ticketsParaLlevar.size === 0);
@@ -2991,7 +3028,7 @@
         }
 
         function resumenCuentaMesa(table) {
-            const pedidosActivos = (table.pedidos || []).filter(pedido => !['cerrado', 'rechazado'].includes(pedido.estado));
+            const pedidosActivos = (table.pedidos || []).filter(pedido => !['cerrado', 'rechazado', 'cancelado'].includes(pedido.estado));
             const pedidosSolicitados = pedidosActivos.filter(pedido => pedido.cuenta_solicitada);
             const pedidosPendientes = pedidosActivos.filter(pedido => !pedido.cuenta_solicitada);
             const pedidosSinEnviar = table.newOrder || [];
@@ -3099,6 +3136,10 @@
             modal.classList.add('opacity-0', 'pointer-events-none');
             activeTableId = null;
         }
+
+        document.getElementById('table-modal').addEventListener('click', event => {
+            if (event.target === event.currentTarget) closeModal();
+        });
 
         // ACCIONES FOOTER DEL MODAL SEGÚN ESTADO
         function renderModalFooter(table) {
@@ -3297,6 +3338,8 @@
 
             let subtotal = 0;
             const solicitudesClienteRenderizadas = new Set();
+            const solicitudesCancelacionRenderizadas = new Set();
+            const motivosCancelacionRenderizados = new Set();
 
             displayOrder.forEach(ord => {
                 const item = menuItems.find(m => m.id === ord.itemId);
@@ -3306,6 +3349,14 @@
                 subtotal += itemTotal;
                 const mostrarEnviarSolicitud = ord.estado === 'por_confirmar' && !solicitudesClienteRenderizadas.has(ord.pedidoId);
                 if (mostrarEnviarSolicitud) solicitudesClienteRenderizadas.add(ord.pedidoId);
+                const mostrarCancelarPedido = ord.pedidoId
+                    && ord.estado === 'pendiente'
+                    && !ord.cancelacion_solicitada
+                    && !solicitudesCancelacionRenderizadas.has(ord.pedidoId);
+                if (mostrarCancelarPedido) solicitudesCancelacionRenderizadas.add(ord.pedidoId);
+                const mostrarMotivoCancelacion = ord.cancelacion_solicitada
+                    && !motivosCancelacionRenderizados.has(ord.pedidoId);
+                if (mostrarMotivoCancelacion) motivosCancelacionRenderizados.add(ord.pedidoId);
 
                 const row = document.createElement('div');
                 row.className = "p-2.5 rounded-xl bg-slate-900 border border-slate-800 space-y-2";
@@ -3313,7 +3364,7 @@
                     <div class="flex items-center justify-between">
                         <div class="flex items-center gap-2 min-w-0">
                             <span class="text-xs font-bold text-white truncate">${item.name}</span>
-                            <span class="px-2 py-0.5 rounded-md text-[10px] font-semibold ${ord.estado === 'listo' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : ord.estado === 'en_preparacion' ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20' : ord.estado === 'servido' ? 'bg-sky-500/10 text-sky-400 border border-sky-500/20' : 'bg-slate-800 text-slate-400 border border-slate-700'}">${estadoPlato(ord)}</span>
+                            <span class="px-2 py-0.5 rounded-md text-[10px] font-semibold ${ord.cancelacion_solicitada ? 'bg-rose-500/10 text-rose-300 border border-rose-500/20' : ord.estado === 'listo' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : ord.estado === 'en_preparacion' ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20' : ord.estado === 'servido' ? 'bg-sky-500/10 text-sky-400 border border-sky-500/20' : 'bg-slate-800 text-slate-400 border border-slate-700'}">${estadoPlato(ord)}</span>
                         </div>
                         <span class="text-xs font-semibold text-emerald-400">$${itemTotal.toFixed(2)}</span>
                     </div>
@@ -3324,9 +3375,12 @@
                             ${ord.pedidoId ? '' : `<button onclick="updateOrderQty(${item.id}, 1)" class="text-slate-400 hover:text-emerald-400"><i class="fa-solid fa-plus text-[10px]"></i></button>`}
                         </div>
                         ${!ord.pedidoId ? `<button type="button" onclick="removeOrderItem(${item.id})" ${table.comandaEnviandose ? 'disabled' : ''} aria-label="Eliminar ${escaparHtml(item.name)} de la comanda" title="Eliminar producto sin enviar" class="order-item-remove"><i class="fa-solid fa-trash-can" aria-hidden="true"></i></button>` : ''}
-                        ${['por_confirmar', 'pendiente'].includes(ord.estado) ? `<input type="text" maxlength="200" placeholder="Añadir nota" aria-label="Nota para ${escaparHtml(item.name)}" value="${escaparHtml(ord.note || '')}" onchange="updateOrderNote(${item.id}, ${ord.pedidoId || 0}, ${ord.itemPedidoId || 0}, this.value)" class="bg-slate-950 border border-slate-800 text-[10px] text-slate-300 rounded px-2 py-1 focus:outline-none focus:border-emerald-500 w-32">` : `<span class="text-[10px] text-slate-400">${escaparHtml(ord.note?.trim() || 'Sin notas')}</span>`}
+                        ${['por_confirmar', 'pendiente'].includes(ord.estado) && !ord.cancelacion_solicitada ? `<input type="text" maxlength="200" placeholder="Añadir nota" aria-label="Nota para ${escaparHtml(item.name)}" value="${escaparHtml(ord.note || '')}" onchange="updateOrderNote(${item.id}, ${ord.pedidoId || 0}, ${ord.itemPedidoId || 0}, this.value)" class="bg-slate-950 border border-slate-800 text-[10px] text-slate-300 rounded px-2 py-1 focus:outline-none focus:border-emerald-500 w-32">` : `<span class="text-[10px] text-slate-400">${escaparHtml(ord.note?.trim() || 'Sin notas')}</span>`}
+                        ${mostrarCancelarPedido ? `<button type="button" onclick="toggleCancelacionPedidoForm(${ord.pedidoId})" aria-expanded="false" aria-controls="cancelacion-pedido-${ord.pedidoId}" class="cancel-order-button"><span>Cancelar</span></button>` : ''}
                     </div>
+                    ${mostrarCancelarPedido ? `<form id="cancelacion-pedido-${ord.pedidoId}" class="cancel-order-form" hidden onsubmit="enviarSolicitudCancelacion(event, ${ord.pedidoId})"><label for="motivo-cancelacion-${ord.pedidoId}">Motivo de cancelación</label><textarea id="motivo-cancelacion-${ord.pedidoId}" maxlength="300" rows="2" required placeholder="Explica brevemente la razón"></textarea><div class="cancel-order-actions"><button type="button" class="cancel-order-dismiss" onclick="toggleCancelacionPedidoForm(${ord.pedidoId})">Volver</button><button type="submit" class="cancel-order-submit"><i class="fa-solid fa-paper-plane" aria-hidden="true"></i>Enviar solicitud</button></div></form>` : ''}
                     ${mostrarEnviarSolicitud ? `<div class="flex gap-2"><button type="button" onclick="aceptarPedidoCliente(${ord.pedidoId})" class="min-w-0 flex-1 rounded-lg border border-amber-500/20 bg-amber-500/10 px-2 py-2 text-[10px] font-bold text-amber-300 transition-all hover:bg-amber-400 hover:text-slate-950"><i class="fa-solid ${ord.destino === 'barra' ? 'fa-martini-glass-citrus' : 'fa-paper-plane'} mr-1"></i>${ord.destino === 'barra' ? 'Enviar a barra' : 'Enviar a cocina'}</button><button type="button" onclick="rechazarPedidoCliente(${ord.pedidoId})" aria-label="Rechazar solicitud de pedido" title="Rechazar solicitud" class="min-w-0 flex-1 rounded-lg border border-rose-500/25 bg-rose-500/10 px-2 py-2 text-[10px] font-bold text-rose-300 transition-all hover:border-rose-400/60 hover:bg-rose-500/20 hover:text-rose-100"><i class="fa-solid fa-ban mr-1" aria-hidden="true"></i>Rechazar</button></div>` : ''}
+                    ${mostrarMotivoCancelacion ? `<p class="text-[10px] text-rose-300">Cancelación solicitada: ${escaparHtml(ord.motivo_cancelacion || '')}</p>` : ''}
                     ${ord.pedidoId && ord.estado === 'listo' ? `<button type="button" onclick="marcarServidoMesera(${ord.pedidoId})" class="w-full rounded-lg bg-sky-500/10 border border-sky-500/20 text-sky-300 hover:bg-sky-500 hover:text-slate-950 py-1.5 text-[10px] font-bold transition-all"><i class="fa-solid fa-hand-holding-heart"></i> Marcar servido</button>` : ''}
                 `;
                 container.appendChild(row);
@@ -3348,6 +3402,32 @@
                 return;
             }
             ws.send(JSON.stringify({ accion: 'marcar_servido', pedido_id: pedidoId }));
+        }
+
+        function toggleCancelacionPedidoForm(pedidoId) {
+            const form = document.getElementById(`cancelacion-pedido-${pedidoId}`);
+            const button = document.querySelector(`[aria-controls="cancelacion-pedido-${pedidoId}"]`);
+            if (!form || !button) return;
+            form.hidden = !form.hidden;
+            button.setAttribute('aria-expanded', String(!form.hidden));
+            if (!form.hidden) form.querySelector('textarea').focus();
+        }
+
+        function enviarSolicitudCancelacion(event, pedidoId) {
+            event.preventDefault();
+            const form = event.currentTarget;
+            const motivo = form.querySelector('textarea').value.trim();
+            if (!motivo) {
+                form.querySelector('textarea').focus();
+                return;
+            }
+            enviarMensajeMesera({
+                accion: 'solicitar_cancelacion',
+                pedido_id: pedidoId,
+                motivo,
+            });
+            form.querySelector('button[type="submit"]').disabled = true;
+            form.querySelector('button[type="submit"]').textContent = 'Enviando…';
         }
 
         function aceptarPedidoCliente(pedidoId) {
@@ -3688,7 +3768,7 @@
             const count = document.getElementById('takeaway-active-count');
             if (!container || !count) return;
             const grupos = new Map();
-            pedidosParaLlevar.filter(pedido => pedido.estado !== 'cerrado').forEach(pedido => {
+            pedidosParaLlevar.filter(pedido => !['cerrado', 'cancelado'].includes(pedido.estado)).forEach(pedido => {
                 const ticketId = pedido.grupo_para_llevar;
                 if (!grupos.has(ticketId)) grupos.set(ticketId, []);
                 grupos.get(ticketId).push(pedido);
@@ -3712,9 +3792,11 @@
                 const total = partes.reduce((sum, pedido) => sum + Number(pedido.total || 0), 0);
                 const lineas = partes.map(pedido => `
                     <div class="takeaway-ticket-line">
-                        <div class="mb-2 flex items-center justify-between gap-2"><span class="text-[10px] font-bold uppercase text-slate-500">${pedido.destino === 'barra' ? 'Barra' : 'Cocina'}</span><span class="text-[10px] font-semibold ${pedido.estado === 'entregado' ? 'text-sky-300' : pedido.estado === 'listo' ? 'text-emerald-300' : 'text-amber-300'}">${escaparHtml(pedido.estado_display)}</span></div>
+                        <div class="mb-2 flex items-center justify-between gap-2"><span class="text-[10px] font-bold uppercase text-slate-500">${pedido.destino === 'barra' ? 'Barra' : 'Cocina'}</span><span class="text-[10px] font-semibold ${pedido.cancelacion_solicitada ? 'text-rose-300' : pedido.estado === 'entregado' ? 'text-sky-300' : pedido.estado === 'listo' ? 'text-emerald-300' : 'text-amber-300'}">${pedido.cancelacion_solicitada ? 'Cancelación solicitada' : escaparHtml(pedido.estado_display)}</span></div>
                         ${pedido.items.map(item => `<div class="takeaway-ticket-line-item"><span>${escaparHtml(item.cantidad)}x ${escaparHtml(item.plato)}</span><span>${escaparHtml(item.subtotal)} CUP</span></div>`).join('')}
                         ${pedido.nota ? `<p class="mt-2 text-[10px] text-slate-400">Nota: ${escaparHtml(pedido.nota)}</p>` : ''}
+                        ${pedido.cancelacion_solicitada ? `<p class="mt-2 text-xs text-rose-300">Motivo: ${escaparHtml(pedido.motivo_cancelacion)}</p>` : ''}
+                        ${pedido.estado === 'pendiente' && !pedido.cancelacion_solicitada ? `<button type="button" onclick="toggleCancelacionPedidoForm(${pedido.id})" aria-expanded="false" aria-controls="cancelacion-pedido-${pedido.id}" class="cancel-order-button takeaway-cancel-order-button"><i class="fa-solid fa-ban" aria-hidden="true"></i><span>Cancelar esta comanda</span></button><form id="cancelacion-pedido-${pedido.id}" class="cancel-order-form" hidden onsubmit="enviarSolicitudCancelacion(event, ${pedido.id})"><label for="motivo-cancelacion-${pedido.id}">Motivo de cancelación</label><textarea id="motivo-cancelacion-${pedido.id}" maxlength="300" rows="2" required placeholder="Explica brevemente la razón"></textarea><div class="cancel-order-actions"><button type="button" class="cancel-order-dismiss" onclick="toggleCancelacionPedidoForm(${pedido.id})">Volver</button><button type="submit" class="cancel-order-submit"><i class="fa-solid fa-paper-plane" aria-hidden="true"></i>Enviar solicitud</button></div></form>` : ''}
                     </div>`).join('');
                 const entregaAction = listoParaCaja
                     ? '<div class="mt-3 rounded-lg border border-sky-400/20 bg-sky-400/10 px-3 py-2 text-center text-xs font-semibold text-sky-200"><i class="fa-solid fa-bag-shopping mr-1"></i>Ticket entregado</div>'
@@ -3742,8 +3824,15 @@
             enviarMensajeMesera({ accion: 'marcar_listo_barra', pedido_id: pedidoId });
         }
 
+        function aceptarCancelacionPedido(pedidoId) {
+            enviarMensajeMesera({ accion: 'aceptar_cancelacion', pedido_id: pedidoId });
+        }
+
         function iniciarPagoParaLlevar(grupoParaLlevar) {
-            const partes = pedidosParaLlevar.filter(pedido => pedido.grupo_para_llevar === grupoParaLlevar);
+            const partes = pedidosParaLlevar.filter(pedido => (
+                pedido.grupo_para_llevar === grupoParaLlevar
+                && !['cerrado', 'cancelado'].includes(pedido.estado)
+            ));
             if (!partes.length || !partes.every(pedido => pedido.estado === 'entregado')) return;
             const total = partes.reduce((sum, pedido) => sum + Number(pedido.total || 0), 0);
             cuentaEnProceso = {
@@ -3765,10 +3854,10 @@
             if (!container) return;
             const pedidosBarra = [
                 ...tables.flatMap(table => (table.pedidos || [])
-                    .filter(pedido => pedido.destino === 'barra' && !['servido', 'cerrado'].includes(pedido.estado))
+                .filter(pedido => pedido.destino === 'barra' && !['servido', 'cerrado', 'cancelado'].includes(pedido.estado))
                     .map(pedido => ({ ...pedido, mesaNombre: table.name }))),
                 ...pedidosParaLlevar
-                    .filter(pedido => pedido.destino === 'barra' && !['entregado', 'cerrado'].includes(pedido.estado))
+                .filter(pedido => pedido.destino === 'barra' && !['entregado', 'cerrado', 'cancelado'].includes(pedido.estado))
                     .map(pedido => ({ ...pedido, mesaNombre: pedido.etiqueta })),
             ];
 
@@ -3799,7 +3888,10 @@
                         </div>`;
                 }).join('');
                 const esperandoAprobacion = pedido.estado === 'por_confirmar';
-                const accion = esperandoAprobacion
+                const esperandoCancelacion = pedido.cancelacion_solicitada;
+                const accion = esperandoCancelacion
+                    ? `<button type="button" onclick="aceptarCancelacionPedido(${pedido.id})" class="mt-4 w-full rounded-lg bg-rose-500 px-4 py-2.5 text-sm font-bold text-white hover:bg-rose-400"><i class="fa-solid fa-check mr-2"></i>Aceptar cancelación</button>`
+                    : esperandoAprobacion
                     ? `<button type="button" onclick="aceptarPedidoCliente(${pedido.id})" class="mt-4 w-full rounded-lg bg-amber-400 px-4 py-2.5 text-sm font-bold text-slate-950 hover:bg-amber-300"><i class="fa-solid fa-check mr-2"></i>Aceptar y preparar</button>`
                     : pedido.estado !== 'listo'
                         ? `<button type="button" onclick="marcarPedidoBarraListo(${pedido.id})" class="mt-4 w-full rounded-lg bg-amber-400 px-4 py-2.5 text-sm font-bold text-slate-950 hover:bg-amber-300"><i class="fa-solid fa-check mr-2"></i>${pedido.es_para_llevar ? 'Marcar listo' : 'Marcar listo y servido'}</button>`
@@ -3813,9 +3905,10 @@
                             <h4 class="text-base font-bold text-white">${escaparHtml(pedido.mesaNombre || `Mesa ${pedido.mesa_numero}`)}</h4>
                             <p class="mt-1 text-xs text-slate-400">Pedido #${escaparHtml(pedido.id)} · ${escaparHtml(pedido.creado_en || '')}</p>
                         </div>
-                        <span class="rounded-full border border-amber-400/20 bg-amber-400/10 px-2.5 py-1 text-[10px] font-bold text-amber-200">${esperandoAprobacion ? 'Por aceptar' : pedido.estado === 'listo' ? 'Listo' : 'En preparación'}</span>
+                        <span class="rounded-full border ${esperandoCancelacion ? 'border-rose-400/30 bg-rose-400/10 text-rose-200' : 'border-amber-400/20 bg-amber-400/10 text-amber-200'} px-2.5 py-1 text-[10px] font-bold">${esperandoCancelacion ? 'Cancelación solicitada' : esperandoAprobacion ? 'Por aceptar' : pedido.estado === 'listo' ? 'Listo' : 'En preparación'}</span>
                     </div>
                     <div>${items}</div>
+                    ${esperandoCancelacion ? `<p class="mt-3 rounded-lg border border-rose-500/20 bg-rose-500/10 px-3 py-2 text-xs text-rose-200">Motivo de cancelación: ${escaparHtml(pedido.motivo_cancelacion)}</p>` : ''}
                     <div class="mt-3 text-right text-sm font-bold text-emerald-300">${escaparHtml(pedido.total)} CUP</div>
                     ${accion}`;
                 container.appendChild(card);

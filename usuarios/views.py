@@ -667,7 +667,12 @@ def cambiar_estado_mesa_turno_view(request, mesa_id):
         return redirect('usuarios:dashboard')
 
     activar = estado == '1'
-    if not activar and (mesa.abierta or Pedido.objects.filter(mesa=mesa).exclude(estado='cerrado').exists()):
+    if not activar and (
+        mesa.abierta
+        or Pedido.objects.filter(mesa=mesa).exclude(
+            estado__in=['cerrado', 'rechazado', 'cancelado'],
+        ).exists()
+    ):
         messages.error(request, f'No se puede desactivar {mesa.etiqueta} mientras tenga una cuenta abierta.')
         return redirect('usuarios:dashboard')
 

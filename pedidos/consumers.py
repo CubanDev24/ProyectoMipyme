@@ -44,6 +44,8 @@ def serializar_pedido(pedido):
         'destino': pedido.destino,
         'estado': pedido.estado,
         'estado_display': pedido.get_estado_display(),
+        'cancelacion_solicitada': pedido.cancelacion_solicitada,
+        'motivo_cancelacion': pedido.motivo_cancelacion,
         'nota': pedido.nota,
         'cuenta_solicitada': pedido.cuenta_solicitada,
         'forma_pago': pedido.forma_pago_preseleccionada or None,
@@ -65,6 +67,32 @@ def serializar_pedido(pedido):
             for i in pedido.items.all()
         ],
     }
+
+
+@database_sync_to_async
+def aceptar_cancelacion(pedido_id, destino):
+    try:
+        with transaction.atomic():
+            pedido = Pedido.objects.select_for_update().filter(
+                pk=pedido_id,
+                destino=destino,
+                estado='pendiente',
+                cancelacion_solicitada=True,
+            ).select_related('mesa').first()
+            if not pedido:
+                return None, 'La solicitud ya no está pendiente para esta estación.'
+            if pedido.modalidad == 'mesa' and (
+                not pedido.mesa_id
+                or not pedido.mesa.abierta
+                or pedido.sesion_id != pedido.mesa.sesion_id
+            ):
+                return None, 'La mesa ya no tiene ese pedido activo.'
+            pedido.estado = 'cancelado'
+            pedido.save(update_fields=['estado', 'actualizado_en'])
+            pedido = Pedido.objects.prefetch_related('items__plato').select_related('mesa').get(pk=pedido.pk)
+            return serializar_pedido(pedido), None
+    except (TypeError, ValueError):
+        return None, 'No se pudo aceptar la cancelación.'
 
 
 @transaction.atomic
@@ -126,7 +154,7 @@ def crear_pedidos_por_destino(
 
 
 def serializar_cuenta(pedidos):
-    pedidos = [pedido for pedido in pedidos if pedido.estado != 'rechazado']
+    pedidos = [pedido for pedido in pedidos if pedido.estado not in ['rechazado', 'cancelado']]
     if not pedidos:
         return None
     items = []
@@ -244,7 +272,54 @@ class MeseraConsumer(AsyncWebsocketConsumer):
         data = json.loads(text_data)
         accion = data.get('accion')
 
-        if accion == 'actualizar_nota_item':
+        if accion == 'solicitar_cancelacion':
+            usuario = self.scope.get('user')
+            if not getattr(usuario, 'is_authenticated', False) or getattr(usuario, 'role', None) != 'mesera':
+                await self.send(text_data=json.dumps({
+                    'tipo': 'error_cancelacion',
+                    'mensaje': 'Solo la mesera puede solicitar la cancelación de pedidos.',
+                }))
+                return
+            pedido, error = await self.solicitar_cancelacion(
+                data.get('pedido_id'),
+                data.get('motivo', ''),
+            )
+            if not pedido:
+                await self.send(text_data=json.dumps({
+                    'tipo': 'error_cancelacion',
+                    'mensaje': error or 'No se pudo solicitar la cancelación.',
+                }))
+                return
+            grupos = {'mesera', 'cocina'} if pedido['destino'] == 'cocina' else {'mesera'}
+            for grupo in grupos:
+                await self.channel_layer.group_send(
+                    grupo,
+                    {'type': 'pedido_actualizado', 'pedido': pedido},
+                )
+            if pedido['destino'] == 'barra':
+                await self.channel_layer.group_send(
+                    'mesera',
+                    {'type': 'notificacion_cancelacion_barra', 'pedido': pedido},
+                )
+
+        elif accion == 'aceptar_cancelacion':
+            usuario = self.scope.get('user')
+            if not getattr(usuario, 'is_authenticated', False) or getattr(usuario, 'role', None) != 'mesera':
+                await self.send(text_data=json.dumps({
+                    'tipo': 'error_cancelacion',
+                    'mensaje': 'Solo la estación de barra puede aceptar esta cancelación.',
+                }))
+                return
+            pedido, error = await aceptar_cancelacion(data.get('pedido_id'), 'barra')
+            if pedido:
+                await self._broadcast_actualizacion(pedido)
+            else:
+                await self.send(text_data=json.dumps({
+                    'tipo': 'error_cancelacion',
+                    'mensaje': error or 'La solicitud ya no está pendiente.',
+                }))
+
+        elif accion == 'actualizar_nota_item':
             usuario = self.scope.get('user')
             if not getattr(usuario, 'is_authenticated', False) or getattr(usuario, 'role', None) != 'mesera':
                 await self.send(text_data=json.dumps({
@@ -541,6 +616,12 @@ class MeseraConsumer(AsyncWebsocketConsumer):
     async def pedido_actualizado(self, event):
         await self.send(text_data=json.dumps({'tipo': 'pedido_actualizado', 'pedido': event['pedido']}))
 
+    async def notificacion_cancelacion_barra(self, event):
+        await self.send(text_data=json.dumps({
+            'tipo': 'notificacion_cancelacion_barra',
+            'pedido': event['pedido'],
+        }))
+
     async def llamada_mesera(self, event):
         await self.send(text_data=json.dumps({
             'tipo': 'llamada_mesera',
@@ -577,6 +658,44 @@ class MeseraConsumer(AsyncWebsocketConsumer):
             )
 
     @database_sync_to_async
+    def solicitar_cancelacion(self, pedido_id, motivo):
+        motivo = str(motivo or '').strip()
+        if not motivo:
+            return None, 'Escribe el motivo de la cancelación.'
+        if len(motivo) > 300:
+            return None, 'El motivo no puede superar los 300 caracteres.'
+        try:
+            with transaction.atomic():
+                pedido = Pedido.objects.select_for_update().filter(
+                    pk=pedido_id,
+                    estado='pendiente',
+                    cancelacion_solicitada=False,
+                ).select_related('mesa').first()
+                if not pedido:
+                    return None, 'Solo puedes cancelar pedidos que siguen pendientes.'
+                if pedido.modalidad == 'mesa' and (
+                    not pedido.mesa_id
+                    or not pedido.mesa.abierta
+                    or pedido.sesion_id != pedido.mesa.sesion_id
+                ):
+                    return None, 'La mesa ya no tiene ese pedido activo.'
+                if pedido.modalidad == 'para_llevar':
+                    turno = get_turno_abierto()
+                    if not turno or pedido.creado_en < turno.apertura:
+                        return None, 'El ticket para llevar ya no pertenece al turno activo.'
+                pedido.cancelacion_solicitada = True
+                pedido.motivo_cancelacion = motivo
+                pedido.save(update_fields=[
+                    'cancelacion_solicitada',
+                    'motivo_cancelacion',
+                    'actualizado_en',
+                ])
+                pedido = Pedido.objects.prefetch_related('items__plato').select_related('mesa').get(pk=pedido.pk)
+                return serializar_pedido(pedido), None
+        except (TypeError, ValueError):
+            return None, 'No se pudo solicitar la cancelación.'
+
+    @database_sync_to_async
     def get_pedidos_activos(self):
         turno = get_turno_abierto()
         pedidos_mesa = Q(
@@ -588,7 +707,7 @@ class MeseraConsumer(AsyncWebsocketConsumer):
         if turno:
             pedidos_para_llevar = Q(modalidad='para_llevar', creado_en__gte=turno.apertura)
         qs = Pedido.objects.filter(pedidos_mesa | pedidos_para_llevar).exclude(
-            estado__in=['cerrado', 'rechazado'],
+            estado__in=['cerrado', 'rechazado', 'cancelado'],
         ).prefetch_related('items__plato').select_related('mesa')
         return [serializar_pedido(p) for p in qs]
 
@@ -669,7 +788,7 @@ class MeseraConsumer(AsyncWebsocketConsumer):
             return None, 'La mesa ya está cerrada.'
         if Pedido.objects.filter(
             mesa=mesa, sesion_id=mesa.sesion_id,
-        ).exclude(estado__in=['cerrado', 'rechazado']).exists():
+        ).exclude(estado__in=['cerrado', 'rechazado', 'cancelado']).exists():
             return None, 'Cobra y cierra primero los pedidos activos de esta mesa.'
         mesa.abierta = False
         mesa.save(update_fields=['abierta'])
@@ -760,7 +879,11 @@ class MeseraConsumer(AsyncWebsocketConsumer):
     @database_sync_to_async
     def cambiar_estado(self, pedido_id, estado):
         try:
-            p = Pedido.objects.prefetch_related('items__plato').select_related('mesa').get(pk=pedido_id)
+            p = Pedido.objects.prefetch_related('items__plato').select_related('mesa').get(
+                pk=pedido_id,
+                estado__in=['pendiente', 'en_preparacion'],
+                cancelacion_solicitada=False,
+            )
             p.estado = estado
             p.save()
             return serializar_pedido(p)
@@ -774,6 +897,7 @@ class MeseraConsumer(AsyncWebsocketConsumer):
                 pk=pedido_id,
                 modalidad='mesa',
                 estado='listo',
+                cancelacion_solicitada=False,
             )
         except Pedido.DoesNotExist:
             return None, []
@@ -792,6 +916,7 @@ class MeseraConsumer(AsyncWebsocketConsumer):
                     modalidad='mesa',
                     destino='barra',
                     estado__in=['pendiente', 'en_preparacion', 'listo'],
+                    cancelacion_solicitada=False,
                     mesa__abierta=True,
                     sesion_id=F('mesa__sesion_id'),
                 ).select_related('mesa').prefetch_related('items__plato').first()
@@ -817,8 +942,11 @@ class MeseraConsumer(AsyncWebsocketConsumer):
                 pedidos = list(Pedido.objects.select_for_update().filter(
                     modalidad='para_llevar',
                     grupo_para_llevar=grupo_para_llevar,
-                ).select_related('mesa').prefetch_related('items__plato').order_by('pk'))
-                if not pedidos or any(pedido.estado != 'listo' for pedido in pedidos):
+                ).exclude(estado='cancelado').select_related('mesa').prefetch_related('items__plato').order_by('pk'))
+                if not pedidos or any(
+                    pedido.estado != 'listo' or pedido.cancelacion_solicitada
+                    for pedido in pedidos
+                ):
                     return [], []
 
                 alertas = []
@@ -835,26 +963,29 @@ class MeseraConsumer(AsyncWebsocketConsumer):
 
     @database_sync_to_async
     def marcar_listo_para_llevar(self, pedido_id):
-        pedido = Pedido.objects.filter(
-            pk=pedido_id,
-            modalidad='para_llevar',
-            destino='barra',
-            estado__in=['pendiente', 'en_preparacion'],
-        ).select_related('mesa').first()
-        if not pedido:
-            pedido = Pedido.objects.filter(
+        with transaction.atomic():
+            pedido = Pedido.objects.select_for_update().filter(
                 pk=pedido_id,
-                modalidad='mesa',
+                modalidad='para_llevar',
                 destino='barra',
                 estado__in=['pendiente', 'en_preparacion'],
-                mesa__abierta=True,
-                sesion_id=F('mesa__sesion_id'),
+                cancelacion_solicitada=False,
             ).select_related('mesa').first()
-        if not pedido:
-            return None
-        pedido.estado = 'listo'
-        pedido.save(update_fields=['estado', 'actualizado_en'])
-        return serializar_pedido(pedido)
+            if not pedido:
+                pedido = Pedido.objects.select_for_update().filter(
+                    pk=pedido_id,
+                    modalidad='mesa',
+                    destino='barra',
+                    estado__in=['pendiente', 'en_preparacion'],
+                    cancelacion_solicitada=False,
+                    mesa__abierta=True,
+                    sesion_id=F('mesa__sesion_id'),
+                ).select_related('mesa').first()
+            if not pedido:
+                return None
+            pedido.estado = 'listo'
+            pedido.save(update_fields=['estado', 'actualizado_en'])
+            return serializar_pedido(pedido)
 
     @database_sync_to_async
     def marcar_cuenta_solicitada(self, mesa_id):
@@ -876,7 +1007,7 @@ class MeseraConsumer(AsyncWebsocketConsumer):
         pedidos = list(Pedido.objects.filter(
             modalidad='para_llevar',
             grupo_para_llevar=grupo_para_llevar,
-        ).exclude(estado='cerrado').select_related('mesa').prefetch_related('items__plato'))
+        ).exclude(estado__in=['cerrado', 'cancelado']).select_related('mesa').prefetch_related('items__plato'))
         if not pedidos or any(pedido.estado != 'entregado' for pedido in pedidos):
             return [], None
         Pedido.objects.filter(pk__in=[pedido.pk for pedido in pedidos]).update(cuenta_solicitada=True)
@@ -891,7 +1022,7 @@ class MeseraConsumer(AsyncWebsocketConsumer):
         pedidos = list(Pedido.objects.filter(
             modalidad='para_llevar',
             grupo_para_llevar=grupo_para_llevar,
-        ).exclude(estado='cerrado').select_related('mesa').prefetch_related('items__plato'))
+        ).exclude(estado__in=['cerrado', 'cancelado']).select_related('mesa').prefetch_related('items__plato'))
         if not pedidos or any(pedido.estado != 'entregado' for pedido in pedidos):
             return [], None
         tasa = _to_decimal(tasa_cambio) if forma_pago == 'usd' else None
@@ -919,7 +1050,7 @@ class MeseraConsumer(AsyncWebsocketConsumer):
             pedidos = list(Pedido.objects.select_for_update().filter(
                 mesa=mesa,
                 sesion_id=mesa.sesion_id,
-            ).exclude(estado__in=['cerrado', 'rechazado']).prefetch_related('items__plato__categoria'))
+            ).exclude(estado__in=['cerrado', 'rechazado', 'cancelado']).prefetch_related('items__plato__categoria'))
             if not pedidos:
                 return None, 'No hay una cuenta pendiente para esta mesa.'
             if any(pedido.estado != 'servido' for pedido in pedidos):
@@ -952,7 +1083,7 @@ class MeseraConsumer(AsyncWebsocketConsumer):
             mesa__numero=mesa_numero,
             sesion_id=F('mesa__sesion_id'),
             cuenta_solicitada=True,
-        ).exclude(estado__in=['cerrado', 'rechazado']).select_related('mesa').prefetch_related('items__plato'))
+        ).exclude(estado__in=['cerrado', 'rechazado', 'cancelado']).select_related('mesa').prefetch_related('items__plato'))
 
 
 # ─── COCINA ──────────────────────────────────────────────────────────────────
@@ -970,6 +1101,33 @@ class CocinaConsumer(AsyncWebsocketConsumer):
 
     async def receive(self, text_data):
         data = json.loads(text_data)
+        if data.get('accion') == 'aceptar_cancelacion':
+            usuario = self.scope.get('user')
+            if not getattr(usuario, 'is_authenticated', False) or getattr(usuario, 'role', None) != 'cocina':
+                await self.send(text_data=json.dumps({
+                    'tipo': 'error_cancelacion',
+                    'mensaje': 'Solo Cocina puede aceptar esta cancelación.',
+                }))
+                return
+            pedido, error = await aceptar_cancelacion(data.get('pedido_id'), 'cocina')
+            if not pedido:
+                await self.send(text_data=json.dumps({
+                    'tipo': 'error_cancelacion',
+                    'mensaje': error or 'La solicitud ya no está pendiente.',
+                }))
+                return
+            for grupo in ['cocina', 'mesera', 'caja']:
+                await self.channel_layer.group_send(
+                    grupo,
+                    {'type': 'pedido_actualizado', 'pedido': pedido},
+                )
+            if pedido['mesa_numero'] is not None:
+                await self.channel_layer.group_send(
+                    f"cliente_{pedido['mesa_numero']}",
+                    {'type': 'pedido_actualizado', 'pedido': pedido},
+                )
+            return
+
         if data.get('accion') == 'cambiar_estado':
             nuevo = data['estado']
             if nuevo not in ['en_preparacion', 'listo']:
@@ -1017,20 +1175,20 @@ class CocinaConsumer(AsyncWebsocketConsumer):
 
     @database_sync_to_async
     def cambiar_estado(self, pedido_id, estado):
-        try:
-            p = Pedido.objects.prefetch_related('items__plato').select_related('mesa').get(
+        with transaction.atomic():
+            p = Pedido.objects.select_for_update().prefetch_related('items__plato').select_related('mesa').filter(
                 pk=pedido_id,
                 destino='cocina',
-            )
-            if not p.items.all() or any(
+                estado__in=['pendiente', 'en_preparacion'],
+                cancelacion_solicitada=False,
+            ).first()
+            if not p or not p.items.all() or any(
                 destino_para_plato(item.plato) != 'cocina' for item in p.items.all()
             ):
                 return None
             p.estado = estado
             p.save()
             return serializar_pedido(p)
-        except Pedido.DoesNotExist:
-            return None
 
 
 # ─── CAJA ────────────────────────────────────────────────────────────────────
@@ -1120,6 +1278,11 @@ class CajaConsumer(AsyncWebsocketConsumer):
         cuenta = await self.get_cuenta_para_llevar(pedido['grupo_para_llevar']) if pedido.get('es_para_llevar') else await self.get_cuenta_mesa(pedido['mesa_numero'])
         if cuenta:
             await self.send(text_data=json.dumps({'tipo': 'pedido_actualizado', 'pedido': cuenta}))
+        elif pedido.get('estado') == 'cancelado':
+            await self.send(text_data=json.dumps({
+                'tipo': 'pedido_cancelado',
+                'pedido': pedido,
+            }))
 
     async def pedido_cerrado(self, event):
         await self.send(text_data=json.dumps({'tipo': 'pedido_cerrado', 'pedido_id': event['pedido_id']}))
@@ -1140,17 +1303,17 @@ class CajaConsumer(AsyncWebsocketConsumer):
         ).distinct()
         cuentas = [serializar_cuenta(Pedido.objects.filter(
             mesa=mesa, cuenta_solicitada=True,
-        ).exclude(estado__in=['cerrado', 'rechazado']).select_related('mesa').prefetch_related('items__plato')) for mesa in mesas]
+        ).exclude(estado__in=['cerrado', 'rechazado', 'cancelado']).select_related('mesa').prefetch_related('items__plato')) for mesa in mesas]
         grupos = Pedido.objects.filter(
             modalidad='para_llevar',
             cuenta_solicitada=True,
-        ).exclude(estado='cerrado').values_list('grupo_para_llevar', flat=True).distinct()
+        ).exclude(estado__in=['cerrado', 'cancelado']).values_list('grupo_para_llevar', flat=True).distinct()
         for grupo in grupos:
             cuenta = serializar_cuenta(Pedido.objects.filter(
                 modalidad='para_llevar',
                 grupo_para_llevar=grupo,
                 cuenta_solicitada=True,
-            ).exclude(estado='cerrado').select_related('mesa').prefetch_related('items__plato'))
+            ).exclude(estado__in=['cerrado', 'cancelado']).select_related('mesa').prefetch_related('items__plato'))
             if cuenta:
                 cuentas.append(cuenta)
         return cuentas
@@ -1163,7 +1326,7 @@ class CajaConsumer(AsyncWebsocketConsumer):
                 grupo = Pedido.objects.filter(
                     modalidad='para_llevar',
                     grupo_para_llevar=pedido.grupo_para_llevar,
-                ).exclude(estado='cerrado')
+                ).exclude(estado__in=['cerrado', 'cancelado'])
                 if grupo.exclude(estado='entregado').exists():
                     return None
                 grupo.update(cuenta_solicitada=True)
@@ -1181,13 +1344,13 @@ class CajaConsumer(AsyncWebsocketConsumer):
         Pedido.objects.filter(pk__in=[p.pk for p in pedidos]).update(cuenta_solicitada=True)
         return serializar_cuenta(Pedido.objects.filter(
             mesa_id=mesa_id, cuenta_solicitada=True,
-        ).exclude(estado__in=['cerrado', 'rechazado']).select_related('mesa').prefetch_related('items__plato'))
+        ).exclude(estado__in=['cerrado', 'rechazado', 'cancelado']).select_related('mesa').prefetch_related('items__plato'))
 
     @database_sync_to_async
     def get_cuenta_mesa(self, mesa_numero):
         return serializar_cuenta(Pedido.objects.filter(
             mesa__numero=mesa_numero, cuenta_solicitada=True,
-        ).exclude(estado__in=['cerrado', 'rechazado']).select_related('mesa').prefetch_related('items__plato'))
+        ).exclude(estado__in=['cerrado', 'rechazado', 'cancelado']).select_related('mesa').prefetch_related('items__plato'))
 
     @database_sync_to_async
     def get_cuenta_para_llevar(self, grupo_para_llevar):
@@ -1195,7 +1358,7 @@ class CajaConsumer(AsyncWebsocketConsumer):
             modalidad='para_llevar',
             grupo_para_llevar=grupo_para_llevar,
             cuenta_solicitada=True,
-        ).exclude(estado='cerrado').select_related('mesa').prefetch_related('items__plato'))
+        ).exclude(estado__in=['cerrado', 'cancelado']).select_related('mesa').prefetch_related('items__plato'))
 
     async def cuenta_actualizada(self, event):
         await self.send(text_data=json.dumps({'tipo': 'pedido_actualizado', 'pedido': event['cuenta']}))
@@ -1278,14 +1441,14 @@ class CajaConsumer(AsyncWebsocketConsumer):
             pedidos = list(Pedido.objects.select_for_update().filter(
                 modalidad='para_llevar',
                 grupo_para_llevar=principal.grupo_para_llevar,
-            ).exclude(estado='cerrado').prefetch_related('items__plato__categoria'))
+            ).exclude(estado__in=['cerrado', 'cancelado']).prefetch_related('items__plato__categoria'))
             if any(pedido.estado != 'entregado' for pedido in pedidos):
                 return None, 'No se puede cobrar hasta que todos los pedidos para llevar estén entregados.'
         else:
             pedidos = list(Pedido.objects.select_for_update().filter(
                 mesa=principal.mesa,
                 sesion_id=principal.sesion_id,
-            ).exclude(estado__in=['cerrado', 'rechazado']).prefetch_related('items__plato'))
+            ).exclude(estado__in=['cerrado', 'rechazado', 'cancelado']).prefetch_related('items__plato'))
             if any(pedido.estado != 'servido' for pedido in pedidos):
                 return None, 'No se puede cobrar hasta que todos los pedidos de la mesa estén servidos.'
         if not pedidos:
@@ -1383,9 +1546,9 @@ class CajaConsumer(AsyncWebsocketConsumer):
             items_snapshot=items_snapshot,
         )
 
-        Pedido.objects.filter(pk__in=[pedido.pk for pedido in pedidos]).exclude(estado='rechazado').update(
-            estado='cerrado', cerrado_en=timezone.now()
-        )
+        Pedido.objects.filter(pk__in=[pedido.pk for pedido in pedidos]).exclude(
+            estado__in=['rechazado', 'cancelado'],
+        ).update(estado='cerrado', cerrado_en=timezone.now())
         if principal.mesa_id:
             principal.mesa.abierta = False
             principal.mesa.save(update_fields=['abierta'])
