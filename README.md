@@ -174,6 +174,7 @@ con el botón **Imprimir QR**.
 - Se agrego una reestriccion para que no se pueda cerrar un turno con pedidos o tickets pendientes por cobrar.
 - Se implemento el IPV por productos de la carta y turno, con fondo inicial, entradas, roturas registradas durante el turno y ventas automáticas desde los cobros.
 - Se restringio el historial de turnos cerrados al administrador, se muestran las horas de apertura y cierre, y se agrego el aviso para continuar o cerrar un turno que pasa de medianoche; el cierre de la cajera notifica al administrador.
+- En las ventas del día de Cocina se muestran por plato las unidades vendidas, su imagen, los insumos de la receta, la cantidad por unidad y el consumo total estimado, sin importes.
 
 
 
