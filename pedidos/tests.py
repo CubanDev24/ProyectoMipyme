@@ -168,6 +168,7 @@ class FacturaWorkflowTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'id="nav-cocina-pedidos"')
+        self.assertContains(response, 'class="cocina-tv-brand">Cocina</span>')
         self.assertContains(response, 'id="nav-cocina-ventas"')
         self.assertContains(response, "onclick=\"mostrarSeccionCocina('ventas')\"")
         self.assertContains(response, 'id="cocina-vista-ventas"')
@@ -178,6 +179,48 @@ class FacturaWorkflowTests(TestCase):
         self.assertContains(response, 'function urlImagenProducto')
         self.assertContains(response, 'class="cocina-item-imagen"')
         self.assertContains(response, 'Listo para recoger')
+
+    def test_cocina_puede_observar_solo_productos_del_stock_de_cocina(self):
+        User = get_user_model()
+        cocina = User.objects.create_user(username='cocina_stock', password='123456', role='cocina')
+        producto_cocina = Insumo.objects.create(
+            nombre='Harina para consulta',
+            tipo_inventario='cocina',
+            stock_actual=Decimal('12.500'),
+            stock_minimo=Decimal('15.000'),
+        )
+        producto_restaurante = Insumo.objects.create(
+            nombre='Refresco no visible para cocina',
+            tipo_inventario='restaurante',
+            stock_actual=Decimal('8'),
+        )
+        self.client.force_login(cocina)
+
+        response = self.client.get(reverse('pedidos:cocina'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            list(response.context['insumos_cocina']),
+            [producto_cocina, self.insumo_receta],
+        )
+        self.assertContains(response, 'Stock de Cocina')
+        self.assertContains(response, producto_cocina.nombre)
+        self.assertContains(response, 'id="cocina-stock-search"')
+        self.assertContains(response, 'id="cocina-stock-filter"')
+        self.assertContains(response, 'id="cocina-stock-no-results" hidden')
+        self.assertContains(response, 'No se encontraron productos con esos filtros.')
+        self.assertContains(response, 'data-stock-state="bajo"')
+        self.assertContains(response, 'data-stock-state="normal"')
+        self.assertContains(response, 'addEventListener(\'input\', filtrarStockCocina)')
+        self.assertContains(response, 'addEventListener(\'change\', filtrarStockCocina)')
+        self.assertContains(response, 'getElementById(\'cocina-stock-no-results\').hidden = rows.length === 0 || encontrados > 0')
+        self.assertEqual(response.context['insumos_cocina'][0].stock_actual, Decimal('12.500'))
+        self.assertNotContains(response, producto_restaurante.nombre)
+        self.assertNotContains(response, 'inventario:insumo_editar')
+
+        mesera = User.objects.create_user(username='mesera_stock', role='mesera')
+        self.client.force_login(mesera)
+        self.assertEqual(self.client.get(reverse('pedidos:cocina')).status_code, 302)
 
     def test_cocina_ve_unidades_cobradas_hoy_por_plato_sin_importes(self):
         User = get_user_model()

@@ -530,6 +530,133 @@ body.login-page .topbar{display:none !important}
 .cocina-ventas-panel{margin-bottom:1.25rem;padding:1rem 1.15rem;border:1px solid rgba(148,163,184,.16);border-radius:16px;background:linear-gradient(180deg,rgba(15,23,42,.96),rgba(15,23,42,.82));box-shadow:0 12px 30px rgba(2,6,23,.16)}
 .cocina-ventas-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;padding-bottom:.75rem;border-bottom:1px solid rgba(148,163,184,.14)}.cocina-ventas-heading h2{color:#f8fafc;font-size:.95rem;font-weight:800}.cocina-ventas-heading p,.cocina-ventas-heading>span{margin-top:.2rem;color:#94a3b8;font-size:.68rem}
 .cocina-ventas-lista{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,240px),1fr));gap:.5rem;padding-top:.75rem}.cocina-ventas-fila{display:flex;align-items:center;justify-content:space-between;gap:.75rem;padding:.65rem .75rem;border:1px solid rgba(148,163,184,.12);border-radius:10px;background:rgba(2,6,23,.38);font-size:.76rem}.cocina-ventas-fila span{min-width:0;color:#e2e8f0;overflow-wrap:anywhere}.cocina-ventas-fila strong{flex:none;color:#6ee7b7;font-variant-numeric:tabular-nums}.cocina-ventas-vacio{grid-column:1/-1;color:#94a3b8;font-size:.75rem}.cocina-ventas-actualizado.error{color:#fda4af}
+.cocina-stock-table-wrap{margin-top:.85rem;overflow-x:auto;border:1px solid rgba(148,163,184,.14);border-radius:12px;background:rgba(2,6,23,.32)}
+.cocina-stock-table{width:100%;min-width:600px;border-collapse:separate;border-spacing:0;text-align:left;font-size:.9rem}
+.cocina-stock-table th{padding:.85rem 1rem;background:rgba(16,185,129,.08);border-bottom:1px solid rgba(52,211,153,.18);color:#a7f3d0;font-size:.75rem;font-weight:800;letter-spacing:.07em;text-transform:uppercase;white-space:nowrap}
+.cocina-stock-table th:first-child{padding-left:1.15rem}
+.cocina-stock-table td{padding:.8rem 1rem;border-bottom:1px solid rgba(148,163,184,.09);color:#cbd5e1;white-space:nowrap}
+.cocina-stock-table tbody tr:last-child td{border-bottom:0}
+.cocina-stock-table tbody tr[hidden]{display:none}
+.cocina-stock-table tbody tr{transition:background .15s ease}
+.cocina-stock-table tbody tr:hover{background:rgba(148,163,184,.045)}
+.cocina-stock-table .cocina-stock-producto{padding-left:1.15rem;color:#f8fafc;font-weight:700}
+.cocina-stock-categoria{color:#94a3b8!important}
+.cocina-stock-cantidad,.cocina-stock-minimo{font-variant-numeric:tabular-nums}
+.cocina-stock-cantidad{color:#6ee7b7!important;font-weight:700}
+.cocina-stock-cantidad span,.cocina-stock-minimo span{color:#94a3b8;font-size:.78rem;font-weight:500}
+.cocina-stock-status{display:inline-flex;align-items:center;gap:.4rem;padding:.3rem .65rem;border:1px solid;border-radius:999px;font-size:.75rem;font-weight:800}
+.cocina-stock-status::before{width:6px;height:6px;border-radius:50%;content:""}
+.cocina-stock-status.is-low{border-color:rgba(251,146,60,.2);background:rgba(251,146,60,.1);color:#fdba74}
+.cocina-stock-status.is-low::before{background:#fb923c}
+.cocina-stock-status.is-ok{border-color:rgba(52,211,153,.18);background:rgba(52,211,153,.08);color:#6ee7b7}
+.cocina-stock-status.is-ok::before{background:#34d399}
+.cocina-stock-table .cocina-stock-empty{padding:1.5rem 1rem;color:#94a3b8;text-align:center;white-space:normal}
+@media(max-width:600px){.cocina-stock-table th,.cocina-stock-table td{padding:.7rem .75rem}.cocina-stock-table .cocina-stock-producto{padding-left:.85rem}}
+.cocina-stock-toolbar{display:grid;grid-template-columns:minmax(180px,1fr) auto minmax(160px,.45fr);align-items:center;gap:.65rem;margin-top:.85rem}
+.cocina-stock-toolbar .inventario-search{max-width:none}
+.cocina-stock-filter-label{color:#cbd5e1;font-size:.8rem;font-weight:700}
+.cocina-stock-toolbar>.admin-input{min-width:0;min-height:44px;background:#0f172a;border-color:rgba(148,163,184,.2);color:#e2e8f0;font-size:.9rem}
+.cocina-stock-toolbar .inventario-search input{min-height:44px;font-size:.9rem}
+@media(max-width:600px){.cocina-stock-table{font-size:.85rem}.cocina-stock-table th,.cocina-stock-table td{padding:.75rem .8rem}.cocina-stock-table th{font-size:.72rem}.cocina-stock-table .cocina-stock-producto{padding-left:.85rem}.cocina-stock-status{font-size:.72rem}.cocina-stock-toolbar{grid-template-columns:minmax(0,1fr) minmax(120px,.7fr)}.cocina-stock-toolbar .inventario-search{grid-column:1/-1}.cocina-stock-filter-label{font-size:.75rem}}
+.cocina-tv-brand{display:none}
+@media(min-width:1000px) and (max-height:800px){
+  body.cocina-tv-layout{height:100vh;min-height:0;overflow:hidden}
+  .cocina-tv-layout>aside{width:132px;flex:0 0 132px}
+  .cocina-tv-layout>aside>div:first-child>div:first-child{justify-content:center;gap:.55rem;padding:.75rem .4rem}
+  .cocina-tv-layout>aside>div:first-child>div:first-child>div:nth-child(2),
+  .cocina-tv-layout>aside>div:first-child>div:nth-child(2){display:none}
+  .cocina-tv-layout .cocina-tv-brand{display:inline;color:#f8fafc;font-size:.95rem;font-weight:800;letter-spacing:.02em}
+  .cocina-tv-layout>aside nav{padding:.5rem}
+  .cocina-tv-layout>aside nav .cocina-nav-btn,
+  .cocina-tv-layout>aside nav>a{justify-content:center;padding:.7rem .4rem}
+  .cocina-tv-layout>aside nav .cocina-nav-btn span,
+  .cocina-tv-layout>aside nav>a span,
+  .cocina-tv-layout>aside>div:last-child span{display:none}
+  .cocina-tv-layout>aside>div:last-child{padding:.5rem}
+  .cocina-tv-layout>aside>div:last-child>a{min-height:42px}
+  .cocina-tv-layout>main{min-width:0;height:100vh;min-height:0}
+  .cocina-tv-layout>main>header{height:52px;min-height:52px;padding:0 1rem}
+  .cocina-tv-layout>main>header #clock-display{font-size:.75rem}
+  .cocina-tv-layout>main>div{min-height:0;overflow:hidden}
+  .cocina-tv-layout .cocina-body{height:100%;box-sizing:border-box;max-width:none;padding:.65rem .8rem}
+  .cocina-tv-layout #cocina-vista-pedidos{display:flex;min-height:0;height:100%;flex-direction:column}
+  .cocina-tv-layout #cocina-vista-pedidos[hidden]{display:none!important}
+  .cocina-tv-layout .cocina-toolbar{flex:none;margin-bottom:.6rem;padding:.5rem .75rem}
+  .cocina-tv-layout .cocina-toolbar strong{font-size:.9rem}
+  .cocina-tv-layout .cocina-toolbar span{font-size:.76rem}
+  .cocina-tv-layout .cocina-columnas{flex:1;min-height:0;grid-template-columns:repeat(3,minmax(0,1fr));gap:.7rem}
+  .cocina-tv-layout .cocina-columnas>div{display:flex;min-width:0;min-height:0;flex-direction:column}
+  .cocina-tv-layout .col-header{flex:none;margin-bottom:.4rem;padding:.35rem .25rem;font-size:.78rem}
+  .cocina-tv-layout .col-header-cnt{font-size:.9rem}
+  .cocina-tv-layout #col-pendiente,
+  .cocina-tv-layout #col-preparacion,
+  .cocina-tv-layout #col-listo{flex:1;min-height:0;overflow-y:auto;padding-right:.2rem;overscroll-behavior:contain}
+  .cocina-tv-layout #col-pendiente::-webkit-scrollbar,
+  .cocina-tv-layout #col-preparacion::-webkit-scrollbar,
+  .cocina-tv-layout #col-listo::-webkit-scrollbar{width:7px}
+  .cocina-tv-layout #col-pendiente::-webkit-scrollbar-thumb,
+  .cocina-tv-layout #col-preparacion::-webkit-scrollbar-thumb,
+  .cocina-tv-layout #col-listo::-webkit-scrollbar-thumb{border-radius:8px;background:rgba(148,163,184,.35)}
+  .cocina-tv-layout .pedido-card{margin-bottom:.55rem;padding:.75rem}
+  .cocina-tv-layout .pedido-card-top{margin-bottom:.45rem}
+  .cocina-tv-layout .pedido-mesa-label{font-size:1.15rem}
+  .cocina-tv-layout .pedido-hora{font-size:.8rem}
+  .cocina-tv-layout .pedido-items-ul{margin-bottom:.45rem}
+  .cocina-tv-layout .pedido-items-ul li{gap:.5rem;padding:.3rem 0;font-size:.9rem}
+  .cocina-tv-layout .cocina-item-info{gap:.5rem}
+  .cocina-tv-layout .cocina-item-imagen{width:44px;height:44px;min-width:44px;min-height:44px}
+  .cocina-tv-layout .cant-badge{font-size:.85rem}
+  .cocina-tv-layout .cocina-item-nota,
+  .cocina-tv-layout .nota-cocina{font-size:.78rem}
+  .cocina-tv-layout .total-cocina{margin-bottom:.45rem;font-size:.88rem}
+  .cocina-tv-layout .cocina-btns .btn{min-height:40px;padding:.5rem;font-size:.85rem}
+  .cocina-tv-layout .cocina-ventas-view:not([hidden]){height:100%;overflow-y:auto}
+  .cocina-tv-layout .cocina-ventas-panel{margin-bottom:0}
+}
+@media(min-width:720px) and (max-width:999px){
+  body.cocina-tv-layout{height:100vh;min-height:0;overflow:hidden;flex-direction:row}
+  .cocina-tv-layout>aside{width:120px;flex:0 0 120px}
+  .cocina-tv-layout>aside>div:first-child>div:first-child{justify-content:center;gap:.45rem;padding:.7rem .35rem}
+  .cocina-tv-layout>aside>div:first-child>div:first-child>div:nth-child(2),
+  .cocina-tv-layout>aside>div:first-child>div:nth-child(2){display:none}
+  .cocina-tv-layout .cocina-tv-brand{display:inline;color:#f8fafc;font-size:.88rem;font-weight:800;letter-spacing:.02em}
+  .cocina-tv-layout>aside nav{padding:.45rem}
+  .cocina-tv-layout>aside nav .cocina-nav-btn,
+  .cocina-tv-layout>aside nav>a{justify-content:center;padding:.65rem .35rem}
+  .cocina-tv-layout>aside nav .cocina-nav-btn span,
+  .cocina-tv-layout>aside nav>a span,
+  .cocina-tv-layout>aside>div:last-child span{display:none}
+  .cocina-tv-layout>aside>div:last-child{padding:.45rem}
+  .cocina-tv-layout>main{min-width:0;height:100vh;min-height:0}
+  .cocina-tv-layout>main>div{min-height:0;overflow:hidden}
+  .cocina-tv-layout .cocina-body{height:100%;box-sizing:border-box;max-width:none;padding:.6rem}
+  .cocina-tv-layout #cocina-vista-pedidos{display:flex;min-height:0;height:100%;flex-direction:column}
+  .cocina-tv-layout #cocina-vista-pedidos[hidden]{display:none!important}
+  .cocina-tv-layout .cocina-toolbar{flex:none;margin-bottom:.5rem;padding:.45rem .6rem}
+  .cocina-tv-layout .cocina-toolbar strong{font-size:.82rem}
+  .cocina-tv-layout .cocina-toolbar span{font-size:.7rem}
+  .cocina-tv-layout .cocina-columnas{flex:1;min-height:0;grid-template-columns:repeat(3,minmax(0,1fr));gap:.45rem}
+  .cocina-tv-layout .cocina-columnas>div{display:flex;min-width:0;min-height:0;flex-direction:column}
+  .cocina-tv-layout .col-header{flex:none;gap:.3rem;margin-bottom:.35rem;padding:.3rem .1rem;font-size:.66rem;letter-spacing:.04em}
+  .cocina-tv-layout .col-header-cnt{font-size:.78rem}
+  .cocina-tv-layout #col-pendiente,
+  .cocina-tv-layout #col-preparacion,
+  .cocina-tv-layout #col-listo{flex:1;min-height:0;overflow-y:auto;padding-right:.15rem;overscroll-behavior:contain}
+  .cocina-tv-layout .pedido-card{margin-bottom:.4rem;padding:.5rem}
+  .cocina-tv-layout .pedido-card-top{margin-bottom:.35rem}
+  .cocina-tv-layout .pedido-mesa-label{font-size:.95rem}
+  .cocina-tv-layout .pedido-hora{font-size:.68rem}
+  .cocina-tv-layout .pedido-items-ul{margin-bottom:.35rem}
+  .cocina-tv-layout .pedido-items-ul li{gap:.3rem;padding:.25rem 0;font-size:.73rem}
+  .cocina-tv-layout .cocina-item-info{gap:.3rem}
+  .cocina-tv-layout .cocina-item-imagen{width:32px;height:32px;min-width:32px;min-height:32px}
+  .cocina-tv-layout .cant-badge{font-size:.7rem}
+  .cocina-tv-layout .cocina-item-nota,
+  .cocina-tv-layout .nota-cocina{font-size:.68rem}
+  .cocina-tv-layout .total-cocina{margin-bottom:.35rem;font-size:.72rem}
+  .cocina-tv-layout .cocina-btns{gap:.25rem}
+  .cocina-tv-layout .cocina-btns .btn{min-height:34px;padding:.35rem .2rem;font-size:.68rem}
+}
 .plato-create-form{display:grid;gap:1rem;margin:1rem 0 1.5rem;padding:1rem}.plato-create-form>.turn-card-heading{margin:0}.plato-create-form>.btn{justify-self:start}
 .plato-create-form>.plato-edit-fields{grid-template-columns:minmax(0,1.2fr) minmax(0,1fr) minmax(120px,.65fr);gap:.85rem;align-items:start}
 .plato-create-form .carta-form-field{min-width:0}

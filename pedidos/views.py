@@ -141,7 +141,13 @@ def subir_comprobante_transferencia(request):
 @user_passes_test(_rol_permitido('cocina'))
 def cocina(request):
     cocina_en_turno = en_turno(request.user.username)
-    return render(request, 'pedidos/cocina.html', {'en_turno': cocina_en_turno})
+    insumos_cocina = Insumo.objects.filter(
+        tipo_inventario='cocina',
+    ).select_related('categoria_inventario').order_by('nombre')
+    return render(request, 'pedidos/cocina.html', {
+        'en_turno': cocina_en_turno,
+        'insumos_cocina': insumos_cocina,
+    })
 
 
 @login_required

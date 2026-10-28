@@ -8,16 +8,17 @@
   <link rel="icon" type="image/svg+xml" href="{% static 'img/favicon.svg' %}?v=20261013">
   <link rel="stylesheet" href="{% static 'css/tailwind.css' %}">
   <link rel="stylesheet" href="{% static 'vendor/fontawesome/css/all.min.css' %}">
-  <link rel="stylesheet" href="{% static 'css/main.css' %}?v=20261013-fixed-product-images">
+  <link rel="stylesheet" href="{% static 'css/main.css' %}?v=20261028-cocina-720px-layout">
   <script src="{% static 'js/responsive-sidebar.js' %}?v=20261001-sidebar-logout" defer></script>
 </head>
-<body class="bg-slate-900 text-slate-100 font-sans min-h-screen flex flex-col md:flex-row overflow-x-hidden">
+<body class="cocina-tv-layout bg-slate-900 text-slate-100 font-sans min-h-screen flex flex-col md:flex-row overflow-x-hidden">
   <aside class="w-full md:w-20 lg:w-64 bg-slate-950 border-r border-slate-800 flex flex-col justify-between shrink-0">
     <div>
       <div class="p-4 lg:p-6 flex items-center justify-between border-b border-slate-800/80">
         <div class="flex items-center gap-3">
           <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-500 to-teal-400 flex items-center justify-center text-slate-950 font-black text-xl shadow-lg shadow-emerald-500/20"><i class="fa-solid fa-utensils"></i></div>
           <div class="hidden lg:block"><h1 class="font-bold text-lg tracking-tight leading-none text-white">GourmetControl</h1><span class="text-xs text-slate-400 font-medium">Panel de Cocina</span></div>
+          <span class="cocina-tv-brand">Cocina</span>
         </div>
       </div>
       <div class="p-4 border-b border-slate-800/50 hidden lg:flex items-center gap-3 bg-slate-900/40">
@@ -27,6 +28,7 @@
       <nav class="p-3 space-y-1">
         <button type="button" id="nav-cocina-pedidos" class="cocina-nav-btn is-active" aria-current="page" aria-controls="cocina-vista-pedidos" onclick="mostrarSeccionCocina('pedidos')"><i class="fa-solid fa-fire-burner text-lg w-6 text-center" aria-hidden="true"></i><span class="hidden lg:inline">Pedidos</span></button>
         <button type="button" id="nav-cocina-ventas" class="cocina-nav-btn" aria-controls="cocina-vista-ventas" onclick="mostrarSeccionCocina('ventas')"><i class="fa-solid fa-chart-column text-lg w-6 text-center" aria-hidden="true"></i><span class="hidden lg:inline">Ventas del día</span></button>
+        <button type="button" id="nav-cocina-inventario" class="cocina-nav-btn" aria-controls="cocina-vista-inventario" onclick="mostrarSeccionCocina('inventario')"><i class="fa-solid fa-boxes-stacked text-lg w-6 text-center" aria-hidden="true"></i><span class="hidden lg:inline">Stock de Cocina</span></button>
         <a href="{% url 'usuarios:dashboard' %}" class="w-full flex items-center gap-3 px-3 py-3 rounded-xl font-medium text-sm text-slate-400 hover:text-white hover:bg-slate-800/50 transition-all"><i class="fa-solid fa-clock-rotate-left text-lg w-6 text-center"></i><span class="hidden lg:inline">Detalle del turno actual</span></a>
       </nav>
     </div>
@@ -70,6 +72,46 @@
     </div>
     </div>
   </section>
+  <section id="cocina-vista-inventario" class="cocina-ventas-view" aria-labelledby="cocina-inventario-heading" hidden>
+    <div class="cocina-ventas-panel">
+      <div class="cocina-ventas-heading">
+        <div><h2 id="cocina-inventario-heading">Stock de Cocina</h2><p>{{ insumos_cocina|length }} productos · Existencias actuales</p></div>
+      </div>
+      <div class="inventario-toolbar cocina-stock-toolbar">
+        <label class="inventario-search" for="cocina-stock-search">
+          <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
+          <input id="cocina-stock-search" type="search" placeholder="Buscar por nombre" autocomplete="off">
+        </label>
+        <label class="cocina-stock-filter-label" for="cocina-stock-filter">Estado del stock</label>
+        <select id="cocina-stock-filter" class="admin-input">
+          <option value="todos">Todos los estados</option>
+          <option value="bajo">Stock bajo</option>
+          <option value="normal">Stock normal</option>
+        </select>
+      </div>
+      <div class="cocina-stock-table-wrap">
+        <table class="cocina-stock-table">
+          <thead>
+            <tr><th>Producto</th><th>Categoría</th><th>Existencia</th><th>Mínimo</th><th>Estado</th></tr>
+          </thead>
+          <tbody>
+            {% for insumo in insumos_cocina %}
+            <tr data-cocina-stock-row data-stock-name="{{ insumo.nombre|lower }}" data-stock-state="{% if insumo.stock_bajo %}bajo{% else %}normal{% endif %}">
+              <td class="cocina-stock-producto">{{ insumo.nombre }}</td>
+              <td class="cocina-stock-categoria">{{ insumo.categoria_inventario.nombre|default:"Sin categoría" }}</td>
+              <td class="cocina-stock-cantidad">{{ insumo.stock_actual }} <span>{{ insumo.get_unidad_display }}</span></td>
+              <td class="cocina-stock-minimo">{{ insumo.stock_minimo }} <span>{{ insumo.get_unidad_display }}</span></td>
+              <td><span class="cocina-stock-status {% if insumo.stock_bajo %}is-low{% else %}is-ok{% endif %}">{% if insumo.stock_bajo %}Stock bajo{% else %}Normal{% endif %}</span></td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="5" class="cocina-stock-empty">No hay productos registrados en el stock de Cocina.</td></tr>
+            {% endfor %}
+            <tr id="cocina-stock-no-results" hidden><td colspan="5" class="cocina-stock-empty">No se encontraron productos con esos filtros.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
 </div>
       </div>
     </div>
@@ -79,6 +121,24 @@
 <script>
 const WS_URL = `ws://${location.host}/ws/cocina/`;
 let ws = null, pedidos = {};
+
+const cocinaStockSearch = document.getElementById('cocina-stock-search');
+const cocinaStockFilter = document.getElementById('cocina-stock-filter');
+function filtrarStockCocina() {
+  const nombre = cocinaStockSearch.value.trim().toLocaleLowerCase();
+  const estado = cocinaStockFilter.value;
+  const rows = document.querySelectorAll('[data-cocina-stock-row]');
+  let encontrados = 0;
+  rows.forEach(row => {
+    const coincideNombre = !nombre || (row.dataset.stockName || '').includes(nombre);
+    const coincideEstado = estado === 'todos' || row.dataset.stockState === estado;
+    row.hidden = !(coincideNombre && coincideEstado);
+    if (coincideNombre && coincideEstado) encontrados++;
+  });
+  document.getElementById('cocina-stock-no-results').hidden = rows.length === 0 || encontrados > 0;
+}
+cocinaStockSearch.addEventListener('input', filtrarStockCocina);
+cocinaStockFilter.addEventListener('change', filtrarStockCocina);
 
 function conectar() {
   ws = new WebSocket(WS_URL);
@@ -158,19 +218,26 @@ function urlImagenProducto(value) {
 const ventasHoyUrl = '{% url "pedidos:cocina_ventas_hoy" %}';
 
 function mostrarSeccionCocina(seccion) {
+  const mostrarPedidos = seccion === 'pedidos';
   const mostrarVentas = seccion === 'ventas';
-  document.getElementById('cocina-vista-pedidos').hidden = mostrarVentas;
+  const mostrarInventario = seccion === 'inventario';
+  document.getElementById('cocina-vista-pedidos').hidden = !mostrarPedidos;
   document.getElementById('cocina-vista-ventas').hidden = !mostrarVentas;
-  document.getElementById('cocina-pedidos-status').hidden = mostrarVentas;
-  document.getElementById('cocina-vista-titulo').textContent = mostrarVentas ? 'Ventas del día' : 'Pedidos de Cocina';
-  document.getElementById('cocina-vista-icono').className = `fa-solid ${mostrarVentas ? 'fa-chart-column' : 'fa-fire-burner'} text-emerald-400 text-base`;
+  document.getElementById('cocina-vista-inventario').hidden = !mostrarInventario;
+  document.getElementById('cocina-pedidos-status').hidden = !mostrarPedidos;
+  document.getElementById('cocina-vista-titulo').textContent = mostrarVentas ? 'Ventas del día' : mostrarInventario ? 'Stock de Cocina' : 'Pedidos de Cocina';
+  const icono = mostrarVentas ? 'fa-chart-column' : mostrarInventario ? 'fa-boxes-stacked' : 'fa-fire-burner';
+  document.getElementById('cocina-vista-icono').className = `fa-solid ${icono} text-emerald-400 text-base`;
 
-  document.getElementById('nav-cocina-pedidos').classList.toggle('is-active', !mostrarVentas);
+  document.getElementById('nav-cocina-pedidos').classList.toggle('is-active', mostrarPedidos);
   document.getElementById('nav-cocina-ventas').classList.toggle('is-active', mostrarVentas);
-  document.getElementById('nav-cocina-pedidos').toggleAttribute('aria-current', !mostrarVentas);
+  document.getElementById('nav-cocina-inventario').classList.toggle('is-active', mostrarInventario);
+  document.getElementById('nav-cocina-pedidos').toggleAttribute('aria-current', mostrarPedidos);
   document.getElementById('nav-cocina-ventas').toggleAttribute('aria-current', mostrarVentas);
+  document.getElementById('nav-cocina-inventario').toggleAttribute('aria-current', mostrarInventario);
   const url = new URL(location.href);
   if (mostrarVentas) url.searchParams.set('vista', 'ventas');
+  else if (mostrarInventario) url.searchParams.set('vista', 'inventario');
   else url.searchParams.delete('vista');
   history.replaceState(null, '', `${url.pathname}${url.search}${url.hash}`);
   if (mostrarVentas) actualizarVentasHoy();
@@ -204,6 +271,8 @@ async function actualizarVentasHoy() {
 
 if (new URLSearchParams(location.search).get('vista') === 'ventas') {
   mostrarSeccionCocina('ventas');
+} else if (new URLSearchParams(location.search).get('vista') === 'inventario') {
+  mostrarSeccionCocina('inventario');
 }
 setInterval(() => {
   if (!document.getElementById('cocina-vista-ventas').hidden) actualizarVentasHoy();

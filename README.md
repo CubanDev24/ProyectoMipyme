@@ -41,7 +41,7 @@ con el botón **Imprimir QR**.
 |---|---|---|
 | `/` | Inicio | Selección de rol |
 | `/pedidos/mesera/` | **Mesera** | Toma pedidos por mesa, ve estados, marca servido |
-| `/pedidos/cocina/` | **Cocina** | Ve pedidos en tiempo real, cambia estado |
+| `/pedidos/cocina/` | **Cocina** | Ve pedidos en tiempo real, cambia estado y consulta el stock de Cocina (solo lectura) |
 | `/pedidos/caja/` | **Caja** | Verifica inventario, cobra y cierra cuentas |
 | `/mesa/<N>/` | **Cliente** | Ve carta, pide, solicita cuenta |
 | `/administrador/` | **Administrador** | Mesas del turno y sus QR, inventario, recetas y tasa de cambio |
@@ -62,7 +62,8 @@ con el botón **Imprimir QR**.
 3. **Cocina** en `/pedidos/cocina/` recibe los platos → los pasa a "En preparación" → "Listo".
    Las bebidas se preparan desde **Barra** en el panel de la mesera, donde se marcan
   como "Listo" al terminar. Cocina también muestra las unidades vendidas hoy por
-  plato, sin mostrar importes.
+  plato, sin mostrar importes, y permite consultar los productos, existencias y
+  mínimos del inventario de Cocina en una sección de solo lectura.
 4. **Mesera** recoge el pedido listo → lo marca como "Servido". El servidor no permite
    servir un pedido que todavía no esté listo.
    En este momento el sistema descuenta automáticamente el inventario según la
@@ -182,3 +183,4 @@ con el botón **Imprimir QR**.
 - Al agregar un pedido para llevar si tiene algun producto de cocina, agregar un termopad a la compra.
 - mejorar las tablas de administracion con funcionalidades de excel.
 - crear nuevos roles con permisos definidos para el admin
+- cancelar pedidos de cocina en comanda cuando no estan en preparacion o listos
