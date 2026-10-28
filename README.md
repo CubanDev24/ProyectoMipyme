@@ -62,7 +62,8 @@ con el botón **Imprimir QR**.
 3. **Cocina** en `/pedidos/cocina/` recibe los platos → los pasa a "En preparación" → "Listo".
    Las bebidas se preparan desde **Barra** en el panel de la mesera, donde se marcan
   como "Listo" al terminar. Cocina también muestra las unidades vendidas hoy por
-  plato, sin mostrar importes, y permite consultar los productos, existencias y
+  plato, junto con los insumos de su receta, la cantidad por plato y el consumo
+  estimado total para las unidades vendidas, sin mostrar importes, y permite consultar los productos, existencias y
   mínimos del inventario de Cocina en una sección de solo lectura.
 4. **Mesera** recoge el pedido listo → lo marca como "Servido". El servidor no permite
    servir un pedido que todavía no esté listo.
@@ -174,7 +175,7 @@ con el botón **Imprimir QR**.
 - Se agrego una reestriccion para que no se pueda cerrar un turno con pedidos o tickets pendientes por cobrar.
 - Se implemento el IPV por productos de la carta y turno, con fondo inicial, entradas, roturas registradas durante el turno y ventas automáticas desde los cobros.
 - Se restringio el historial de turnos cerrados al administrador, se muestran las horas de apertura y cierre, y se agrego el aviso para continuar o cerrar un turno que pasa de medianoche; el cierre de la cajera notifica al administrador.
-
+- En las ventas del día de Cocina se muestran por plato las unidades vendidas, su imagen, los insumos de la receta, la cantidad por unidad y el consumo total estimado, sin importes.
 
 
 
