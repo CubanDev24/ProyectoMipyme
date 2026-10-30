@@ -88,7 +88,7 @@ class Pedido(models.Model):
 
 class ItemPedido(models.Model):
     pedido = models.ForeignKey(Pedido, on_delete=models.CASCADE, related_name='items')
-    plato = models.ForeignKey(Plato, on_delete=models.PROTECT)
+    plato = models.ForeignKey(Plato, on_delete=models.CASCADE)
     cantidad = models.PositiveIntegerField(default=1)
     nota = models.CharField(max_length=200, blank=True)
 

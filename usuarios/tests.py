@@ -141,6 +141,11 @@ class UsuarioTurnoTests(TestCase):
                 response = self.client.get(reverse('usuarios:dashboard'))
 
                 self.assertEqual(response.status_code, 200)
+                if usuario.role == 'cocina':
+                    self.assertContains(
+                        response,
+                        f'href="{reverse("pedidos:cocina")}?vista=inventario"',
+                    )
                 self.assertFalse(response.context['puede_ver_datos_financieros'])
                 self.assertFalse(response.context['facturas_turno'].exists())
                 self.assertNotContains(response, 'Ventas totales')
