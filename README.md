@@ -192,12 +192,11 @@ con el botón **Imprimir QR**.
 - Al agregar un pedido para llevar si tiene algun producto de cocina, agregar un termopad a la compra.
 - mejorar las tablas de administracion con funcionalidades de excel.
 - crear nuevos roles con permisos definidos para el admin
-- cancelar pedidos de cocina en comanda cuando no estan en preparacion o listos
-- crear nuevos roles con permisos definidos para el admin.
+
 - Inventario de restaurante para cajera con posibilidad de agregar platos y modificar platos, no eliminar (solo restaurante)
-- Agregar mesas por defeccto para los productos que se venden sin pedir comandas (bebidas solamente)
-- Categoria acompañante para los platos que lleven arroz (mesera puede seleccionar el tipo de arroz)
+- Darian Agregar mesas por defeccto para los productos que se venden sin pedir comandas (bebidas solamente)
+- Darian Categoria acompañante para los platos que lleven arroz (mesera puede seleccionar el tipo de arroz) Darian
 - Agregar historial de pedidos a la cajera y que se le muestre el ipv detallado del turno
-- Añadir cuenta casa (platos vendidos gratis)
+- Darian Añadir cuenta casa (platos vendidos gratis) Darian
 - Agregar categorias de cantidades al ipv
 - Inventario resumen para los productos vendidos
