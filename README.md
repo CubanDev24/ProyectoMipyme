@@ -63,8 +63,12 @@ con el botón **Imprimir QR**.
    Las bebidas se preparan desde **Barra** en el panel de la mesera, donde se marcan
   como "Listo" al terminar. Cocina también muestra las unidades vendidas hoy por
   plato, junto con los insumos de su receta, la cantidad por plato y el consumo
+   Mientras un pedido esté pendiente, la mesera puede solicitar su cancelación e
+   indicar el motivo; Cocina o Barra deben aceptarla para que el pedido se retire.
   estimado total para las unidades vendidas, sin mostrar importes, y permite consultar los productos, existencias y
   mínimos del inventario de Cocina en una sección de solo lectura.
+   Mientras un pedido esté pendiente, la mesera puede solicitar su cancelación e
+   indicar el motivo; Cocina o Barra deben aceptarla para que el pedido se retire.
 4. **Mesera** recoge el pedido listo → lo marca como "Servido". El servidor no permite
    servir un pedido que todavía no esté listo.
    En este momento el sistema descuenta automáticamente el inventario según la
@@ -176,6 +180,10 @@ con el botón **Imprimir QR**.
 - Se implemento el IPV por productos de la carta y turno, con fondo inicial, entradas, roturas registradas durante el turno y ventas automáticas desde los cobros.
 - Se restringio el historial de turnos cerrados al administrador, se muestran las horas de apertura y cierre, y se agrego el aviso para continuar o cerrar un turno que pasa de medianoche; el cierre de la cajera notifica al administrador.
 - En las ventas del día de Cocina se muestran por plato las unidades vendidas, su imagen, los insumos de la receta, la cantidad por unidad y el consumo total estimado, sin importes.
+- La mesera puede solicitar cancelar pedidos pendientes indicando el motivo; la estación de destino acepta la solicitud y el pedido se retira de sus listados.
+- El motivo de cancelación se escribe en un formulario dentro del pedido, sin avisos emergentes del navegador; las solicitudes a Cocina se muestran en una alerta centrada con sonido y fuera de la cola normal.
+- Cuando se solicita cancelar un pedido de Barra, la mesera recibe una notificación con el motivo; desde su panel también puede aceptar la solicitud.
+- La modal de detalles de una mesa también se puede cerrar haciendo clic fuera del panel.
 
 
 
@@ -185,3 +193,4 @@ con el botón **Imprimir QR**.
 - mejorar las tablas de administracion con funcionalidades de excel.
 - crear nuevos roles con permisos definidos para el admin
 - cancelar pedidos de cocina en comanda cuando no estan en preparacion o listos
+- crear nuevos roles con permisos definidos para el admin.

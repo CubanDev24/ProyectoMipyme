@@ -117,10 +117,20 @@
     </div>
   </main>
   <div id="toast-container" class="toast-container"></div>
+  <section id="cocina-cancelacion-alerta" class="cocina-cancelacion-backdrop" aria-labelledby="cocina-cancelacion-titulo" aria-modal="true" role="alertdialog" hidden>
+    <div class="cocina-cancelacion-dialog">
+      <div class="cocina-cancelacion-header">
+        <span class="cocina-cancelacion-icono"><i class="fa-solid fa-bell" aria-hidden="true"></i></span>
+        <div><p class="cocina-cancelacion-etiqueta">ATENCIÓN INMEDIATA</p><h2 id="cocina-cancelacion-titulo">Solicitud de cancelación</h2></div>
+      </div>
+      <div id="cocina-cancelacion-solicitudes" class="cocina-cancelacion-solicitudes" aria-live="assertive"></div>
+    </div>
+  </section>
   <script src="{% static 'js/utils.js' %}?v=20261014-mesera-mobile-audio-alert3"></script>
 <script>
 const WS_URL = `ws://${location.host}/ws/cocina/`;
 let ws = null, pedidos = {};
+let sonidoCancelacionTimer = null;
 
 const cocinaStockSearch = document.getElementById('cocina-stock-search');
 const cocinaStockFilter = document.getElementById('cocina-stock-filter');
@@ -146,7 +156,16 @@ function conectar() {
   ws.onclose = () => { setDot(false); setTimeout(conectar, 3000); };
   ws.onmessage = e => {
     const d = JSON.parse(e.data);
-    if (d.tipo==='estado_inicial') { pedidos={}; d.pedidos.filter(p=>p.destino==='cocina').forEach(p=>pedidos[p.id]=p); renderTodo(); }
+    if (d.tipo==='error_cancelacion') {
+      toast(d.mensaje || 'No se pudo procesar la cancelación.','orange');
+      return;
+    }
+    if (d.tipo==='estado_inicial') {
+      pedidos={};
+      d.pedidos.filter(p=>p.destino==='cocina').forEach(p=>pedidos[p.id]=p);
+      renderTodo();
+      if (solicitudesCancelacionActivas().length) mostrarAlertaCancelacion();
+    }
     else if (d.tipo==='pedido_nuevo') {
       if (d.pedido.destino !== 'cocina') return;
       pedidos[d.pedido.id]=d.pedido;
@@ -161,9 +180,21 @@ function conectar() {
         renderTodo();
         return;
       }
+      if (d.pedido.estado === 'cancelado') {
+        delete pedidos[d.pedido.id];
+        renderTodo();
+        renderAlertasCancelacion();
+        toast(`Pedido cancelado — ${d.pedido.etiqueta || `Mesa ${d.pedido.mesa_numero}`}`,'orange');
+        sonidoCambioEstado();
+        return;
+      }
       if (!anterior && d.pedido.destino !== 'cocina') return;
       pedidos[d.pedido.id]={...(anterior || {}), ...d.pedido};
       renderTodo();
+      if (d.pedido.cancelacion_solicitada && !anterior?.cancelacion_solicitada) {
+        mostrarAlertaCancelacion();
+      }
+      renderAlertasCancelacion();
       if (anterior && (anterior.estado !== d.pedido.estado || anterior.cuenta_solicitada !== d.pedido.cuenta_solicitada)) sonidoCambioEstado();
     }
     else if (d.tipo==='pedido_cerrado') { delete pedidos[d.pedido_id]; renderTodo(); sonidoCambioEstado(); }
@@ -180,9 +211,47 @@ function cambiarEstado(id, estado) {
   if(ws&&ws.readyState===1) ws.send(JSON.stringify({accion:'cambiar_estado',pedido_id:id,estado}));
 }
 
+function aceptarCancelacionCocina(pedidoId) {
+  if(ws&&ws.readyState===1) ws.send(JSON.stringify({accion:'aceptar_cancelacion',pedido_id:pedidoId}));
+}
+
+function solicitudesCancelacionActivas() {
+  return Object.values(pedidos).filter(p => p.cancelacion_solicitada && p.estado === 'pendiente');
+}
+
+function mostrarAlertaCancelacion() {
+  sonidoPedidoNuevo();
+  if (sonidoCancelacionTimer) return;
+  sonidoCancelacionTimer = setInterval(() => {
+    if (solicitudesCancelacionActivas().length) sonidoAlerta(880);
+    else {
+      clearInterval(sonidoCancelacionTimer);
+      sonidoCancelacionTimer = null;
+    }
+  }, 5000);
+}
+
+function renderAlertasCancelacion() {
+  const backdrop = document.getElementById('cocina-cancelacion-alerta');
+  const lista = document.getElementById('cocina-cancelacion-solicitudes');
+  const solicitudes = solicitudesCancelacionActivas();
+  backdrop.hidden = solicitudes.length === 0;
+  lista.innerHTML = solicitudes.map(p => `
+    <article class="cocina-cancelacion-pedido">
+      <h3>${escaparHtml(p.etiqueta || `Mesa ${p.mesa_numero}`)} · Pedido #${escaparHtml(p.id)}</h3>
+      <p class="cocina-cancelacion-platos">${p.items.map(item => `${escaparHtml(item.cantidad)}× ${escaparHtml(item.plato)}`).join(' · ')}</p>
+      <p class="cocina-cancelacion-motivo"><strong>Motivo:</strong> ${escaparHtml(p.motivo_cancelacion || 'Sin motivo indicado')}</p>
+      <button type="button" class="cocina-cancelacion-aceptar" onclick="aceptarCancelacionCocina(${Number(p.id)})"><i class="fa-solid fa-check" aria-hidden="true"></i>Aceptar cancelación</button>
+    </article>`).join('');
+  if (!solicitudes.length && sonidoCancelacionTimer) {
+    clearInterval(sonidoCancelacionTimer);
+    sonidoCancelacionTimer = null;
+  }
+}
+
 function renderTodo() {
   const cols = {pendiente:[], en_preparacion:[], listo:[]};
-  Object.values(pedidos).forEach(p=>{ if(cols[p.estado]) cols[p.estado].push(p); });
+  Object.values(pedidos).forEach(p=>{ if(!p.cancelacion_solicitada && cols[p.estado]) cols[p.estado].push(p); });
   ['pendiente','en_preparacion','listo'].forEach(e=>cols[e].sort((a,b)=>a.id-b.id));
   renderCol('pendiente', cols.pendiente);
   renderCol('preparacion', cols.en_preparacion);
@@ -190,6 +259,7 @@ function renderTodo() {
   document.getElementById('cnt-p').textContent = cols.pendiente.length;
   document.getElementById('cnt-prep').textContent = cols.en_preparacion.length;
   document.getElementById('cnt-l').textContent = cols.listo.length;
+  renderAlertasCancelacion();
   document.getElementById('header-count-listos').textContent = cols.listo.length;
 }
 
@@ -305,11 +375,15 @@ function crearCard(p) {
   }).join('');
   const cuentaTag = p.cuenta_solicitada ? `<div class="tag-cuenta-cocina"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg> Pide la cuenta</div>` : '';
   const nota = p.nota ? `<div class="nota-cocina">Nota: ${p.nota}</div>` : '';
+  const solicitudCancelacion = p.cancelacion_solicitada
+    ? `<div class="nota-cocina" style="color:#fda4af">Cancelación solicitada: ${escaparHtml(p.motivo_cancelacion || '')}</div>`
+    : '';
   const contacto = p.es_para_llevar
     ? `<div class="nota-cocina">Cliente: ${escaparHtml(p.nombre_cliente || 'Sin nombre')} · Teléfono: ${escaparHtml(p.telefono_cliente || 'Sin teléfono')}</div>`
     : '';
   let btns='';
-  if(p.estado==='pendiente') btns=`<button class="btn btn-orange" onclick="cambiarEstado(${p.id},'en_preparacion')">Preparar</button>`;
+  if(p.cancelacion_solicitada) btns=`<button class="btn btn-outline" onclick="aceptarCancelacionCocina(${p.id})">Aceptar cancelación</button>`;
+  else if(p.estado==='pendiente') btns=`<button class="btn btn-orange" onclick="cambiarEstado(${p.id},'en_preparacion')">Preparar</button>`;
   else if(p.estado==='en_preparacion') btns=`<button class="btn btn-success" onclick="cambiarEstado(${p.id},'listo')">Marcar listo</button>`;
   else if(p.estado==='listo') btns='<span class="text-xs font-semibold text-emerald-400">Listo para recoger</span>';
   div.innerHTML=`
@@ -320,6 +394,7 @@ function crearCard(p) {
     <ul class="pedido-items-ul">${items}</ul>
     ${contacto}
     ${nota}
+    ${solicitudCancelacion}
     <div class="total-cocina">Total: <span>${p.total} CUP</span></div>
     <div class="cocina-btns">${btns}</div>`;
   return div;

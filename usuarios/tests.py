@@ -738,6 +738,8 @@ class UsuarioTurnoTests(TestCase):
 
         mesa = Mesa.objects.create(numero=10, abierta=True)
         pedido = Pedido.objects.create(mesa=mesa, estado='cerrado')
+        Pedido.objects.create(mesa=mesa, estado='cancelado')
+        Pedido.objects.create(modalidad='para_llevar', estado='cancelado')
         Factura.objects.create(
             pedido=pedido,
             mesa_numero=mesa.numero,
@@ -1063,6 +1065,7 @@ class UsuarioTurnoTests(TestCase):
     def test_admin_puede_desactivar_y_activar_una_mesa_individualmente(self):
         turno = registrar_inicio_turno(self.admin)
         mesa = Mesa.objects.create(numero=80, activa=True)
+        Pedido.objects.create(mesa=mesa, estado='cancelado')
         self.client.force_login(self.admin)
 
         response = self.client.post(

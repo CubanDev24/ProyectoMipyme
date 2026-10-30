@@ -54,6 +54,7 @@ class Pedido(models.Model):
         ('listo', 'Listo'),
         ('servido', 'Servido'),
         ('entregado', 'Entregado'),
+        ('cancelado', 'Cancelado'),
         ('cerrado', 'Cerrado'),
     ]
     mesa = models.ForeignKey(Mesa, on_delete=models.PROTECT, related_name='pedidos', null=True, blank=True)
@@ -63,6 +64,8 @@ class Pedido(models.Model):
     telefono_cliente = models.CharField(max_length=30, blank=True, default='')
     destino = models.CharField(max_length=10, choices=DESTINO_CHOICES, default='cocina')
     estado = models.CharField(max_length=20, choices=ESTADO_CHOICES, default='pendiente')
+    cancelacion_solicitada = models.BooleanField(default=False)
+    motivo_cancelacion = models.CharField(max_length=300, blank=True, default='')
     nota = models.TextField(blank=True)
     creado_en = models.DateTimeField(auto_now_add=True)
     actualizado_en = models.DateTimeField(auto_now=True)
