@@ -246,7 +246,7 @@
   <main class="flex-1 flex flex-col h-screen overflow-hidden">
     <header class="h-16 border-b border-slate-800 bg-slate-950/60 backdrop-blur px-6 flex items-center justify-between shrink-0">
       <div class="flex items-center gap-4">
-        {% if request.user.role == 'administrador' %}
+        {% if request.user.role == 'administrador' or request.user.role == 'cajera' %}
         <a href="{% url 'usuarios:historial_turnos' %}" class="text-slate-400 hover:text-white transition-colors mr-1" title="Volver al historial">
         {% else %}
         <a href="{% url 'usuarios:dashboard' %}" class="text-slate-400 hover:text-white transition-colors mr-1" title="Volver al turno actual">
@@ -255,7 +255,7 @@
         </a>
         <h2 class="text-lg font-bold text-white flex items-center gap-2 leading-none">
           <i class="fa-solid fa-clock-rotate-left text-emerald-400 text-base"></i>
-          <span>Detalle del turno</span>
+          <span>Detalle del turno actual</span>
         </h2>
         <span class="text-[11px] bg-slate-800 text-slate-300 px-2.5 py-1 rounded-full border border-slate-700 font-medium tracking-wide" id="clock-display">--:--</span>
       </div>

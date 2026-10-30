@@ -1709,3 +1709,15 @@ class FacturaWorkflowTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'Estadísticas acumuladas')
         self.assertContains(response, 'Panel de Caja')
+
+    def test_sidebar_de_cajera_muestra_historial_en_caja_y_estadisticas(self):
+        User = get_user_model()
+        cajera = User.objects.create_user(username='cajera_sidebar', password='123456', role='cajera')
+        self.client.force_login(cajera)
+
+        for nombre_url in ('pedidos:caja', 'pedidos:caja_estadisticas_pagina'):
+            with self.subTest(pagina=nombre_url):
+                response = self.client.get(reverse(nombre_url))
+
+                self.assertEqual(response.status_code, 200)
+                self.assertContains(response, f'href="{reverse("usuarios:historial_turnos")}"')

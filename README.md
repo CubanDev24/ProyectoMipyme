@@ -178,7 +178,7 @@ con el botón **Imprimir QR**.
 - Ya se eliminan y editan las categorias.
 - Se agrego una reestriccion para que no se pueda cerrar un turno con pedidos o tickets pendientes por cobrar.
 - Se implemento el IPV por productos de la carta y turno, con fondo inicial, entradas, roturas registradas durante el turno y ventas automáticas desde los cobros.
-- Se restringio el historial de turnos cerrados al administrador, se muestran las horas de apertura y cierre, y se agrego el aviso para continuar o cerrar un turno que pasa de medianoche; el cierre de la cajera notifica al administrador.
+- La cajera y el administrador pueden consultar el historial de turnos cerrados y sus detalles, incluidos los datos del IPV; se muestran las horas de apertura y cierre y se agrego el aviso para continuar o cerrar un turno que pasa de medianoche. El cierre de la cajera notifica al administrador.
 - En las ventas del día de Cocina se muestran por plato las unidades vendidas, su imagen, los insumos de la receta, la cantidad por unidad y el consumo total estimado, sin importes.
 - La mesera puede solicitar cancelar pedidos pendientes indicando el motivo; la estación de destino acepta la solicitud y el pedido se retira de sus listados.
 - El motivo de cancelación se escribe en un formulario dentro del pedido, sin avisos emergentes del navegador; las solicitudes a Cocina se muestran en una alerta centrada con sonido y fuera de la cola normal.

@@ -720,8 +720,8 @@ def cerrar_turno_view(request):
 
 @login_required
 def historial_turnos_view(request):
-    if request.user.role != 'administrador':
-        messages.error(request, 'Solo el administrador puede ver el historial de turnos.')
+    if request.user.role not in ROLES_CON_ACCESO_FINANCIERO:
+        messages.error(request, 'Solo caja o el administrador pueden ver el historial de turnos.')
         return redirect('usuarios:dashboard')
 
     turnos = Turno.objects.filter(estado='cerrado').prefetch_related('usuarios').order_by('-cierre', '-fecha')
@@ -1056,9 +1056,6 @@ def historial_turno_detalle_view(request, turno_id):
         return redirect('usuarios:dashboard')
 
     turno = get_object_or_404(Turno.objects.prefetch_related('usuarios'), pk=turno_id)
-    if request.user.role == 'cajera' and turno.estado == 'cerrado':
-        messages.error(request, 'La cajera no puede consultar turnos cerrados anteriores.')
-        return redirect('usuarios:dashboard')
     data = turno.resumen_financiero
     datos_ipv = _datos_ipv_turno(turno)
     data['fondo_inicial_cup'] = turno.fondo_inicial_cup
@@ -1081,8 +1078,6 @@ def ipv_turno(request, turno_id):
         return JsonResponse({'error': 'Sin permiso'}, status=403)
 
     turno = get_object_or_404(Turno, pk=turno_id)
-    if request.user.role == 'cajera' and turno.estado == 'cerrado':
-        return JsonResponse({'error': 'Sin permiso'}, status=403)
     return JsonResponse(_datos_ipv_turno(turno))
 
 
@@ -1175,8 +1170,6 @@ def ipv_turno_pdf(request, turno_id):
         return JsonResponse({'error': 'Sin permiso'}, status=403)
 
     turno = get_object_or_404(Turno, pk=turno_id)
-    if request.user.role == 'cajera' and turno.estado == 'cerrado':
-        return JsonResponse({'error': 'Sin permiso'}, status=403)
     datos = _datos_ipv_turno(turno)
     buffer = BytesIO()
     pagina = landscape(A4)
@@ -1284,8 +1277,6 @@ def ipv_turno_excel(request, turno_id):
         return JsonResponse({'error': 'Sin permiso'}, status=403)
 
     turno = get_object_or_404(Turno, pk=turno_id)
-    if request.user.role == 'cajera' and turno.estado == 'cerrado':
-        return JsonResponse({'error': 'Sin permiso'}, status=403)
     datos = _datos_ipv_turno(turno)
     libro = Workbook()
     hoja = libro.active

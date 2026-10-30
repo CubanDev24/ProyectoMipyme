@@ -170,7 +170,7 @@ class UsuarioTurnoTests(TestCase):
                     302,
                 )
 
-    def test_cajera_no_puede_ver_turnos_cerrados_anteriores(self):
+    def test_cajera_puede_ver_historial_y_detalles_de_turnos_cerrados(self):
         turno_cerrado = Turno.objects.create(
             fecha=timezone.localdate() - timedelta(days=1),
             estado='cerrado',
@@ -182,21 +182,27 @@ class UsuarioTurnoTests(TestCase):
         dashboard = self.client.get(reverse('usuarios:dashboard'))
 
         self.assertEqual(dashboard.status_code, 200)
-        self.assertNotContains(dashboard, reverse('usuarios:historial_turnos'))
+        self.assertContains(dashboard, reverse('usuarios:historial_turnos'))
         self.assertContains(
             dashboard,
             reverse('usuarios:historial_turno_detalle', args=[turno_actual.pk]),
         )
-        self.assertEqual(self.client.get(reverse('usuarios:historial_turnos')).status_code, 302)
+        response_historial = self.client.get(reverse('usuarios:historial_turnos'))
+        self.assertEqual(response_historial.status_code, 200)
+        self.assertContains(
+            response_historial,
+            reverse('usuarios:historial_turno_detalle', args=[turno_cerrado.pk]),
+        )
+        self.assertContains(response_historial, 'Historial')
         self.assertEqual(
             self.client.get(reverse('usuarios:historial_turno_detalle', args=[turno_cerrado.pk])).status_code,
-            302,
+            200,
         )
         for nombre_ruta in ('ipv_turno', 'ipv_turno_pdf', 'ipv_turno_excel'):
             with self.subTest(ruta=nombre_ruta):
                 self.assertEqual(
                     self.client.get(reverse(f'usuarios:{nombre_ruta}', args=[turno_cerrado.pk])).status_code,
-                    403,
+                    200,
                 )
         self.assertEqual(
             self.client.get(reverse('usuarios:historial_turno_detalle', args=[turno_actual.pk])).status_code,
@@ -1192,14 +1198,14 @@ class UsuarioTurnoTests(TestCase):
 
         self.client.force_login(self.cajera)
         response_historial = self.client.get(reverse('usuarios:historial_turnos'))
-        self.assertEqual(response_historial.status_code, 302)
+        self.assertEqual(response_historial.status_code, 200)
         response_detalle = self.client.get(
             reverse('usuarios:historial_turno_detalle', args=[turno_cerrado.pk])
         )
-        self.assertEqual(response_detalle.status_code, 302)
+        self.assertEqual(response_detalle.status_code, 200)
         self.assertEqual(
             self.client.get(reverse('usuarios:ipv_turno', args=[turno_cerrado.pk])).status_code,
-            403,
+            200,
         )
 
     def test_ipv_muestra_existencia_despues_de_restar_salidas(self):
