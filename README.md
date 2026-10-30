@@ -184,7 +184,7 @@ con el botón **Imprimir QR**.
 - El motivo de cancelación se escribe en un formulario dentro del pedido, sin avisos emergentes del navegador; las solicitudes a Cocina se muestran en una alerta centrada con sonido y fuera de la cola normal.
 - Cuando se solicita cancelar un pedido de Barra, la mesera recibe una notificación con el motivo; desde su panel también puede aceptar la solicitud.
 - La modal de detalles de una mesa también se puede cerrar haciendo clic fuera del panel.
-
+- El modelo pedido en la carta puede eliminarse
 
 
 ## Mejoras:
@@ -194,3 +194,10 @@ con el botón **Imprimir QR**.
 - crear nuevos roles con permisos definidos para el admin
 - cancelar pedidos de cocina en comanda cuando no estan en preparacion o listos
 - crear nuevos roles con permisos definidos para el admin.
+- Inventario de restaurante para cajera con posibilidad de agregar platos y modificar platos, no eliminar (solo restaurante)
+- Agregar mesas por defeccto para los productos que se venden sin pedir comandas (bebidas solamente)
+- Categoria acompañante para los platos que lleven arroz (mesera puede seleccionar el tipo de arroz)
+- Agregar historial de pedidos a la cajera y que se le muestre el ipv detallado del turno
+- Añadir cuenta casa (platos vendidos gratis)
+- Agregar categorias de cantidades al ipv
+- Inventario resumen para los productos vendidos
