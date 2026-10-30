@@ -1,0 +1,315 @@
+2026-10-30 12:12:24,815 ERROR daphne.server: Exception inside application: no such column: pedidos_pedido.cancelacion_solicitada
+Traceback (most recent call last):
+  File "C:\Users\Darius090909\Desktop\Trabajo\websockets\ProyectoMipyme\venv\Lib\site-packages\django\db\backends\utils.py", line 105, in _execute
+    return self.cursor.execute(sql, params)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Darius090909\Desktop\Trabajo\websockets\ProyectoMipyme\venv\Lib\site-packages\django\db\backends\sqlite3\base.py", line 359, in execute
+    return super().execute(query, params)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+sqlite3.OperationalError: no such column: pedidos_pedido.cancelacion_solicitada
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "C:\Users\Darius090909\Desktop\Trabajo\websockets\ProyectoMipyme\venv\Lib\site-packages\django\contrib\staticfiles\handlers.py", line 101, in __call__
+    return await self.application(scope, receive, send)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Darius090909\Desktop\Trabajo\websockets\ProyectoMipyme\venv\Lib\site-packages\channels\routing.py", line 48, in __call__
+    return await application(scope, receive, send)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Darius090909\Desktop\Trabajo\websockets\ProyectoMipyme\venv\Lib\site-packages\channels\sessions.py", line 44, in __call__
+    return await self.inner(dict(scope, cookies=cookies), receive, send)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Darius090909\Desktop\Trabajo\websockets\ProyectoMipyme\venv\Lib\site-packages\channels\sessions.py", line 261, in __call__
+    return await self.inner(wrapper.scope, receive, wrapper.send)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Darius090909\Desktop\Trabajo\websockets\ProyectoMipyme\venv\Lib\site-packages\channels\auth.py", line 185, in __call__
+    return await super().__call__(scope, receive, send)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Darius090909\Desktop\Trabajo\websockets\ProyectoMipyme\venv\Lib\site-packages\channels\middleware.py", line 24, in __call__
+    return await self.inner(scope, receive, send)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Darius090909\Desktop\Trabajo\websockets\ProyectoMipyme\venv\Lib\site-packages\channels\routing.py", line 118, in __call__
+    return await application(
+           ^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Darius090909\Desktop\Trabajo\websockets\ProyectoMipyme\venv\Lib\site-packages\channels\consumer.py", line 95, in app
+    return await consumer(scope, receive, send)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Darius090909\Desktop\Trabajo\websockets\ProyectoMipyme\venv\Lib\site-packages\channels\consumer.py", line 58, in __call__
+    await await_many_dispatch(
+  File "C:\Users\Darius090909\Desktop\Trabajo\websockets\ProyectoMipyme\venv\Lib\site-packages\channels\utils.py", line 50, in await_many_dispatch
+    await dispatch(result)
+  File "C:\Users\Darius090909\Desktop\Trabajo\websockets\ProyectoMipyme\venv\Lib\site-packages\channels\consumer.py", line 74, in dispatch
+    await handler(message)
+  File "C:\Users\Darius090909\Desktop\Trabajo\websockets\ProyectoMipyme\venv\Lib\site-packages\channels\generic\websocket.py", line 180, in websocket_connect
+    await self.connect()
+  File "C:\Users\Darius090909\Desktop\Trabajo\websockets\ProyectoMipyme\pedidos\consumers.py", line 1096, in connect
+    pedidos = await self.get_pedidos_cocina()
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Darius090909\Desktop\Trabajo\websockets\ProyectoMipyme\venv\Lib\site-packages\asgiref\sync.py", line 526, in __call__
+    ret = await asyncio.shield(exec_coro)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Darius090909\AppData\Local\Programs\Python\Python312\Lib\concurrent\futures\thread.py", line 58, in run
+    result = self.fn(*self.args, **self.kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Darius090909\Desktop\Trabajo\websockets\ProyectoMipyme\venv\Lib\site-packages\channels\db.py", line 13, in thread_handler
+    return super().thread_handler(loop, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Darius090909\Desktop\Trabajo\websockets\ProyectoMipyme\venv\Lib\site-packages\asgiref\sync.py", line 581, in thread_handler
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Darius090909\Desktop\Trabajo\websockets\ProyectoMipyme\venv\Lib\site-packages\asgiref\sync.py", line 508, in func
+    return context.run(run_child)
+           ^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Darius090909\Desktop\Trabajo\websockets\ProyectoMipyme\venv\Lib\site-packages\asgiref\sync.py", line 506, in run_child
+    return child()
+           ^^^^^^^
+  File "C:\Users\Darius090909\Desktop\Trabajo\websockets\ProyectoMipyme\pedidos\consumers.py", line 1171, in get_pedidos_cocina
+    for pedido in qs
+                  ^^
+  File "C:\Users\Darius090909\Desktop\Trabajo\websockets\ProyectoMipyme\venv\Lib\site-packages\django\db\models\query.py", line 473, in __iter__
+    self._fetch_all()
+  File "C:\Users\Darius090909\Desktop\Trabajo\websockets\ProyectoMipyme\venv\Lib\site-packages\django\db\models\query.py", line 2287, in _fetch_all
+    self._result_cache = list(self._iterable_class(self))
+                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Darius090909\Desktop\Trabajo\websockets\ProyectoMipyme\venv\Lib\site-packages\django\db\models\query.py", line 131, in __iter__
+    results = compiler.execute_sql(
+              ^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Darius090909\Desktop\Trabajo\websockets\ProyectoMipyme\venv\Lib\site-packages\django\db\models\sql\compiler.py", line 1643, in execute_sql
+    cursor.execute(sql, params)
+  File "C:\Users\Darius090909\Desktop\Trabajo\websockets\ProyectoMipyme\venv\Lib\site-packages\django\db\backends\utils.py", line 122, in execute
+    return super().execute(sql, params)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Darius090909\Desktop\Trabajo\websockets\ProyectoMipyme\venv\Lib\site-packages\django\db\backends\utils.py", line 79, in execute
+    return self._execute_with_wrappers(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Darius090909\Desktop\Trabajo\websockets\ProyectoMipyme\venv\Lib\site-packages\django\db\backends\utils.py", line 92, in _execute_with_wrappers
+    return executor(sql, params, many, context)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Darius090909\Desktop\Trabajo\websockets\ProyectoMipyme\venv\Lib\site-packages\django\db\backends\utils.py", line 100, in _execute
+    with self.db.wrap_database_errors:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Darius090909\Desktop\Trabajo\websockets\ProyectoMipyme\venv\Lib\site-packages\django\db\utils.py", line 94, in __exit__
+    raise dj_exc_value.with_traceback(traceback) from exc_value
+  File "C:\Users\Darius090909\Desktop\Trabajo\websockets\ProyectoMipyme\venv\Lib\site-packages\django\db\backends\utils.py", line 105, in _execute
+    return self.cursor.execute(sql, params)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Darius090909\Desktop\Trabajo\websockets\ProyectoMipyme\venv\Lib\site-packages\django\db\backends\sqlite3\base.py", line 359, in execute
+    return super().execute(query, params)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+django.db.utils.OperationalError: no such column: pedidos_pedido.cancelacion_solicitada
+2026-10-30 12:12:28,878 ERROR daphne.server: Exception inside application: no such column: pedidos_pedido.cancelacion_solicitada
+Traceback (most recent call last):
+  File "C:\Users\Darius090909\Desktop\Trabajo\websockets\ProyectoMipyme\venv\Lib\site-packages\django\db\backends\utils.py", line 105, in _execute
+    return self.cursor.execute(sql, params)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Darius090909\Desktop\Trabajo\websockets\ProyectoMipyme\venv\Lib\site-packages\django\db\backends\sqlite3\base.py", line 359, in execute
+    return super().execute(query, params)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+sqlite3.OperationalError: no such column: pedidos_pedido.cancelacion_solicitada
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "C:\Users\Darius090909\Desktop\Trabajo\websockets\ProyectoMipyme\venv\Lib\site-packages\django\contrib\staticfiles\handlers.py", line 101, in __call__
+    return await self.application(scope, receive, send)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Darius090909\Desktop\Trabajo\websockets\ProyectoMipyme\venv\Lib\site-packages\channels\routing.py", line 48, in __call__
+    return await application(scope, receive, send)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Darius090909\Desktop\Trabajo\websockets\ProyectoMipyme\venv\Lib\site-packages\channels\sessions.py", line 44, in __call__
+    return await self.inner(dict(scope, cookies=cookies), receive, send)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Darius090909\Desktop\Trabajo\websockets\ProyectoMipyme\venv\Lib\site-packages\channels\sessions.py", line 261, in __call__
+    return await self.inner(wrapper.scope, receive, wrapper.send)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Darius090909\Desktop\Trabajo\websockets\ProyectoMipyme\venv\Lib\site-packages\channels\auth.py", line 185, in __call__
+    return await super().__call__(scope, receive, send)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Darius090909\Desktop\Trabajo\websockets\ProyectoMipyme\venv\Lib\site-packages\channels\middleware.py", line 24, in __call__
+    return await self.inner(scope, receive, send)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Darius090909\Desktop\Trabajo\websockets\ProyectoMipyme\venv\Lib\site-packages\channels\routing.py", line 118, in __call__
+    return await application(
+           ^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Darius090909\Desktop\Trabajo\websockets\ProyectoMipyme\venv\Lib\site-packages\channels\consumer.py", line 95, in app
+    return await consumer(scope, receive, send)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Darius090909\Desktop\Trabajo\websockets\ProyectoMipyme\venv\Lib\site-packages\channels\consumer.py", line 58, in __call__
+    await await_many_dispatch(
+  File "C:\Users\Darius090909\Desktop\Trabajo\websockets\ProyectoMipyme\venv\Lib\site-packages\channels\utils.py", line 50, in await_many_dispatch
+    await dispatch(result)
+  File "C:\Users\Darius090909\Desktop\Trabajo\websockets\ProyectoMipyme\venv\Lib\site-packages\channels\consumer.py", line 74, in dispatch
+    await handler(message)
+  File "C:\Users\Darius090909\Desktop\Trabajo\websockets\ProyectoMipyme\venv\Lib\site-packages\channels\generic\websocket.py", line 180, in websocket_connect
+    await self.connect()
+  File "C:\Users\Darius090909\Desktop\Trabajo\websockets\ProyectoMipyme\pedidos\consumers.py", line 1096, in connect
+    pedidos = await self.get_pedidos_cocina()
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Darius090909\Desktop\Trabajo\websockets\ProyectoMipyme\venv\Lib\site-packages\asgiref\sync.py", line 526, in __call__
+    ret = await asyncio.shield(exec_coro)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Darius090909\AppData\Local\Programs\Python\Python312\Lib\concurrent\futures\thread.py", line 58, in run
+    result = self.fn(*self.args, **self.kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Darius090909\Desktop\Trabajo\websockets\ProyectoMipyme\venv\Lib\site-packages\channels\db.py", line 13, in thread_handler
+    return super().thread_handler(loop, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Darius090909\Desktop\Trabajo\websockets\ProyectoMipyme\venv\Lib\site-packages\asgiref\sync.py", line 581, in thread_handler
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Darius090909\Desktop\Trabajo\websockets\ProyectoMipyme\venv\Lib\site-packages\asgiref\sync.py", line 508, in func
+    return context.run(run_child)
+           ^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Darius090909\Desktop\Trabajo\websockets\ProyectoMipyme\venv\Lib\site-packages\asgiref\sync.py", line 506, in run_child
+    return child()
+           ^^^^^^^
+  File "C:\Users\Darius090909\Desktop\Trabajo\websockets\ProyectoMipyme\pedidos\consumers.py", line 1171, in get_pedidos_cocina
+    for pedido in qs
+                  ^^
+  File "C:\Users\Darius090909\Desktop\Trabajo\websockets\ProyectoMipyme\venv\Lib\site-packages\django\db\models\query.py", line 473, in __iter__
+    self._fetch_all()
+  File "C:\Users\Darius090909\Desktop\Trabajo\websockets\ProyectoMipyme\venv\Lib\site-packages\django\db\models\query.py", line 2287, in _fetch_all
+    self._result_cache = list(self._iterable_class(self))
+                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Darius090909\Desktop\Trabajo\websockets\ProyectoMipyme\venv\Lib\site-packages\django\db\models\query.py", line 131, in __iter__
+    results = compiler.execute_sql(
+              ^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Darius090909\Desktop\Trabajo\websockets\ProyectoMipyme\venv\Lib\site-packages\django\db\models\sql\compiler.py", line 1643, in execute_sql
+    cursor.execute(sql, params)
+  File "C:\Users\Darius090909\Desktop\Trabajo\websockets\ProyectoMipyme\venv\Lib\site-packages\django\db\backends\utils.py", line 122, in execute
+    return super().execute(sql, params)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Darius090909\Desktop\Trabajo\websockets\ProyectoMipyme\venv\Lib\site-packages\django\db\backends\utils.py", line 79, in execute
+    return self._execute_with_wrappers(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Darius090909\Desktop\Trabajo\websockets\ProyectoMipyme\venv\Lib\site-packages\django\db\backends\utils.py", line 92, in _execute_with_wrappers
+    return executor(sql, params, many, context)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Darius090909\Desktop\Trabajo\websockets\ProyectoMipyme\venv\Lib\site-packages\django\db\backends\utils.py", line 100, in _execute
+    with self.db.wrap_database_errors:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Darius090909\Desktop\Trabajo\websockets\ProyectoMipyme\venv\Lib\site-packages\django\db\utils.py", line 94, in __exit__
+    raise dj_exc_value.with_traceback(traceback) from exc_value
+  File "C:\Users\Darius090909\Desktop\Trabajo\websockets\ProyectoMipyme\venv\Lib\site-packages\django\db\backends\utils.py", line 105, in _execute
+    return self.cursor.execute(sql, params)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Darius090909\Desktop\Trabajo\websockets\ProyectoMipyme\venv\Lib\site-packages\django\db\backends\sqlite3\base.py", line 359, in execute
+    return super().execute(query, params)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+django.db.utils.OperationalError: no such column: pedidos_pedido.cancelacion_solicitada
+2026-10-30 12:17:58,947 ERROR django.request: Internal Server Error: /dashboard/
+Traceback (most recent call last):
+  File "C:\Users\Darius090909\Desktop\Trabajo\websockets\ProyectoMipyme\venv\Lib\site-packages\django\db\backends\utils.py", line 105, in _execute
+    return self.cursor.execute(sql, params)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Darius090909\Desktop\Trabajo\websockets\ProyectoMipyme\venv\Lib\site-packages\django\db\backends\sqlite3\base.py", line 359, in execute
+    return super().execute(query, params)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+sqlite3.OperationalError: no such column: pedidos_pedido.cancelacion_solicitada
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "C:\Users\Darius090909\Desktop\Trabajo\websockets\ProyectoMipyme\venv\Lib\site-packages\asgiref\sync.py", line 577, in thread_handler
+    raise exc_info[1]
+  File "C:\Users\Darius090909\Desktop\Trabajo\websockets\ProyectoMipyme\venv\Lib\site-packages\django\core\handlers\exception.py", line 43, in inner
+    response = await get_response(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Darius090909\Desktop\Trabajo\websockets\ProyectoMipyme\venv\Lib\site-packages\asgiref\sync.py", line 577, in thread_handler
+    raise exc_info[1]
+  File "C:\Users\Darius090909\Desktop\Trabajo\websockets\ProyectoMipyme\venv\Lib\site-packages\django\core\handlers\base.py", line 255, in _get_response_async
+    response = await wrapped_callback(
+               ^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Darius090909\Desktop\Trabajo\websockets\ProyectoMipyme\venv\Lib\site-packages\asgiref\sync.py", line 526, in __call__
+    ret = await asyncio.shield(exec_coro)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Darius090909\AppData\Local\Programs\Python\Python312\Lib\concurrent\futures\thread.py", line 58, in run
+    result = self.fn(*self.args, **self.kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Darius090909\Desktop\Trabajo\websockets\ProyectoMipyme\venv\Lib\site-packages\asgiref\sync.py", line 581, in thread_handler
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Darius090909\Desktop\Trabajo\websockets\ProyectoMipyme\venv\Lib\site-packages\asgiref\sync.py", line 508, in func
+    return context.run(run_child)
+           ^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Darius090909\Desktop\Trabajo\websockets\ProyectoMipyme\venv\Lib\site-packages\asgiref\sync.py", line 506, in run_child
+    return child()
+           ^^^^^^^
+  File "C:\Users\Darius090909\Desktop\Trabajo\websockets\ProyectoMipyme\venv\Lib\site-packages\django\contrib\auth\decorators.py", line 60, in _view_wrapper
+    return view_func(request, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Darius090909\Desktop\Trabajo\websockets\ProyectoMipyme\usuarios\views.py", line 173, in dashboard
+    return render(request, 'usuarios/dashboard.html', {
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Darius090909\Desktop\Trabajo\websockets\ProyectoMipyme\venv\Lib\site-packages\django\shortcuts.py", line 27, in render
+    content = loader.render_to_string(template_name, context, request, using=using)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Darius090909\Desktop\Trabajo\websockets\ProyectoMipyme\venv\Lib\site-packages\django\template\loader.py", line 62, in render_to_string
+    return template.render(context, request)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Darius090909\Desktop\Trabajo\websockets\ProyectoMipyme\venv\Lib\site-packages\django\template\backends\django.py", line 107, in render
+    return self.template.render(context)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Darius090909\Desktop\Trabajo\websockets\ProyectoMipyme\venv\Lib\site-packages\django\template\base.py", line 174, in render
+    return self._render(context)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Darius090909\Desktop\Trabajo\websockets\ProyectoMipyme\venv\Lib\site-packages\django\template\base.py", line 166, in _render
+    return self.nodelist.render(context)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Darius090909\Desktop\Trabajo\websockets\ProyectoMipyme\venv\Lib\site-packages\django\template\base.py", line 1107, in render
+    return SafeString("".join([node.render_annotated(context) for node in self]))
+                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Darius090909\Desktop\Trabajo\websockets\ProyectoMipyme\venv\Lib\site-packages\django\template\base.py", line 1068, in render_annotated
+    return self.render(context)
+           ^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Darius090909\Desktop\Trabajo\websockets\ProyectoMipyme\venv\Lib\site-packages\django\template\defaulttags.py", line 333, in render
+    return nodelist.render(context)
+           ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Darius090909\Desktop\Trabajo\websockets\ProyectoMipyme\venv\Lib\site-packages\django\template\base.py", line 1107, in render
+    return SafeString("".join([node.render_annotated(context) for node in self]))
+                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Darius090909\Desktop\Trabajo\websockets\ProyectoMipyme\venv\Lib\site-packages\django\template\base.py", line 1068, in render_annotated
+    return self.render(context)
+           ^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Darius090909\Desktop\Trabajo\websockets\ProyectoMipyme\venv\Lib\site-packages\django\template\base.py", line 1166, in render
+    output = self.filter_expression.resolve(context)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Darius090909\Desktop\Trabajo\websockets\ProyectoMipyme\venv\Lib\site-packages\django\template\base.py", line 832, in resolve
+    new_obj = func(obj, *arg_vals)
+              ^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Darius090909\Desktop\Trabajo\websockets\ProyectoMipyme\venv\Lib\site-packages\django\template\defaultfilters.py", line 637, in length
+    return len(value)
+           ^^^^^^^^^^
+  File "C:\Users\Darius090909\Desktop\Trabajo\websockets\ProyectoMipyme\venv\Lib\site-packages\django\db\models\query.py", line 455, in __len__
+    self._fetch_all()
+  File "C:\Users\Darius090909\Desktop\Trabajo\websockets\ProyectoMipyme\venv\Lib\site-packages\django\db\models\query.py", line 2287, in _fetch_all
+    self._result_cache = list(self._iterable_class(self))
+                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Darius090909\Desktop\Trabajo\websockets\ProyectoMipyme\venv\Lib\site-packages\django\db\models\query.py", line 131, in __iter__
+    results = compiler.execute_sql(
+              ^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Darius090909\Desktop\Trabajo\websockets\ProyectoMipyme\venv\Lib\site-packages\django\db\models\sql\compiler.py", line 1643, in execute_sql
+    cursor.execute(sql, params)
+  File "C:\Users\Darius090909\Desktop\Trabajo\websockets\ProyectoMipyme\venv\Lib\site-packages\django\db\backends\utils.py", line 122, in execute
+    return super().execute(sql, params)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Darius090909\Desktop\Trabajo\websockets\ProyectoMipyme\venv\Lib\site-packages\django\db\backends\utils.py", line 79, in execute
+    return self._execute_with_wrappers(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Darius090909\Desktop\Trabajo\websockets\ProyectoMipyme\venv\Lib\site-packages\django\db\backends\utils.py", line 92, in _execute_with_wrappers
+    return executor(sql, params, many, context)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Darius090909\Desktop\Trabajo\websockets\ProyectoMipyme\venv\Lib\site-packages\django\db\backends\utils.py", line 100, in _execute
+    with self.db.wrap_database_errors:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Darius090909\Desktop\Trabajo\websockets\ProyectoMipyme\venv\Lib\site-packages\django\db\utils.py", line 94, in __exit__
+    raise dj_exc_value.with_traceback(traceback) from exc_value
+  File "C:\Users\Darius090909\Desktop\Trabajo\websockets\ProyectoMipyme\venv\Lib\site-packages\django\db\backends\utils.py", line 105, in _execute
+    return self.cursor.execute(sql, params)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Darius090909\Desktop\Trabajo\websockets\ProyectoMipyme\venv\Lib\site-packages\django\db\backends\sqlite3\base.py", line 359, in execute
+    return super().execute(query, params)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+django.db.utils.OperationalError: no such column: pedidos_pedido.cancelacion_solicitada
+2026-10-30 12:17:58,953 ERROR django.channels.server: [35;1mHTTP GET /dashboard/ 500 [0.20, 127.0.0.1:25030][0m
