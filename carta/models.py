@@ -27,6 +27,12 @@ class Plato(models.Model):
     imagen = models.ImageField(upload_to='carta/', blank=True, null=True)
     precio = models.DecimalField(max_digits=8, decimal_places=2)
     destino = models.CharField(max_length=10, choices=DESTINO_CHOICES, default='cocina')
+    trae_guarniciones_incluidas = models.BooleanField(default=False)
+    guarniciones_incluidas = models.ManyToManyField(
+        'inventario.Guarnicion',
+        blank=True,
+        related_name='platos',
+    )
     disponible = models.BooleanField(default=True)
     orden = models.PositiveIntegerField(default=0)
     class Meta:

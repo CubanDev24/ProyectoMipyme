@@ -10,7 +10,7 @@
     <link rel="stylesheet" href="{% static 'vendor/fontawesome/css/all.min.css' %}">    <script>
    
     </script>
-    <link rel="stylesheet" href="{% static 'css/main.css' %}?v=20261013-caja-panel">
+    <link rel="stylesheet" href="{% static 'css/main.css' %}?v=20261105-yellow-warning-toasts">
     <script src="{% static 'js/responsive-sidebar.js' %}?v=20261001-sidebar-logout" defer></script>
     <style>
         .caja-pago-resumen {
@@ -313,7 +313,7 @@
         </div>
     </main>
 
-    <script src="{% static 'js/utils.js' %}?v=20261014-mesera-mobile-audio-alert3"></script>
+    <script src="{% static 'js/utils.js' %}?v=20261105-yellow-warning-toasts"></script>
     <script>
     const WS_URL = `ws://${location.host}/ws/caja/`;
     const TASA_ACTUAL = {{ tasa_actual|default:"null"|unlocalize }};
@@ -478,7 +478,7 @@
         const card = document.createElement('div');
         card.className = 'caja-card' + (pedidoSeleccionado && pedidoSeleccionado.id === p.id ? ' seleccionada' : '');
         card.onclick = () => seleccionarCuenta(p);
-        const items = p.items.map(i => `<li><span>${i.cantidad}x ${i.plato}</span><span>${i.subtotal} CUP</span></li>`).join('');
+        const items = p.items.map(i => `<li><span>${i.cantidad}x ${escaparHtml(i.plato)} ${i.guarnicion ? `<small class="caja-item-guarnicion">Guarnición: ${escaparHtml(i.guarnicion)}</small>` : ''}</span> <span>${i.subtotal} CUP</span></li>`).join('');
         card.innerHTML = `
           <div class="caja-card-top">
             <div class="caja-mesa">${escaparHtml(etiquetaPedido(p))}</div>

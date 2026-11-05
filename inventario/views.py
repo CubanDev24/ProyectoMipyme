@@ -12,7 +12,7 @@ from django.views.decorators.http import require_POST
 
 from carta.models import Categoria, Plato
 from carta.qr import generar_qr_sistema, generar_qr_wifi
-from .models import CategoriaInventario, Insumo, MovimientoInventario, RecetaItem, TasaCambio
+from .models import CategoriaInventario, Guarnicion, GuarnicionRecetaItem, Insumo, MovimientoInventario, RecetaItem, TasaCambio
 from .services import receta_tiene_insumo_sin_stock
 from usuarios.models import ConfiguracionWifi
 
@@ -46,9 +46,9 @@ def _pagination_query(request, page_parameter):
     return query.urlencode()
 
 
-def _receta_desde_post(request):
-    insumo_ids = request.POST.getlist('insumo_id[]') or request.POST.getlist('insumo_id')
-    cantidades = request.POST.getlist('cantidad[]') or request.POST.getlist('cantidad')
+def _receta_desde_post(request, insumo_field='insumo_id[]', cantidad_field='cantidad[]'):
+    insumo_ids = request.POST.getlist(insumo_field) or request.POST.getlist(insumo_field.removesuffix('[]'))
+    cantidades = request.POST.getlist(cantidad_field) or request.POST.getlist(cantidad_field.removesuffix('[]'))
     if len(insumo_ids) != len(cantidades):
         return None, 'Cada producto de la receta necesita una cantidad.'
 
@@ -78,6 +78,29 @@ def _receta_desde_post(request):
     return receta, None
 
 
+def _guarniciones_desde_post(request):
+    if request.POST.get('trae_guarniciones_incluidas') != 'on':
+        return [], None
+    ids = request.POST.getlist('guarnicion_ids')
+    if not ids:
+        return None, 'Selecciona al menos una guarnición incluida para este plato.'
+    if len(ids) != len(set(ids)):
+        return None, 'No repitas guarniciones en el mismo plato.'
+    guarniciones = list(Guarnicion.objects.filter(
+        pk__in=ids,
+        activa=True,
+    ).prefetch_related('receta__insumo'))
+    if len(guarniciones) != len(ids):
+        return None, 'Una o más guarniciones ya no están activas.'
+    for guarnicion in guarniciones:
+        receta = [(item.insumo, item.cantidad) for item in guarnicion.receta.all()]
+        if not receta:
+            return None, f'La guarnición {guarnicion.nombre} necesita una receta de inventario.'
+        if receta_tiene_insumo_sin_stock(receta):
+            return None, f'La guarnición {guarnicion.nombre} tiene productos sin stock.'
+    return guarniciones, None
+
+
 @login_required
 @user_passes_test(_es_admin)
 def administrador(request):
@@ -102,6 +125,8 @@ def administrador(request):
         plato.receta_con_stock_bajo = any(
             item.insumo.stock_bajo for item in plato.receta_admin
         )
+        plato.guarniciones_ids = list(plato.guarniciones_incluidas.values_list('pk', flat=True))
+        plato.guarniciones_json = json.dumps(plato.guarniciones_ids)
     categorias = Categoria.objects.prefetch_related(
         Prefetch(
             'platos',
@@ -112,10 +137,36 @@ def administrador(request):
             to_attr='platos_publicados',
         )
     )
+    platos_por_categoria = []
+    for categoria in categorias:
+        platos_categoria = [plato for plato in platos if plato.categoria_id == categoria.pk]
+        if platos_categoria:
+            platos_por_categoria.append({
+                'id': categoria.pk,
+                'nombre': categoria.nombre,
+                'platos': platos_categoria,
+            })
+    platos_sin_categoria_admin = [
+        plato for plato in platos if plato.categoria_id is None
+    ]
+    if platos_sin_categoria_admin:
+        platos_por_categoria.append({
+            'id': '',
+            'nombre': 'Sin categoría',
+            'platos': platos_sin_categoria_admin,
+        })
     platos_sin_categoria = [
         plato for plato in platos
         if plato.categoria_id is None and plato.disponible and plato.receta_admin
     ]
+    guarniciones = list(Guarnicion.objects.prefetch_related(
+        Prefetch('receta', queryset=GuarnicionRecetaItem.objects.select_related('insumo'), to_attr='receta_admin'),
+    ))
+    for guarnicion in guarniciones:
+        guarnicion.receta_json = json.dumps([
+            {'insumo_id': item.insumo_id, 'cantidad': str(item.cantidad)}
+            for item in guarnicion.receta_admin
+        ])
 
     plato_sel = None
     plato_id = request.GET.get('plato')
@@ -163,6 +214,15 @@ def administrador(request):
         'movimientos_pagination_query': movimientos_pagina_query,
         'movimientos_pagination_anchor': '#movimientos-inventario',
         'platos': platos,
+        'platos_por_categoria': platos_por_categoria,
+        'guarniciones': guarniciones,
+        'guarniciones_activas': [
+            item for item in guarniciones
+            if item.activa and item.receta_admin and all(
+                receta.insumo.activo and receta.insumo.stock_actual > 0
+                for receta in item.receta_admin
+            )
+        ],
         'categorias': categorias,
         'platos_sin_categoria': platos_sin_categoria,
         'plato_sel': plato_sel,
@@ -337,9 +397,13 @@ def plato_crear(request):
             return redirect('/administrador/#carta')
 
         receta, error_receta = _receta_desde_post(request)
+        guarniciones, error_guarniciones = _guarniciones_desde_post(request)
         disponible = request.POST.get('disponible') == 'on'
         if error_receta:
             messages.error(request, error_receta)
+            return redirect('/administrador/#carta')
+        if error_guarniciones:
+            messages.error(request, error_guarniciones)
             return redirect('/administrador/#carta')
         if disponible and not receta:
             messages.error(request, 'Agrega al menos un producto de inventario antes de publicar el plato.')
@@ -366,9 +430,11 @@ def plato_crear(request):
                 precio=precio,
                 destino=destino,
                 disponible=disponible,
+                trae_guarniciones_incluidas=bool(guarniciones),
                 orden=Plato.objects.count() + 1,
                 imagen=request.FILES.get('imagen'),
             )
+            plato.guarniciones_incluidas.set(guarniciones)
             RecetaItem.objects.bulk_create([
                 RecetaItem(plato=plato, insumo=insumo, cantidad=cantidad)
                 for insumo, cantidad in receta
@@ -397,6 +463,10 @@ def plato_editar(request, pk):
             if error_receta:
                 messages.error(request, error_receta)
                 return redirect('/administrador/#carta')
+        guarniciones, error_guarniciones = _guarniciones_desde_post(request)
+        if error_guarniciones:
+            messages.error(request, error_guarniciones)
+            return redirect('/administrador/#carta')
         disponible = request.POST.get('disponible') == 'on'
         if disponible and receta is not None and not receta:
             messages.error(request, 'Agrega al menos un producto de inventario para publicar este plato.')
@@ -419,10 +489,12 @@ def plato_editar(request, pk):
         plato.descripcion = descripcion
         plato.destino = destino
         plato.disponible = disponible
+        plato.trae_guarniciones_incluidas = bool(guarniciones)
         if request.FILES.get('imagen'):
             plato.imagen = request.FILES['imagen']
         with transaction.atomic():
             plato.save()
+            plato.guarniciones_incluidas.set(guarniciones)
             if receta is not None:
                 plato.receta.all().delete()
                 RecetaItem.objects.bulk_create([
@@ -431,6 +503,74 @@ def plato_editar(request, pk):
                 ])
         messages.success(request, f'Plato "{plato.nombre}" actualizado.')
     return redirect('/administrador/#carta')
+
+
+@login_required
+@user_passes_test(_es_admin)
+@require_POST
+def guarnicion_crear(request):
+    nombre = request.POST.get('nombre', '').strip()
+    descripcion = request.POST.get('descripcion', '').strip()
+    receta, error_receta = _receta_desde_post(
+        request, 'guarnicion_insumo_id[]', 'guarnicion_cantidad[]',
+    )
+    if not nombre or len(nombre) > 120:
+        messages.error(request, 'Indica un nombre válido para la guarnición (hasta 120 caracteres).')
+        return redirect('/administrador/#carta-guarniciones')
+    if Guarnicion.objects.filter(nombre__iexact=nombre).exists():
+        messages.error(request, 'Ya existe una guarnición con ese nombre.')
+        return redirect('/administrador/#carta-guarniciones')
+    if error_receta or not receta:
+        messages.error(request, error_receta or 'Agrega al menos un producto de inventario a la receta.')
+        return redirect('/administrador/#carta-guarniciones')
+    if receta_tiene_insumo_sin_stock(receta):
+        messages.error(request, 'No se puede activar una guarnición con productos sin stock.')
+        return redirect('/administrador/#carta-guarniciones')
+    with transaction.atomic():
+        guarnicion = Guarnicion.objects.create(nombre=nombre, descripcion=descripcion)
+        GuarnicionRecetaItem.objects.bulk_create([
+            GuarnicionRecetaItem(guarnicion=guarnicion, insumo=insumo, cantidad=cantidad)
+            for insumo, cantidad in receta
+        ])
+    messages.success(request, f'Guarnición "{nombre}" creada con {len(receta)} producto(s) de inventario.')
+    return redirect('/administrador/#carta-guarniciones')
+
+
+@login_required
+@user_passes_test(_es_admin)
+@require_POST
+def guarnicion_editar(request, pk):
+    guarnicion = get_object_or_404(Guarnicion, pk=pk)
+    nombre = request.POST.get('nombre', '').strip()
+    descripcion = request.POST.get('descripcion', '').strip()
+    receta, error_receta = _receta_desde_post(
+        request, 'guarnicion_insumo_id[]', 'guarnicion_cantidad[]',
+    )
+    if not nombre or len(nombre) > 120:
+        messages.error(request, 'Indica un nombre válido para la guarnición (hasta 120 caracteres).')
+        return redirect('/administrador/#carta-guarniciones')
+    if Guarnicion.objects.filter(nombre__iexact=nombre).exclude(pk=pk).exists():
+        messages.error(request, 'Ya existe otra guarnición con ese nombre.')
+        return redirect('/administrador/#carta-guarniciones')
+    if error_receta or not receta:
+        messages.error(request, error_receta or 'La guarnición necesita al menos un producto de inventario.')
+        return redirect('/administrador/#carta-guarniciones')
+    activa = request.POST.get('activa') == 'on'
+    if activa and receta_tiene_insumo_sin_stock(receta):
+        messages.error(request, 'No se puede activar una guarnición con productos sin stock.')
+        return redirect('/administrador/#carta-guarniciones')
+    with transaction.atomic():
+        guarnicion.nombre = nombre
+        guarnicion.descripcion = descripcion
+        guarnicion.activa = activa
+        guarnicion.save(update_fields=['nombre', 'descripcion', 'activa'])
+        guarnicion.receta.all().delete()
+        GuarnicionRecetaItem.objects.bulk_create([
+            GuarnicionRecetaItem(guarnicion=guarnicion, insumo=insumo, cantidad=cantidad)
+            for insumo, cantidad in receta
+        ])
+    messages.success(request, f'Guarnición "{nombre}" actualizada.')
+    return redirect('/administrador/#carta-guarniciones')
 
 
 @login_required

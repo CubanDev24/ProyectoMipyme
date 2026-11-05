@@ -280,7 +280,7 @@
           {% for item in factura.items_snapshot %}
           <tr>
             <td class="qty">{{ item.cantidad }}x</td>
-            <td class="name">{{ item.plato }}{% if item.cantidad > 1 and item.precio %}<span class="unit">{{ item.cantidad }} × {{ item.precio }} CUP</span>{% endif %}</td>
+            <td class="name">{{ item.plato }}{% if item.guarnicion %}<span class="unit">Guarnición: {{ item.guarnicion }}</span>{% endif %}{% if item.cantidad > 1 and item.precio %}<span class="unit">{{ item.cantidad }} × {{ item.precio }} CUP</span>{% endif %}</td>
             <td class="price-col">{{ item.subtotal }} <small>CUP</small></td>
           </tr>
           {% endfor %}

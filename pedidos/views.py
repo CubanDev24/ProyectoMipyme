@@ -7,7 +7,7 @@ from io import BytesIO
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django import forms
 from django.core.paginator import Paginator
-from django.db.models import Count, F, Sum
+from django.db.models import Count, F, Prefetch, Sum
 from django.core.exceptions import ValidationError
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import render, get_object_or_404
@@ -20,7 +20,7 @@ from reportlab.lib.units import mm
 from reportlab.pdfgen import canvas
 from reportlab.platypus import HRFlowable, Paragraph, Spacer, Table, TableStyle
 from carta.models import Categoria, Plato
-from inventario.models import Insumo
+from inventario.models import Guarnicion, GuarnicionRecetaItem, Insumo
 from inventario.models import TasaCambio
 from inventario.models import RecetaItem
 from usuarios.models import get_turno_abierto, mesas_del_turno
@@ -37,10 +37,13 @@ def _build_caja_estadisticas_payload():
     salidas = defaultdict(lambda: Decimal('0'))
     pedidos_descontados = Pedido.objects.filter(
         inventario_descontado=True,
-    ).prefetch_related('items__plato__receta')
+    ).prefetch_related('items__plato__receta', 'items__guarnicion__receta')
     for pedido in pedidos_descontados:
         for item in pedido.items.all():
-            for receta in item.plato.receta.all():
+            recetas = list(item.plato.receta.all())
+            if item.guarnicion_id:
+                recetas.extend(item.guarnicion.receta.all())
+            for receta in recetas:
                 salidas[receta.insumo_id] += receta.cantidad * item.cantidad
 
     inventario = []
@@ -83,7 +86,17 @@ def mesera(request):
         receta__isnull=False,
     ).exclude(
         receta__insumo__stock_actual__lte=0,
-    ).distinct().select_related('categoria').order_by('categoria__orden', 'categoria__nombre', 'nombre')
+    ).distinct().select_related('categoria').prefetch_related(Prefetch(
+        'guarniciones_incluidas',
+        queryset=Guarnicion.objects.filter(
+            activa=True,
+            receta__isnull=False,
+        ).exclude(
+            receta__insumo__stock_actual__lte=0,
+        ).exclude(
+            receta__insumo__activo=False,
+        ).distinct(),
+    )).order_by('categoria__orden', 'categoria__nombre', 'nombre')
     categorias = Categoria.objects.filter(
         platos__in=productos,
     ).distinct().order_by('orden', 'nombre')
@@ -170,36 +183,56 @@ def cocina_ventas_hoy(request):
             try:
                 cantidad = int(item.get('cantidad', 0))
                 plato_id = int(item['plato_id']) if item.get('plato_id') is not None else None
+                guarnicion_id = int(item['guarnicion_id']) if item.get('guarnicion_id') is not None else None
             except (TypeError, ValueError):
                 continue
             if cantidad <= 0:
                 continue
-            clave = ('id', plato_id) if plato_id is not None else ('nombre', plato.casefold())
-            venta = ventas.setdefault(clave, {'plato': plato, 'cantidad': 0})
+            clave = ('id', plato_id, guarnicion_id) if plato_id is not None else ('nombre', plato.casefold(), guarnicion_id)
+            venta = ventas.setdefault(clave, {
+                'plato': plato,
+                'cantidad': 0,
+                **({'guarnicion': str(item['guarnicion'])} if item.get('guarnicion') else {}),
+            })
             venta['cantidad'] += cantidad
 
-    ventas_por_plato_id = {
-        clave[1]: venta
+    ventas_por_plato_y_guarnicion = {
+        clave: venta
         for clave, venta in ventas.items()
         if clave[0] == 'id' and clave[1] is not None
     }
-    for plato in Plato.objects.filter(pk__in=ventas_por_plato_id).only('id', 'imagen'):
-        ventas_por_plato_id[plato.pk]['imagen_url'] = plato.imagen.url if plato.imagen else None
+    plato_ids = {clave[1] for clave in ventas_por_plato_y_guarnicion}
+    for plato in Plato.objects.filter(pk__in=plato_ids).only('id', 'imagen'):
+        for clave, venta in ventas_por_plato_y_guarnicion.items():
+            if clave[1] == plato.pk:
+                venta['imagen_url'] = plato.imagen.url if plato.imagen else None
 
     recetas = RecetaItem.objects.filter(
-        plato_id__in=ventas_por_plato_id,
+        plato_id__in=plato_ids,
     ).select_related('insumo').order_by('plato_id', 'insumo__nombre')
     for receta in recetas:
-        venta = ventas_por_plato_id[receta.plato_id]
-        venta.setdefault('ingredientes', []).append({
-            'insumo': receta.insumo.nombre,
-            'cantidad_por_plato': format(receta.cantidad.normalize(), 'f'),
-            'cantidad_total': format(
-                (receta.cantidad * venta['cantidad']).normalize(),
-                'f',
-            ),
-            'unidad': receta.insumo.get_unidad_display().lower(),
-        })
+        for clave, venta in ventas_por_plato_y_guarnicion.items():
+            if clave[1] == receta.plato_id:
+                venta.setdefault('ingredientes', []).append({
+                    'insumo': receta.insumo.nombre,
+                    'cantidad_por_plato': format(receta.cantidad.normalize(), 'f'),
+                    'cantidad_total': format((receta.cantidad * venta['cantidad']).normalize(), 'f'),
+                    'unidad': receta.insumo.get_unidad_display().lower(),
+                })
+
+    guarnicion_ids = {clave[2] for clave in ventas_por_plato_y_guarnicion if clave[2] is not None}
+    recetas_guarnicion = GuarnicionRecetaItem.objects.filter(
+        guarnicion_id__in=guarnicion_ids,
+    ).select_related('insumo')
+    for receta in recetas_guarnicion:
+        for clave, venta in ventas_por_plato_y_guarnicion.items():
+            if clave[2] == receta.guarnicion_id:
+                venta.setdefault('ingredientes', []).append({
+                    'insumo': receta.insumo.nombre,
+                    'cantidad_por_plato': format(receta.cantidad.normalize(), 'f'),
+                    'cantidad_total': format((receta.cantidad * venta['cantidad']).normalize(), 'f'),
+                    'unidad': receta.insumo.get_unidad_display().lower(),
+                })
 
     for venta in ventas.values():
         venta.setdefault('ingredientes', [])

@@ -1,3 +1,4 @@
+from decimal import Decimal
 from django.db import transaction
 from .models import Insumo, MovimientoInventario, RecetaItem
 
@@ -48,11 +49,18 @@ def descontar_inventario_por_pedido(pedido, usuario=None):
     if pedido.inventario_descontado:
         return alertas
 
-    for item in pedido.items.select_related('plato').all():
+    for item in pedido.items.filter(cancelado=False).select_related('plato', 'guarnicion'):
         recetas = list(RecetaItem.objects.filter(plato=item.plato).select_related('insumo'))
-        consumos = [(receta.insumo, receta.cantidad * item.cantidad) for receta in recetas]
+        recetas_completas = list(recetas)
+        if item.guarnicion_id:
+            recetas_completas.extend(item.guarnicion.receta.select_related('insumo').all())
+        consumos_por_insumo = {}
+        for receta in recetas_completas:
+            if receta.insumo_id not in consumos_por_insumo:
+                consumos_por_insumo[receta.insumo_id] = [receta.insumo, Decimal('0')]
+            consumos_por_insumo[receta.insumo_id][1] += receta.cantidad * item.cantidad
 
-        for insumo, consumo in consumos:
+        for insumo, consumo in consumos_por_insumo.values():
             stock_anterior = insumo.stock_actual
             insumo.stock_actual = stock_anterior - consumo
             insumo.save(update_fields=['stock_actual', 'actualizado_en'])

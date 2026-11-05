@@ -379,7 +379,7 @@ body.login-page .topbar{display:none !important}
 .admin-flash-error{border-left-color:var(--red)}
 
 /* ── ROLE SHELL CONTENT ──────────────────────── */
-.admin-body{color:#e2e8f0;padding:1.5rem clamp(1rem,3vw,2rem);max-width:1240px;width:100%}
+.admin-body{color:#e2e8f0;padding:1.5rem clamp(1rem,3vw,2rem);max-width:1600px;width:100%}
 .admin-body h1,.admin-body h2,.admin-body h3{color:#f8fafc}
 .admin-card{background:linear-gradient(180deg,rgba(15,23,42,.96),rgba(15,23,42,.82));border:1px solid rgba(148,163,184,.16);border-radius:16px;padding:1.25rem;box-shadow:0 12px 30px rgba(2,6,23,.18)}
 .admin-card h2{font-size:1rem;color:#f8fafc;margin-bottom:.5rem}
@@ -495,11 +495,12 @@ body.login-page .topbar{display:none !important}
 .admin-section-count{margin-left:auto;padding:.3rem .55rem;border:1px solid rgba(52,211,153,.2);border-radius:999px;background:rgba(52,211,153,.08);color:#6ee7b7;font-size:.68rem;font-weight:700;white-space:nowrap}
 .carta-create-form{display:grid;grid-template-columns:2fr 1.2fr 1.4fr .8fr 1.4fr;gap:.75rem;align-items:end;padding:1rem;margin-bottom:1rem;background:rgba(2,6,23,.42);border:1px solid rgba(148,163,184,.12);border-radius:14px}
 .carta-form-field{display:flex;flex-direction:column;gap:.35rem;min-width:0}.carta-form-field label{font-size:.65rem;text-transform:uppercase;letter-spacing:.07em;color:#94a3b8;font-weight:700}.carta-form-field textarea{resize:vertical;min-height:42px}
+.carta-form-field[data-guarniciones-field][hidden]{display:none}
 .carta-form-description{grid-column:1 / 4}.carta-form-image{grid-column:4 / 6}.carta-create-form>.carta-availability{grid-column:1 / 4}.carta-create-form>.turn-action-btn{grid-column:4 / 6;width:100%}
 .carta-file-input{padding:.48rem;font-size:.72rem}.carta-file-input::file-selector-button{border:0;border-radius:8px;background:rgba(52,211,153,.12);color:#6ee7b7;padding:.35rem .5rem;margin-right:.4rem;cursor:pointer}
 .carta-admin-list{display:flex;flex-direction:column;gap:.75rem}.carta-admin-item{display:grid;grid-template-columns:86px 1fr;gap:1rem;padding:1rem;background:linear-gradient(180deg,rgba(15,23,42,.96),rgba(15,23,42,.82));border:1px solid rgba(148,163,184,.14);border-radius:14px}
 .carta-admin-item[hidden]{display:none}
-.carta-admin-filters{display:grid;grid-template-columns:minmax(240px,1.5fr) minmax(190px,.85fr) auto;align-items:center;gap:.8rem;margin:1rem 0 .35rem;padding:.85rem;background:linear-gradient(145deg,rgba(4,25,33,.72),rgba(2,8,23,.56));border:1px solid rgba(52,211,153,.16);border-radius:15px}
+.carta-admin-filters{display:grid;grid-template-columns:minmax(220px,1.5fr) minmax(160px,.85fr) minmax(140px,.7fr) auto;align-items:center;gap:.8rem;margin:1rem 0 .35rem;padding:.85rem;background:linear-gradient(145deg,rgba(4,25,33,.72),rgba(2,8,23,.56));border:1px solid rgba(52,211,153,.16);border-radius:15px}
 .carta-admin-filters .inventario-search{width:100%;max-width:none;min-height:44px;padding:.65rem .8rem;border-color:rgba(148,163,184,.2);border-radius:11px;background:rgba(2,8,23,.72);transition:border-color .18s ease,box-shadow .18s ease}
 .carta-admin-filters .inventario-search:focus-within{border-color:rgba(52,211,153,.68);box-shadow:0 0 0 3px rgba(52,211,153,.1)}
 .carta-admin-filters .inventario-search>i{color:#34d399}
@@ -515,7 +516,7 @@ body.login-page .topbar{display:none !important}
 .carta-admin-fields{display:grid;grid-template-columns:1.5fr 1fr .8fr;gap:.65rem;align-items:end}.carta-admin-fields .carta-form-description{grid-column:1 / -1}.carta-admin-bottom{grid-column:1 / -1;display:flex;align-items:center;gap:.6rem;flex-wrap:wrap;padding-top:.2rem;border-top:1px solid rgba(148,163,184,.12)}
 .carta-availability{display:inline-flex;align-items:center;gap:.4rem;color:#94a3b8;font-size:.72rem;font-weight:600}.carta-availability input{accent-color:#34d399}.carta-file-label{display:inline-flex;align-items:center;gap:.35rem;cursor:pointer;color:#6ee7b7;margin-left:auto;font-size:.72rem;font-weight:600}.carta-file-label input{display:none}
 .carta-admin-content{min-width:0}.carta-admin-topline{display:flex;align-items:flex-start;justify-content:space-between;gap:1rem}.carta-admin-topline h3{margin-top:.18rem;font-size:1rem;color:#f8fafc}.carta-admin-category{font-size:.63rem;text-transform:uppercase;letter-spacing:.1em;color:#34d399;font-weight:700}.carta-admin-price{color:#6ee7b7;font-size:.92rem;font-weight:800;white-space:nowrap}.carta-admin-price small{font-size:.6rem;color:#94a3b8}.carta-admin-description{min-height:2.3em;margin:.6rem 0;color:#94a3b8;font-size:.78rem;line-height:1.45}.carta-admin-footer{display:flex;align-items:center;justify-content:space-between;gap:.75rem;padding-top:.65rem;border-top:1px solid rgba(148,163,184,.12)}.carta-admin-footer .carta-availability span{width:7px;height:7px;border-radius:50%;background:#34d399}.carta-admin-footer .carta-unavailable span{background:#fb7185}
-.admin-modal{position:fixed;inset:0;z-index:100;background:rgba(2,6,23,.8);backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center;padding:1rem;opacity:0;pointer-events:none;transition:opacity .2s ease}.admin-modal.visible{opacity:1;pointer-events:auto}.admin-modal-panel{width:min(680px,100%);max-height:calc(100vh - 2rem);overflow-y:auto;background:linear-gradient(180deg,#0f172a,#020617);border:1px solid rgba(52,211,153,.22);border-radius:20px;box-shadow:0 24px 70px rgba(0,0,0,.5);padding:1.25rem}.admin-modal-header{display:flex;align-items:center;justify-content:space-between;padding-bottom:1rem;border-bottom:1px solid rgba(148,163,184,.14)}.admin-modal-header h2{font-size:1.1rem;color:#f8fafc}.admin-modal-close{width:34px;height:34px;border:0;border-radius:10px;background:rgba(148,163,184,.1);color:#94a3b8;cursor:pointer}.admin-modal-close:hover{color:#fff;background:rgba(148,163,184,.18)}.plato-edit-form{display:grid;grid-template-columns:150px 1fr;gap:1.1rem;padding-top:1.1rem}.plato-edit-preview{display:flex;flex-direction:column;align-items:center;gap:.7rem}.plato-edit-preview .carta-admin-image{width:140px;height:140px}.plato-edit-preview .carta-file-label{margin:0;text-transform:none;letter-spacing:0}.plato-edit-fields{display:grid;grid-template-columns:1fr 1fr;gap:.7rem}.plato-edit-fields .carta-form-field:nth-child(4),.plato-edit-fields>.carta-availability{grid-column:1 / -1}.admin-modal-actions{grid-column:1 / -1;display:grid;grid-template-columns:auto 1fr auto auto;align-items:center;gap:.6rem;padding-top:1rem;border-top:1px solid rgba(148,163,184,.14)}.admin-modal-actions .btn{width:auto}
+.admin-modal{position:fixed;inset:0;z-index:100;background:rgba(2,6,23,.8);backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center;padding:1rem;opacity:0;pointer-events:none;transition:opacity .2s ease}.admin-modal.visible{opacity:1;pointer-events:auto}.admin-modal-panel{display:flex;flex-direction:column;width:min(680px,100%);height:min(820px,calc(100vh - 2rem));max-height:calc(100vh - 2rem);overflow:hidden;background:linear-gradient(180deg,#0f172a,#020617);border:1px solid rgba(52,211,153,.22);border-radius:20px;box-shadow:0 24px 70px rgba(0,0,0,.5);padding:1.25rem}.admin-modal-header{display:flex;flex:0 0 auto;align-items:center;justify-content:space-between;padding-bottom:1rem;border-bottom:1px solid rgba(148,163,184,.14)}.admin-modal-header h2{font-size:1.1rem;color:#f8fafc}.admin-modal-close{width:34px;height:34px;border:0;border-radius:10px;background:rgba(148,163,184,.1);color:#94a3b8;cursor:pointer}.admin-modal-close:hover{color:#fff;background:rgba(148,163,184,.18)}.plato-edit-form{display:grid;flex:1;min-height:0;grid-template-columns:150px 1fr;gap:1.1rem;padding-top:1.1rem;overflow-y:auto;overscroll-behavior:contain}.plato-edit-preview{display:flex;flex-direction:column;align-items:center;gap:.7rem}.plato-edit-preview .carta-admin-image{width:140px;height:140px}.plato-edit-preview .carta-file-label{margin:0;text-transform:none;letter-spacing:0}.plato-edit-fields{display:grid;grid-template-columns:1fr 1fr;gap:.7rem}.plato-edit-fields .carta-form-field:nth-child(4),.plato-edit-fields>.carta-availability{grid-column:1 / -1}.admin-modal-actions{position:sticky;bottom:0;z-index:1;grid-column:1 / -1;display:grid;grid-template-columns:auto 1fr auto auto;align-items:center;gap:.6rem;margin-top:.25rem;padding:1rem 0 .25rem;border-top:1px solid rgba(148,163,184,.14);background:#020617}.admin-modal-actions .btn{width:auto}
 .carta-preview-card{grid-column:1 / -1}.carta-preview-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1rem}
 .carta-preview-category{min-width:0;padding:1rem;background:rgba(2,6,23,.36);border:1px solid rgba(148,163,184,.12);border-radius:14px}.carta-preview-category-heading{display:flex;align-items:center;justify-content:space-between;gap:.75rem;padding-bottom:.7rem;margin-bottom:.7rem;border-bottom:1px solid rgba(148,163,184,.14)}
 .carta-preview-category-heading h3{font-size:.78rem;text-transform:uppercase;letter-spacing:.1em;color:#6ee7b7}.carta-preview-category-heading span{font-size:.68rem;color:#64748b}.carta-preview-items{display:flex;flex-direction:column;gap:.55rem}
@@ -715,7 +716,7 @@ body.login-page .topbar{display:none !important}
 #modal-editar-plato .plato-recipe-editor .btn{min-height:38px;padding:.5rem .8rem;border-radius:10px;font-size:.8rem}
 #modal-editar-plato .plato-recipe-row{gap:.65rem}
 #modal-editar-plato .plato-recipe-row .admin-input{width:100%;min-width:0;min-height:42px;padding:.65rem .75rem;border-radius:11px;font-size:.86rem}
-#modal-editar-plato .admin-modal-actions{gap:.75rem;padding-top:1.15rem;border-color:rgba(52,211,153,.2)}
+#modal-editar-plato .admin-modal-actions{gap:.75rem;margin-top:.35rem;padding:1rem .15rem .15rem;border-top:2px solid rgba(52,211,153,.3);border-radius:0 0 12px 12px;background:linear-gradient(180deg,#0b1720,#07111a);box-shadow:0 -10px 24px rgba(2,6,23,.35)}
 #modal-editar-plato .admin-modal-actions .btn{min-height:40px;padding:.6rem .85rem;border-radius:11px;font-size:.82rem}
 #modal-editar-plato .admin-modal-actions .btn-primary{border-color:rgba(110,231,183,.42);background:linear-gradient(135deg,#34d399,#14b8a6);color:#022c22;font-weight:800}
 .plato-recipe-editor{grid-column:1/-1;display:grid;gap:.65rem;padding:1rem;border:1px solid rgba(52,211,153,.18);border-radius:12px;background:rgba(2,6,23,.28)}.plato-recipe-editor .turn-card-heading{margin:0}.plato-recipe-editor h3,.plato-recipe-editor h4{color:#f8fafc;font-size:.85rem;font-weight:700}.plato-recipe-editor .admin-hint{margin:0}
@@ -763,10 +764,11 @@ body.login-page .topbar{display:none !important}
 
 /* ── TOAST ───────────────────────────────────── */
 .toast-container{position:fixed;top:1rem;right:1rem;z-index:1000;display:flex;flex-direction:column;gap:.5rem;pointer-events:none}
-.toast{background:var(--surface);border:1px solid var(--border);border-left:4px solid var(--accent);padding:.7rem 1rem;border-radius:var(--radius-sm);min-width:210px;font-size:.83rem;animation:slideIn .25s ease;box-shadow:0 4px 20px rgba(0,0,0,.5)}
+.toast{display:flex;align-items:center;gap:.65rem;background:var(--surface);border:1px solid var(--border);border-left:4px solid var(--accent);padding:.7rem 1rem;border-radius:var(--radius-sm);min-width:210px;font-size:.83rem;animation:slideIn .25s ease;box-shadow:0 4px 20px rgba(0,0,0,.5)}
 .toast.toast-green{border-left-color:var(--green)}
 .toast.toast-red{border-left-color:var(--red)}
-.toast.toast-orange{border-left-color:var(--orange)}
+.toast.toast-orange,.toast.toast-warning{border-left-color:#facc15}
+.toast-warning-icon{flex:0 0 auto;color:#facc15;font-size:1rem}
 .toast.toast-blue{border-left-color:var(--blue)}
 @keyframes slideIn{from{transform:translateX(110%);opacity:0}to{transform:translateX(0);opacity:1}}
 
@@ -957,17 +959,30 @@ img[alt^="Código QR de la mesa"]{display:block;max-width:min(320px,100%);margin
 #admin-view-cocina .inventario-table th,
 #admin-view-restaurante .inventario-table th,
 #admin-view-configuracion .inventario-table th{color:#a7f3d0}
-#admin-view-carta .carta-admin-list{gap:.85rem}
-#admin-view-carta .carta-admin-item{padding:1rem;background:linear-gradient(145deg,rgba(4,25,33,.82),rgba(2,8,23,.62));border:1px solid rgba(52,211,153,.17);border-radius:16px;box-shadow:0 8px 22px rgba(2,6,23,.18);transition:transform .18s ease,border-color .18s ease,box-shadow .18s ease}
-#admin-view-carta .carta-admin-item:hover{transform:translateY(-2px);border-color:rgba(52,211,153,.38);box-shadow:0 14px 30px rgba(2,6,23,.28)}
-#admin-view-carta .carta-admin-image{width:90px;height:90px;border:1px solid rgba(52,211,153,.22);border-radius:14px;box-shadow:0 8px 20px rgba(2,6,23,.24)}
-#admin-view-carta .carta-admin-topline h3{font-size:1.08rem;color:#f0fdf4}
-#admin-view-carta .carta-admin-category{font-size:.68rem;letter-spacing:.12em}
-#admin-view-carta .carta-admin-price{padding:.35rem .6rem;border:1px solid rgba(52,211,153,.2);border-radius:999px;background:rgba(52,211,153,.08);font-size:.84rem}
-#admin-view-carta .carta-admin-description{font-size:.84rem;line-height:1.55}
-#admin-view-carta .carta-admin-content>.admin-hint{font-size:.77rem;line-height:1.55}
-#admin-view-carta .carta-admin-footer{padding-top:.8rem;border-color:rgba(52,211,153,.15)}
-#admin-view-carta .carta-admin-footer .btn{min-height:38px;padding:.55rem .8rem;border-radius:10px;font-size:.78rem}
+#admin-view-carta #carta-lista-platos{display:flex;flex-direction:column;gap:1.25rem}
+#admin-view-carta .carta-admin-category-group{min-width:0}
+#admin-view-carta .carta-admin-category-heading{display:flex;align-items:center;justify-content:space-between;gap:.75rem;margin-bottom:.75rem;padding:.65rem .8rem;border-bottom:1px solid rgba(148,163,184,.18);color:#e2e8f0}
+#admin-view-carta .carta-admin-category-heading h3{font-size:.9rem;font-weight:800}
+#admin-view-carta .carta-admin-category-heading span{color:#94a3b8;font-size:.72rem}
+#admin-view-carta .carta-admin-category-items{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:1rem;justify-content:start}
+#admin-view-carta #carta-lista-platos .carta-admin-item{position:relative;box-sizing:border-box;width:100%;max-width:300px;min-width:0;height:420px;max-height:420px;display:flex;flex-direction:column;gap:.65rem;padding:1rem;background:rgba(15,23,42,.92);border:1px solid rgba(148,163,184,.16);border-radius:14px;box-shadow:none;cursor:pointer;transition:transform .18s ease,border-color .18s ease}
+#admin-view-carta #carta-lista-platos .carta-admin-item[hidden]{display:none}
+#admin-view-carta #carta-lista-platos .carta-admin-item:hover{transform:translateY(-2px);border-color:rgba(148,163,184,.34)}
+#admin-view-carta #carta-lista-platos .carta-admin-image{width:100%;height:150px;min-height:150px;flex:0 0 150px;border:1px solid rgba(148,163,184,.16);border-radius:10px;box-shadow:none}
+#admin-view-carta #carta-lista-platos .carta-admin-content{min-height:0;display:flex;flex:1;flex-direction:column;gap:.25rem;padding-bottom:4.5rem}
+#admin-view-carta #carta-lista-platos .carta-admin-topline{gap:.35rem}
+#admin-view-carta #carta-lista-platos .carta-admin-topline h3{font-size:1rem;color:#f8fafc;overflow-wrap:anywhere}
+#admin-view-carta #carta-lista-platos .carta-admin-category{font-size:.64rem;letter-spacing:.07em}
+#admin-view-carta #carta-lista-platos .carta-admin-price{padding:0;border:0;background:none;color:#e2e8f0;font-size:.85rem}
+#admin-view-carta #carta-lista-platos .carta-admin-description{min-height:0;margin:.25rem 0;color:#cbd5e1;font-size:.78rem;line-height:1.45;overflow-wrap:anywhere}
+#admin-view-carta #carta-lista-platos .carta-admin-content>.admin-hint{margin:.15rem 0;color:#94a3b8;font-size:.72rem;line-height:1.4;overflow-wrap:anywhere}
+#admin-view-carta #carta-lista-platos .carta-admin-footer{position:absolute;right:1rem;bottom:1rem;left:1rem;margin:0;padding-top:.65rem;border-color:rgba(148,163,184,.12);align-items:stretch;flex-direction:column;gap:.5rem}
+#admin-view-carta #carta-lista-platos .carta-admin-footer .btn{min-height:38px;padding:.5rem .65rem;border-radius:8px;font-size:.72rem;white-space:normal}
+#admin-view-carta .carta-preview-filters{display:flex;flex-wrap:wrap;gap:.5rem;margin:.75rem 0}
+#admin-view-carta .carta-preview-filters button{padding:.45rem .8rem;border:1px solid rgba(148,163,184,.18);border-radius:999px;background:rgba(15,23,42,.75);color:#cbd5e1;font:inherit;font-size:.72rem;font-weight:700;cursor:pointer}
+#admin-view-carta .carta-preview-filters button.active{border-color:rgba(52,211,153,.4);background:rgba(52,211,153,.12);color:#6ee7b7}
+#admin-view-carta [data-carta-publicada-section][hidden]{display:none}
+#admin-view-carta .carta-preview-guarnicion{grid-template-columns:52px minmax(0,1fr) auto}
 #admin-view-carta .carta-preview-category{padding:1rem;background:linear-gradient(145deg,rgba(4,25,33,.72),rgba(2,8,23,.5));border:1px solid rgba(52,211,153,.16);border-radius:16px}
 #admin-view-carta .carta-preview-category-heading{border-color:rgba(52,211,153,.16)}
 #admin-view-carta .carta-preview-category-heading h3{font-size:.84rem}
@@ -992,12 +1007,16 @@ img[alt^="Código QR de la mesa"]{display:block;max-width:min(320px,100%);margin
   #admin-view-configuracion .categoria-edit-form,
   #admin-view-cocina .categoria-edit-form,
   #admin-view-restaurante .categoria-edit-form{padding:.65rem}
-  #admin-view-carta .carta-admin-item{grid-template-columns:1fr;padding:.85rem}
-  #admin-view-carta .carta-admin-image{width:100%;height:150px}
-  #admin-view-carta .carta-admin-footer{align-items:flex-start;flex-direction:column}
-  #admin-view-carta .carta-admin-footer .btn{width:100%}
+  #admin-view-carta .carta-admin-category-items{grid-template-columns:minmax(0,1fr)}
+  #admin-view-carta #carta-lista-platos .carta-admin-item{height:420px;max-height:420px}
+  #admin-view-carta #carta-lista-platos .carta-admin-image{width:100%;height:150px;min-height:150px}
   #admin-view-carta .carta-preview-grid{grid-template-columns:1fr}
 }
+@media(min-width:701px) and (max-width:1100px){
+  #admin-view-carta .carta-admin-category-items{grid-template-columns:repeat(3,minmax(0,1fr))}
+}
+#admin-view-carta #carta-lista-platos .carta-admin-item:focus-visible{outline:2px solid #34d399;outline-offset:3px}
+#admin-view-carta .carta-admin-category-group[hidden]{display:none}
 
 .turn-summary-card{position:relative;overflow:hidden;padding:1.4rem;background:radial-gradient(ellipse at top right,rgba(16,185,129,.1),transparent 42%),linear-gradient(145deg,rgba(15,36,48,.98),rgba(11,18,32,.97));border:1px solid rgba(52,211,153,.22);border-radius:20px;box-shadow:0 16px 38px rgba(2,6,23,.3),inset 0 1px rgba(255,255,255,.035)}
 .turn-summary-card::before{position:absolute;top:0;left:1.35rem;right:1.35rem;height:2px;background:linear-gradient(90deg,transparent,rgba(52,211,153,.65),transparent);content:""}

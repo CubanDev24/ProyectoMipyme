@@ -127,6 +127,37 @@ class MovimientoInventario(models.Model):
         return self.usuario.get_full_name() or self.usuario.username
 
 
+class Guarnicion(models.Model):
+    nombre = models.CharField(max_length=120, unique=True)
+    descripcion = models.TextField(blank=True)
+    activa = models.BooleanField(default=True)
+    orden = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        ordering = ['orden', 'nombre']
+        verbose_name = 'Guarnición incluida'
+        verbose_name_plural = 'Guarniciones incluidas'
+
+    def __str__(self):
+        return self.nombre
+
+
+class GuarnicionRecetaItem(models.Model):
+    guarnicion = models.ForeignKey(Guarnicion, on_delete=models.CASCADE, related_name='receta')
+    insumo = models.ForeignKey(Insumo, on_delete=models.CASCADE, related_name='usado_en_guarniciones')
+    cantidad = models.DecimalField(max_digits=8, decimal_places=3, default=Decimal('1'))
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=['guarnicion', 'insumo'], name='uniq_insumo_guarnicion'),
+        ]
+        verbose_name = 'Ingrediente de guarnición'
+        verbose_name_plural = 'Ingredientes de guarnición'
+
+    def __str__(self):
+        return f'{self.guarnicion} — {self.cantidad} {self.insumo.unidad} de {self.insumo.nombre}'
+
+
 class RecetaItem(models.Model):
     """Cuánto de un insumo consume una unidad de un plato (para descontar inventario)."""
     plato = models.ForeignKey(Plato, on_delete=models.CASCADE, related_name='receta')

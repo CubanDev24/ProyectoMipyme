@@ -8,8 +8,17 @@
   <link rel="icon" type="image/svg+xml" href="{% static 'img/favicon.svg' %}?v=20261013">
   <link rel="stylesheet" href="{% static 'css/tailwind.css' %}">
   <link rel="stylesheet" href="{% static 'vendor/fontawesome/css/all.min.css' %}">
-  <link rel="stylesheet" href="{% static 'css/main.css' %}?v=20261016-qr-export">
+  <link rel="stylesheet" href="{% static 'css/main.css' %}?v=20261105-carta-grid">
   <script src="{% static 'js/responsive-sidebar.js' %}?v=20261001-sidebar-logout" defer></script>
+  <style>
+    .guarnicion-options { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,160px),1fr)); gap:8px; margin-top:6px; }
+    .guarnicion-options label { display:flex; min-height:44px; align-items:center; gap:9px; border:1px solid #334155; border-radius:8px; background:#0f172a; padding:9px 11px; color:#e2e8f0; font-size:12px; }
+    .guarnicion-options input { width:18px; height:18px; flex:0 0 auto; accent-color:#10b981; }
+    .guarnicion-admin-list { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,360px),1fr)); gap:12px; }
+    .guarnicion-form { min-width:0; }
+    .admin-input-label { display:block; margin-bottom:5px; color:#cbd5e1; font-size:12px; font-weight:600; }
+    @media (max-width:640px) { .guarnicion-admin-list { grid-template-columns:minmax(0,1fr); } .guarnicion-form .turn-card-heading { align-items:flex-start; flex-wrap:wrap; } }
+  </style>
 </head>
 <body class="bg-slate-900 text-slate-100 font-sans min-h-screen flex flex-col md:flex-row overflow-x-hidden">
   <aside class="w-full md:w-20 lg:w-64 bg-slate-950 border-r border-slate-800 flex flex-col justify-between shrink-0">
@@ -31,7 +40,7 @@
     <div class="p-3 border-t border-slate-800/80"><a href="{% url 'usuarios:logout' %}" class="w-full flex items-center justify-center lg:justify-start gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold text-rose-400 hover:bg-rose-500/10 transition-all"><i class="fa-solid fa-right-from-bracket text-base"></i><span class="hidden lg:inline">Cerrar sesión</span></a></div>
   </aside>
   <main class="flex-1 flex flex-col h-screen overflow-hidden">
-    <header class="admin-topbar h-16 border-b border-slate-800 bg-slate-950/60 backdrop-blur px-6 flex items-center justify-between shrink-0"><div class="admin-topbar-title flex items-center gap-4"><h2 class="text-lg font-bold text-white flex items-center gap-2 leading-none"><i class="fa-solid fa-user-shield text-emerald-400 text-base"></i><span id="page-view-title">Panel de Administrador</span></h2><span class="text-[11px] bg-slate-800 text-slate-300 px-2.5 py-1 rounded-full border border-slate-700 font-medium tracking-wide" id="clock-display">12:00 PM</span></div><nav class="carta-header-nav" id="carta-header-nav" aria-label="Secciones de Carta" role="tablist" hidden><button type="button" id="tab-carta-platos" role="tab" aria-controls="carta-platos" aria-selected="true" data-carta-tab="platos" onclick="mostrarSeccionCarta('platos')"><i class="fa-solid fa-utensils" aria-hidden="true"></i><span>Platos y productos</span></button><button type="button" id="tab-carta-publicada" role="tab" aria-controls="carta-publicada" aria-selected="false" data-carta-tab="publicada" onclick="mostrarSeccionCarta('publicada')"><i class="fa-solid fa-eye" aria-hidden="true"></i><span>Carta publicada</span></button></nav><div class="admin-topbar-status flex items-center gap-3 text-[11px]"><div class="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400"><span class="w-2 h-2 rounded-full bg-emerald-400"></span><span class="font-medium">Sistema activo</span></div></div></header>
+    <header class="admin-topbar h-16 border-b border-slate-800 bg-slate-950/60 backdrop-blur px-6 flex items-center justify-between shrink-0"><div class="admin-topbar-title flex items-center gap-4"><h2 class="text-lg font-bold text-white flex items-center gap-2 leading-none"><i class="fa-solid fa-user-shield text-emerald-400 text-base"></i><span id="page-view-title">Panel de Administrador</span></h2><span class="text-[11px] bg-slate-800 text-slate-300 px-2.5 py-1 rounded-full border border-slate-700 font-medium tracking-wide" id="clock-display">12:00 PM</span></div>    <nav class="carta-header-nav" id="carta-header-nav" aria-label="Secciones de Carta" role="tablist" hidden><button type="button" id="tab-carta-guarniciones" role="tab" aria-controls="carta-guarniciones" aria-selected="false" data-carta-tab="guarniciones" onclick="mostrarSeccionCarta('guarniciones')"><i class="fa-solid fa-bowl-food" aria-hidden="true"></i><span>Guarniciones</span></button><button type="button" id="tab-carta-platos" role="tab" aria-controls="carta-platos" aria-selected="true" data-carta-tab="platos" onclick="mostrarSeccionCarta('platos')"><i class="fa-solid fa-utensils" aria-hidden="true"></i><span>Platos y productos</span></button><button type="button" id="tab-carta-publicada" role="tab" aria-controls="carta-publicada" aria-selected="false" data-carta-tab="publicada" onclick="mostrarSeccionCarta('publicada')"><i class="fa-solid fa-eye" aria-hidden="true"></i><span>Carta publicada</span></button></nav><div class="admin-topbar-status flex items-center gap-3 text-[11px]"><div class="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400"><span class="w-2 h-2 rounded-full bg-emerald-400"></span><span class="font-medium">Sistema activo</span></div></div></header>
     <div class="flex-1 overflow-y-auto">
 <div class="admin-body">
 
@@ -64,6 +73,8 @@
           <div class="carta-form-field"><label for="nuevo-plato-imagen">Imagen</label><input id="nuevo-plato-imagen" type="file" name="imagen" accept="image/*" class="admin-input"></div>
           <div class="carta-form-field"><label for="nuevo-plato-descripcion">Descripción</label><textarea id="nuevo-plato-descripcion" name="descripcion" rows="3" class="admin-input"></textarea></div>
           <label class="carta-availability"><input type="checkbox" name="disponible" checked> Disponible en la carta</label>
+          <label class="carta-availability"><input type="checkbox" name="trae_guarniciones_incluidas" data-guarniciones-toggle> Trae guarniciones incluidas</label>
+          <div class="carta-form-field" data-guarniciones-field hidden><span class="admin-input-label">Guarniciones permitidas</span><div class="guarnicion-options" data-guarniciones-select>{% for guarnicion in guarniciones_activas %}<label><input type="checkbox" name="guarnicion_ids" value="{{ guarnicion.pk }}">{{ guarnicion.nombre }}</label>{% empty %}<small>No hay guarniciones activas con stock y receta.</small>{% endfor %}</div><small class="admin-hint">Selecciona una o varias; la mesera o el cliente elegirá una al pedir.</small><small class="admin-hint">Si el plato ya tiene arroz en su receta fija, retíralo para evitar descontarlo dos veces.</small></div>
         </div>
         <div class="plato-recipe-editor">
           <div class="turn-card-heading"><div><p class="panel-kicker">Descuento de inventario</p><h4>Productos y cantidades por plato</h4></div><button type="button" class="btn btn-outline btn-sm" data-add-recipe-row="crear"><i class="fa-solid fa-plus"></i> Agregar producto</button></div>
@@ -80,16 +91,32 @@
           <option value="">Todas las categorías</option>
           {% for categoria in categorias %}<option value="{{ categoria.pk }}">{{ categoria.nombre }}</option>{% endfor %}
         </select>
+        <label class="sr-only" for="carta-filtrar-tipo">Filtrar por tipo</label>
+        <select id="carta-filtrar-tipo" class="admin-input">
+          <option value="">Todas las áreas</option>
+          <option value="cocina">Cocina</option>
+          <option value="barra">Barra</option>
+        </select>
         <label class="carta-low-stock-filter"><input id="carta-solo-stock-bajo" type="checkbox"> Solo platos con productos de stock bajo</label>
       </div>
       <p class="admin-hint" id="carta-filtro-resultado" role="status" aria-live="polite"></p>
       <div class="admin-empty carta-no-filter-results" id="carta-sin-resultados" hidden>No hay platos que coincidan con los filtros.</div>
       <div class="carta-admin-list" id="carta-lista-platos">
-        {% for plato in platos %}
-        <article class="carta-admin-item" data-categoria="{{ plato.categoria_id }}" data-stock-bajo="{% if plato.receta_con_stock_bajo %}true{% else %}false{% endif %}">
+        {% for grupo in platos_por_categoria %}
+        <section class="carta-admin-category-group" data-carta-category-group>
+          <div class="carta-admin-category-heading">
+            <h3>{{ grupo.nombre }}</h3>
+            <span data-carta-category-count>{{ grupo.platos|length }} platos</span>
+          </div>
+          <div class="carta-admin-category-items">
+        {% for plato in grupo.platos %}
+        <article class="carta-admin-item" data-nombre="{{ plato.nombre|lower }}" data-categoria="{{ plato.categoria_id|default:'' }}" data-tipo="{{ plato.destino }}" data-stock-bajo="{% if plato.receta_con_stock_bajo %}true{% else %}false{% endif %}" tabindex="0" role="group" aria-label="Editar {{ plato.nombre }}">
           <div class="carta-admin-image">{% if plato.imagen %}<img src="{{ plato.imagen.url }}" alt="{{ plato.nombre }}">{% else %}<i class="fa-solid fa-utensils"></i>{% endif %}</div>
-          <div class="carta-admin-content"><div class="carta-admin-topline"><div><p class="carta-admin-category">{{ plato.categoria.nombre|default:'Sin categoría' }} · {{ plato.get_destino_display }}</p><h3>{{ plato.nombre }}</h3></div><span class="carta-admin-price">{{ plato.precio|floatformat:2 }} <small>CUP</small></span></div><p class="carta-admin-description">{{ plato.descripcion|default:'Sin descripción registrada.' }}</p><p class="admin-hint">Receta: {% for item in plato.receta_admin %}{{ item.insumo.nombre }} ({{ item.cantidad }} {{ item.insumo.get_unidad_display }}){% if not forloop.last %}, {% endif %}{% empty %}Sin productos asociados{% endfor %}</p><div class="carta-admin-footer"><span class="carta-availability {% if not plato.disponible %}carta-unavailable{% endif %}"><span></span>{% if plato.disponible %}Disponible{% else %}No disponible{% endif %}</span><button type="button" class="btn btn-outline btn-sm" data-edit-plato data-id="{{ plato.pk }}" data-name="{{ plato.nombre|escapejs }}" data-category="{{ plato.categoria_id|default:'' }}" data-destination="{{ plato.destino }}" data-price="{{ plato.precio|floatformat:2|unlocalize }}" data-description="{{ plato.descripcion|escapejs }}" data-available="{% if plato.disponible %}true{% else %}false{% endif %}" data-image="{% if plato.imagen %}{{ plato.imagen.url }}{% endif %}" data-recipe="{{ plato.receta_json|escape }}"><i class="fa-solid fa-pen"></i> Editar plato y receta</button></div></div>
+          <div class="carta-admin-content"><div class="carta-admin-topline"><div><p class="carta-admin-category">{{ plato.categoria.nombre|default:'Sin categoría' }} · {{ plato.get_destino_display }}</p><h3>{{ plato.nombre }}</h3></div><span class="carta-admin-price">{{ plato.precio|floatformat:2 }} <small>CUP</small></span></div><p class="carta-admin-description">{{ plato.descripcion|default:'Sin descripción registrada.' }}</p><p class="admin-hint">Receta: {% for item in plato.receta_admin %}{{ item.insumo.nombre }} ({{ item.cantidad }} {{ item.insumo.get_unidad_display }}){% if not forloop.last %}, {% endif %}{% empty %}Sin productos asociados{% endfor %}</p>{% if plato.trae_guarniciones_incluidas %}<p class="admin-hint">Guarniciones incluidas: {% for guarnicion in plato.guarniciones_incluidas.all %}{{ guarnicion.nombre }}{% if not forloop.last %}, {% endif %}{% empty %}Sin opciones asignadas{% endfor %}</p>{% endif %}<div class="carta-admin-footer"><span class="carta-availability {% if not plato.disponible %}carta-unavailable{% endif %}"><span></span>{% if plato.disponible %}Disponible{% else %}No disponible{% endif %}</span><button type="button" class="btn btn-outline btn-sm" data-edit-plato data-id="{{ plato.pk }}" data-name="{{ plato.nombre|escapejs }}" data-category="{{ plato.categoria_id|default:'' }}" data-destination="{{ plato.destino }}" data-price="{{ plato.precio|floatformat:2|unlocalize }}" data-description="{{ plato.descripcion|escapejs }}" data-available="{% if plato.disponible %}true{% else %}false{% endif %}" data-image="{% if plato.imagen %}{{ plato.imagen.url }}{% endif %}" data-recipe="{{ plato.receta_json|escape }}" data-guarniciones="{{ plato.guarniciones_json|escape }}" data-guarniciones-required="{% if plato.trae_guarniciones_incluidas %}true{% else %}false{% endif %}"><i class="fa-solid fa-pen"></i> Editar plato y receta</button></div></div>
         </article>
+        {% endfor %}
+          </div>
+        </section>
         {% empty %}<div class="admin-empty">Todavía no hay platos registrados.</div>{% endfor %}
       </div>
     </section>
@@ -97,10 +124,15 @@
     <section class="admin-card carta-preview-card carta-tab-panel" id="carta-publicada" role="tabpanel" aria-labelledby="tab-carta-publicada" hidden>
       <div class="turn-card-heading"><div class="turn-section-icon"><i class="fa-solid fa-eye"></i></div><div><p class="panel-kicker">Vista del cliente</p><h2>Carta publicada</h2></div><span class="admin-section-count">Así la ve el cliente</span></div>
       <p class="admin-hint">Esta vista refleja los platos disponibles que aparecen actualmente en la carta del cliente.</p>
+      <div class="carta-preview-filters" role="group" aria-label="Filtrar carta publicada por tipo">
+        <button type="button" class="active" data-carta-publicada-filter="todos" aria-pressed="true">Todos</button>
+        <button type="button" data-carta-publicada-filter="platos" aria-pressed="false">Platos</button>
+        <button type="button" data-carta-publicada-filter="guarniciones" aria-pressed="false">Guarniciones</button>
+      </div>
       <div class="carta-preview-grid">
         {% for categoria in categorias %}
           {% with platos_disponibles=categoria.platos_publicados %}
-          <div class="carta-preview-category">
+          <div class="carta-preview-category" data-carta-publicada-section="platos">
             <div class="carta-preview-category-heading"><h3>{{ categoria.nombre }}</h3><span>{{ platos_disponibles|length }} opciones</span></div>
             <div class="carta-preview-items">
               {% for plato in platos_disponibles %}
@@ -115,7 +147,7 @@
           {% endwith %}
         {% empty %}<div class="turn-empty"><i class="fa-solid fa-book-open"></i><span>No hay categorías creadas.</span></div>{% endfor %}
         {% if platos_sin_categoria %}
-        <div class="carta-preview-category">
+        <div class="carta-preview-category" data-carta-publicada-section="platos">
           <div class="carta-preview-category-heading"><h3>Sin categoría</h3><span>{{ platos_sin_categoria|length }} opciones</span></div>
           <div class="carta-preview-items">
             {% for plato in platos_sin_categoria %}
@@ -128,6 +160,40 @@
           </div>
         </div>
         {% endif %}
+        <div class="carta-preview-category" data-carta-publicada-section="guarniciones">
+          <div class="carta-preview-category-heading"><h3>Guarniciones</h3><span>{{ guarniciones_activas|length }} opciones</span></div>
+          <div class="carta-preview-items">
+            {% for guarnicion in guarniciones_activas %}
+            <article class="carta-preview-item carta-preview-guarnicion">
+              <div class="carta-preview-image"><i class="fa-solid fa-bowl-food" aria-hidden="true"></i></div>
+              <div class="carta-preview-info"><h4>{{ guarnicion.nombre }}</h4><p>{{ guarnicion.descripcion|default:'Guarnición disponible para acompañar un plato.' }}</p></div>
+              <span class="carta-preview-price">Guarnición</span>
+            </article>
+            {% empty %}<div class="admin-empty">No hay guarniciones disponibles.</div>{% endfor %}
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="admin-card carta-admin-card guarnicion-admin-panel carta-tab-panel" id="carta-guarniciones" role="tabpanel" aria-labelledby="tab-carta-guarniciones" hidden>
+      <div class="turn-card-heading"><div class="turn-section-icon"><i class="fa-solid fa-utensils"></i></div><div><p class="panel-kicker">Inventario de Cocina</p><h2 id="guarniciones-title">Guarniciones incluidas</h2></div><span class="admin-section-count">{{ guarniciones|length }} opciones</span></div>
+      <p class="admin-hint">Cada guarnición tiene su receta de inventario. No se publica como plato ni modifica el precio; el inventario se descuenta al servir.</p>
+      <form method="post" action="{% url 'inventario:guarnicion_crear' %}" class="admin-card plato-create-form guarnicion-form" id="form-crear-guarnicion">
+        {% csrf_token %}
+        <div class="plato-edit-fields"><div class="carta-form-field"><label for="nueva-guarnicion-nombre">Nombre</label><input id="nueva-guarnicion-nombre" name="nombre" class="admin-input" maxlength="120" required placeholder="Ej. Arroz blanco"></div><div class="carta-form-field"><label for="nueva-guarnicion-descripcion">Descripción</label><input id="nueva-guarnicion-descripcion" name="descripcion" class="admin-input" maxlength="300" placeholder="Opcional"></div></div>
+        <div class="plato-recipe-editor"><div class="turn-card-heading"><div><p class="panel-kicker">Descuento de inventario</p><h3>Productos y cantidades por porción</h3></div><button type="button" class="btn btn-outline btn-sm" data-add-guarnicion-row="crear"><i class="fa-solid fa-plus"></i> Agregar producto</button></div><div class="plato-recipe-rows" id="crear-guarnicion-receta-rows"></div></div>
+        <button type="submit" class="btn btn-primary"><i class="fa-solid fa-plus"></i> Crear guarnición</button>
+      </form>
+      <div class="guarnicion-admin-list">
+        {% for guarnicion in guarniciones %}
+        <form method="post" action="{% url 'inventario:guarnicion_editar' guarnicion.pk %}" class="admin-card guarnicion-form" data-guarnicion-edit data-recipe="{{ guarnicion.receta_json|escape }}" data-active="{% if guarnicion.activa %}true{% else %}false{% endif %}">
+          {% csrf_token %}
+          <div class="turn-card-heading"><div><p class="panel-kicker">Guarnición incluida</p><h3>{{ guarnicion.nombre }}</h3></div><span class="carta-availability {% if not guarnicion.activa %}carta-unavailable{% endif %}"><span></span>{% if guarnicion.activa %}Activa{% else %}Inactiva{% endif %}</span></div>
+          <div class="plato-edit-fields"><div class="carta-form-field"><label>Nombre</label><input name="nombre" value="{{ guarnicion.nombre }}" class="admin-input" maxlength="120" required></div><div class="carta-form-field"><label>Descripción</label><input name="descripcion" value="{{ guarnicion.descripcion }}" class="admin-input" maxlength="300"></div><label class="carta-availability"><input type="checkbox" name="activa" {% if guarnicion.activa %}checked{% endif %}> Disponible para elegir</label></div>
+          <div class="plato-recipe-editor"><div class="turn-card-heading"><div><p class="panel-kicker">Receta</p><h4>Inventario por porción</h4></div><button type="button" class="btn btn-outline btn-sm" data-add-guarnicion-row="editar"><i class="fa-solid fa-plus"></i> Agregar producto</button></div><div class="plato-recipe-rows"></div></div>
+          <button type="submit" class="btn btn-outline btn-sm"><i class="fa-solid fa-floppy-disk"></i> Guardar guarnición</button>
+        </form>
+        {% empty %}<div class="admin-empty">Todavía no hay guarniciones creadas.</div>{% endfor %}
       </div>
     </section>
 
@@ -137,7 +203,7 @@
         <form id="form-editar-plato" method="post" enctype="multipart/form-data" class="plato-edit-form">
           {% csrf_token %}
           <div class="plato-edit-preview"><div id="plato-edit-image" class="carta-admin-image"><i class="fa-solid fa-utensils"></i></div><label class="carta-file-label"><i class="fa-solid fa-image"></i> Cambiar foto<input type="file" name="imagen" accept="image/*"></label></div>
-          <div class="plato-edit-fields"><div class="carta-form-field"><label for="edit-plato-nombre">Nombre</label><input id="edit-plato-nombre" type="text" name="nombre" required class="admin-input"></div><div class="carta-form-field"><label for="edit-plato-categoria">Categoría</label><select id="edit-plato-categoria" name="categoria" class="admin-input"><option value="">Sin categoría</option>{% for c in categorias %}<option value="{{ c.id }}">{{ c.nombre }}</option>{% endfor %}</select></div><div class="carta-form-field"><label for="edit-plato-destino">Área de preparación</label><select id="edit-plato-destino" name="destino" required class="admin-input"><option value="cocina">Cocina</option><option value="barra">Barra</option></select></div><div class="carta-form-field"><label for="edit-plato-precio">Precio CUP</label><input id="edit-plato-precio" type="number" step="0.01" min="0.01" name="precio" required class="admin-input"></div><div class="carta-form-field"><label for="edit-plato-descripcion">Descripción</label><textarea id="edit-plato-descripcion" name="descripcion" rows="4" class="admin-input"></textarea></div><label class="carta-availability"><input id="edit-plato-disponible" type="checkbox" name="disponible"> Disponible en la carta</label></div>
+          <div class="plato-edit-fields"><div class="carta-form-field"><label for="edit-plato-nombre">Nombre</label><input id="edit-plato-nombre" type="text" name="nombre" required class="admin-input"></div><div class="carta-form-field"><label for="edit-plato-categoria">Categoría</label><select id="edit-plato-categoria" name="categoria" class="admin-input"><option value="">Sin categoría</option>{% for c in categorias %}<option value="{{ c.id }}">{{ c.nombre }}</option>{% endfor %}</select></div><div class="carta-form-field"><label for="edit-plato-destino">Área de preparación</label><select id="edit-plato-destino" name="destino" required class="admin-input"><option value="cocina">Cocina</option><option value="barra">Barra</option></select></div><div class="carta-form-field"><label for="edit-plato-precio">Precio CUP</label><input id="edit-plato-precio" type="number" step="0.01" min="0.01" name="precio" required class="admin-input"></div><div class="carta-form-field"><label for="edit-plato-descripcion">Descripción</label><textarea id="edit-plato-descripcion" name="descripcion" rows="4" class="admin-input"></textarea></div><label class="carta-availability"><input id="edit-plato-disponible" type="checkbox" name="disponible"> Disponible en la carta</label><label class="carta-availability"><input id="edit-plato-trae-guarniciones" type="checkbox" name="trae_guarniciones_incluidas" data-guarniciones-toggle> Trae guarniciones incluidas</label><div class="carta-form-field" data-guarniciones-field hidden><span class="admin-input-label">Guarniciones permitidas</span><div class="guarnicion-options" data-guarniciones-select>{% for guarnicion in guarniciones_activas %}<label><input type="checkbox" name="guarnicion_ids" value="{{ guarnicion.pk }}">{{ guarnicion.nombre }}</label>{% empty %}<small>No hay guarniciones activas con stock y receta.</small>{% endfor %}</div><small class="admin-hint">Selecciona las opciones que podrán elegirse al pedir.</small><small class="admin-hint">Si el plato ya tiene arroz en su receta fija, retíralo para evitar descontarlo dos veces.</small></div></div>
           <input type="hidden" name="receta_enviada" value="1">
           <div class="plato-recipe-editor">
             <div class="turn-card-heading"><div><p class="panel-kicker">Descuento de inventario</p><h3>Productos y cantidades por plato</h3></div><button type="button" class="btn btn-outline btn-sm" data-add-recipe-row="editar"><i class="fa-solid fa-plus"></i> Agregar producto</button></div>
@@ -156,6 +222,13 @@
         </select>
         <input type="number" name="cantidad[]" step="0.001" min="0.001" class="admin-input" placeholder="Cantidad por plato" aria-label="Cantidad por plato">
         <button type="button" class="btn btn-danger btn-sm" data-remove-recipe-row aria-label="Quitar producto"><i class="fa-solid fa-trash"></i></button>
+      </div>
+    </template>
+    <template id="guarnicion-recipe-row-template">
+      <div class="plato-recipe-row">
+        <select name="guarnicion_insumo_id[]" class="admin-input" aria-label="Producto de inventario"><option value="">Seleccionar producto</option>{% for i in insumos_disponibles %}<option value="{{ i.pk }}">{{ i.get_tipo_inventario_display }} · {{ i.nombre }} ({{ i.get_unidad_display }})</option>{% endfor %}</select>
+        <input type="number" name="guarnicion_cantidad[]" step="0.001" min="0.001" class="admin-input" placeholder="Cantidad por porción" aria-label="Cantidad por porción">
+        <button type="button" class="btn btn-danger btn-sm" data-remove-guarnicion-row aria-label="Quitar producto"><i class="fa-solid fa-trash"></i></button>
       </div>
     </template>
 
@@ -375,7 +448,7 @@
     }
 
     function mostrarSeccionCarta(seccion) {
-      const seccionValida = seccion === 'publicada' ? 'publicada' : 'platos';
+      const seccionValida = ['guarniciones', 'publicada'].includes(seccion) ? seccion : 'platos';
       document.querySelectorAll('.carta-tab-panel').forEach(panel => {
         panel.hidden = panel.id !== `carta-${seccionValida}`;
       });
@@ -388,6 +461,20 @@
       if (location.hash !== hashSeccion) history.replaceState(null, '', hashSeccion);
     }
 
+    document.querySelectorAll('[data-carta-publicada-filter]').forEach(button => {
+      button.addEventListener('click', () => {
+        const tipo = button.dataset.cartaPublicadaFilter;
+        document.querySelectorAll('[data-carta-publicada-filter]').forEach(filtro => {
+          const activo = filtro === button;
+          filtro.classList.toggle('active', activo);
+          filtro.setAttribute('aria-pressed', String(activo));
+        });
+        document.querySelectorAll('[data-carta-publicada-section]').forEach(seccion => {
+          seccion.hidden = tipo !== 'todos' && seccion.dataset.cartaPublicadaSection !== tipo;
+        });
+      });
+    });
+
     const hashInicial = location.hash.slice(1);
     const vistaInicial = hashInicial.includes('restaurante') ? 'restaurante'
       : hashInicial.includes('cocina') ? 'cocina'
@@ -395,7 +482,8 @@
       : hashInicial.includes('wifi') ? 'wifi'
       : 'configuracion';
     mostrarVistaAdmin(vistaInicial, false);
-    mostrarSeccionCarta(location.hash === '#carta-publicada' ? 'publicada' : 'platos');
+    mostrarSeccionCarta(location.hash === '#carta-publicada' ? 'publicada'
+      : location.hash === '#carta-guarniciones' ? 'guarniciones' : 'platos');
   </script>
   <script>
     const modalPlato = document.getElementById('modal-editar-plato');
@@ -403,8 +491,10 @@
     const formEliminarPlato = document.getElementById('form-eliminar-plato');
     const previewPlato = document.getElementById('plato-edit-image');
     const recipeRowTemplate = document.getElementById('recipe-row-template');
+    const guarnicionRecipeRowTemplate = document.getElementById('guarnicion-recipe-row-template');
     const buscarPlato = document.getElementById('carta-buscar-plato');
     const filtrarCategoriaPlato = document.getElementById('carta-filtrar-categoria');
+    const filtrarTipoPlato = document.getElementById('carta-filtrar-tipo');
     const filtrarStockBajo = document.getElementById('carta-solo-stock-bajo');
     const tarjetasPlato = Array.from(document.querySelectorAll('#carta-lista-platos .carta-admin-item'));
     const sinResultadosPlato = document.getElementById('carta-sin-resultados');
@@ -413,25 +503,36 @@
     function filtrarPlatosCarta() {
       const texto = normalizarTexto(buscarPlato.value.trim());
       const categoria = filtrarCategoriaPlato.value;
+      const tipo = filtrarTipoPlato.value;
       const soloStockBajo = filtrarStockBajo.checked;
       let visibles = 0;
+      let gruposVisibles = 0;
 
       tarjetasPlato.forEach(plato => {
-        const coincideTexto = !texto || normalizarTexto(plato.textContent).includes(texto);
+        const coincideTexto = !texto || normalizarTexto(plato.dataset.nombre || '').includes(texto);
         const coincideCategoria = !categoria || plato.dataset.categoria === categoria;
+        const coincideTipo = !tipo || plato.dataset.tipo === tipo;
         const coincideStock = !soloStockBajo || plato.dataset.stockBajo === 'true';
-        const visible = coincideTexto && coincideCategoria && coincideStock;
+        const visible = coincideTexto && coincideCategoria && coincideTipo && coincideStock;
         plato.hidden = !visible;
         if (visible) visibles += 1;
+      });
+      document.querySelectorAll('[data-carta-category-group]').forEach(grupo => {
+        const tarjetas = grupo.querySelectorAll('.carta-admin-item');
+        const visiblesGrupo = Array.from(tarjetas).filter(plato => !plato.hidden).length;
+        grupo.hidden = visiblesGrupo === 0;
+        grupo.querySelector('[data-carta-category-count]').textContent = `${visiblesGrupo} de ${tarjetas.length} platos`;
+        if (visiblesGrupo) gruposVisibles += 1;
       });
 
       sinResultadosPlato.hidden = visibles > 0 || tarjetasPlato.length === 0;
       resultadoFiltroPlato.textContent = tarjetasPlato.length
-        ? `Mostrando ${visibles} de ${tarjetasPlato.length} platos`
+        ? `Mostrando ${visibles} de ${tarjetasPlato.length} platos en ${gruposVisibles} categorías`
         : '';
     }
     buscarPlato.addEventListener('input', filtrarPlatosCarta);
     filtrarCategoriaPlato.addEventListener('change', filtrarPlatosCarta);
+    filtrarTipoPlato.addEventListener('change', filtrarPlatosCarta);
     filtrarStockBajo.addEventListener('change', filtrarPlatosCarta);
     filtrarPlatosCarta();
 
@@ -478,6 +579,57 @@
     const rowsEditarPlato = document.getElementById('editar-plato-receta-rows');
     configurarFormularioReceta(formEditarPlato, rowsEditarPlato);
     document.querySelector('[data-add-recipe-row="editar"]').addEventListener('click', () => agregarFilaReceta(rowsEditarPlato));
+    function configurarSelectorGuarniciones(form, selectedIds = []) {
+      const toggle = form.querySelector('[data-guarniciones-toggle]');
+      const field = form.querySelector('[data-guarniciones-field]');
+      const selector = form.querySelector('[data-guarniciones-select]');
+      if (!toggle || !field || !selector) return;
+      selector.querySelectorAll('input[type="checkbox"]').forEach(option => {
+        option.checked = selectedIds.map(String).includes(option.value);
+      });
+      const actualizar = () => {
+        field.hidden = !toggle.checked;
+      };
+      toggle.onchange = actualizar;
+      actualizar();
+    }
+    configurarSelectorGuarniciones(formCrearPlato);
+    configurarSelectorGuarniciones(formEditarPlato);
+    [formCrearPlato, formEditarPlato].forEach(form => form.addEventListener('submit', event => {
+      const toggle = form.querySelector('[data-guarniciones-toggle]');
+      const selector = form.querySelector('[data-guarniciones-select]');
+      if (toggle.checked && !selector.querySelector('input[type="checkbox"]:checked')) {
+        event.preventDefault();
+        alert('Selecciona al menos una guarnición incluida para este plato.');
+      }
+    }));
+    function agregarFilaRecetaGuarnicion(container, recetaItem = null) {
+      const row = guarnicionRecipeRowTemplate.content.firstElementChild.cloneNode(true);
+      row.querySelector('select[name="guarnicion_insumo_id[]"]').required = true;
+      row.querySelector('input[name="guarnicion_cantidad[]"]').required = true;
+      if (recetaItem) {
+        row.querySelector('select[name="guarnicion_insumo_id[]"]').value = recetaItem.insumo_id;
+        row.querySelector('input[name="guarnicion_cantidad[]"]').value = recetaItem.cantidad;
+      }
+      container.appendChild(row);
+    }
+    const formCrearGuarnicion = document.getElementById('form-crear-guarnicion');
+    const rowsCrearGuarnicion = document.getElementById('crear-guarnicion-receta-rows');
+    agregarFilaRecetaGuarnicion(rowsCrearGuarnicion);
+    document.querySelector('[data-add-guarnicion-row="crear"]').addEventListener('click', () => agregarFilaRecetaGuarnicion(rowsCrearGuarnicion));
+    document.querySelectorAll('[data-guarnicion-edit]').forEach(form => {
+      const rows = form.querySelector('.plato-recipe-rows');
+      JSON.parse(form.dataset.recipe || '[]').forEach(item => agregarFilaRecetaGuarnicion(rows, item));
+      form.querySelector('[data-add-guarnicion-row="editar"]').addEventListener('click', () => agregarFilaRecetaGuarnicion(rows));
+      form.addEventListener('click', event => {
+        const removeButton = event.target.closest('[data-remove-guarnicion-row]');
+        if (removeButton) removeButton.closest('.plato-recipe-row').remove();
+      });
+    });
+    [formCrearGuarnicion, ...document.querySelectorAll('[data-guarnicion-edit]')].forEach(form => form.addEventListener('click', event => {
+      const removeButton = event.target.closest('[data-remove-guarnicion-row]');
+      if (removeButton) removeButton.closest('.plato-recipe-row').remove();
+    }));
     function abrirEdicionPlato(button) {
       formEditarPlato.action = `/administrador/plato/${button.dataset.id}/editar/`;
       formEliminarPlato.action = `/administrador/plato/${button.dataset.id}/eliminar/`;
@@ -490,6 +642,8 @@
       document.getElementById('edit-plato-precio').value = Number(precioNormalizado || 0).toFixed(2);
       document.getElementById('edit-plato-descripcion').value = button.dataset.description;
       document.getElementById('edit-plato-disponible').checked = button.dataset.available === 'true';
+      document.getElementById('edit-plato-trae-guarniciones').checked = button.dataset.guarnicionesRequired === 'true';
+      configurarSelectorGuarniciones(formEditarPlato, JSON.parse(button.dataset.guarniciones || '[]'));
       previewPlato.innerHTML = button.dataset.image ? `<img src="${button.dataset.image}" alt="${button.dataset.name}">` : '<i class="fa-solid fa-utensils"></i>';
       rowsEditarPlato.replaceChildren();
       JSON.parse(button.dataset.recipe || '[]').forEach(item => agregarFilaReceta(rowsEditarPlato, item));
@@ -502,6 +656,17 @@
     }
     function cerrarEdicionPlato() { modalPlato.classList.remove('visible'); modalPlato.setAttribute('aria-hidden', 'true'); }
     document.querySelectorAll('[data-edit-plato]').forEach(button => button.addEventListener('click', () => abrirEdicionPlato(button)));
+    tarjetasPlato.forEach(tarjeta => {
+      tarjeta.addEventListener('click', event => {
+        if (event.target.closest('button, a, input, select, textarea, label')) return;
+        tarjeta.querySelector('[data-edit-plato]').click();
+      });
+      tarjeta.addEventListener('keydown', event => {
+        if (event.target !== tarjeta || !['Enter', ' '].includes(event.key)) return;
+        event.preventDefault();
+        tarjeta.querySelector('[data-edit-plato]').click();
+      });
+    });
     document.querySelectorAll('[data-close-plato]').forEach(button => button.addEventListener('click', cerrarEdicionPlato));
     document.getElementById('btn-eliminar-plato').addEventListener('click', () => { if (confirm('¿Eliminar este producto de la carta?')) formEliminarPlato.submit(); });
     formEditarPlato.querySelector('input[name="imagen"]').addEventListener('change', event => { const file = event.target.files[0]; if (file) previewPlato.innerHTML = `<img src="${URL.createObjectURL(file)}" alt="Vista previa">`; });

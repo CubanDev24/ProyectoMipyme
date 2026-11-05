@@ -62,6 +62,13 @@ def serializar_pedido(pedido):
                 'precio_unit': str(i.plato.precio),
                 'cantidad': i.cantidad,
                 'nota': i.nota,
+                'cancelacion_solicitada': i.cancelacion_solicitada,
+                'motivo_cancelacion': i.motivo_cancelacion,
+                'cancelado': i.cancelado,
+                **({
+                    'guarnicion_id': i.guarnicion_id,
+                    'guarnicion': i.guarnicion.nombre,
+                } if i.guarnicion_id else {}),
                 'subtotal': str(i.subtotal()),
             }
             for i in pedido.items.all()
@@ -70,29 +77,39 @@ def serializar_pedido(pedido):
 
 
 @database_sync_to_async
-def aceptar_cancelacion(pedido_id, destino):
+def aceptar_cancelacion_item(item_id, destino):
     try:
         with transaction.atomic():
             pedido = Pedido.objects.select_for_update().filter(
-                pk=pedido_id,
+                items__pk=item_id,
                 destino=destino,
-                estado='pendiente',
-                cancelacion_solicitada=True,
+                estado__in=['pendiente', 'en_preparacion', 'listo'],
+                modalidad='mesa',
+                mesa__abierta=True,
+                sesion_id=F('mesa__sesion_id'),
             ).select_related('mesa').first()
             if not pedido:
-                return None, 'La solicitud ya no está pendiente para esta estación.'
-            if pedido.modalidad == 'mesa' and (
-                not pedido.mesa_id
-                or not pedido.mesa.abierta
-                or pedido.sesion_id != pedido.mesa.sesion_id
-            ):
-                return None, 'La mesa ya no tiene ese pedido activo.'
-            pedido.estado = 'cancelado'
-            pedido.save(update_fields=['estado', 'actualizado_en'])
+                return None, 'La solicitud del plato ya no está pendiente para esta estación.'
+            item = ItemPedido.objects.select_for_update().select_related('plato').filter(
+                pk=item_id,
+                pedido=pedido,
+                cancelacion_solicitada=True,
+                cancelado=False,
+            ).first()
+            if not item or destino_para_plato(item.plato) != destino:
+                return None, 'La solicitud del plato ya no está pendiente para esta estación.'
+
+            item.cancelacion_solicitada = False
+            item.cancelado = True
+            item.save(update_fields=['cancelacion_solicitada', 'cancelado'])
+            if not pedido.items.filter(cancelado=False).exists():
+                pedido.estado = 'cancelado'
+                pedido.save(update_fields=['estado', 'actualizado_en'])
+
             pedido = Pedido.objects.prefetch_related('items__plato').select_related('mesa').get(pk=pedido.pk)
             return serializar_pedido(pedido), None
     except (TypeError, ValueError):
-        return None, 'No se pudo aceptar la cancelación.'
+        return None, 'No se pudo aceptar la cancelación del plato.'
 
 
 @transaction.atomic
@@ -117,13 +134,38 @@ def crear_pedidos_por_destino(
                 receta__isnull=False,
             ).exclude(
                 receta__insumo__stock_actual__lte=0,
-            ).distinct().select_related('categoria').first()
+            ).distinct().select_related('categoria').prefetch_related(
+                'guarniciones_incluidas__receta__insumo',
+            ).first()
         except (TypeError, ValueError):
             continue
         if not plato:
             continue
+        guarnicion_id = item_data.get('guarnicion_id')
+        guarnicion = None
+        if guarnicion_id not in (None, ''):
+            try:
+                guarnicion_id = int(guarnicion_id)
+            except (TypeError, ValueError):
+                raise ValueError(f'Selecciona una guarnición válida para {plato.nombre}.')
+            guarnicion = next((
+                opcion for opcion in plato.guarniciones_incluidas.all()
+                if opcion.pk == guarnicion_id and opcion.activa
+            ), None)
+            if not guarnicion or not plato.trae_guarniciones_incluidas:
+                raise ValueError(f'La guarnición seleccionada no está disponible para {plato.nombre}.')
+            recetas_guarnicion = list(guarnicion.receta.all())
+            if not recetas_guarnicion:
+                raise ValueError(f'La guarnición {guarnicion.nombre} no tiene receta de inventario.')
+            if any(
+                not receta.insumo.activo or receta.insumo.stock_actual <= 0
+                for receta in recetas_guarnicion
+            ):
+                raise ValueError(f'La guarnición {guarnicion.nombre} no tiene productos disponibles en inventario.')
+        if plato.trae_guarniciones_incluidas and not guarnicion:
+            raise ValueError(f'Selecciona una guarnición para {plato.nombre} antes de enviar la comanda.')
         destino = destino_para_plato(plato)
-        grupos[destino].append((plato, item_data))
+        grupos[destino].append((plato, item_data, guarnicion))
 
     pedidos = []
     for destino, items in grupos.items():
@@ -140,10 +182,11 @@ def crear_pedidos_por_destino(
             estado=estado,
             destino=destino,
         )
-        for plato, item_data in items:
+        for plato, item_data, guarnicion in items:
             ItemPedido.objects.create(
                 pedido=pedido,
                 plato=plato,
+            guarnicion=guarnicion,
                 cantidad=item_data.get('cantidad', 1),
                 nota=item_data.get('nota', ''),
             )
@@ -167,8 +210,12 @@ def serializar_cuenta(pedidos):
             'precio_unit': str(item.plato.precio),
             'cantidad': item.cantidad,
             'nota': item.nota,
+            **({
+                'guarnicion_id': item.guarnicion_id,
+                'guarnicion': item.guarnicion.nombre,
+            } if item.guarnicion_id else {}),
             'subtotal': str(item.subtotal()),
-        } for item in pedido.items.all())
+        } for item in pedido.items.filter(cancelado=False))
     es_para_llevar = pedidos[0].modalidad == 'para_llevar'
     codigo_para_llevar = pedidos[0].grupo_para_llevar.hex[:8].upper() if pedidos[0].grupo_para_llevar else None
     return {
@@ -191,7 +238,10 @@ def serializar_cuenta(pedidos):
         'total': str(total),
         'forma_pago': pedidos[0].forma_pago_preseleccionada or None,
         'tasa_cambio': str(pedidos[0].tasa_cambio_preseleccionada) if pedidos[0].tasa_cambio_preseleccionada else None,
-        'comprobante_url': pedidos[0].comprobante_transferencia.url if pedidos[0].comprobante_transferencia else None,
+        'comprobante_url': next(
+            (pedido.comprobante_transferencia.url for pedido in pedidos if pedido.comprobante_transferencia),
+            None,
+        ),
         'items': items,
         'pdf_url': None,
     }
@@ -228,6 +278,10 @@ def serializar_factura(factura):
                 'cantidad': item['cantidad'],
                 'precio_unit': item['precio_unit'],
                 'subtotal': item['subtotal'],
+                **({
+                    'guarnicion': item['guarnicion'],
+                    'guarnicion_id': item['guarnicion_id'],
+                } if item.get('guarnicion') else {}),
                 **({'categoria': item['categoria']} if 'categoria' in item else {}),
             }
             for item in factura.items_snapshot
@@ -272,51 +326,57 @@ class MeseraConsumer(AsyncWebsocketConsumer):
         data = json.loads(text_data)
         accion = data.get('accion')
 
-        if accion == 'solicitar_cancelacion':
+        if accion in ['solicitar_cancelacion', 'aceptar_cancelacion']:
+            await self.send(text_data=json.dumps({
+                'tipo': 'error_cancelacion',
+                'mensaje': 'Solo se permite cancelar platos individuales.',
+            }))
+            return
+
+        if accion in ['solicitar_cancelacion_item', 'aceptar_cancelacion_item']:
             usuario = self.scope.get('user')
             if not getattr(usuario, 'is_authenticated', False) or getattr(usuario, 'role', None) != 'mesera':
                 await self.send(text_data=json.dumps({
                     'tipo': 'error_cancelacion',
-                    'mensaje': 'Solo la mesera puede solicitar la cancelación de pedidos.',
+                    'mensaje': 'Solo la mesera puede gestionar cancelaciones de platos.',
                 }))
                 return
-            pedido, error = await self.solicitar_cancelacion(
-                data.get('pedido_id'),
-                data.get('motivo', ''),
-            )
-            if not pedido:
-                await self.send(text_data=json.dumps({
-                    'tipo': 'error_cancelacion',
-                    'mensaje': error or 'No se pudo solicitar la cancelación.',
-                }))
-                return
-            grupos = {'mesera', 'cocina'} if pedido['destino'] == 'cocina' else {'mesera'}
-            for grupo in grupos:
-                await self.channel_layer.group_send(
-                    grupo,
-                    {'type': 'pedido_actualizado', 'pedido': pedido},
+
+            if accion == 'solicitar_cancelacion_item':
+                pedido, error = await self.solicitar_cancelacion_item(
+                    data.get('pedido_id'),
+                    data.get('item_id'),
+                    data.get('motivo', ''),
                 )
-            if pedido['destino'] == 'barra':
+                if not pedido:
+                    await self.send(text_data=json.dumps({
+                        'tipo': 'error_cancelacion',
+                        'mensaje': error or 'No se pudo solicitar la cancelación del plato.',
+                    }))
+                    return
                 await self.channel_layer.group_send(
                     'mesera',
-                    {'type': 'notificacion_cancelacion_barra', 'pedido': pedido},
+                    {'type': 'pedido_actualizado', 'pedido': pedido},
                 )
-
-        elif accion == 'aceptar_cancelacion':
-            usuario = self.scope.get('user')
-            if not getattr(usuario, 'is_authenticated', False) or getattr(usuario, 'role', None) != 'mesera':
-                await self.send(text_data=json.dumps({
-                    'tipo': 'error_cancelacion',
-                    'mensaje': 'Solo la estación de barra puede aceptar esta cancelación.',
-                }))
+                if pedido['destino'] == 'cocina':
+                    await self.channel_layer.group_send(
+                        'cocina',
+                        {'type': 'pedido_actualizado', 'pedido': pedido},
+                    )
+                else:
+                    await self.channel_layer.group_send(
+                        'mesera',
+                        {'type': 'notificacion_cancelacion_barra', 'pedido': pedido},
+                    )
                 return
-            pedido, error = await aceptar_cancelacion(data.get('pedido_id'), 'barra')
+
+            pedido, error = await aceptar_cancelacion_item(data.get('item_id'), 'barra')
             if pedido:
                 await self._broadcast_actualizacion(pedido)
             else:
                 await self.send(text_data=json.dumps({
                     'tipo': 'error_cancelacion',
-                    'mensaje': error or 'La solicitud ya no está pendiente.',
+                    'mensaje': error or 'La solicitud del plato ya no está pendiente.',
                 }))
 
         elif accion == 'actualizar_nota_item':
@@ -341,31 +401,39 @@ class MeseraConsumer(AsyncWebsocketConsumer):
                 }))
 
         elif accion in ['crear_pedido', 'crear_pedido_para_llevar']:
-            if accion == 'crear_pedido_para_llevar':
-                nombre_cliente = str(data.get('nombre_cliente', '')).strip()
-                telefono_cliente = str(data.get('telefono_cliente', '')).strip()
-                if not nombre_cliente or not telefono_cliente:
-                    await self.send(text_data=json.dumps({
-                        'tipo': 'error_pedido',
-                        'mensaje': 'Indica el nombre y el teléfono de la persona que solicita el ticket.',
-                    }))
-                    return
-                if len(nombre_cliente) > 120 or len(telefono_cliente) > 30:
-                    await self.send(text_data=json.dumps({
-                        'tipo': 'error_pedido',
-                        'mensaje': 'El nombre o el teléfono supera la longitud permitida.',
-                    }))
-                    return
-                pedidos = await self.crear_pedido_para_llevar(
-                    data.get('items', []),
-                    data.get('nota', ''),
-                    nombre_cliente,
-                    telefono_cliente,
-                )
-            else:
-                pedidos = await self.crear_pedido(
-                    data['mesa_id'], data.get('items', []), data.get('nota', '')
-                )
+            try:
+                if accion == 'crear_pedido_para_llevar':
+                    nombre_cliente = str(data.get('nombre_cliente', '')).strip()
+                    telefono_cliente = str(data.get('telefono_cliente', '')).strip()
+                    if not nombre_cliente or not telefono_cliente:
+                        await self.send(text_data=json.dumps({
+                            'tipo': 'error_pedido',
+                            'mensaje': 'Indica el nombre y el teléfono de la persona que solicita el ticket.',
+                        }))
+                        return
+                    if len(nombre_cliente) > 120 or len(telefono_cliente) > 30:
+                        await self.send(text_data=json.dumps({
+                            'tipo': 'error_pedido',
+                            'mensaje': 'El nombre o el teléfono supera la longitud permitida.',
+                        }))
+                        return
+                    pedidos = await self.crear_pedido_para_llevar(
+                        data.get('items', []),
+                        data.get('nota', ''),
+                        nombre_cliente,
+                        telefono_cliente,
+                    )
+                else:
+                    pedidos = await self.crear_pedido(
+                        data['mesa_id'], data.get('items', []), data.get('nota', '')
+                    )
+            except ValueError as error:
+                await self.send(text_data=json.dumps({
+                    'tipo': 'error_pedido',
+                    'request_id': data.get('request_id'),
+                    'mensaje': str(error),
+                }))
+                return
             if pedidos:
                 for pedido in pedidos:
                     await self.send(text_data=json.dumps({
@@ -483,11 +551,14 @@ class MeseraConsumer(AsyncWebsocketConsumer):
             if forma_pago not in dict(Factura.FORMA_PAGO_CHOICES):
                 await self.send(text_data=json.dumps({'tipo': 'error_cobro', 'mensaje': 'Selecciona una forma de pago válida.'}))
                 return
-            pedidos, cuenta = await self.preparar_cobro_para_llevar(
+            pedidos, cuenta, error = await self.preparar_cobro_para_llevar(
                 grupo,
                 forma_pago,
                 data.get('tasa_cambio'),
             )
+            if error:
+                await self.send(text_data=json.dumps({'tipo': 'error_cobro', 'mensaje': error}))
+                return
             if not cuenta:
                 await self.send(text_data=json.dumps({
                     'tipo': 'error_cobro',
@@ -658,7 +729,7 @@ class MeseraConsumer(AsyncWebsocketConsumer):
             )
 
     @database_sync_to_async
-    def solicitar_cancelacion(self, pedido_id, motivo):
+    def solicitar_cancelacion_item(self, pedido_id, item_id, motivo):
         motivo = str(motivo or '').strip()
         if not motivo:
             return None, 'Escribe el motivo de la cancelación.'
@@ -668,32 +739,30 @@ class MeseraConsumer(AsyncWebsocketConsumer):
             with transaction.atomic():
                 pedido = Pedido.objects.select_for_update().filter(
                     pk=pedido_id,
+                    modalidad='mesa',
                     estado='pendiente',
-                    cancelacion_solicitada=False,
+                    mesa__abierta=True,
+                    sesion_id=F('mesa__sesion_id'),
                 ).select_related('mesa').first()
                 if not pedido:
-                    return None, 'Solo puedes cancelar pedidos que siguen pendientes.'
-                if pedido.modalidad == 'mesa' and (
-                    not pedido.mesa_id
-                    or not pedido.mesa.abierta
-                    or pedido.sesion_id != pedido.mesa.sesion_id
-                ):
-                    return None, 'La mesa ya no tiene ese pedido activo.'
-                if pedido.modalidad == 'para_llevar':
-                    turno = get_turno_abierto()
-                    if not turno or pedido.creado_en < turno.apertura:
-                        return None, 'El ticket para llevar ya no pertenece al turno activo.'
-                pedido.cancelacion_solicitada = True
-                pedido.motivo_cancelacion = motivo
-                pedido.save(update_fields=[
-                    'cancelacion_solicitada',
-                    'motivo_cancelacion',
-                    'actualizado_en',
-                ])
+                    return None, 'Solo puedes cancelar platos de pedidos pendientes de una mesa activa.'
+                item = ItemPedido.objects.select_for_update().select_related('plato').filter(
+                    pk=item_id,
+                    pedido=pedido,
+                    cancelado=False,
+                    cancelacion_solicitada=False,
+                ).first()
+                if not item:
+                    return None, 'No se encontró un plato activo dentro de ese pedido.'
+                if destino_para_plato(item.plato) != pedido.destino:
+                    return None, 'El plato no pertenece a la estación de este pedido.'
+                item.cancelacion_solicitada = True
+                item.motivo_cancelacion = motivo
+                item.save(update_fields=['cancelacion_solicitada', 'motivo_cancelacion'])
                 pedido = Pedido.objects.prefetch_related('items__plato').select_related('mesa').get(pk=pedido.pk)
                 return serializar_pedido(pedido), None
         except (TypeError, ValueError):
-            return None, 'No se pudo solicitar la cancelación.'
+            return None, 'No se pudo solicitar la cancelación del plato.'
 
     @database_sync_to_async
     def get_pedidos_activos(self):
@@ -882,7 +951,6 @@ class MeseraConsumer(AsyncWebsocketConsumer):
             p = Pedido.objects.prefetch_related('items__plato').select_related('mesa').get(
                 pk=pedido_id,
                 estado__in=['pendiente', 'en_preparacion'],
-                cancelacion_solicitada=False,
             )
             p.estado = estado
             p.save()
@@ -897,11 +965,12 @@ class MeseraConsumer(AsyncWebsocketConsumer):
                 pk=pedido_id,
                 modalidad='mesa',
                 estado='listo',
-                cancelacion_solicitada=False,
             )
         except Pedido.DoesNotExist:
             return None, []
         p.estado = 'servido'
+        if p.items.filter(cancelacion_solicitada=True, cancelado=False).exists():
+            return None, []
         p.save()
         usuario = self.scope.get('user')
         alertas = descontar_inventario_por_pedido(p, usuario=usuario)
@@ -916,11 +985,12 @@ class MeseraConsumer(AsyncWebsocketConsumer):
                     modalidad='mesa',
                     destino='barra',
                     estado__in=['pendiente', 'en_preparacion', 'listo'],
-                    cancelacion_solicitada=False,
                     mesa__abierta=True,
                     sesion_id=F('mesa__sesion_id'),
                 ).select_related('mesa').prefetch_related('items__plato').first()
                 if not pedido:
+                    return None, []
+                if pedido.items.filter(cancelacion_solicitada=True, cancelado=False).exists():
                     return None, []
 
                 pedido.estado = 'servido'
@@ -943,10 +1013,7 @@ class MeseraConsumer(AsyncWebsocketConsumer):
                     modalidad='para_llevar',
                     grupo_para_llevar=grupo_para_llevar,
                 ).exclude(estado='cancelado').select_related('mesa').prefetch_related('items__plato').order_by('pk'))
-                if not pedidos or any(
-                    pedido.estado != 'listo' or pedido.cancelacion_solicitada
-                    for pedido in pedidos
-                ):
+                if not pedidos or any(pedido.estado != 'listo' for pedido in pedidos):
                     return [], []
 
                 alertas = []
@@ -969,7 +1036,6 @@ class MeseraConsumer(AsyncWebsocketConsumer):
                 modalidad='para_llevar',
                 destino='barra',
                 estado__in=['pendiente', 'en_preparacion'],
-                cancelacion_solicitada=False,
             ).select_related('mesa').first()
             if not pedido:
                 pedido = Pedido.objects.select_for_update().filter(
@@ -977,11 +1043,15 @@ class MeseraConsumer(AsyncWebsocketConsumer):
                     modalidad='mesa',
                     destino='barra',
                     estado__in=['pendiente', 'en_preparacion'],
-                    cancelacion_solicitada=False,
                     mesa__abierta=True,
                     sesion_id=F('mesa__sesion_id'),
                 ).select_related('mesa').first()
             if not pedido:
+                return None
+            if pedido.modalidad == 'mesa' and pedido.items.filter(
+                cancelacion_solicitada=True,
+                cancelado=False,
+            ).exists():
                 return None
             pedido.estado = 'listo'
             pedido.save(update_fields=['estado', 'actualizado_en'])
@@ -1018,13 +1088,17 @@ class MeseraConsumer(AsyncWebsocketConsumer):
     @database_sync_to_async
     def preparar_cobro_para_llevar(self, grupo_para_llevar, forma_pago, tasa_cambio):
         if not grupo_para_llevar or forma_pago not in dict(Factura.FORMA_PAGO_CHOICES):
-            return [], None
+            return [], None, None
         pedidos = list(Pedido.objects.filter(
             modalidad='para_llevar',
             grupo_para_llevar=grupo_para_llevar,
         ).exclude(estado__in=['cerrado', 'cancelado']).select_related('mesa').prefetch_related('items__plato'))
         if not pedidos or any(pedido.estado != 'entregado' for pedido in pedidos):
-            return [], None
+            return [], None, None
+        if forma_pago in {'transferencia', 'mixto'} and not any(
+            pedido.comprobante_transferencia for pedido in pedidos
+        ):
+            return [], None, 'Sube una foto del comprobante para usar transferencia o pago mixto.'
         tasa = _to_decimal(tasa_cambio) if forma_pago == 'usd' else None
         Pedido.objects.filter(pk__in=[pedido.pk for pedido in pedidos]).update(
             cuenta_solicitada=True,
@@ -1035,7 +1109,7 @@ class MeseraConsumer(AsyncWebsocketConsumer):
             pedido.cuenta_solicitada = True
             pedido.forma_pago_preseleccionada = forma_pago
             pedido.tasa_cambio_preseleccionada = tasa
-        return [serializar_pedido(pedido) for pedido in pedidos], serializar_cuenta(pedidos)
+        return [serializar_pedido(pedido) for pedido in pedidos], serializar_cuenta(pedidos), None
 
     @database_sync_to_async
     def preparar_cuenta_mesa(self, mesa_numero, forma_pago=None, tasa_cambio=None):
@@ -1055,6 +1129,10 @@ class MeseraConsumer(AsyncWebsocketConsumer):
                 return None, 'No hay una cuenta pendiente para esta mesa.'
             if any(pedido.estado != 'servido' for pedido in pedidos):
                 return None, 'No se puede cobrar hasta que todos los pedidos de la mesa estén servidos.'
+            if forma_pago in {'transferencia', 'mixto'} and not any(
+                pedido.comprobante_transferencia for pedido in pedidos
+            ):
+                return None, 'Sube una foto del comprobante para usar transferencia o pago mixto.'
 
             tasa = None
             if forma_pago == 'usd':
@@ -1102,18 +1180,25 @@ class CocinaConsumer(AsyncWebsocketConsumer):
     async def receive(self, text_data):
         data = json.loads(text_data)
         if data.get('accion') == 'aceptar_cancelacion':
+            await self.send(text_data=json.dumps({
+                'tipo': 'error_cancelacion',
+                'mensaje': 'Solo se permite cancelar platos individuales.',
+            }))
+            return
+
+        if data.get('accion') == 'aceptar_cancelacion_item':
             usuario = self.scope.get('user')
             if not getattr(usuario, 'is_authenticated', False) or getattr(usuario, 'role', None) != 'cocina':
                 await self.send(text_data=json.dumps({
                     'tipo': 'error_cancelacion',
-                    'mensaje': 'Solo Cocina puede aceptar esta cancelación.',
+                    'mensaje': 'Solo Cocina puede aceptar la cancelación del plato.',
                 }))
                 return
-            pedido, error = await aceptar_cancelacion(data.get('pedido_id'), 'cocina')
+            pedido, error = await aceptar_cancelacion_item(data.get('item_id'), 'cocina')
             if not pedido:
                 await self.send(text_data=json.dumps({
                     'tipo': 'error_cancelacion',
-                    'mensaje': error or 'La solicitud ya no está pendiente.',
+                    'mensaje': error or 'La solicitud del plato ya no está pendiente.',
                 }))
                 return
             for grupo in ['cocina', 'mesera', 'caja']:
@@ -1180,11 +1265,10 @@ class CocinaConsumer(AsyncWebsocketConsumer):
                 pk=pedido_id,
                 destino='cocina',
                 estado__in=['pendiente', 'en_preparacion'],
-                cancelacion_solicitada=False,
             ).first()
             if not p or not p.items.all() or any(
                 destino_para_plato(item.plato) != 'cocina' for item in p.items.all()
-            ):
+            ) or p.items.filter(cancelacion_solicitada=True, cancelado=False).exists():
                 return None
             p.estado = estado
             p.save()
@@ -1523,9 +1607,13 @@ class CajaConsumer(AsyncWebsocketConsumer):
                 'cantidad': i.cantidad,
                 'precio_unit': str(i.plato.precio),
                 'subtotal': str(i.subtotal()),
+                **({
+                    'guarnicion_id': i.guarnicion_id,
+                    'guarnicion': i.guarnicion.nombre,
+                } if i.guarnicion_id else {}),
             }
             for pedido in pedidos
-            for i in pedido.items.all()
+            for i in pedido.items.filter(cancelado=False)
         ]
 
         factura = Factura.objects.create(
@@ -1584,6 +1672,10 @@ class CajaConsumer(AsyncWebsocketConsumer):
                     'cantidad': item['cantidad'],
                     'precio_unit': item['precio_unit'],
                     'subtotal': item['subtotal'],
+                    **({
+                        'guarnicion_id': item['guarnicion_id'],
+                        'guarnicion': item['guarnicion'],
+                    } if item.get('guarnicion') else {}),
                 }
                 for item in items_snapshot
             ],
@@ -1618,7 +1710,14 @@ class ClienteConsumer(AsyncWebsocketConsumer):
         accion = data.get('accion')
 
         if accion == 'crear_pedido':
-            pedidos = await self.crear_pedido(data.get('items', []), data.get('nota', ''))
+            try:
+                pedidos = await self.crear_pedido(data.get('items', []), data.get('nota', ''))
+            except ValueError as error:
+                await self.send(text_data=json.dumps({
+                    'tipo': 'error_pedido',
+                    'mensaje': str(error),
+                }))
+                return
             if pedidos:
                 for pedido in pedidos:
                     await self.channel_layer.group_send(

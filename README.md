@@ -101,6 +101,10 @@ con el botón **Imprimir QR**.
 - App `inventario`: modelos `Insumo` (stock y área), `CategoriaInventario`,
   `RecetaItem` (consumo de insumo por
   plato) y `TasaCambio` (histórico de tasas CUP/USD, se usa la más reciente).
+- Las **guarniciones incluidas** se administran aparte de la carta: cada una tiene
+  receta de inventario, se asigna a platos que la ofrecen y se selecciona por cada
+  línea de comanda. Cocina y factura conservan la opción elegida; su receta se
+  descuenta al servir sin modificar el precio del plato ni las raciones vendidas aparte.
 - El descuento de stock ocurre una sola vez por pedido (campo
   `Pedido.inventario_descontado`), disparado cuando la mesera marca el pedido
   como "Servido".
@@ -185,6 +189,7 @@ con el botón **Imprimir QR**.
 - Cuando se solicita cancelar un pedido de Barra, la mesera recibe una notificación con el motivo; desde su panel también puede aceptar la solicitud.
 - La modal de detalles de una mesa también se puede cerrar haciendo clic fuera del panel.
 - El modelo pedido en la carta puede eliminarse
+- Se agregaron guarniciones incluidas configurables con receta de inventario, selección obligatoria por plato y visualización en comanda, cocina e historial.
 
 
 ## Mejoras:
@@ -195,7 +200,6 @@ con el botón **Imprimir QR**.
 
 - Inventario de restaurante para cajera con posibilidad de agregar platos y modificar platos, no eliminar (solo restaurante)
 - Darian Agregar mesas por defeccto para los productos que se venden sin pedir comandas (bebidas solamente)
-- Darian Categoria acompañante para los platos que lleven arroz (mesera puede seleccionar el tipo de arroz) Darian
 - Agregar historial de pedidos a la cajera y que se le muestre el ipv detallado del turno
 - Darian Añadir cuenta casa (platos vendidos gratis) Darian
 - Agregar categorias de cantidades al ipv
