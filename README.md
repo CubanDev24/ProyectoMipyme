@@ -190,6 +190,7 @@ con el botón **Imprimir QR**.
 - La modal de detalles de una mesa también se puede cerrar haciendo clic fuera del panel.
 - El modelo pedido en la carta puede eliminarse
 - Se agregaron guarniciones incluidas configurables con receta de inventario, selección obligatoria por plato y visualización en comanda, cocina e historial.
+- Las tarjetas de platos en el administrador crecen para mostrar descripciones y recetas largas sin solapar su contenido ni el botón de edición.
 
 
 ## Mejoras:
