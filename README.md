@@ -192,9 +192,6 @@ con el botón **Imprimir QR**.
 - Se agregaron guarniciones incluidas configurables con receta de inventario, selección obligatoria por plato y visualización en comanda, cocina e historial.
 - Las tarjetas de platos en el administrador crecen para mostrar descripciones y recetas largas sin solapar su contenido ni el botón de edición.
 - La cuadrícula de platos ajusta sus columnas automáticamente para dar más ancho a cada tarjeta y reducir su altura cuando hay espacio disponible.
-
-
-## Mejoras:
 - pedir agregos a un plato o un trago.
 - Al agregar un pedido para llevar si tiene algun producto de cocina, agregar un termopad a la compra.
 - mejorar las tablas de administracion con funcionalidades de excel.
@@ -206,3 +203,7 @@ con el botón **Imprimir QR**.
 - Darian Añadir cuenta casa (platos vendidos gratis) Darian
 - Agregar categorias de cantidades al ipv
 - Inventario resumen para los productos vendidos
+
+
+## Mejoras:
+- arreglar error de edicion en el editar producto de la cajera
