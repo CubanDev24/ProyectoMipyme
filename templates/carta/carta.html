@@ -374,7 +374,7 @@
         <div class="cliente-modal-notes" id="modalProductoGuarnicionField" hidden>
           <label for="modalProductoGuarnicion">Guarnición incluida <span aria-hidden="true">*</span></label>
           <select id="modalProductoGuarnicion" class="cliente-guarnicion-select" required></select>
-          <small>Selecciona una guarnición antes de agregar el plato.</small>
+          <small>Selecciona la guarnición que acompañará este plato.</small>
         </div>
 
         <div class="cliente-modal-notes">
@@ -1128,6 +1128,22 @@
   overflow-wrap: anywhere;
 }
 
+.cliente-cart-item-guarnicion-select {
+  width: 100%;
+  margin-top: 6px;
+  padding: 6px 8px;
+  border: 1px solid var(--gc-border);
+  border-radius: 8px;
+  background: var(--gc-surface);
+  color: var(--gc-text);
+  font: inherit;
+  font-size: 11px;
+}
+
+.cliente-cart-item-guarnicion-select.pendiente {
+  border-color: #fca5a5;
+}
+
 .cliente-cart-item-notes {
   font-size: 10px;
   color: var(--gc-amber);
@@ -1372,6 +1388,19 @@
   animation: pulse 2s infinite;
 }
 
+.cliente-order-status.listo {
+  background: rgba(16, 185, 129, 0.12);
+  color: var(--gc-emerald-light);
+  border-color: rgba(16, 185, 129, 0.3);
+}
+
+.cliente-order-status.servido {
+  background: rgba(59, 130, 246, 0.12);
+  color: #60a5fa;
+  border-color: rgba(59, 130, 246, 0.3);
+}
+
+.cliente-order-status.cancelado,
 .cliente-order-status.rechazado {
   background: rgba(239, 68, 68, 0.12);
   color: #fca5a5;
@@ -1401,6 +1430,18 @@
 
 .cliente-order-item-row strong {
   color: var(--gc-emerald-light);
+}
+
+.cliente-order-item-cancelado {
+  display: block;
+  color: #fca5a5;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.cliente-order-item-name-cancelado {
+  color: var(--gc-text-muted);
+  text-decoration: line-through;
 }
 
 .cliente-order-total-row {
@@ -2122,7 +2163,7 @@ function switchTab(tab) {
   // Acciones específicas por vista
   if (tab === 'cart') renderCartItems();
   if (tab === 'orders') {
-    renderPlacedOrders();
+    renderHistorialCliente();
     document.getElementById('ordersBadge').classList.add('hidden');
   }
 }
@@ -2351,20 +2392,28 @@ function conectar() {
 // ============================================================
 // CARRITO
 // ============================================================
-function agregar(id, nombre, precio, guarnicion = null) {
+function agregar(id, nombre, precio, guarnicion = null, nota = '') {
   if (!mesaDisponible) { 
     showToast('Mesa Cerrada', 'La mesa está cerrada.', 'warning');
     return; 
   }
   const card = document.querySelector(`.cliente-plato-card[data-id="${id}"]`);
   const requiereGuarnicion = card?.dataset.requiereGuarnicion === 'true';
-  if (requiereGuarnicion && !guarnicion) {
-    abrirDetallePlato(id);
+  let guarniciones = [];
+  try {
+    guarniciones = JSON.parse(card?.dataset.guarniciones || '[]');
+  } catch (error) {
+    showToast('Error', 'No se pudieron cargar las guarniciones de este plato.', 'error');
     return;
   }
   // Asegurar que precio sea un número
   const precioNum = toNumber(precio);
-  const ex = carrito.find(i => i.plato_id === id && i.guarnicion_id === (guarnicion?.id ?? null));
+  const notaItem = String(nota || '').trim();
+  const ex = carrito.find(i =>
+    i.plato_id === id
+    && i.guarnicion_id === (guarnicion?.id ?? null)
+    && i.nota === notaItem
+  );
   if (ex) ex.cantidad++;
   else carrito.push({
     uid: `${id}-${guarnicion?.id ?? 'sin'}-${Date.now()}`,
@@ -2374,11 +2423,23 @@ function agregar(id, nombre, precio, guarnicion = null) {
     cantidad: 1,
     guarnicion_id: guarnicion?.id ?? null,
     guarnicion_nombre: guarnicion?.nombre ?? '',
+    requiere_guarnicion: requiereGuarnicion,
+    guarniciones,
+    nota: notaItem,
   });
   
   renderCartItems();
   showToast('Platillo Agregado', `${nombre} se añadió a tu comanda.`, 'success');
   actualizarBadges();
+}
+
+function cambiarGuarnicion(uid, guarnicionId) {
+  const item = carrito.find(i => i.uid === uid);
+  if (!item) return;
+  const guarnicion = item.guarniciones.find(opcion => String(opcion.id) === guarnicionId);
+  item.guarnicion_id = guarnicion?.id ?? null;
+  item.guarnicion_nombre = guarnicion?.nombre ?? '';
+  renderCartItems();
 }
 
 function cambiarQty(uid, delta) {
@@ -2428,6 +2489,16 @@ function renderCartItems() {
         <div class="cliente-cart-item-name">${escapeHtml(item.nombre)}</div>
         <div class="cliente-cart-item-price">${fmt(item.precio)} CUP c/u</div>
         ${item.guarnicion_nombre ? `<div class="cliente-cart-item-guarnicion">Guarnición: ${escapeHtml(item.guarnicion_nombre)}</div>` : ''}
+        ${item.nota ? `<div class="cliente-cart-item-notes">Nota: ${escapeHtml(item.nota)}</div>` : ''}
+        ${item.requiere_guarnicion ? `
+          <select class="cliente-cart-item-guarnicion-select${item.guarnicion_id ? '' : ' pendiente'}"
+                  data-cart-item="${item.uid}"
+                  aria-label="Guarnición para ${escapeHtml(item.nombre)}"
+                  onchange="cambiarGuarnicion('${item.uid}', this.value)">
+            <option value="">Seleccionar guarnición</option>
+            ${item.guarniciones.map(opcion => `<option value="${Number(opcion.id)}"${String(opcion.id) === String(item.guarnicion_id) ? ' selected' : ''}>${escapeHtml(opcion.nombre)}</option>`).join('')}
+          </select>
+        ` : ''}
       </div>
       <div class="cliente-qty-controls">
         <button type="button" class="cliente-qty-btn" onclick="cambiarQty('${item.uid}', -1)" aria-label="Reducir">−</button>
@@ -2473,12 +2544,23 @@ function enviarPedido() {
     return;
   }
   if (!carrito.length) return;
+  const itemSinGuarnicion = carrito.find(item => item.requiere_guarnicion && !item.guarnicion_id);
+  if (itemSinGuarnicion) {
+    showToast('Falta elegir guarnición', `Selecciona una guarnición para ${itemSinGuarnicion.nombre} antes de enviar el pedido.`, 'warning');
+    document.querySelector(`.cliente-cart-item-guarnicion-select[data-cart-item="${itemSinGuarnicion.uid}"]`)?.focus();
+    return;
+  }
   
   const nota = document.getElementById('notaPedido')?.value?.trim() || '';
   
   ws.send(JSON.stringify({
     accion: 'crear_pedido',
-    items: carrito.map(i => ({ plato_id: i.plato_id, cantidad: i.cantidad, guarnicion_id: i.guarnicion_id })),
+    items: carrito.map(i => ({
+      plato_id: i.plato_id,
+      cantidad: i.cantidad,
+      guarnicion_id: i.guarnicion_id,
+      nota: i.nota,
+    })),
     nota: nota
   }));
   
@@ -2519,6 +2601,9 @@ function renderHistorialCliente() {
     } else if (pedido.estado === 'rechazado') {
       statusClass = 'rechazado';
       statusIcon = '<i class="fa-solid fa-ban"></i> ';
+    } else if (pedido.estado === 'cancelado') {
+      statusClass = 'cancelado';
+      statusIcon = '<i class="fa-solid fa-ban"></i> ';
     } else if (pedido.estado === 'pendiente' || pedido.estado === 'Enviado a cocina') {
       statusClass = '';
       statusIcon = '<i class="fa-solid fa-paper-plane"></i> ';
@@ -2526,8 +2611,11 @@ function renderHistorialCliente() {
       statusClass = 'preparando';
       statusIcon = '<i class="fa-solid fa-fire"></i> ';
     } else if (pedido.estado === 'listo' || pedido.estado === 'Listo') {
-      statusClass = '';
+      statusClass = 'listo';
       statusIcon = '<i class="fa-solid fa-check-double"></i> ';
+    } else if (pedido.estado === 'servido') {
+      statusClass = 'servido';
+      statusIcon = '<i class="fa-solid fa-utensils"></i> ';
     } else {
       statusClass = '';
       statusIcon = '<i class="fa-solid fa-check"></i> ';
@@ -2538,9 +2626,9 @@ function renderHistorialCliente() {
       const cantidad = i.cantidad || 1;
       const subtotal = toNumber(i.subtotal) || (precio * cantidad);
       return `
-        <div class="cliente-order-item-row">
-          <span><strong>${cantidad}x</strong> ${escapeHtml(i.plato || i.nombre || '')}${i.guarnicion ? `<small class="cliente-cart-item-guarnicion">Guarnición: ${escapeHtml(i.guarnicion)}</small>` : ''}</span>
-          <span>${fmt(subtotal)} CUP</span>
+        <div class="cliente-order-item-row${i.cancelado ? ' item-cancelado' : ''}">
+          <span><strong>${cantidad}x</strong> <span class="${i.cancelado ? 'cliente-order-item-name-cancelado' : ''}">${escapeHtml(i.plato || i.nombre || '')} </span>${i.guarnicion ? `<small class="cliente-cart-item-guarnicion">Guarnición: ${escapeHtml(i.guarnicion)}</small>` : ''}${i.cancelado ? '<small class="cliente-order-item-cancelado">Cancelado</small>' : ''}</span>
+          <span>${i.cancelado ? 'Cancelado' : `${fmt(subtotal)} CUP`}</span>
         </div>
       `;
     }).join('');
@@ -2549,7 +2637,7 @@ function renderHistorialCliente() {
     if (pedido.estado !== 'rechazado') {
       totalAcumulado += total;
       totalUnidades += (pedido.items || []).reduce(
-        (cantidad, item) => cantidad + (toNumber(item.cantidad) || 1),
+        (cantidad, item) => cantidad + (item.cancelado ? 0 : (toNumber(item.cantidad) || 1)),
         0
       );
     }
@@ -2640,7 +2728,7 @@ function renderCuentaFinal(factura) {
     const subtotal = toNumber(item.subtotal) || 0;
     return `
       <div class="cliente-order-item-row">
-        <span>${item.cantidad || 1}x ${escapeHtml(item.plato || item.nombre || '')}</span>
+        <span>${item.cantidad || 1}x ${escapeHtml(item.plato || item.nombre || '')} </span>
         <span>${fmt(subtotal)} CUP</span>
       </div>
     `;
@@ -2803,7 +2891,8 @@ function agregarDesdeDetalle() {
     guarnicionSelect.focus();
     return;
   }
-  agregar(platoEnDetalleId, platoEnDetalleNombre, platoEnDetallePrecio, guarnicion);
+  const nota = document.getElementById('modalProductoNotas').value.trim();
+  agregar(platoEnDetalleId, platoEnDetalleNombre, platoEnDetallePrecio, guarnicion, nota);
   cerrarDetallePlato();
 }
 
@@ -2869,6 +2958,7 @@ document.addEventListener('DOMContentLoaded', () => {
 // EXPONER FUNCIONES GLOBALES
 // ============================================================
 window.agregar = agregar;
+window.cambiarGuarnicion = cambiarGuarnicion;
 window.cambiarQty = cambiarQty;
 window.enviarPedido = enviarPedido;
 window.filtrarCarta = filtrarCarta;
