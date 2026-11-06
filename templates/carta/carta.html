@@ -67,6 +67,8 @@
       <!-- Filtros -->
       <div class="cliente-filtros-row">
         <button type="button" class="cliente-filtro-pill active" data-filtro="todos" onclick="filtrarTipo('todos', this)">Todos</button>
+        <button type="button" class="cliente-filtro-pill" data-filtro="platos" onclick="filtrarTipo('platos', this)">Platos</button>
+        <button type="button" class="cliente-filtro-pill" data-filtro="guarniciones" onclick="filtrarTipo('guarniciones', this)">Guarniciones</button>
         <button type="button" class="cliente-filtro-pill" data-filtro="destacados" onclick="filtrarTipo('destacados', this)">⭐ Destacados</button>
         <button type="button" class="cliente-filtro-pill" data-filtro="disponibles" onclick="filtrarTipo('disponibles', this)">Disponibles</button>
       </div>
@@ -81,6 +83,9 @@
           {{ cat.icono|default:"🍽️" }} {{ cat.nombre }}
         </button>
         {% endfor %}
+        {% if guarniciones %}
+        <button type="button" class="cliente-cat-btn" onclick="scrollACat('cat-guarniciones', this)">🥗 Guarniciones</button>
+        {% endif %}
       </nav>
 
       <!-- Productos -->
@@ -95,13 +100,16 @@
             {% for cat in categorias %}
               {% for p in cat.platos.all %}
                 {% if p.disponible %}
-                <div class="cliente-plato-card" 
+                <div class="cliente-plato-card"
                      data-id="{{ p.id }}"
+                     data-tipo="platos"
                      data-nombre="{{ p.nombre|lower }} {{ p.descripcion|lower }}"
                      data-precio="{{ p.precio|unlocalize }}"
                      data-destacado="{% if p.destacado %}true{% else %}false{% endif %}"
                      data-categoria="{{ cat.nombre }}"
                      data-icono="{{ cat.icono|default:'🍽️' }}"
+                     data-guarniciones='[{% for opcion in p.guarniciones_incluidas.all %}{"id":{{ opcion.pk }},"nombre":"{{ opcion.nombre|escapejs }}"}{% if not forloop.last %},{% endif %}{% endfor %}]'
+                     data-requiere-guarnicion="{% if p.trae_guarniciones_incluidas %}true{% else %}false{% endif %}"
                      onclick="abrirDetallePlato({{ p.id }})">
                   
                   <div class="cliente-plato-img-wrapper">
@@ -153,13 +161,16 @@
           <div class="cliente-platos-grid">
             {% for p in cat.platos.all %}
               {% if p.disponible %}
-              <div class="cliente-plato-card" 
+                  <div class="cliente-plato-card"
                    data-id="{{ p.id }}"
+                   data-tipo="platos"
                    data-nombre="{{ p.nombre|lower }} {{ p.descripcion|lower }}"
                    data-precio="{{ p.precio|unlocalize }}"
                    data-destacado="{% if p.destacado %}true{% else %}false{% endif %}"
                    data-categoria="{{ cat.nombre }}"
                    data-icono="{{ cat.icono|default:'🍽️' }}"
+                   data-guarniciones='[{% for opcion in p.guarniciones_incluidas.all %}{"id":{{ opcion.pk }},"nombre":"{{ opcion.nombre|escapejs }}"}{% if not forloop.last %},{% endif %}{% endfor %}]'
+                   data-requiere-guarnicion="{% if p.trae_guarniciones_incluidas %}true{% else %}false{% endif %}"
                    onclick="abrirDetallePlato({{ p.id }})">
                 
                 <div class="cliente-plato-img-wrapper">
@@ -200,6 +211,33 @@
           </div>
         </div>
         {% endfor %}
+        {% if guarniciones %}
+        <div class="cliente-seccion-cat" id="cat-guarniciones">
+          <div class="cliente-seccion-header">
+            <h2>🥗 Guarniciones</h2>
+            <span class="cliente-seccion-count">{{ guarniciones|length }} opciones</span>
+          </div>
+          <div class="cliente-platos-grid">
+            {% for guarnicion in guarniciones %}
+            <article class="cliente-plato-card cliente-guarnicion-card"
+                     data-tipo="guarniciones"
+                     data-nombre="{{ guarnicion.nombre|lower }} {{ guarnicion.descripcion|lower }}"
+                     data-destacado="false">
+              <div class="cliente-plato-img-wrapper">
+                <div class="cliente-plato-placeholder"><i class="fa-solid fa-bowl-food" aria-hidden="true"></i></div>
+                <span class="cliente-plato-cat-label">🥗 Guarnición</span>
+              </div>
+              <div class="cliente-plato-info">
+                <h3 class="cliente-plato-nombre">{{ guarnicion.nombre }}</h3>
+                {% if guarnicion.descripcion %}<p class="cliente-plato-desc">{{ guarnicion.descripcion|truncatechars:50 }}</p>{% endif %}
+                <div class="cliente-plato-tags"><span class="tag-disponible">✓ Disponible como acompañamiento</span></div>
+              </div>
+              <div class="cliente-plato-footer"><span class="cliente-plato-precio">Acompañamiento</span></div>
+            </article>
+            {% endfor %}
+          </div>
+        </div>
+        {% endif %}
       </div>
     </section>
 
@@ -331,6 +369,12 @@
         <div class="cliente-modal-price-row">
           <span>Precio</span>
           <strong id="modalProductoPrecio">0.00 CUP</strong>
+        </div>
+
+        <div class="cliente-modal-notes" id="modalProductoGuarnicionField" hidden>
+          <label for="modalProductoGuarnicion">Guarnición incluida <span aria-hidden="true">*</span></label>
+          <select id="modalProductoGuarnicion" class="cliente-guarnicion-select" required></select>
+          <small>Selecciona una guarnición antes de agregar el plato.</small>
         </div>
 
         <div class="cliente-modal-notes">
@@ -1077,6 +1121,13 @@
   color: var(--gc-text-muted);
 }
 
+.cliente-cart-item-guarnicion {
+  margin-top: 3px;
+  color: var(--gc-emerald-light);
+  font-size: 10px;
+  overflow-wrap: anywhere;
+}
+
 .cliente-cart-item-notes {
   font-size: 10px;
   color: var(--gc-amber);
@@ -1725,7 +1776,8 @@
   margin-bottom: 4px;
 }
 
-.cliente-modal-notes textarea {
+.cliente-modal-notes textarea,
+.cliente-modal-notes select {
   width: 100%;
   background: var(--gc-card);
   border: 1px solid var(--gc-border);
@@ -1736,6 +1788,18 @@
   resize: vertical;
   font-family: inherit;
   outline: none;
+}
+
+.cliente-modal-notes select {
+  min-height: 42px;
+  resize: none;
+}
+
+.cliente-modal-notes small {
+  display: block;
+  margin-top: 5px;
+  color: var(--gc-text-muted);
+  font-size: 10px;
 }
 
 .cliente-modal-actions {
@@ -1872,6 +1936,7 @@ let facturaFinalCliente = false;
 let platoEnDetalleId = null;
 let platoEnDetalleNombre = '';
 let platoEnDetallePrecio = 0;
+let platoEnDetalleGuarniciones = [];
 let notificacionesCliente = new Set();
 let toastTimeoutId = null;
 let currentView = 'menu';
@@ -1950,8 +2015,8 @@ function showToast(title, message, type = 'success') {
     icon.style.background = 'rgba(16, 185, 129, 0.15)';
   } else if (type === 'warning') {
     icon.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i>';
-    icon.style.color = '#f59e0b';
-    icon.style.background = 'rgba(245, 158, 11, 0.15)';
+    icon.style.color = '#facc15';
+    icon.style.background = 'rgba(250, 204, 21, 0.15)';
   } else if (type === 'error') {
     icon.innerHTML = '<i class="fa-solid fa-circle-xmark"></i>';
     icon.style.color = '#f43f5e';
@@ -2082,12 +2147,17 @@ function filtrarCarta() {
     seccion.querySelectorAll('.cliente-plato-card').forEach(plato => {
       const nombre = (plato.dataset.nombre || '').toLowerCase();
       const coincideTexto = !query || nombre.includes(query);
+      const tipo = plato.dataset.tipo || 'platos';
       
       let coincideFiltro = true;
-      if (filtroActual === 'destacados') {
+      if (filtroActual === 'platos') {
+        coincideFiltro = tipo === 'platos';
+      } else if (filtroActual === 'guarniciones') {
+        coincideFiltro = tipo === 'guarniciones';
+      } else if (filtroActual === 'destacados') {
         coincideFiltro = plato.dataset.destacado === 'true';
       } else if (filtroActual === 'disponibles') {
-        coincideFiltro = true;
+        coincideFiltro = tipo === 'platos';
       }
       
       const visible = coincideTexto && coincideFiltro;
@@ -2281,24 +2351,38 @@ function conectar() {
 // ============================================================
 // CARRITO
 // ============================================================
-function agregar(id, nombre, precio) {
+function agregar(id, nombre, precio, guarnicion = null) {
   if (!mesaDisponible) { 
     showToast('Mesa Cerrada', 'La mesa está cerrada.', 'warning');
     return; 
   }
+  const card = document.querySelector(`.cliente-plato-card[data-id="${id}"]`);
+  const requiereGuarnicion = card?.dataset.requiereGuarnicion === 'true';
+  if (requiereGuarnicion && !guarnicion) {
+    abrirDetallePlato(id);
+    return;
+  }
   // Asegurar que precio sea un número
   const precioNum = toNumber(precio);
-  const ex = carrito.find(i => i.plato_id === id);
+  const ex = carrito.find(i => i.plato_id === id && i.guarnicion_id === (guarnicion?.id ?? null));
   if (ex) ex.cantidad++;
-  else carrito.push({ plato_id: id, nombre, precio: precioNum, cantidad: 1 });
+  else carrito.push({
+    uid: `${id}-${guarnicion?.id ?? 'sin'}-${Date.now()}`,
+    plato_id: id,
+    nombre,
+    precio: precioNum,
+    cantidad: 1,
+    guarnicion_id: guarnicion?.id ?? null,
+    guarnicion_nombre: guarnicion?.nombre ?? '',
+  });
   
   renderCartItems();
   showToast('Platillo Agregado', `${nombre} se añadió a tu comanda.`, 'success');
   actualizarBadges();
 }
 
-function cambiarQty(id, delta) {
-  const idx = carrito.findIndex(i => i.plato_id === id);
+function cambiarQty(uid, delta) {
+  const idx = carrito.findIndex(i => i.uid === uid);
   if (idx === -1) return;
   carrito[idx].cantidad += delta;
   if (carrito[idx].cantidad <= 0) carrito.splice(idx, 1);
@@ -2343,11 +2427,12 @@ function renderCartItems() {
       <div class="cliente-cart-item-info">
         <div class="cliente-cart-item-name">${escapeHtml(item.nombre)}</div>
         <div class="cliente-cart-item-price">${fmt(item.precio)} CUP c/u</div>
+        ${item.guarnicion_nombre ? `<div class="cliente-cart-item-guarnicion">Guarnición: ${escapeHtml(item.guarnicion_nombre)}</div>` : ''}
       </div>
       <div class="cliente-qty-controls">
-        <button type="button" class="cliente-qty-btn" onclick="cambiarQty(${item.plato_id}, -1)" aria-label="Reducir">−</button>
+        <button type="button" class="cliente-qty-btn" onclick="cambiarQty('${item.uid}', -1)" aria-label="Reducir">−</button>
         <span class="cliente-qty-num">${item.cantidad}</span>
-        <button type="button" class="cliente-qty-btn" onclick="cambiarQty(${item.plato_id}, 1)" aria-label="Aumentar">+</button>
+        <button type="button" class="cliente-qty-btn" onclick="cambiarQty('${item.uid}', 1)" aria-label="Aumentar">+</button>
       </div>
       <span class="cliente-cart-item-total">${fmt(totalItem)} CUP</span>
     `;
@@ -2393,7 +2478,7 @@ function enviarPedido() {
   
   ws.send(JSON.stringify({
     accion: 'crear_pedido',
-    items: carrito.map(i => ({ plato_id: i.plato_id, cantidad: i.cantidad })),
+    items: carrito.map(i => ({ plato_id: i.plato_id, cantidad: i.cantidad, guarnicion_id: i.guarnicion_id })),
     nota: nota
   }));
   
@@ -2454,7 +2539,7 @@ function renderHistorialCliente() {
       const subtotal = toNumber(i.subtotal) || (precio * cantidad);
       return `
         <div class="cliente-order-item-row">
-          <span><strong>${cantidad}x</strong> ${escapeHtml(i.plato || i.nombre || '')}</span>
+          <span><strong>${cantidad}x</strong> ${escapeHtml(i.plato || i.nombre || '')}${i.guarnicion ? `<small class="cliente-cart-item-guarnicion">Guarnición: ${escapeHtml(i.guarnicion)}</small>` : ''}</span>
           <span>${fmt(subtotal)} CUP</span>
         </div>
       `;
@@ -2513,7 +2598,7 @@ function mostrarEstado(p) {
     const estadoTxt = document.getElementById('estado-txt');
     if (estadoTxt) estadoTxt.textContent = `${iconos[p.estado] || '📋'} ${p.estado_display || p.estado}`;
     const estadoItems = document.getElementById('estado-items');
-    if (estadoItems) estadoItems.textContent = (p.items || []).map(i => `${i.cantidad}x ${i.plato || i.nombre}`).join(', ');
+    if (estadoItems) estadoItems.textContent = (p.items || []).map(i => `${i.cantidad}x ${i.plato || i.nombre}${i.guarnicion ? ` (${i.guarnicion})` : ''}`).join(', ');
   }
 }
 
@@ -2669,6 +2754,11 @@ function abrirDetallePlato(id) {
   
   platoEnDetalleNombre = nombre;
   platoEnDetallePrecio = precio;
+  try {
+    platoEnDetalleGuarniciones = JSON.parse(card.dataset.guarniciones || '[]');
+  } catch (error) {
+    platoEnDetalleGuarniciones = [];
+  }
   
   document.getElementById('modalProductoIcono').innerHTML = `<i class="fa-solid fa-utensils"></i>`;
   document.getElementById('modalProductoCategoria').textContent = categoria;
@@ -2685,6 +2775,14 @@ function abrirDetallePlato(id) {
   }
   
   document.getElementById('modalProductoNotas').value = '';
+  const guarnicionField = document.getElementById('modalProductoGuarnicionField');
+  const guarnicionSelect = document.getElementById('modalProductoGuarnicion');
+  const requiereGuarnicion = card.dataset.requiereGuarnicion === 'true';
+  guarnicionField.hidden = !requiereGuarnicion;
+  guarnicionSelect.required = requiereGuarnicion;
+  guarnicionSelect.innerHTML = '<option value="">Seleccionar guarnición</option>' + platoEnDetalleGuarniciones
+    .map(opcion => `<option value="${Number(opcion.id)}">${escapeHtml(opcion.nombre)}</option>`)
+    .join('');
   document.getElementById('modalProducto').classList.remove('hidden');
 }
 
@@ -2695,7 +2793,17 @@ function cerrarDetallePlato() {
 
 function agregarDesdeDetalle() {
   if (!platoEnDetalleId) return;
-  agregar(platoEnDetalleId, platoEnDetalleNombre, platoEnDetallePrecio);
+  const guarnicionSelect = document.getElementById('modalProductoGuarnicion');
+  const requiereGuarnicion = document.getElementById('modalProductoGuarnicionField').hidden === false;
+  const guarnicion = requiereGuarnicion
+    ? platoEnDetalleGuarniciones.find(opcion => String(opcion.id) === guarnicionSelect.value)
+    : null;
+  if (requiereGuarnicion && !guarnicion) {
+    showToast('Falta elegir guarnición', 'Selecciona una guarnición incluida para agregar este plato.', 'warning');
+    guarnicionSelect.focus();
+    return;
+  }
+  agregar(platoEnDetalleId, platoEnDetalleNombre, platoEnDetallePrecio, guarnicion);
   cerrarDetallePlato();
 }
 

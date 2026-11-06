@@ -6,6 +6,7 @@ from django.http import Http404
 from django.shortcuts import render
 from django.views.decorators.clickjacking import xframe_options_exempt
 from .models import Categoria, Plato
+from inventario.models import Guarnicion
 from .qr import generar_qr_mesa
 from pedidos.models import Mesa
 
@@ -39,12 +40,30 @@ def carta_cliente(request, mesa_id):
         receta__isnull=False,
     ).exclude(
         receta__insumo__stock_actual__lte=0,
-    ).distinct()
+    ).distinct().prefetch_related(Prefetch(
+        'guarniciones_incluidas',
+        queryset=Guarnicion.objects.filter(
+            activa=True,
+            receta__isnull=False,
+        ).exclude(
+            receta__insumo__stock_actual__lte=0,
+        ).exclude(
+            receta__insumo__activo=False,
+        ).distinct(),
+    ))
     categorias = Categoria.objects.prefetch_related(
         Prefetch('platos', queryset=platos_publicados),
     ).all()
     categorias_con_platos = [categoria for categoria in categorias if categoria.platos.all()]
     platos_sin_categoria = list(platos_publicados.filter(categoria__isnull=True))
+    guarniciones = Guarnicion.objects.filter(
+        activa=True,
+        receta__isnull=False,
+    ).exclude(
+        receta__insumo__activo=False,
+    ).exclude(
+        receta__insumo__stock_actual__lte=0,
+    ).distinct().prefetch_related('receta__insumo')
     if platos_sin_categoria:
         categorias_con_platos.append(SimpleNamespace(
             id='sin-categoria',
@@ -56,6 +75,7 @@ def carta_cliente(request, mesa_id):
     return render(request, 'carta/carta.html', {
         'categorias': categorias_con_platos,
         'platos_sin_categoria': platos_sin_categoria,
+        'guarniciones': guarniciones,
         'mesa_id': mesa_id,
         'mesa_etiqueta': mesa.etiqueta if mesa else f'Mesa {mesa_id}',
     })

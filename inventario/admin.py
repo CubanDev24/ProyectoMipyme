@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django import forms
 from decimal import Decimal
-from .models import CategoriaInventario, Insumo, MovimientoInventario, RecetaItem, TasaCambio
+from .models import CategoriaInventario, Guarnicion, GuarnicionRecetaItem, Insumo, MovimientoInventario, RecetaItem, TasaCambio
 
 
 class InsumoAdminForm(forms.ModelForm):
@@ -30,6 +30,19 @@ class InsumoAdminForm(forms.ModelForm):
 class RecetaItemInline(admin.TabularInline):
     model = RecetaItem
     extra = 1
+
+
+class GuarnicionRecetaItemInline(admin.TabularInline):
+    model = GuarnicionRecetaItem
+    extra = 1
+
+
+@admin.register(Guarnicion)
+class GuarnicionAdmin(admin.ModelAdmin):
+    list_display = ['nombre', 'activa', 'orden']
+    list_filter = ['activa']
+    search_fields = ['nombre']
+    inlines = [GuarnicionRecetaItemInline]
 
 
 @admin.register(Insumo)

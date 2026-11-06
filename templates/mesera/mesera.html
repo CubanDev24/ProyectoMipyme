@@ -14,7 +14,7 @@
       
     </script>
     <style>
-        @import url("{% static 'css/main.css' %}?v=20261014-mesera-single-desktop-logout");
+        @import url("{% static 'css/main.css' %}?v=20261105-yellow-warning-toasts");
 
         .mesera-mobile-logout {
             display: none !important;
@@ -48,9 +48,19 @@
             border-color: rgba(248, 113, 113, 0.55) !important;
         }
 
+        .mesera-toast-warning {
+            background: #422006 !important;
+            border-color: rgba(250, 204, 21, 0.55) !important;
+        }
+
         .mesera-toast-error #toast-icon {
             background: rgba(239, 68, 68, 0.2) !important;
             color: #f87171 !important;
+        }
+
+        .mesera-toast-warning #toast-icon {
+            background: rgba(250, 204, 21, 0.16) !important;
+            color: #facc15 !important;
         }
 
         .takeaway-floating-actions {
@@ -256,10 +266,10 @@
         }
 
         .takeaway-menu-image {
+            display: block;
             width: 100%;
-            height: auto;
-            flex: 0 0 auto;
-            aspect-ratio: 1.55 / 1;
+            height: 132px;
+            flex: 0 0 132px;
             border-radius: 12px;
             background: #1e293b;
             object-fit: cover;
@@ -268,8 +278,8 @@
         .takeaway-menu-placeholder {
             display: grid;
             width: 100%;
-            flex: 0 0 auto;
-            aspect-ratio: 1.55 / 1;
+            height: 132px;
+            flex: 0 0 132px;
             place-items: center;
             border-radius: 12px;
             background: #1e293b;
@@ -279,8 +289,9 @@
 
         .takeaway-menu-category {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            grid-template-columns: repeat(auto-fill, minmax(min(100%, 220px), 250px));
             align-items: start;
+            justify-content: start;
             gap: 12px;
         }
 
@@ -288,7 +299,9 @@
             position: relative;
             display: flex;
             min-width: 0;
-            aspect-ratio: 1 / 1;
+            min-height: 0;
+            width: 100%;
+            aspect-ratio: auto;
             flex-direction: column;
             align-items: stretch;
             gap: 9px;
@@ -308,7 +321,88 @@
         .takeaway-product-info {
             min-width: 0;
             flex: 1 1 auto;
-            padding-right: 42px;
+            padding-right: 0;
+        }
+
+        .takeaway-product-actions,
+        .mesera-menu-actions {
+            display: flex;
+            min-width: 0;
+            flex-direction: row;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .takeaway-product-actions {
+            width: 100%;
+            justify-content: flex-end;
+        }
+
+        .takeaway-product-card .takeaway-product-actions {
+            flex-direction: column;
+            align-items: stretch;
+            gap: 8px;
+        }
+
+        .takeaway-product-card .takeaway-product-actions .mesera-guarnicion-select {
+            width: 100%;
+            min-width: 0;
+            flex: 0 0 auto;
+        }
+
+        .takeaway-product-buy-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            border-top: 1px solid rgba(148, 163, 184, 0.14);
+            padding-top: 8px;
+        }
+
+        .takeaway-product-buy-row .takeaway-product-price {
+            min-width: 0;
+            margin: 0;
+        }
+
+        .takeaway-product-actions .takeaway-product-add {
+            width: 36px;
+            min-width: 36px;
+            height: 36px;
+            min-height: 36px;
+            padding: 0;
+            border-radius: 10px;
+            font-size: 13px;
+        }
+
+        .takeaway-product-actions .takeaway-product-add span {
+            display: none !important;
+        }
+
+        .takeaway-product-actions .mesera-guarnicion-select,
+        .mesera-menu-actions .mesera-guarnicion-select {
+            width: 100px;
+            min-width: 100px;
+            flex: 0 0 100px;
+        }
+
+        .mesera-add-button span {
+            display: none;
+        }
+
+        .mesera-guarnicion-select {
+            width: 100%;
+            min-height: 42px;
+            border: 1px solid #334155;
+            border-radius: 9px;
+            background: #0f172a;
+            padding: 8px 10px;
+            color: #e2e8f0;
+            font-size: 12px;
+        }
+
+        .mesera-guarnicion-select:focus-visible {
+            outline: 2px solid #34d399;
+            outline-offset: 2px;
         }
 
         .takeaway-menu-name {
@@ -349,12 +443,11 @@
         }
 
         .takeaway-product-add {
-            position: absolute;
-            right: 10px;
-            bottom: 10px;
             display: inline-grid;
-            width: 42px;
-            height: 42px;
+            width: auto;
+            min-width: 48px;
+            min-height: 42px;
+            flex: 0 0 auto;
             place-items: center;
             border: 1px solid rgba(52, 211, 153, 0.45);
             border-radius: 12px;
@@ -362,7 +455,12 @@
             color: #022c22;
             cursor: pointer;
             font-size: 15px;
+            padding: 8px;
             transition: background-color 150ms ease, transform 150ms ease;
+        }
+
+        .takeaway-product-add span {
+            display: none;
         }
 
         .takeaway-product-add:hover {
@@ -818,6 +916,48 @@
             text-transform: uppercase;
         }
 
+        .mesera-order-guarnicion {
+            margin: 0;
+            color: #94a3b8;
+            font-size: 12px;
+            line-height: 1.3;
+        }
+
+        #new-order-items-container {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        #new-order-items-container .modal-order-section-title {
+            margin: 2px 0 0;
+            font-size: 9px;
+        }
+
+        #new-order-items-container .modal-order-item {
+            gap: 5px;
+            border-radius: 9px;
+            padding: 7px 8px;
+        }
+
+        #new-order-items-container .modal-order-item > div:first-child {
+            gap: 6px;
+        }
+
+        #new-order-items-container .modal-order-item .order-item-remove {
+            width: 30px;
+            height: 30px;
+            flex-basis: 30px;
+        }
+
+        #new-order-items-container .modal-order-item input {
+            max-width: 110px;
+        }
+
+        #new-order-items-container .modal-order-item form {
+            margin-top: 2px;
+        }
+
         .call-alert-meta span:first-child {
             display: inline-flex;
             align-items: center;
@@ -1031,7 +1171,6 @@
             }
 
             .mesera-quick-stats {
-                width: 100%;
                 justify-content: flex-end;
             }
 
@@ -1589,7 +1728,7 @@
             }
 
             .takeaway-menu-category {
-                grid-template-columns: repeat(auto-fill, minmax(min(100%, 135px), 1fr));
+                grid-template-columns: repeat(2, minmax(0, 1fr));
                 gap: 8px;
             }
 
@@ -1604,7 +1743,7 @@
             }
 
             .takeaway-product-info {
-                padding-right: 36px;
+                padding-right: 0;
             }
 
             .takeaway-menu-category-heading {
@@ -1617,13 +1756,6 @@
 
             .takeaway-menu-name {
                 font-size: 13px;
-            }
-
-            .takeaway-product-add {
-                right: 8px;
-                bottom: 8px;
-                width: 40px;
-                height: 40px;
             }
 
             #modal-panel {
@@ -1658,7 +1790,7 @@
             }
 
             #category-filter {
-                min-height: 42px;
+                min-height: 44px;
                 max-width: 62%;
                 padding: 8px 10px;
             }
@@ -1794,14 +1926,20 @@
             }
 
             #toast {
+                top: calc(10px + env(safe-area-inset-top));
                 right: 10px;
-                bottom: calc(72px + env(safe-area-inset-bottom));
+                bottom: auto;
                 left: 10px;
                 max-width: calc(100vw - 20px);
+                z-index: 70;
             }
         }
 
         @media (max-width: 380px) {
+            .takeaway-menu-category {
+                grid-template-columns: minmax(0, 1fr);
+            }
+
             #tables-grid {
                 grid-template-columns: minmax(0, 1fr);
             }
@@ -1818,6 +1956,444 @@
         @media (prefers-reduced-motion: reduce) {
             .call-alert-panel, .call-alert-live::before, .call-alert-icon {
                 animation: none;
+            }
+        }
+
+        [hidden] {
+            display: none !important;
+        }
+
+        .table-modal-tab {
+            display: flex;
+            min-width: 0;
+            min-height: 46px;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            border: 1px solid #334155;
+            border-radius: 12px;
+            background: #0f172a;
+            padding: 8px 10px;
+            color: #94a3b8;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 700;
+            transition: border-color 150ms ease, background-color 150ms ease, color 150ms ease;
+        }
+
+        .table-modal-tab:hover,
+        .table-modal-tab:focus-visible {
+            border-color: #34d399;
+            color: #d1fae5;
+        }
+
+        .table-modal-tab:focus-visible {
+            outline: 2px solid #34d399;
+            outline-offset: 2px;
+        }
+
+        .table-modal-tab.is-active {
+            border-color: rgba(52, 211, 153, .6);
+            background: rgba(16, 185, 129, .13);
+            color: #6ee7b7;
+        }
+
+        .table-modal-tab-count {
+            display: inline-flex;
+            min-width: 22px;
+            height: 22px;
+            align-items: center;
+            justify-content: center;
+            border-radius: 999px;
+            background: rgba(148, 163, 184, .14);
+            padding: 0 6px;
+            color: #e2e8f0;
+            font-size: 10px;
+        }
+
+        #modal-content {
+            display: flex;
+            min-height: 0;
+            flex: 1 1 0%;
+            flex-direction: column;
+            gap: 0;
+            overflow: hidden;
+        }
+
+        #modal-panel {
+            width: min(96vw, 1280px);
+            max-width: none;
+        }
+
+        #modal-current-panel,
+        #modal-new-panel {
+            min-width: 0;
+            min-height: 0;
+            flex: 1 1 auto;
+            overflow: hidden;
+        }
+
+        #modal-current-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        #modal-new-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        #mobile-new-order-tabs {
+            display: none;
+        }
+
+        #modal-menu-section {
+            display: flex;
+            min-height: 0;
+            overflow: hidden;
+            flex-direction: column;
+        }
+
+        #menu-items-list,
+        .modal-tab-items {
+            min-height: 0;
+            max-height: none;
+            flex: 1 1 auto;
+            overflow-y: auto;
+            overscroll-behavior: contain;
+        }
+
+        #modal-order-panel {
+            width: 100%;
+            min-width: 0;
+            min-height: 0;
+            max-height: none;
+            flex: 1 1 45%;
+            justify-content: space-between;
+            overflow: hidden;
+        }
+
+        #modal-order-panel > div:first-child {
+            display: flex;
+            min-height: 0;
+            flex: 1 1 auto;
+            flex-direction: column;
+        }
+
+        .modal-order-section-title {
+            margin: 4px 0 8px;
+            color: #94a3b8;
+            font-size: 10px;
+            font-weight: 800;
+            letter-spacing: .08em;
+            text-transform: uppercase;
+        }
+
+        @media (min-width: 900px) {
+            #modal-new-panel {
+                flex-direction: row;
+                gap: 20px;
+            }
+
+            #modal-menu-section {
+                flex: 1 1 auto;
+            }
+
+            #modal-order-panel {
+                width: min(38%, 30rem);
+                flex: 0 0 min(38%, 30rem);
+            }
+        }
+
+        @media (min-width: 768px) {
+            .takeaway-menu-category {
+                grid-template-columns: repeat(auto-fill, minmax(min(100%, 220px), 250px));
+            }
+
+            .takeaway-product-actions,
+            .mesera-menu-actions {
+                flex-direction: row;
+                align-items: center;
+                gap: 8px;
+            }
+
+            .takeaway-product-actions .mesera-guarnicion-select,
+            #menu-items-list .mesera-menu-actions .mesera-guarnicion-select {
+                width: 136px;
+                min-width: 136px;
+                flex: 0 0 136px;
+            }
+
+            .takeaway-product-add,
+            #menu-items-list .mesera-add-button {
+                width: auto;
+                min-width: 54px;
+                min-height: 46px;
+                flex: 0 0 auto;
+                gap: 7px;
+                padding: 9px 12px;
+                font-size: 13px;
+                font-weight: 800;
+            }
+
+            .takeaway-product-add {
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+            }
+
+            .takeaway-product-add span {
+                display: inline;
+            }
+
+            .mesera-add-button span {
+                display: inline;
+            }
+
+            #menu-items-list .mesera-order-menu-item {
+                gap: 12px;
+            }
+
+            #menu-items-list .mesera-order-menu-item > div:first-child {
+                min-width: 120px;
+                flex: 1 1 auto;
+            }
+        }
+
+        @media (min-width: 768px) and (max-width: 899px) {
+            #modal-new-panel {
+                gap: 10px;
+            }
+
+            #modal-menu-section {
+                flex: 1 1 58%;
+            }
+
+            #modal-order-panel {
+                flex: 1 1 42%;
+            }
+        }
+
+        @media (max-width: 767px) {
+            #modal-panel {
+                width: 100%;
+                height: 100vh;
+                height: 100dvh;
+                max-height: 100dvh;
+                min-height: 0;
+                border-radius: 0;
+                padding-bottom: 0;
+            }
+
+            #modal-panel > div:first-child {
+                padding-top: calc(1rem + env(safe-area-inset-top));
+            }
+
+            #modal-content {
+                padding: 6px 10px;
+            }
+
+            #modal-current-panel {
+                gap: 8px;
+            }
+
+            #modal-current-panel > div:first-child {
+                padding-bottom: 8px;
+            }
+
+            #modal-current-panel > div:last-child {
+                padding-top: 8px;
+            }
+
+            #modal-current-panel > div:last-child > div {
+                align-items: center;
+                font-size: 13px;
+            }
+
+            #current-order-total {
+                font-size: 18px;
+            }
+
+            #modal-footer-actions {
+                padding: 8px 10px calc(8px + env(safe-area-inset-bottom));
+            }
+
+            #modal-new-panel {
+                display: grid;
+                grid-template-rows: auto minmax(0, 1fr);
+                gap: 8px;
+            }
+
+            #mobile-new-order-tabs {
+                display: grid;
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+                gap: 8px;
+            }
+
+            .mobile-new-order-tab {
+                display: flex;
+                min-width: 0;
+                min-height: 44px;
+                align-items: center;
+                justify-content: center;
+                gap: 7px;
+                border: 1px solid #334155;
+                border-radius: 10px;
+                background: #0f172a;
+                padding: 8px;
+                color: #94a3b8;
+                font-size: 11px;
+                font-weight: 700;
+            }
+
+            .mobile-new-order-tab[aria-selected="true"] {
+                border-color: rgba(52, 211, 153, .6);
+                background: rgba(16, 185, 129, .13);
+                color: #6ee7b7;
+            }
+
+            .mobile-new-order-tab:focus-visible {
+                outline: 2px solid #34d399;
+                outline-offset: 2px;
+            }
+
+            #modal-new-panel.is-mobile-menu #modal-order-panel,
+            #modal-new-panel.is-mobile-cart #modal-menu-section {
+                display: none;
+            }
+
+            #modal-menu-section {
+                min-height: 0;
+                flex: none;
+            }
+
+            #modal-menu-section > div:first-child {
+                flex: none;
+                flex-wrap: wrap;
+                gap: 8px;
+            }
+
+            #category-filter {
+                min-height: 42px;
+                max-width: 62%;
+                padding: 8px 10px;
+            }
+
+            #menu-items-list .mesera-order-menu-item {
+                min-height: 0;
+                align-items: center;
+                gap: 8px;
+                padding: 8px;
+            }
+
+            #menu-items-list .mesera-order-menu-item > div:first-child {
+                min-width: 0;
+                flex: 1 1 auto;
+                gap: 7px;
+                order: 0;
+            }
+
+            #menu-items-list .mesera-order-menu-item h5 {
+                overflow-wrap: anywhere;
+            }
+
+            #menu-items-list .mesera-menu-actions {
+                display: flex;
+                flex: 0 0 auto;
+                flex-direction: row;
+                align-items: center;
+                gap: 6px;
+                order: 1;
+            }
+
+            #menu-items-list .mesera-menu-actions .mesera-guarnicion-select {
+                width: 110px;
+                min-width: 110px;
+                flex: 0 0 110px;
+                min-height: 44px;
+                padding: 6px;
+                font-size: 11px;
+            }
+
+            #menu-items-list .mesera-menu-actions button {
+                width: auto;
+                min-width: 48px;
+                width: 48px;
+                min-height: 44px;
+                justify-content: center;
+                padding: 8px;
+            }
+
+            #modal-order-panel {
+                min-height: 0;
+                max-height: none;
+                flex: none;
+                padding: 10px;
+            }
+
+            #modal-order-panel > div:first-child > div:first-child {
+                gap: 6px;
+                margin-bottom: 6px;
+                padding-bottom: 7px;
+            }
+
+            #modal-order-panel h4 {
+                font-size: 9px;
+                line-height: 1.3;
+            }
+
+            #modal-order-panel > div:first-child > div:first-child {
+                flex-wrap: wrap;
+            }
+
+            #modal-order-panel > div:last-child {
+                flex: 0 0 auto;
+                padding-top: 8px;
+            }
+
+            #modal-footer-actions > [data-modal-payment-action] {
+                width: 100%;
+                grid-column: 1 / -1;
+            }
+
+            #modal-footer-actions > [data-modal-new-order-action] {
+                width: 100%;
+                grid-column: 1 / -1;
+                justify-content: center;
+                gap: 8px;
+            }
+
+            #new-order-items-container {
+                gap: 5px;
+                padding-right: 3px;
+            }
+
+            #new-order-items-container .modal-order-item {
+                gap: 5px;
+                padding: 7px;
+            }
+
+            #new-order-items-container .modal-order-item .order-item-remove,
+            #new-order-items-container .modal-order-item button {
+                min-width: 44px;
+                min-height: 44px;
+            }
+
+            #new-order-items-container .modal-order-item input {
+                min-height: 44px;
+            }
+
+            #table-modal-tabs {
+                padding: 8px 12px;
+            }
+
+            .table-modal-tab {
+                min-height: 44px;
+                gap: 5px;
+                padding: 7px 5px;
+                font-size: 11px;
             }
         }
     </style>
@@ -2094,6 +2670,22 @@
         </div>
     </div>
 
+    <div id="order-review-alert" class="call-alert-backdrop hidden fixed inset-0 z-[100] flex items-center justify-center p-4" role="alertdialog" aria-modal="true" aria-labelledby="order-review-alert-title" aria-describedby="order-review-alert-description">
+        <div class="call-alert-panel">
+            <div class="call-alert-meta">
+                <span><i class="fa-solid fa-bell"></i> Pedido nuevo</span>
+                <span class="call-alert-live">Por revisar</span>
+            </div>
+            <div class="call-alert-icon" aria-hidden="true"><i class="fa-solid fa-receipt"></i></div>
+            <p class="call-alert-eyebrow">Solicitud del cliente</p>
+            <h2 id="order-review-alert-title" class="call-alert-title">Mesa --</h2>
+            <p id="order-review-alert-description" class="call-alert-description">Esta mesa hizo un pedido y espera que lo revises.</p>
+            <button type="button" id="order-review-alert-dismiss" onclick="cerrarAlertaSolicitudPedido()" class="call-alert-dismiss">
+                <i class="fa-solid fa-eye"></i> Revisar pedido
+            </button>
+        </div>
+    </div>
+
     <div id="modal-factura" class="hidden fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-[60] flex items-center justify-center p-4" hidden>
         <div class="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-md p-6 shadow-2xl">
             <div class="flex items-center justify-between border-b border-slate-800 pb-4">
@@ -2162,11 +2754,54 @@
                 <p id="modal-account-pending-summary" class="mt-1 hidden text-slate-300"></p>
             </div>
 
-            <!-- Modal Content (Layout Dividido: Menú + Comanda Actual) -->
-            <div id="modal-content" class="flex-1 min-h-0 overflow-y-auto p-4 md:p-6 flex flex-col lg:flex-row gap-6">
-                
-                <!-- Columna Izquierda: Agregar Items del Menú -->
-                <div id="modal-menu-section" class="flex-1 min-w-0 space-y-4">
+            <div id="table-modal-tabs" class="grid grid-cols-2 gap-2 border-b border-slate-800 bg-slate-950/70 px-4 py-3 md:px-6" role="tablist" aria-label="Pedidos de la mesa">
+                <button type="button" id="table-modal-tab-current" role="tab" aria-selected="true" aria-controls="modal-current-panel" onclick="setTableModalTab('current')" class="table-modal-tab is-active">
+                    <i class="fa-solid fa-fire" aria-hidden="true"></i>
+                    <span>Comanda actual</span>
+                    <span id="table-modal-current-count" class="table-modal-tab-count">0</span>
+                </button>
+                <button type="button" id="table-modal-tab-new" role="tab" aria-selected="false" aria-controls="modal-new-panel" onclick="setTableModalTab('new')" class="table-modal-tab">
+                    <i class="fa-solid fa-plus" aria-hidden="true"></i>
+                    <span>Nuevo pedido</span>
+                    <span id="table-modal-new-count" class="table-modal-tab-count">0</span>
+                </button>
+            </div>
+
+            <div id="modal-content" class="flex-1 min-h-0 overflow-hidden p-4 md:p-6">
+                <section id="modal-current-panel" class="modal-tab-panel" role="tabpanel" aria-labelledby="table-modal-tab-current">
+                    <div class="flex items-center justify-between gap-3 border-b border-slate-800 pb-3">
+                        <div>
+                            <h4 class="text-xs font-bold uppercase tracking-wider text-slate-300">
+                                <i class="fa-solid fa-clipboard-list mr-2 text-emerald-400"></i>Comanda actual
+                            </h4>
+                            <p class="mt-1 text-[10px] text-slate-500">Pedidos enviados a cocina o barra y su estado.</p>
+                        </div>
+                        <span id="modal-order-time" class="text-xs text-slate-500">--:--</span>
+                    </div>
+                    <div class="modal-tab-items" id="current-order-items-container">
+                        <div class="text-center py-8 text-slate-500 text-xs">No hay pedidos enviados a preparación.</div>
+                    </div>
+                    <div class="border-t border-slate-800 pt-3">
+                        <div class="flex justify-between text-xs text-slate-400">
+                            <span>Total de la comanda actual</span>
+                            <span id="current-order-total" class="font-bold text-emerald-400">$0.00</span>
+                        </div>
+                    </div>
+                </section>
+
+                <section id="modal-new-panel" class="modal-tab-panel modal-new-panel" role="tabpanel" aria-labelledby="table-modal-tab-new" hidden>
+                    <div id="mobile-new-order-tabs" role="tablist" aria-label="Carta y carrito">
+                        <button type="button" id="mobile-new-order-tab-menu" class="mobile-new-order-tab" role="tab" aria-selected="true" aria-controls="modal-menu-section" onclick="setMobileNewOrderSection('menu')">
+                            <i class="fa-solid fa-utensils" aria-hidden="true"></i>
+                            <span>Carta</span>
+                        </button>
+                        <button type="button" id="mobile-new-order-tab-cart" class="mobile-new-order-tab" role="tab" aria-selected="false" aria-controls="modal-order-panel" onclick="setMobileNewOrderSection('cart')">
+                            <i class="fa-solid fa-cart-plus" aria-hidden="true"></i>
+                            <span>Carrito</span>
+                            <span id="mobile-new-order-cart-count" class="table-modal-tab-count">0</span>
+                        </button>
+                    </div>
+                    <div id="modal-menu-section" class="flex-1 min-w-0 space-y-4">
                     <div class="flex items-center justify-between">
                         <h4 class="text-xs font-bold uppercase tracking-wider text-slate-400">Agregar al Pedido</h4>
                         <!-- Filtro Categorial -->
@@ -2184,44 +2819,27 @@
                     </div>
                 </div>
 
-                <!-- Columna Derecha: Detalle de la Comanda -->
-                <div id="modal-order-panel" class="w-full lg:w-80 bg-slate-950/60 rounded-2xl border border-slate-800 p-4 flex flex-col justify-between">
+                <div id="modal-order-panel" class="w-full lg:w-80 bg-slate-950/60 rounded-2xl border border-slate-800 p-4 flex flex-col">
                     <div>
                         <div class="flex justify-between items-center pb-3 border-b border-slate-800 mb-3">
                             <h4 class="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-2">
-                                <i class="fa-solid fa-clipboard-list text-emerald-400"></i> Comanda Actual
+                                <i class="fa-solid fa-cart-plus text-emerald-400"></i> Por enviar y solicitudes
                             </h4>
-                            <div class="flex items-center gap-2">
-                                <span id="modal-order-count" aria-live="polite" class="rounded-full bg-emerald-500/10 px-2 py-1 text-[10px] font-semibold text-emerald-300">0 artículos</span>
-                                <span class="text-xs text-slate-500" id="modal-order-time">--:--</span>
-                                <button type="button" id="mobile-order-toggle" class="mobile-order-toggle" onclick="toggleMobileTableOrder()" aria-expanded="false" aria-controls="order-items-container" aria-label="Expandir comanda actual" title="Expandir comanda actual">
-                                    <i class="fa-solid fa-chevron-up" aria-hidden="true"></i>
-                                </button>
-                            </div>
+                            <span id="modal-new-order-count" aria-live="polite" class="rounded-full bg-emerald-500/10 px-2 py-1 text-[10px] font-semibold text-emerald-300">0 artículos</span>
                         </div>
 
-                        <!-- Lista de items agregados al pedido -->
-                        <div class="space-y-3 max-h-[300px] overflow-y-auto pr-1" id="order-items-container">
-                            <div class="text-center py-8 text-slate-500 text-xs">
-                                <i class="fa-solid fa-utensils text-2xl mb-2 text-slate-700 block"></i>
-                                No hay platillos agregados a la mesa.
-                            </div>
+                        <div class="modal-tab-items" id="new-order-items-container">
+                            <div class="text-center py-8 text-slate-500 text-xs">No hay productos por enviar ni solicitudes de clientes.</div>
                         </div>
                     </div>
-
-                    <!-- Resumen de Costos -->
                     <div class="pt-4 border-t border-slate-800 space-y-2">
                         <div class="flex justify-between text-xs text-slate-400">
-                            <span>Subtotal</span>
-                            <span id="order-subtotal" class="font-medium text-slate-200">$0.00</span>
-                        </div>
-                        <div class="flex justify-between text-sm font-bold text-white pt-2 border-t border-slate-800/60">
-                            <span>Total</span>
-                            <span id="order-total" class="text-emerald-400 text-base">$0.00</span>
+                            <span>Total por enviar / revisar</span>
+                            <span id="new-order-total" class="font-bold text-emerald-400">$0.00</span>
                         </div>
                     </div>
                 </div>
-
+                </section>
             </div>
 
             <!-- Modal Footer (Acciones según estado de mesa) -->
@@ -2278,7 +2896,7 @@
                                 <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-300"><i class="fa-regular fa-image"></i></span>
                                 <div>
                                     <p class="text-xs font-bold text-slate-200">Captura de transferencia</p>
-                                    <p class="mt-1 text-[10px] text-slate-500">Imagen JPG o PNG · máximo 5 MB</p>
+                                    <p class="mt-1 text-[10px] text-slate-500">Foto obligatoria · JPG o PNG · máximo 5 MB</p>
                                 </div>
                             </div>
                             <div class="receipt-upload-actions">
@@ -2326,13 +2944,13 @@
         </div>
     </div>
 
-    <script src="{% static 'js/utils.js' %}?v=20261014-mesera-mobile-audio-alert3"></script>
+    <script src="{% static 'js/utils.js' %}?v=20261105-yellow-warning-toasts"></script>
 
     <!-- JAVASCRIPT LOGIC -->
     <script>
         const menuItems = [
             {% for producto in productos %}
-            { id: {{ producto.id }}, name: "{{ producto.nombre|escapejs }}", category: "{{ producto.categoria.nombre|default:'General'|escapejs }}", price: {{ producto.precio|default:0|unlocalize }}, image: "{% if producto.imagen %}{{ producto.imagen.url|escapejs }}{% endif %}", icon: "fa-utensils", desc: "{{ producto.categoria.nombre|default:'Disponible'|escapejs }}" }{% if not forloop.last %},{% endif %}
+            { id: {{ producto.id }}, name: "{{ producto.nombre|escapejs }}", category: "{{ producto.categoria.nombre|default:'General'|escapejs }}", price: {{ producto.precio|default:0|unlocalize }}, image: "{% if producto.imagen %}{{ producto.imagen.url|escapejs }}{% endif %}", icon: "fa-utensils", desc: "{{ producto.categoria.nombre|default:'Disponible'|escapejs }}", requiereGuarnicion: {% if producto.trae_guarniciones_incluidas %}true{% else %}false{% endif %}, guarniciones: [{% for guarnicion in producto.guarniciones_incluidas.all %}{ id: {{ guarnicion.pk }}, name: "{{ guarnicion.nombre|escapejs }}" }{% if not forloop.last %},{% endif %}{% endfor %}] }{% if not forloop.last %},{% endif %}
             {% endfor %}
         ];
 
@@ -2346,6 +2964,7 @@
         let activeTableZone = 'salon';
         let activeTableFilter = 'all';
         let pedidoListoMesaId = null;
+        let pedidoClienteARevisar = null;
         let pedidosParaLlevar = [];
         let carritoParaLlevar = [];
         let gruposTicketParaLlevarConocidos = new Set();
@@ -2504,7 +3123,13 @@
                 const data = JSON.parse(event.data);
                 if (data.tipo === 'error_cancelacion') {
                     showToast('Cancelación no procesada', data.mensaje || 'No se pudo actualizar la solicitud.', 'error');
-                    document.querySelectorAll('.cancel-order-submit').forEach(button => {
+                    document.querySelectorAll('.cancel-order-form[data-cancelation-pending="true"]').forEach(form => {
+                        form.hidden = false;
+                        delete form.dataset.cancelationPending;
+                        const toggle = document.querySelector(`[aria-controls="${form.id}"]`);
+                        toggle?.setAttribute('aria-expanded', 'true');
+                        const button = form.querySelector('.cancel-order-submit');
+                        if (!button) return;
                         button.disabled = false;
                         button.innerHTML = '<i class="fa-solid fa-paper-plane" aria-hidden="true"></i>Enviar solicitud';
                     });
@@ -2515,9 +3140,10 @@
                     return;
                 }
                 if (data.tipo === 'notificacion_cancelacion_barra') {
+                    const item = (data.pedido.items || []).find(product => product.cancelacion_solicitada);
                     showToast(
-                        'Cancelación solicitada a Barra',
-                        `${data.pedido.etiqueta || `Mesa ${data.pedido.mesa_numero}`} · ${data.pedido.motivo_cancelacion}`,
+                        'Plato por cancelar en Barra',
+                        `${data.pedido.etiqueta || `Mesa ${data.pedido.mesa_numero}`} · ${item?.plato || 'Plato'} · ${item?.motivo_cancelacion || 'Sin motivo indicado'}`,
                         'error'
                     );
                     sonidoPedidoNuevo();
@@ -2540,6 +3166,10 @@
                     updateHeaderStats();
                     renderBarView();
                     renderVistaParaLlevar();
+                    const solicitudPendiente = data.pedidos.find(pedido => (
+                        pedido.estado === 'por_confirmar' && pedido.mesa_id
+                    ));
+                    if (solicitudPendiente) mostrarAlertaSolicitudPedido(solicitudPendiente);
                 } else if (data.tipo === 'pedido_nuevo' || data.tipo === 'pedido_actualizado') {
                     const tablaActual = tables.find(item => item.id === data.pedido.mesa_id);
                     const pedidoAnterior = tablaActual?.pedidos?.find(item => item.id === data.pedido.id);
@@ -2548,10 +3178,6 @@
                         && data.pedido.estado === 'listo'
                         && pedidoAnterior?.estado !== 'listo'
                         && pedidoParaLlevarAnterior?.estado !== 'listo';
-                    const nuevaCancelacion = data.tipo === 'pedido_actualizado'
-                        && data.pedido.cancelacion_solicitada
-                        && !pedidoAnterior?.cancelacion_solicitada
-                        && !pedidoParaLlevarAnterior?.cancelacion_solicitada;
                     if (data.pedido.estado === 'cancelado') {
                         if (tablaActual) {
                             tablaActual.pedidos = (tablaActual.pedidos || []).filter(pedido => pedido.id !== data.pedido.id);
@@ -2573,13 +3199,16 @@
                     renderVistaParaLlevar();
                     if (data.pedido.mesa_id && activeTableId === data.pedido.mesa_id) openTableModal(activeTableId);
                     if (data.tipo === 'pedido_nuevo' && data.pedido.estado === 'por_confirmar') {
-                        showToast('Solicitud del cliente', `${data.pedido.etiqueta || `Mesa ${data.pedido.mesa_numero}`} espera que envíes su pedido a cocina.`);
+                        mostrarAlertaSolicitudPedido(data.pedido);
+                    } else if (
+                        data.tipo === 'pedido_actualizado'
+                        && pedidoClienteARevisar?.id === data.pedido.id
+                        && data.pedido.estado !== 'por_confirmar'
+                    ) {
+                        cerrarAlertaSolicitudPedido(false);
                     }
                     if (data.tipo === 'pedido_actualizado' && data.pedido.estado === 'rechazado') {
                         showToast('Solicitud rechazada', `Se rechazó el pedido de ${data.pedido.etiqueta || `Mesa ${data.pedido.mesa_numero}`}.`);
-                    }
-                    if (nuevaCancelacion && data.pedido.destino !== 'barra') {
-                        showToast('Cancelación solicitada', `${data.pedido.etiqueta || `Mesa ${data.pedido.mesa_numero}`} · ${data.pedido.motivo_cancelacion}`);
                     }
                     if (data.tipo === 'pedido_actualizado' && data.pedido.estado === 'cancelado') {
                         showToast('Pedido cancelado', `${data.pedido.etiqueta || `Mesa ${data.pedido.mesa_numero}`} fue cancelado por su estación.`);
@@ -2756,12 +3385,16 @@
                 itemPedidoId: item.id,
                 qty: item.cantidad,
                 note: item.nota || '',
+                guarnicionId: item.guarnicion_id,
+                guarnicion: item.guarnicion || '',
                 pedidoId: pedido.id,
                 destino: pedido.destino,
                 estado: pedido.estado,
                 estadoDisplay: pedido.estado_display,
-                cancelacion_solicitada: pedido.cancelacion_solicitada,
-                motivo_cancelacion: pedido.motivo_cancelacion
+                motivo_cancelacion: pedido.motivo_cancelacion,
+                cancelacion_item_solicitada: item.cancelacion_solicitada,
+                motivo_cancelacion_item: item.motivo_cancelacion,
+                cancelado: item.cancelado
             })));
         }
 
@@ -2776,7 +3409,8 @@
                 cancelado: 'Cancelado',
                 cerrado: 'Cerrado'
             };
-            if (ord.cancelacion_solicitada) return 'Cancelación solicitada';
+            if (ord.cancelado) return 'Plato cancelado';
+            if (ord.cancelacion_item_solicitada) return 'Cancelación enviada';
             return ord.estadoDisplay || labels[ord.estado] || 'Pendiente';
         }
 
@@ -2874,6 +3508,7 @@
 
             filteredTables.forEach(t => {
                 const totalAmount = calculateTableTotal(t.id);
+                const activeOrderItems = t.order.filter(item => !item.cancelado);
                 const resumenCuenta = resumenCuentaMesa(t);
                 const cuentaSolicitada = resumenCuenta.pedidosSolicitados > 0;
                 const cuentaParcial = cuentaSolicitada && resumenCuenta.tienePendiente;
@@ -2908,7 +3543,7 @@
                             </div>
                             <div>
                                 <h4 class="font-bold text-base text-white">${t.name}</h4>
-                                <span class="text-xs text-slate-400 font-medium">${t.order.length} pedidos</span>
+                                <span class="text-xs text-slate-400 font-medium">${activeOrderItems.length} pedidos</span>
                             </div>
                         </div>
                         ${statusBadge}
@@ -2928,8 +3563,8 @@
                         ` : t.status === 'ocupada' ? `
                             <div class="bg-slate-950/60 rounded-xl p-3 border border-slate-800/80">
                                 <div class="flex justify-between text-xs text-slate-400 mb-1">
-                                    <span>Platillos: <strong>${t.order.reduce((acc, i) => acc + i.qty, 0)}</strong></span>
-                                    <span><strong>${t.order.length} pedidos registrados</strong></span>
+                                    <span>Platillos: <strong>${activeOrderItems.reduce((acc, i) => acc + i.qty, 0)}</strong></span>
+                                    <span><strong>${activeOrderItems.length} pedidos registrados</strong></span>
                                 </div>
                                 <div class="flex justify-between text-sm font-bold text-white">
                                     <span>Total:</span>
@@ -3021,6 +3656,7 @@
             const table = tables.find(t => t.id === tableId);
             if (!table || !table.order) return 0;
             const subtotal = table.order.reduce((sum, item) => {
+                if (item.cancelado) return sum;
                 const menuItem = menuItems.find(m => m.id === item.itemId);
                 return sum + (menuItem ? menuItem.price * item.qty : 0);
             }, 0);
@@ -3034,7 +3670,9 @@
             const pedidosSinEnviar = table.newOrder || [];
             const totalPedidos = pedidos => pedidos.reduce((total, pedido) => total + Number(pedido.total || 0), 0);
             const unidadesPedidos = pedidos => pedidos.reduce((total, pedido) => (
-                total + (pedido.items || []).reduce((unidades, item) => unidades + Number(item.cantidad || 0), 0)
+                total + (pedido.items || [])
+                    .filter(item => !item.cancelado)
+                    .reduce((unidades, item) => unidades + Number(item.cantidad || 0), 0)
             ), 0);
             const totalSinEnviar = pedidosSinEnviar.reduce((total, linea) => {
                 const producto = menuItems.find(item => item.id === linea.itemId);
@@ -3059,11 +3697,6 @@
             activeTableId = tableId;
             const table = tables.find(t => t.id === tableId);
             if (!table) return;
-
-            const orderPanel = document.getElementById('modal-order-panel');
-            const compactOrderPanel = window.matchMedia('(max-width: 767px)').matches;
-            orderPanel.classList.toggle('is-collapsed', compactOrderPanel);
-            actualizarControlComanda(!compactOrderPanel);
 
             // Info Básica Modal
             document.getElementById('modal-table-badge').textContent = table.numeroZona;
@@ -3092,6 +3725,16 @@
             renderMenuItemsList('all');
             renderOrderItems();
             renderModalFooter(table);
+            const tieneSolicitudCliente = (table.order || []).some(order => order.estado === 'por_confirmar');
+            const tienePedidoSinEnviar = (table.newOrder || []).length > 0;
+            setMobileNewOrderSection(
+                tieneSolicitudCliente || tienePedidoSinEnviar ? 'cart' : 'menu'
+            );
+            setTableModalTab(
+                tieneSolicitudCliente || tienePedidoSinEnviar || !(table.order || []).length
+                    ? 'new'
+                    : 'current'
+            );
 
             // Mostrar Modal
             const modal = document.getElementById('table-modal');
@@ -3100,33 +3743,32 @@
             panel.classList.remove('translate-x-full');
         }
 
-        function toggleMobileTableOrder() {
-            if (!window.matchMedia('(max-width: 767px)').matches) return;
-            const orderPanel = document.getElementById('modal-order-panel');
-            const isExpanded = !orderPanel.classList.toggle('is-collapsed');
-            actualizarControlComanda(isExpanded);
+        function setTableModalTab(tab) {
+            const mostrarNuevoPedido = tab === 'new';
+            document.getElementById('modal-current-panel').hidden = mostrarNuevoPedido;
+            document.getElementById('modal-new-panel').hidden = !mostrarNuevoPedido;
+
+            const currentTab = document.getElementById('table-modal-tab-current');
+            const newTab = document.getElementById('table-modal-tab-new');
+            currentTab.setAttribute('aria-selected', String(!mostrarNuevoPedido));
+            newTab.setAttribute('aria-selected', String(mostrarNuevoPedido));
+            currentTab.classList.toggle('is-active', !mostrarNuevoPedido);
+            newTab.classList.toggle('is-active', mostrarNuevoPedido);
+
+            const sendButton = document.getElementById(`send-order-${activeTableId}`);
+            if (sendButton) sendButton.hidden = !mostrarNuevoPedido;
+            const paymentButton = document.querySelector('#modal-footer-actions [data-modal-payment-action]');
+            if (paymentButton) paymentButton.hidden = mostrarNuevoPedido;
         }
 
-        function actualizarControlComanda(isExpanded) {
-            const orderToggle = document.getElementById('mobile-order-toggle');
-            const label = isExpanded ? 'Recoger comanda actual' : 'Expandir comanda actual';
-            orderToggle.setAttribute('aria-expanded', String(isExpanded));
-            orderToggle.setAttribute('aria-label', label);
-            orderToggle.title = label;
-            orderToggle.innerHTML = `<i class="fa-solid ${isExpanded ? 'fa-chevron-down' : 'fa-chevron-up'}" aria-hidden="true"></i>`;
+        function setMobileNewOrderSection(section) {
+            const mostrarCarrito = section === 'cart';
+            const panel = document.getElementById('modal-new-panel');
+            panel.classList.toggle('is-mobile-menu', !mostrarCarrito);
+            panel.classList.toggle('is-mobile-cart', mostrarCarrito);
+            document.getElementById('mobile-new-order-tab-menu').setAttribute('aria-selected', String(!mostrarCarrito));
+            document.getElementById('mobile-new-order-tab-cart').setAttribute('aria-selected', String(mostrarCarrito));
         }
-
-        window.matchMedia('(max-width: 767px)').addEventListener('change', event => {
-            if (activeTableId === null) return;
-            document.getElementById('modal-order-panel').classList.toggle('is-collapsed', event.matches);
-            actualizarControlComanda(!event.matches);
-        });
-
-        window.matchMedia('(max-width: 1024px)').addEventListener('change', event => {
-            if (activeTableId === null || event.matches) return;
-            document.getElementById('modal-order-panel').classList.remove('is-collapsed');
-            actualizarControlComanda(true);
-        });
 
         // CERRAR MODAL
         function closeModal() {
@@ -3154,11 +3796,11 @@
                 `;
             } else if (table.status === 'ocupada') {
                 footer.innerHTML = `
-                    <button id="send-order-${table.id}" onclick="sendOrderToKitchen(${table.id})" ${table.comandaEnviandose || !(table.newOrder || []).some(item => item.qty > 0) ? 'disabled' : ''} class="px-4 py-3 bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold rounded-xl text-xs flex items-center gap-2 transition-all disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-slate-800">
+                    <button id="send-order-${table.id}" data-modal-new-order-action hidden onclick="sendOrderToKitchen(${table.id})" ${table.comandaEnviandose || !(table.newOrder || []).some(item => item.qty > 0) ? 'disabled' : ''} class="w-full px-4 py-3 bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold rounded-xl text-xs flex items-center gap-2 transition-all disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-slate-800">
                         <i class="fa-solid fa-paper-plane text-amber-400"></i> Enviar comanda
                     </button>
                     ${(table.pedidos || []).length ? `
-                    <button onclick="openPaymentModal()" class="flex-1 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold py-3 rounded-xl transition-all shadow-lg shadow-emerald-500/20 flex items-center justify-center gap-2 text-sm">
+                    <button data-modal-payment-action hidden onclick="openPaymentModal()" class="w-full bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold py-3 rounded-xl transition-all shadow-lg shadow-emerald-500/20 flex items-center justify-center gap-2 text-sm">
                         <i class="fa-solid fa-receipt"></i> Cobrar y Cerrar Cuenta
                     </button>
                     ` : ''}
@@ -3230,6 +3872,12 @@
                     const imagen = item.image
                         ? `<img src="${escaparHtml(item.image)}" alt="${escaparHtml(item.name)}" loading="lazy" class="mesera-menu-list-image">`
                         : `<div class="mesera-menu-list-placeholder rounded-lg bg-slate-900 border border-slate-800 text-slate-300"><i class="fa-solid ${item.icon}"></i></div>`;
+                    const selectorGuarnicion = item.requiereGuarnicion ? `
+                        <label class="sr-only" for="mesa-guarnicion-${item.id}">Guarnición para ${escaparHtml(item.name)}</label>
+                        <select id="mesa-guarnicion-${item.id}" class="mesera-guarnicion-select" aria-label="Guarnición para ${escaparHtml(item.name)}">
+                            <option value="">Elegir guarnición *</option>
+                            ${item.guarniciones.map(opcion => `<option value="${opcion.id}">${escaparHtml(opcion.name)}</option>`).join('')}
+                        </select>` : '';
                     el.innerHTML = `
                         <div class="flex items-center gap-3">
                             ${imagen}
@@ -3238,9 +3886,7 @@
                                 <p class="text-[10px] text-slate-400">$${item.price.toFixed(2)}</p>
                             </div>
                         </div>
-                        <button onclick="addItemToOrder(${item.id})" class="px-3 py-1.5 rounded-lg bg-emerald-500/10 hover:bg-emerald-500 text-emerald-400 hover:text-slate-950 border border-emerald-500/20 text-xs font-bold transition-all flex items-center gap-1">
-                            <i class="fa-solid fa-plus"></i> Añadir
-                        </button>
+                        <div class="mesera-menu-actions">${selectorGuarnicion}<button type="button" onclick="addItemToOrder(${item.id})" aria-label="Agregar ${escaparHtml(item.name)}" title="Agregar plato" class="mesera-add-button rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 border border-emerald-400/40 transition-all flex items-center justify-center"><i class="fa-solid fa-plus" aria-hidden="true"></i></button></div>
                     `;
                     seccion.appendChild(el);
                 });
@@ -3264,16 +3910,26 @@
             }
 
             if (table.status === 'libre') {
-                showToast('Mesa cerrada', 'Abre la mesa antes de agregar productos.');
+                showToast('Mesa cerrada', 'Abre la mesa antes de agregar productos.','warning');     
                 return;
             }
 
             table.newOrder = table.newOrder || [];
-            const existing = table.newOrder.find(o => o.itemId === itemId);
+            const product = menuItems.find(item => item.id === itemId);
+            const guarnicionId = product?.requiereGuarnicion
+                ? document.getElementById(`mesa-guarnicion-${itemId}`)?.value
+                : '';
+            if (product?.requiereGuarnicion && !guarnicionId) {
+                showToast('Falta elegir guarnición', 'Selecciona la guarnición incluida antes de agregar este plato.', 'warning');
+                document.getElementById(`mesa-guarnicion-${itemId}`)?.focus();
+                return;
+            }
+            const guarnicion = product?.guarniciones.find(option => String(option.id) === String(guarnicionId));
+            const existing = table.newOrder.find(o => o.itemId === itemId && String(o.guarnicionId || '') === String(guarnicionId || ''));
             if (existing) {
                 existing.qty += 1;
             } else {
-                table.newOrder.push({ itemId, qty: 1, note: '', estado: 'pendiente', estadoDisplay: 'Pendiente' });
+                table.newOrder.push({ itemId, guarnicionId: guarnicionId ? Number(guarnicionId) : null, guarnicion: guarnicion?.name || '', qty: 1, note: '', estado: 'pendiente', estadoDisplay: 'Pendiente' });
             }
 
             renderOrderItems();
@@ -3283,12 +3939,16 @@
         }
 
         // MODIFICAR CANTIDAD DE UN ITEM EN LA COMANDA
-        function updateOrderQty(itemId, change) {
+        function keyLineaComanda(item) {
+            return item.pedidoId ? `pedido-${item.itemPedidoId}` : `${item.itemId}:${item.guarnicionId || 0}`;
+        }
+
+        function updateOrderQty(lineKey, change) {
             const table = tables.find(t => t.id === activeTableId);
             if (!table) return;
             if (table.comandaEnviandose) return;
 
-            const itemIndex = (table.newOrder || []).findIndex(o => o.itemId === itemId);
+            const itemIndex = (table.newOrder || []).findIndex(o => keyLineaComanda(o) === lineKey);
             if (itemIndex > -1) {
                 table.newOrder[itemIndex].qty += change;
                 if (table.newOrder[itemIndex].qty <= 0) {
@@ -3300,13 +3960,14 @@
             renderTables();
         }
 
-        function removeOrderItem(itemId) {
+        function removeOrderItem(lineKey) {
             const table = tables.find(t => t.id === activeTableId);
             if (!table || table.comandaEnviandose) return;
 
-            const item = menuItems.find(menuItem => menuItem.id === itemId);
+            const orderItem = table.newOrder.find(orderItem => keyLineaComanda(orderItem) === lineKey);
+            const item = menuItems.find(menuItem => menuItem.id === orderItem?.itemId);
             const orderLength = (table.newOrder || []).length;
-            table.newOrder = (table.newOrder || []).filter(orderItem => orderItem.itemId !== itemId);
+            table.newOrder = (table.newOrder || []).filter(orderItem => keyLineaComanda(orderItem) !== lineKey);
             if (table.newOrder.length === orderLength) return;
 
             renderOrderItems();
@@ -3315,85 +3976,121 @@
             showToast('Producto eliminado', `${item?.name || 'El producto'} se quitó de la comanda sin enviar.`);
         }
 
-        // RENDERIZAR COMANDA DEL MODAL
         function renderOrderItems() {
-            const container = document.getElementById('order-items-container');
-            container.innerHTML = '';
-
             const table = tables.find(t => t.id === activeTableId);
+            const currentOrders = (table?.order || []).filter(order => order.estado !== 'por_confirmar');
+            const clientRequests = (table?.order || []).filter(order => order.estado === 'por_confirmar');
+            const newItems = table?.newOrder || [];
+            const currentCount = currentOrders.reduce((total, order) => total + (order.cancelado ? 0 : order.qty), 0);
+            const newCount = [...clientRequests, ...newItems].reduce((total, order) => total + order.qty, 0);
+            const currentTotal = currentOrders.reduce((total, order) => {
+                const item = menuItems.find(menuItem => menuItem.id === order.itemId);
+                return total + (item && !order.cancelado ? item.price * order.qty : 0);
+            }, 0);
+            const newTotal = [...clientRequests, ...newItems].reduce((total, order) => {
+                const item = menuItems.find(menuItem => menuItem.id === order.itemId);
+                return total + (item ? item.price * order.qty : 0);
+            }, 0);
+
+            document.getElementById('table-modal-current-count').textContent = currentCount;
+            document.getElementById('table-modal-new-count').textContent = newCount;
+            document.getElementById('mobile-new-order-cart-count').textContent = newCount;
+            document.getElementById('modal-new-order-count').textContent =
+                `${newCount} ${newCount === 1 ? 'artículo' : 'artículos'}`;
+            document.getElementById('current-order-total').textContent = `$${currentTotal.toFixed(2)}`;
+            document.getElementById('new-order-total').textContent = `$${newTotal.toFixed(2)}`;
             actualizarEstadoBotonEnviarComanda(table);
-            const displayOrder = table ? [...table.order, ...(table.newOrder || [])] : [];
-            const articleCount = displayOrder.reduce((total, order) => total + order.qty, 0);
-            document.getElementById('modal-order-count').textContent = `${articleCount} ${articleCount === 1 ? 'artículo' : 'artículos'}`;
-            if (!table || displayOrder.length === 0) {
-                container.innerHTML = `
-                    <div class="text-center py-8 text-slate-500 text-xs">
-                        <i class="fa-solid fa-utensils text-2xl mb-2 text-slate-700 block"></i>
-                        No hay platillos agregados a la mesa.
-                    </div>
-                `;
-                updateModalTotals(0);
+
+            renderOrderItemsList(
+                document.getElementById('current-order-items-container'),
+                [{ title: 'En preparación', items: currentOrders }],
+                'No hay pedidos enviados a cocina o barra.',
+                table,
+            );
+            renderOrderItemsList(
+                document.getElementById('new-order-items-container'),
+                [
+                    { title: 'Solicitudes de clientes por revisar', items: clientRequests },
+                    { title: 'Agregados para enviar', items: newItems },
+                ],
+                'No hay productos por enviar ni solicitudes de clientes.',
+                table,
+            );
+        }
+
+        function renderOrderItemsList(container, sections, emptyMessage, table) {
+            container.innerHTML = '';
+            const nonEmptySections = sections.filter(section => section.items.length);
+            if (!nonEmptySections.length) {
+                container.innerHTML = `<div class="text-center py-8 text-slate-500 text-xs">${emptyMessage}</div>`;
                 return;
             }
 
-            let subtotal = 0;
             const solicitudesClienteRenderizadas = new Set();
-            const solicitudesCancelacionRenderizadas = new Set();
-            const motivosCancelacionRenderizados = new Set();
+            nonEmptySections.forEach(section => {
+                const heading = document.createElement('h5');
+                heading.className = 'modal-order-section-title';
+                heading.textContent = section.title;
+                container.appendChild(heading);
 
-            displayOrder.forEach(ord => {
-                const item = menuItems.find(m => m.id === ord.itemId);
-                if (!item) return;
+                section.items.forEach(ord => {
+                    const item = menuItems.find(menuItem => menuItem.id === ord.itemId);
+                    if (!item) return;
 
-                const itemTotal = item.price * ord.qty;
-                subtotal += itemTotal;
-                const mostrarEnviarSolicitud = ord.estado === 'por_confirmar' && !solicitudesClienteRenderizadas.has(ord.pedidoId);
-                if (mostrarEnviarSolicitud) solicitudesClienteRenderizadas.add(ord.pedidoId);
-                const mostrarCancelarPedido = ord.pedidoId
-                    && ord.estado === 'pendiente'
-                    && !ord.cancelacion_solicitada
-                    && !solicitudesCancelacionRenderizadas.has(ord.pedidoId);
-                if (mostrarCancelarPedido) solicitudesCancelacionRenderizadas.add(ord.pedidoId);
-                const mostrarMotivoCancelacion = ord.cancelacion_solicitada
-                    && !motivosCancelacionRenderizados.has(ord.pedidoId);
-                if (mostrarMotivoCancelacion) motivosCancelacionRenderizados.add(ord.pedidoId);
+                    const esSolicitudCliente = ord.estado === 'por_confirmar';
+                    const itemTotal = ord.cancelado ? 0 : item.price * ord.qty;
+                    const lineKey = keyLineaComanda(ord);
+                    const mostrarEnviarSolicitud = esSolicitudCliente && !solicitudesClienteRenderizadas.has(ord.pedidoId);
+                    if (mostrarEnviarSolicitud) solicitudesClienteRenderizadas.add(ord.pedidoId);
+                    const mostrarCancelarPlato = ord.pedidoId
+                        && ord.estado === 'pendiente'
+                        && !ord.cancelado
+                        && !ord.cancelacion_item_solicitada;
+                    const estado = ord.pedidoId ? estadoPlato(ord) : 'Por enviar';
+                    const destino = ord.destino === 'barra' ? 'Barra' : ord.destino === 'cocina' ? 'Cocina' : '';
 
-                const row = document.createElement('div');
-                row.className = "p-2.5 rounded-xl bg-slate-900 border border-slate-800 space-y-2";
-                row.innerHTML = `
-                    <div class="flex items-center justify-between">
-                        <div class="flex items-center gap-2 min-w-0">
-                            <span class="text-xs font-bold text-white truncate">${item.name}</span>
-                            <span class="px-2 py-0.5 rounded-md text-[10px] font-semibold ${ord.cancelacion_solicitada ? 'bg-rose-500/10 text-rose-300 border border-rose-500/20' : ord.estado === 'listo' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : ord.estado === 'en_preparacion' ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20' : ord.estado === 'servido' ? 'bg-sky-500/10 text-sky-400 border border-sky-500/20' : 'bg-slate-800 text-slate-400 border border-slate-700'}">${estadoPlato(ord)}</span>
+                    const row = document.createElement('div');
+                    row.className = 'modal-order-item p-2.5 rounded-xl bg-slate-900 border border-slate-800 space-y-2';
+                    row.innerHTML = `
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center gap-2 min-w-0">
+                                <span class="text-xs font-bold text-white truncate">${escaparHtml(item.name)}</span>
+                                ${destino ? `<span class="rounded-md border border-sky-500/20 bg-sky-500/10 px-2 py-0.5 text-[10px] font-semibold text-sky-300">${destino}</span>` : ''}
+                                <span class="px-2 py-0.5 rounded-md text-[10px] font-semibold ${ord.cancelado || ord.cancelacion_item_solicitada ? 'bg-rose-500/10 text-rose-300 border border-rose-500/20' : ord.estado === 'listo' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : ord.estado === 'en_preparacion' ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20' : ord.estado === 'servido' ? 'bg-sky-500/10 text-sky-400 border border-sky-500/20' : 'bg-slate-800 text-slate-400 border border-slate-700'}">${estado}</span>
+                            </div>
+                            <span class="text-xs font-semibold text-emerald-400">$${itemTotal.toFixed(2)}</span>
                         </div>
-                        <span class="text-xs font-semibold text-emerald-400">$${itemTotal.toFixed(2)}</span>
-                    </div>
-                    <div class="flex items-center justify-between text-xs">
-                        <div class="flex items-center gap-2 bg-slate-950 px-2 py-1 rounded-lg border border-slate-800">
-                            ${ord.pedidoId ? '<span class="text-[10px] text-slate-500">Enviado</span>' : `<button onclick="updateOrderQty(${item.id}, -1)" class="text-slate-400 hover:text-rose-400"><i class="fa-solid fa-minus text-[10px]"></i></button>`}
-                            <span class="font-bold text-white text-xs">${ord.qty}</span>
-                            ${ord.pedidoId ? '' : `<button onclick="updateOrderQty(${item.id}, 1)" class="text-slate-400 hover:text-emerald-400"><i class="fa-solid fa-plus text-[10px]"></i></button>`}
+                        ${ord.guarnicion ? `<p class="mesera-order-guarnicion">Guarnición incluida: ${escaparHtml(ord.guarnicion)}</p>` : ''}
+                        <div class="flex flex-wrap items-center justify-between gap-2 text-xs">
+                            <div class="flex items-center gap-2 bg-slate-950 px-2 py-1 rounded-lg border border-slate-800">
+                                ${ord.pedidoId ? '<span class="text-[10px] text-slate-500">Enviado</span>' : `<button onclick="updateOrderQty('${lineKey}', -1)" class="text-slate-400 hover:text-rose-400"><i class="fa-solid fa-minus text-[10px]"></i></button>`}
+                                <span class="font-bold text-white text-xs">${ord.qty}</span>
+                                ${ord.pedidoId ? '' : `<button onclick="updateOrderQty('${lineKey}', 1)" class="text-slate-400 hover:text-emerald-400"><i class="fa-solid fa-plus text-[10px]"></i></button>`}
+                            </div>
+                            ${!ord.pedidoId ? `<button type="button" onclick="removeOrderItem('${lineKey}')" ${table?.comandaEnviandose ? 'disabled' : ''} aria-label="Eliminar ${escaparHtml(item.name)} de la comanda" title="Eliminar producto sin enviar" class="order-item-remove"><i class="fa-solid fa-trash-can" aria-hidden="true"></i></button>` : ''}
+                            ${!ord.pedidoId ? `<input type="text" maxlength="200" placeholder="Añadir nota" aria-label="Nota para ${escaparHtml(item.name)}" value="${escaparHtml(ord.note || '')}" onchange="updateOrderNote('${lineKey}', 0, 0, this.value)" class="order-item-note bg-slate-950 border border-slate-800 text-[10px] text-slate-300 rounded px-2 py-1 focus:outline-none focus:border-emerald-500 w-32">` : ord.note?.trim() ? `<span class="text-[10px] text-slate-400">Nota: ${escaparHtml(ord.note.trim())}</span>` : ''}
+                            ${mostrarCancelarPlato ? `<button type="button" onclick="toggleCancelacionItemForm(${ord.itemPedidoId})" aria-expanded="false" aria-controls="cancelacion-item-${ord.itemPedidoId}" class="cancel-order-button"><span>Cancelar plato</span></button>` : ''}
                         </div>
-                        ${!ord.pedidoId ? `<button type="button" onclick="removeOrderItem(${item.id})" ${table.comandaEnviandose ? 'disabled' : ''} aria-label="Eliminar ${escaparHtml(item.name)} de la comanda" title="Eliminar producto sin enviar" class="order-item-remove"><i class="fa-solid fa-trash-can" aria-hidden="true"></i></button>` : ''}
-                        ${['por_confirmar', 'pendiente'].includes(ord.estado) && !ord.cancelacion_solicitada ? `<input type="text" maxlength="200" placeholder="Añadir nota" aria-label="Nota para ${escaparHtml(item.name)}" value="${escaparHtml(ord.note || '')}" onchange="updateOrderNote(${item.id}, ${ord.pedidoId || 0}, ${ord.itemPedidoId || 0}, this.value)" class="bg-slate-950 border border-slate-800 text-[10px] text-slate-300 rounded px-2 py-1 focus:outline-none focus:border-emerald-500 w-32">` : `<span class="text-[10px] text-slate-400">${escaparHtml(ord.note?.trim() || 'Sin notas')}</span>`}
-                        ${mostrarCancelarPedido ? `<button type="button" onclick="toggleCancelacionPedidoForm(${ord.pedidoId})" aria-expanded="false" aria-controls="cancelacion-pedido-${ord.pedidoId}" class="cancel-order-button"><span>Cancelar</span></button>` : ''}
-                    </div>
-                    ${mostrarCancelarPedido ? `<form id="cancelacion-pedido-${ord.pedidoId}" class="cancel-order-form" hidden onsubmit="enviarSolicitudCancelacion(event, ${ord.pedidoId})"><label for="motivo-cancelacion-${ord.pedidoId}">Motivo de cancelación</label><textarea id="motivo-cancelacion-${ord.pedidoId}" maxlength="300" rows="2" required placeholder="Explica brevemente la razón"></textarea><div class="cancel-order-actions"><button type="button" class="cancel-order-dismiss" onclick="toggleCancelacionPedidoForm(${ord.pedidoId})">Volver</button><button type="submit" class="cancel-order-submit"><i class="fa-solid fa-paper-plane" aria-hidden="true"></i>Enviar solicitud</button></div></form>` : ''}
-                    ${mostrarEnviarSolicitud ? `<div class="flex gap-2"><button type="button" onclick="aceptarPedidoCliente(${ord.pedidoId})" class="min-w-0 flex-1 rounded-lg border border-amber-500/20 bg-amber-500/10 px-2 py-2 text-[10px] font-bold text-amber-300 transition-all hover:bg-amber-400 hover:text-slate-950"><i class="fa-solid ${ord.destino === 'barra' ? 'fa-martini-glass-citrus' : 'fa-paper-plane'} mr-1"></i>${ord.destino === 'barra' ? 'Enviar a barra' : 'Enviar a cocina'}</button><button type="button" onclick="rechazarPedidoCliente(${ord.pedidoId})" aria-label="Rechazar solicitud de pedido" title="Rechazar solicitud" class="min-w-0 flex-1 rounded-lg border border-rose-500/25 bg-rose-500/10 px-2 py-2 text-[10px] font-bold text-rose-300 transition-all hover:border-rose-400/60 hover:bg-rose-500/20 hover:text-rose-100"><i class="fa-solid fa-ban mr-1" aria-hidden="true"></i>Rechazar</button></div>` : ''}
-                    ${mostrarMotivoCancelacion ? `<p class="text-[10px] text-rose-300">Cancelación solicitada: ${escaparHtml(ord.motivo_cancelacion || '')}</p>` : ''}
-                    ${ord.pedidoId && ord.estado === 'listo' ? `<button type="button" onclick="marcarServidoMesera(${ord.pedidoId})" class="w-full rounded-lg bg-sky-500/10 border border-sky-500/20 text-sky-300 hover:bg-sky-500 hover:text-slate-950 py-1.5 text-[10px] font-bold transition-all"><i class="fa-solid fa-hand-holding-heart"></i> Marcar servido</button>` : ''}
-                `;
-                container.appendChild(row);
+                        ${mostrarCancelarPlato ? `<form id="cancelacion-item-${ord.itemPedidoId}" class="cancel-order-form" hidden onsubmit="enviarSolicitudCancelacionItem(event, ${ord.pedidoId}, ${ord.itemPedidoId})"><label for="motivo-cancelacion-item-${ord.itemPedidoId}">Motivo para cancelar ${escaparHtml(item.name)}</label><textarea id="motivo-cancelacion-item-${ord.itemPedidoId}" maxlength="300" rows="2" required placeholder="Explica brevemente la razón"></textarea><div class="cancel-order-actions"><button type="button" class="cancel-order-dismiss" onclick="toggleCancelacionItemForm(${ord.itemPedidoId})">Volver</button><button type="submit" class="cancel-order-submit"><i class="fa-solid fa-paper-plane" aria-hidden="true"></i>Enviar solicitud</button></div></form>` : ''}
+                        ${mostrarEnviarSolicitud ? `<div class="flex gap-2"><button type="button" onclick="aceptarPedidoCliente(${ord.pedidoId})" class="min-w-0 flex-1 rounded-lg border border-amber-500/20 bg-amber-500/10 px-2 py-2 text-[10px] font-bold text-amber-300 transition-all hover:bg-amber-400 hover:text-slate-950"><i class="fa-solid ${ord.destino === 'barra' ? 'fa-martini-glass-citrus' : 'fa-paper-plane'} mr-1"></i>${ord.destino === 'barra' ? 'Enviar a barra' : 'Enviar a cocina'}</button><button type="button" onclick="rechazarPedidoCliente(${ord.pedidoId})" aria-label="Rechazar solicitud de pedido" title="Rechazar solicitud" class="min-w-0 flex-1 rounded-lg border border-rose-500/25 bg-rose-500/10 px-2 py-2 text-[10px] font-bold text-rose-300 transition-all hover:border-rose-400/60 hover:bg-rose-500/20 hover:text-rose-100"><i class="fa-solid fa-ban mr-1" aria-hidden="true"></i>Rechazar</button></div>` : ''}
+                        ${ord.cancelacion_item_solicitada ? `<p class="text-[10px] text-rose-300">Cancelación enviada: ${escaparHtml(ord.motivo_cancelacion_item || '')}</p>` : ''}
+                        ${ord.cancelado ? `<p class="text-[10px] text-rose-300">Plato cancelado: ${escaparHtml(ord.motivo_cancelacion_item || '')}</p>` : ''}
+                        ${ord.pedidoId && ord.estado === 'listo' && !ord.cancelado ? `<button type="button" onclick="marcarServidoMesera(${ord.pedidoId})" class="w-full rounded-lg bg-sky-500/10 border border-sky-500/20 text-sky-300 hover:bg-sky-500 hover:text-slate-950 py-1.5 text-[10px] font-bold transition-all"><i class="fa-solid fa-hand-holding-heart"></i> Marcar servido</button>` : ''}
+                    `;
+                    container.appendChild(row);
+                });
             });
-
-            updateModalTotals(subtotal);
         }
 
         function actualizarEstadoBotonEnviarComanda(table) {
             if (!table) return;
             const button = document.getElementById(`send-order-${table.id}`);
             if (!button) return;
-            button.disabled = table.comandaEnviandose || !(table.newOrder || []).some(item => item.qty > 0);
+            const faltaGuarnicion = (table.newOrder || []).some(order => {
+                const product = menuItems.find(item => item.id === order.itemId);
+                return product?.requiereGuarnicion && !order.guarnicionId;
+            });
+            button.disabled = table.comandaEnviandose || faltaGuarnicion || !(table.newOrder || []).some(item => item.qty > 0);
         }
 
         function marcarServidoMesera(pedidoId) {
@@ -3404,30 +4101,33 @@
             ws.send(JSON.stringify({ accion: 'marcar_servido', pedido_id: pedidoId }));
         }
 
-        function toggleCancelacionPedidoForm(pedidoId) {
-            const form = document.getElementById(`cancelacion-pedido-${pedidoId}`);
-            const button = document.querySelector(`[aria-controls="cancelacion-pedido-${pedidoId}"]`);
+        function toggleCancelacionItemForm(itemId) {
+            const form = document.getElementById(`cancelacion-item-${itemId}`);
+            const button = document.querySelector(`[aria-controls="cancelacion-item-${itemId}"]`);
             if (!form || !button) return;
             form.hidden = !form.hidden;
             button.setAttribute('aria-expanded', String(!form.hidden));
             if (!form.hidden) form.querySelector('textarea').focus();
         }
 
-        function enviarSolicitudCancelacion(event, pedidoId) {
+        function enviarSolicitudCancelacionItem(event, pedidoId, itemId) {
             event.preventDefault();
             const form = event.currentTarget;
-            const motivo = form.querySelector('textarea').value.trim();
+            const textarea = form.querySelector('textarea');
+            const motivo = textarea.value.trim();
             if (!motivo) {
-                form.querySelector('textarea').focus();
+                textarea.focus();
                 return;
             }
+            form.dataset.cancelationPending = 'true';
+            form.hidden = true;
+            document.querySelector(`[aria-controls="${form.id}"]`)?.setAttribute('aria-expanded', 'false');
             enviarMensajeMesera({
-                accion: 'solicitar_cancelacion',
+                accion: 'solicitar_cancelacion_item',
                 pedido_id: pedidoId,
+                item_id: itemId,
                 motivo,
             });
-            form.querySelector('button[type="submit"]').disabled = true;
-            form.querySelector('button[type="submit"]').textContent = 'Enviando…';
         }
 
         function aceptarPedidoCliente(pedidoId) {
@@ -3446,7 +4146,7 @@
             ws.send(JSON.stringify({ accion: 'rechazar_pedido_cliente', pedido_id: pedidoId }));
         }
 
-        function updateOrderNote(itemId, pedidoId, itemPedidoId, note) {
+        function updateOrderNote(lineKey, pedidoId, itemPedidoId, note) {
             const table = tables.find(t => t.id === activeTableId);
             if (!table) return;
             const nota = String(note || '').trim();
@@ -3455,7 +4155,7 @@
                 return;
             }
             if (!pedidoId) {
-                const nuevo = (table.newOrder || []).find(o => o.itemId === itemId);
+                const nuevo = (table.newOrder || []).find(o => keyLineaComanda(o) === lineKey);
                 if (nuevo) nuevo.note = nota;
                 return;
             }
@@ -3478,13 +4178,6 @@
             });
         }
 
-        function updateModalTotals(subtotal) {
-            const total = subtotal;
-
-            document.getElementById('order-subtotal').textContent = `$${subtotal.toFixed(2)}`;
-            document.getElementById('order-total').textContent = `$${total.toFixed(2)}`;
-        }
-
         // ENVIAR A COCINA
         function sendOrderToKitchen(tableId) {
             const table = tables.find(item => item.id === tableId);
@@ -3495,6 +4188,14 @@
             }
             if (!(table.newOrder || []).some(item => item.qty > 0)) {
                 showToast("Comanda vacía", "Agrega al menos un producto antes de enviar.");
+                return;
+            }
+            const productoSinGuarnicion = table.newOrder.find(order => {
+                const product = menuItems.find(item => item.id === order.itemId);
+                return product?.requiereGuarnicion && !order.guarnicionId;
+            });
+            if (productoSinGuarnicion) {
+                showToast('Comanda incompleta', `Selecciona una guarnición para ${menuItems.find(item => item.id === productoSinGuarnicion.itemId)?.name || 'el plato'}.`, 'warning');
                 return;
             }
             const requestId = `${tableId}-${Date.now()}-${Math.random().toString(36).slice(2)}`;
@@ -3508,7 +4209,8 @@
                 items: table.newOrder.map(item => ({
                     plato_id: item.itemId,
                     cantidad: item.qty,
-                    nota: item.note || ''
+                    nota: item.note || '',
+                    guarnicion_id: item.guarnicionId || null,
                 })),
                 nota: table.newOrder.map(item => item.note).filter(Boolean).join(' | ')
             });
@@ -3610,6 +4312,15 @@
             const archivo = comprobanteTransferenciaSeleccionado;
             const errorComprobante = document.getElementById('comprobante-transferencia-error');
             errorComprobante.classList.add('hidden');
+            if (
+                (formaPagoSeleccionada === 'transferencia' || formaPagoSeleccionada === 'mixto')
+                && !archivo
+                && !cuentaEnProceso.comprobante_url
+            ) {
+                errorComprobante.textContent = 'Debes adjuntar una foto del comprobante para este método de pago.';
+                errorComprobante.classList.remove('hidden');
+                return;
+            }
             if ((formaPagoSeleccionada === 'transferencia' || formaPagoSeleccionada === 'mixto') && archivo) {
                 if (archivo.size > 5 * 1024 * 1024) {
                     errorComprobante.textContent = 'La foto no puede superar 5 MB.';
@@ -3684,11 +4395,15 @@
                                 <div class="takeaway-product-info">
                                     <h5 class="takeaway-menu-name">${escaparHtml(item.name)}</h5>
                                     ${item.desc ? `<p class="takeaway-product-description">${escaparHtml(item.desc)}</p>` : ''}
-                                    <p class="takeaway-product-price">${Number(item.price).toFixed(2)} <small>CUP</small></p>
                                 </div>
-                                <button type="button" onclick="agregarAlCarritoParaLlevar(${item.id})" class="takeaway-product-add" aria-label="Agregar ${escaparHtml(item.name)} al carrito">
-                                    <i class="fa-solid fa-plus" aria-hidden="true"></i>
-                                </button>
+                                <div class="takeaway-product-actions">${item.requiereGuarnicion ? `<label class="sr-only" for="takeaway-guarnicion-${item.id}">Guarnición para ${escaparHtml(item.name)}</label><select id="takeaway-guarnicion-${item.id}" class="mesera-guarnicion-select" aria-label="Guarnición para ${escaparHtml(item.name)}"><option value="">Elegir guarnición *</option>${item.guarniciones.map(opcion => `<option value="${opcion.id}">${escaparHtml(opcion.name)}</option>`).join('')}</select>` : ''}
+                                    <div class="takeaway-product-buy-row">
+                                        <p class="takeaway-product-price">${Number(item.price).toFixed(2)} <small>CUP</small></p>
+                                        <button type="button" onclick="agregarAlCarritoParaLlevar(${item.id})" class="takeaway-product-add" aria-label="Agregar ${escaparHtml(item.name)} al carrito">
+                                    <i class="fa-solid fa-plus" aria-hidden="true"></i><span>Agregar</span>
+                                        </button>
+                                    </div>
+                                </div>
                             </article>`;
                         }).join('')}
                     </div>
@@ -3696,24 +4411,35 @@
         }
 
         function agregarAlCarritoParaLlevar(itemId) {
-            const linea = carritoParaLlevar.find(item => item.itemId === itemId);
+            const product = menuItems.find(item => item.id === itemId);
+            const guarnicionId = product?.requiereGuarnicion
+                ? document.getElementById(`takeaway-guarnicion-${itemId}`)?.value
+                : '';
+            if (product?.requiereGuarnicion && !guarnicionId) {
+                showToast('Falta elegir guarnición', 'Selecciona la guarnición incluida antes de agregar este plato.', 'warning');
+                document.getElementById(`takeaway-guarnicion-${itemId}`)?.focus();
+                return;
+            }
+            const guarnicion = product?.guarniciones.find(option => String(option.id) === String(guarnicionId));
+            const key = `${itemId}:${guarnicionId || 0}`;
+            const linea = carritoParaLlevar.find(item => item.key === key);
             if (linea) linea.cantidad += 1;
-            else carritoParaLlevar.push({ itemId, cantidad: 1 });
+            else carritoParaLlevar.push({ key, itemId, guarnicionId: guarnicionId ? Number(guarnicionId) : null, guarnicion: guarnicion?.name || '', cantidad: 1 });
             renderCarritoParaLlevar();
         }
 
-        function cambiarCantidadParaLlevar(itemId, cambio) {
-            const linea = carritoParaLlevar.find(item => item.itemId === itemId);
+        function cambiarCantidadParaLlevar(lineKey, cambio) {
+            const linea = carritoParaLlevar.find(item => item.key === lineKey);
             if (!linea) return;
             linea.cantidad += cambio;
-            if (linea.cantidad <= 0) carritoParaLlevar = carritoParaLlevar.filter(item => item.itemId !== itemId);
+            if (linea.cantidad <= 0) carritoParaLlevar = carritoParaLlevar.filter(item => item.key !== lineKey);
             renderCarritoParaLlevar();
         }
 
-        function eliminarDelCarritoParaLlevar(itemId) {
-            const lineaExiste = carritoParaLlevar.some(item => item.itemId === itemId);
+        function eliminarDelCarritoParaLlevar(lineKey) {
+            const lineaExiste = carritoParaLlevar.some(item => item.key === lineKey);
             if (!lineaExiste) return;
-            carritoParaLlevar = carritoParaLlevar.filter(item => item.itemId !== itemId);
+            carritoParaLlevar = carritoParaLlevar.filter(item => item.key !== lineKey);
             renderCarritoParaLlevar();
         }
 
@@ -3739,7 +4465,7 @@
                 if (!item) return '';
                 const precioUnitario = Number(item.price);
                 const subtotalProducto = precioUnitario * linea.cantidad;
-                return `<div class="takeaway-cart-item"><div class="takeaway-cart-item-info"><span class="takeaway-cart-item-name" title="${escaparHtml(item.name)}">${escaparHtml(item.name)}</span><span class="takeaway-cart-item-price">${precioUnitario.toFixed(2)} CUP × ${linea.cantidad} = ${subtotalProducto.toFixed(2)} CUP</span></div><span class="takeaway-quantity-control"><button type="button" onclick="cambiarCantidadParaLlevar(${item.id}, -1)" aria-label="Quitar una unidad de ${escaparHtml(item.name)}" class="takeaway-quantity-button"><i class="fa-solid fa-minus" aria-hidden="true"></i></button><strong class="takeaway-quantity-value" aria-label="Cantidad">${linea.cantidad}</strong><button type="button" onclick="cambiarCantidadParaLlevar(${item.id}, 1)" aria-label="Agregar una unidad de ${escaparHtml(item.name)}" class="takeaway-quantity-button"><i class="fa-solid fa-plus" aria-hidden="true"></i></button><button type="button" onclick="eliminarDelCarritoParaLlevar(${item.id})" aria-label="Eliminar ${escaparHtml(item.name)} del ticket" title="Eliminar producto" class="takeaway-quantity-button takeaway-remove-button"><i class="fa-solid fa-trash-can" aria-hidden="true"></i></button></span></div>`;
+                return `<div class="takeaway-cart-item"><div class="takeaway-cart-item-info"><span class="takeaway-cart-item-name" title="${escaparHtml(item.name)}">${escaparHtml(item.name)}</span><span class="takeaway-cart-item-price">${precioUnitario.toFixed(2)} CUP × ${linea.cantidad} = ${subtotalProducto.toFixed(2)} CUP</span>${linea.guarnicion ? `<span class="takeaway-cart-item-price">Guarnición: ${escaparHtml(linea.guarnicion)}</span>` : ''}</div><span class="takeaway-quantity-control"><button type="button" onclick="cambiarCantidadParaLlevar('${linea.key}', -1)" aria-label="Quitar una unidad de ${escaparHtml(item.name)}" class="takeaway-quantity-button"><i class="fa-solid fa-minus" aria-hidden="true"></i></button><strong class="takeaway-quantity-value" aria-label="Cantidad">${linea.cantidad}</strong><button type="button" onclick="cambiarCantidadParaLlevar('${linea.key}', 1)" aria-label="Agregar una unidad de ${escaparHtml(item.name)}" class="takeaway-quantity-button"><i class="fa-solid fa-plus" aria-hidden="true"></i></button><button type="button" onclick="eliminarDelCarritoParaLlevar('${linea.key}')" aria-label="Eliminar ${escaparHtml(item.name)} del ticket" title="Eliminar producto" class="takeaway-quantity-button takeaway-remove-button"><i class="fa-solid fa-trash-can" aria-hidden="true"></i></button></span></div>`;
             }).join('');
         }
 
@@ -3756,7 +4482,7 @@
             }
             enviarMensajeMesera({
                 accion: 'crear_pedido_para_llevar',
-                items: carritoParaLlevar.map(linea => ({ plato_id: linea.itemId, cantidad: linea.cantidad })),
+                items: carritoParaLlevar.map(linea => ({ plato_id: linea.itemId, cantidad: linea.cantidad, guarnicion_id: linea.guarnicionId })),
                 nota: document.getElementById('takeaway-note').value.trim(),
                 nombre_cliente: nombreCliente,
                 telefono_cliente: telefonoCliente,
@@ -3792,11 +4518,9 @@
                 const total = partes.reduce((sum, pedido) => sum + Number(pedido.total || 0), 0);
                 const lineas = partes.map(pedido => `
                     <div class="takeaway-ticket-line">
-                        <div class="mb-2 flex items-center justify-between gap-2"><span class="text-[10px] font-bold uppercase text-slate-500">${pedido.destino === 'barra' ? 'Barra' : 'Cocina'}</span><span class="text-[10px] font-semibold ${pedido.cancelacion_solicitada ? 'text-rose-300' : pedido.estado === 'entregado' ? 'text-sky-300' : pedido.estado === 'listo' ? 'text-emerald-300' : 'text-amber-300'}">${pedido.cancelacion_solicitada ? 'Cancelación solicitada' : escaparHtml(pedido.estado_display)}</span></div>
+                        <div class="mb-2 flex items-center justify-between gap-2"><span class="text-[10px] font-bold uppercase text-slate-500">${pedido.destino === 'barra' ? 'Barra' : 'Cocina'}</span><span class="text-[10px] font-semibold ${pedido.estado === 'entregado' ? 'text-sky-300' : pedido.estado === 'listo' ? 'text-emerald-300' : 'text-amber-300'}">${escaparHtml(pedido.estado_display)}</span></div>
                         ${pedido.items.map(item => `<div class="takeaway-ticket-line-item"><span>${escaparHtml(item.cantidad)}x ${escaparHtml(item.plato)}</span><span>${escaparHtml(item.subtotal)} CUP</span></div>`).join('')}
                         ${pedido.nota ? `<p class="mt-2 text-[10px] text-slate-400">Nota: ${escaparHtml(pedido.nota)}</p>` : ''}
-                        ${pedido.cancelacion_solicitada ? `<p class="mt-2 text-xs text-rose-300">Motivo: ${escaparHtml(pedido.motivo_cancelacion)}</p>` : ''}
-                        ${pedido.estado === 'pendiente' && !pedido.cancelacion_solicitada ? `<button type="button" onclick="toggleCancelacionPedidoForm(${pedido.id})" aria-expanded="false" aria-controls="cancelacion-pedido-${pedido.id}" class="cancel-order-button takeaway-cancel-order-button"><i class="fa-solid fa-ban" aria-hidden="true"></i><span>Cancelar esta comanda</span></button><form id="cancelacion-pedido-${pedido.id}" class="cancel-order-form" hidden onsubmit="enviarSolicitudCancelacion(event, ${pedido.id})"><label for="motivo-cancelacion-${pedido.id}">Motivo de cancelación</label><textarea id="motivo-cancelacion-${pedido.id}" maxlength="300" rows="2" required placeholder="Explica brevemente la razón"></textarea><div class="cancel-order-actions"><button type="button" class="cancel-order-dismiss" onclick="toggleCancelacionPedidoForm(${pedido.id})">Volver</button><button type="submit" class="cancel-order-submit"><i class="fa-solid fa-paper-plane" aria-hidden="true"></i>Enviar solicitud</button></div></form>` : ''}
                     </div>`).join('');
                 const entregaAction = listoParaCaja
                     ? '<div class="mt-3 rounded-lg border border-sky-400/20 bg-sky-400/10 px-3 py-2 text-center text-xs font-semibold text-sky-200"><i class="fa-solid fa-bag-shopping mr-1"></i>Ticket entregado</div>'
@@ -3824,8 +4548,12 @@
             enviarMensajeMesera({ accion: 'marcar_listo_barra', pedido_id: pedidoId });
         }
 
-        function aceptarCancelacionPedido(pedidoId) {
-            enviarMensajeMesera({ accion: 'aceptar_cancelacion', pedido_id: pedidoId });
+        function aceptarCancelacionItemBarra(pedidoId, itemId) {
+            enviarMensajeMesera({
+                accion: 'aceptar_cancelacion_item',
+                pedido_id: pedidoId,
+                item_id: itemId,
+            });
         }
 
         function iniciarPagoParaLlevar(grupoParaLlevar) {
@@ -3874,7 +4602,7 @@
             pedidosBarra.forEach(pedido => {
                 const card = document.createElement('article');
                 card.className = 'rounded-xl border border-amber-500/20 bg-slate-950 p-4';
-                const items = pedido.items.map(item => {
+                const items = pedido.items.filter(item => !item.cancelado).map(item => {
                     const imagen = item.imagen_url
                         ? `<img src="${escaparHtml(item.imagen_url)}" alt="${escaparHtml(item.plato)}" loading="lazy" class="mesera-order-image">`
                         : '<span class="mesera-order-placeholder rounded-lg bg-slate-900 text-slate-500"><i class="fa-solid fa-martini-glass-citrus"></i></span>';
@@ -3884,15 +4612,16 @@
                             <div class="min-w-0 flex-1">
                                 <p class="text-sm font-semibold text-white">${escaparHtml(item.cantidad)}x ${escaparHtml(item.plato)}</p>
                                 <p class="mt-1 text-xs text-slate-400">${item.nota ? `Nota: ${escaparHtml(item.nota)}` : 'Sin notas'}</p>
+                                ${item.cancelacion_solicitada ? `<p class="mt-1 text-xs text-rose-300">Cancelación enviada: ${escaparHtml(item.motivo_cancelacion || '')}</p><button type="button" onclick="aceptarCancelacionItemBarra(${pedido.id}, ${item.id})" class="mt-2 rounded-lg bg-rose-500 px-3 py-2 text-xs font-bold text-white hover:bg-rose-400">Aceptar cancelación del plato</button>` : ''}
                             </div>
                         </div>`;
                 }).join('');
                 const esperandoAprobacion = pedido.estado === 'por_confirmar';
-                const esperandoCancelacion = pedido.cancelacion_solicitada;
-                const accion = esperandoCancelacion
-                    ? `<button type="button" onclick="aceptarCancelacionPedido(${pedido.id})" class="mt-4 w-full rounded-lg bg-rose-500 px-4 py-2.5 text-sm font-bold text-white hover:bg-rose-400"><i class="fa-solid fa-check mr-2"></i>Aceptar cancelación</button>`
-                    : esperandoAprobacion
+                const esperandoCancelacionItem = pedido.items.some(item => item.cancelacion_solicitada && !item.cancelado);
+                const accion = esperandoAprobacion
                     ? `<button type="button" onclick="aceptarPedidoCliente(${pedido.id})" class="mt-4 w-full rounded-lg bg-amber-400 px-4 py-2.5 text-sm font-bold text-slate-950 hover:bg-amber-300"><i class="fa-solid fa-check mr-2"></i>Aceptar y preparar</button>`
+                    : esperandoCancelacionItem
+                        ? ''
                     : pedido.estado !== 'listo'
                         ? `<button type="button" onclick="marcarPedidoBarraListo(${pedido.id})" class="mt-4 w-full rounded-lg bg-amber-400 px-4 py-2.5 text-sm font-bold text-slate-950 hover:bg-amber-300"><i class="fa-solid fa-check mr-2"></i>${pedido.es_para_llevar ? 'Marcar listo' : 'Marcar listo y servido'}</button>`
                         : pedido.es_para_llevar
@@ -3905,10 +4634,9 @@
                             <h4 class="text-base font-bold text-white">${escaparHtml(pedido.mesaNombre || `Mesa ${pedido.mesa_numero}`)}</h4>
                             <p class="mt-1 text-xs text-slate-400">Pedido #${escaparHtml(pedido.id)} · ${escaparHtml(pedido.creado_en || '')}</p>
                         </div>
-                        <span class="rounded-full border ${esperandoCancelacion ? 'border-rose-400/30 bg-rose-400/10 text-rose-200' : 'border-amber-400/20 bg-amber-400/10 text-amber-200'} px-2.5 py-1 text-[10px] font-bold">${esperandoCancelacion ? 'Cancelación solicitada' : esperandoAprobacion ? 'Por aceptar' : pedido.estado === 'listo' ? 'Listo' : 'En preparación'}</span>
+                        <span class="rounded-full border ${esperandoCancelacionItem ? 'border-rose-400/30 bg-rose-400/10 text-rose-200' : 'border-amber-400/20 bg-amber-400/10 text-amber-200'} px-2.5 py-1 text-[10px] font-bold">${esperandoCancelacionItem ? 'Cancelación enviada' : esperandoAprobacion ? 'Por aceptar' : pedido.estado === 'listo' ? 'Listo' : 'En preparación'}</span>
                     </div>
                     <div>${items}</div>
-                    ${esperandoCancelacion ? `<p class="mt-3 rounded-lg border border-rose-500/20 bg-rose-500/10 px-3 py-2 text-xs text-rose-200">Motivo de cancelación: ${escaparHtml(pedido.motivo_cancelacion)}</p>` : ''}
                     <div class="mt-3 text-right text-sm font-bold text-emerald-300">${escaparHtml(pedido.total)} CUP</div>
                     ${accion}`;
                 container.appendChild(card);
@@ -4018,8 +4746,10 @@
             document.getElementById('toast-title').textContent = title;
             document.getElementById('toast-message').textContent = message;
             const isError = type === 'error';
+            const isWarning = type === 'warning';
             toast.classList.toggle('mesera-toast-error', isError);
-            icon.innerHTML = `<i class="fa-solid ${isError ? 'fa-circle-xmark' : 'fa-circle-check'}"></i>`;
+            toast.classList.toggle('mesera-toast-warning', isWarning);
+            icon.innerHTML = `<i class="fa-solid ${isError ? 'fa-circle-xmark' : isWarning ? 'fa-triangle-exclamation' : 'fa-circle-check'}"></i>`;
 
             toast.classList.remove('translate-y-20', 'opacity-0', 'pointer-events-none');
 
@@ -4038,6 +4768,30 @@
             document.getElementById('call-alert-title').textContent = etiquetaMesaNumero(mesaNumero);
             alerta.classList.remove('hidden');
             document.getElementById('call-alert-dismiss').focus();
+        }
+
+        function mostrarAlertaSolicitudPedido(pedido) {
+            if (!pedido?.mesa_id) return;
+            pedidoClienteARevisar = pedido;
+            document.getElementById('order-review-alert-title').textContent =
+                pedido.etiqueta || etiquetaMesaNumero(pedido.mesa_numero);
+            document.getElementById('order-review-alert-description').textContent =
+                `${pedido.etiqueta || etiquetaMesaNumero(pedido.mesa_numero)} hizo un pedido y espera que lo revises.`;
+            document.getElementById('order-review-alert').classList.remove('hidden');
+            document.getElementById('order-review-alert-dismiss').focus();
+            sonidoPedidoNuevo();
+        }
+
+        function cerrarAlertaSolicitudPedido(revisar = true) {
+            document.getElementById('order-review-alert').classList.add('hidden');
+            const pedido = pedidoClienteARevisar;
+            pedidoClienteARevisar = null;
+            if (!revisar || !pedido) return;
+            if (!tables.some(table => table.id === pedido.mesa_id)) {
+                showToast('Mesa no disponible', 'No se encontró esa mesa en el turno actual.', 'error');
+                return;
+            }
+            openTableModal(pedido.mesa_id);
         }
 
         function mostrarAlertaPedidoListo(pedido) {

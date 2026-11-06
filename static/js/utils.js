@@ -2,8 +2,18 @@ function toast(msg, tipo) {
   const c = document.getElementById('toast-container');
   if (!c) return;
   const el = document.createElement('div');
-  el.className = `toast${tipo === 'green' ? ' toast-green' : tipo === 'red' ? ' toast-red' : tipo === 'orange' ? ' toast-orange' : tipo === 'blue' ? ' toast-blue' : ''}`;
-  el.textContent = msg;
+  const esWarning = tipo === 'orange' || tipo === 'warning';
+  el.className = `toast${tipo === 'green' ? ' toast-green' : tipo === 'red' ? ' toast-red' : esWarning ? ' toast-warning' : tipo === 'blue' ? ' toast-blue' : ''}`;
+  if (esWarning) {
+    const icono = document.createElement('i');
+    icono.className = 'toast-warning-icon fa-solid fa-triangle-exclamation';
+    icono.setAttribute('aria-hidden', 'true');
+    const texto = document.createElement('span');
+    texto.textContent = msg;
+    el.append(icono, texto);
+  } else {
+    el.textContent = msg;
+  }
   c.appendChild(el);
   setTimeout(() => el.remove(), 3500);
 }

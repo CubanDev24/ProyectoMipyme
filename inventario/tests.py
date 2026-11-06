@@ -10,7 +10,7 @@ from django.utils import timezone
 
 from carta.models import Categoria, Plato
 from inventario.admin import InsumoAdminForm
-from inventario.models import CategoriaInventario, Insumo, MovimientoInventario, RecetaItem, TasaCambio
+from inventario.models import CategoriaInventario, Guarnicion, GuarnicionRecetaItem, Insumo, MovimientoInventario, RecetaItem, TasaCambio
 from inventario.services import descontar_inventario_por_pedido
 from pedidos.models import Factura, ItemPedido, Mesa, Pedido
 from usuarios.models import ConfiguracionWifi, Turno
@@ -44,6 +44,67 @@ class InventarioFlowTests(TestCase):
         self.assertContains(response, 'name="destino"')
         self.assertContains(response, 'Área de preparación')
         self.assertContains(response, 'Se elige por separado de los productos de inventario de la receta.')
+        self.assertContains(response, 'Guarniciones incluidas')
+        self.assertContains(response, 'Trae guarniciones incluidas')
+        self.assertContains(response, 'data-guarniciones-select')
+
+    def test_admin_can_create_guarnicion_and_assign_it_to_a_dish(self):
+        self.insumo_1.tipo_inventario = 'cocina'
+        self.insumo_1.save(update_fields=['tipo_inventario'])
+        self.insumo_2.tipo_inventario = 'cocina'
+        self.insumo_2.save(update_fields=['tipo_inventario'])
+
+        response_guarnicion = self.client.post(reverse('inventario:guarnicion_crear'), {
+            'nombre': 'Arroz blanco',
+            'descripcion': 'Arroz de acompañamiento',
+            'guarnicion_insumo_id[]': [self.insumo_1.pk],
+            'guarnicion_cantidad[]': ['0.150'],
+        })
+
+        self.assertEqual(response_guarnicion.status_code, 302)
+        self.assertEqual(response_guarnicion.url, '/administrador/#carta-guarniciones')
+        guarnicion = Guarnicion.objects.get(nombre='Arroz blanco')
+        response_plato = self.client.post(reverse('inventario:plato_crear'), {
+            'categoria': self.categoria.pk,
+            'nombre': 'Pollo con arroz',
+            'descripcion': '',
+            'precio': '25.00',
+            'destino': 'cocina',
+            'disponible': 'on',
+            'trae_guarniciones_incluidas': 'on',
+            'guarnicion_ids': [guarnicion.pk],
+            'insumo_id[]': [self.insumo_2.pk],
+            'cantidad[]': ['0.250'],
+        })
+
+        self.assertEqual(response_plato.status_code, 302)
+        plato = Plato.objects.get(nombre='Pollo con arroz')
+        self.assertTrue(plato.trae_guarniciones_incluidas)
+        self.assertEqual(list(plato.guarniciones_incluidas.all()), [guarnicion])
+
+    def test_editing_guarnicion_returns_to_its_admin_tab(self):
+        self.insumo_1.tipo_inventario = 'cocina'
+        self.insumo_1.save(update_fields=['tipo_inventario'])
+        guarnicion = Guarnicion.objects.create(nombre='Arroz blanco')
+        GuarnicionRecetaItem.objects.create(
+            guarnicion=guarnicion,
+            insumo=self.insumo_1,
+            cantidad='0.150',
+        )
+
+        response = self.client.post(
+            reverse('inventario:guarnicion_editar', args=[guarnicion.pk]),
+            {
+                'nombre': 'Arroz con verduras',
+                'descripcion': '',
+                'activa': 'on',
+                'guarnicion_insumo_id[]': [self.insumo_1.pk],
+                'guarnicion_cantidad[]': ['0.200'],
+            },
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.url, '/administrador/#carta-guarniciones')
 
     def test_django_admin_inventory_form_validates_field_limits(self):
         form = InsumoAdminForm()
@@ -249,10 +310,15 @@ class InventarioFlowTests(TestCase):
         self.assertContains(response, 'id="nav-configuracion"')
         self.assertContains(response, 'id="nav-carta"')
         self.assertContains(response, 'id="carta-header-nav"')
+        self.assertContains(response, 'data-carta-tab="guarniciones"')
         self.assertContains(response, 'data-carta-tab="platos"')
         self.assertContains(response, 'Platos y productos')
         self.assertContains(response, 'data-carta-tab="publicada"')
         self.assertContains(response, 'Carta publicada')
+        self.assertContains(response, 'id="carta-guarniciones"')
+        self.assertContains(response, 'data-carta-publicada-filter="guarniciones"')
+        self.assertContains(response, 'data-carta-publicada-section="guarniciones"')
+        self.assertContains(response, 'id="carta-lista-platos"')
         self.assertContains(response, 'function mostrarSeccionCarta(seccion)')
         self.assertContains(response, 'panel.hidden = panel.id !== `carta-${seccionValida}`')
         self.assertContains(response, 'history.replaceState(null, \'\', hashSeccion)')
@@ -321,12 +387,14 @@ class InventarioFlowTests(TestCase):
             nombre='Sopa de pollo',
             descripcion='Sopa especial',
             precio='12.00',
+            destino='cocina',
         )
         plato_stock_normal = Plato.objects.create(
             categoria=self.categoria,
             nombre='Arroz blanco',
             descripcion='Acompañamiento',
             precio='8.00',
+            destino='barra',
         )
         Insumo.objects.filter(pk=self.insumo_1.pk).update(stock_actual=1)
         RecetaItem.objects.create(plato=plato_stock_bajo, insumo=self.insumo_1)
@@ -337,16 +405,27 @@ class InventarioFlowTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'id="carta-buscar-plato"')
         self.assertContains(response, 'id="carta-filtrar-categoria"')
+        self.assertContains(response, 'id="carta-filtrar-tipo"')
+        self.assertContains(response, 'data-carta-category-group')
+        self.assertContains(response, 'data-carta-category-count')
+        self.assertContains(response, 'Mostrando ${visibles} de ${tarjetasPlato.length} platos en ${gruposVisibles} categorías')
+        self.assertContains(response, 'grupo.hidden = visiblesGrupo === 0')
+        self.assertContains(response, 'data-nombre="sopa de pollo"')
+        self.assertContains(response, 'value="cocina">Cocina</option>')
+        self.assertContains(response, 'value="barra">Barra</option>')
         self.assertContains(response, 'id="carta-solo-stock-bajo"')
         self.assertContains(
             response,
-            f'data-categoria="{self.categoria.pk}" data-stock-bajo="true"',
+            f'data-categoria="{self.categoria.pk}" data-tipo="cocina" data-stock-bajo="true"',
         )
         self.assertContains(
             response,
-            f'data-categoria="{self.categoria.pk}" data-stock-bajo="false"',
+            f'data-categoria="{self.categoria.pk}" data-tipo="barra" data-stock-bajo="false"',
         )
         self.assertContains(response, 'filtrarPlatosCarta')
+        self.assertContains(response, "normalizarTexto(plato.dataset.nombre || '').includes(texto)")
+        self.assertContains(response, 'const coincideTipo = !tipo || plato.dataset.tipo === tipo')
+        self.assertContains(response, "tarjeta.querySelector('[data-edit-plato]').click()")
 
     def test_admin_can_classify_legacy_item_as_kitchen_without_losing_existing_data(self):
         plato = Plato.objects.create(
@@ -825,6 +904,27 @@ class InventarioFlowTests(TestCase):
             set(MovimientoInventario.objects.values_list('tipo_inventario', flat=True)),
             {'cocina', 'restaurante'},
         )
+
+    def test_guarnicion_recipe_is_deducted_and_shared_ingredients_are_aggregated(self):
+        plato = Plato.objects.create(
+            categoria=self.categoria,
+            nombre='Pollo con guarnición',
+            precio=25,
+        )
+        guarnicion = Guarnicion.objects.create(nombre='Arroz de prueba')
+        RecetaItem.objects.create(plato=plato, insumo=self.insumo_1, cantidad='0.500')
+        GuarnicionRecetaItem.objects.create(guarnicion=guarnicion, insumo=self.insumo_1, cantidad='0.250')
+        mesa = Mesa.objects.create(numero=8)
+        pedido = Pedido.objects.create(mesa=mesa)
+        ItemPedido.objects.create(pedido=pedido, plato=plato, guarnicion=guarnicion, cantidad=2)
+
+        descontar_inventario_por_pedido(pedido, usuario=self.admin)
+
+        self.insumo_1.refresh_from_db()
+        self.assertEqual(self.insumo_1.stock_actual, Decimal('8.500'))
+        movimiento = MovimientoInventario.objects.get(insumo=self.insumo_1)
+        self.assertEqual(movimiento.cantidad, Decimal('1.500'))
+        self.assertEqual(movimiento.stock_posterior, Decimal('8.500'))
 
 
 class DemoDataCommandTests(TestCase):

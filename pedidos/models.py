@@ -87,13 +87,23 @@ class Pedido(models.Model):
         return f'{etiqueta} — Pedido #{self.pk}'
 
     def total(self):
-        return sum(item.subtotal() for item in self.items.all())
+        return sum(item.subtotal() for item in self.items.filter(cancelado=False))
 
 class ItemPedido(models.Model):
     pedido = models.ForeignKey(Pedido, on_delete=models.CASCADE, related_name='items')
     plato = models.ForeignKey(Plato, on_delete=models.CASCADE)
+    guarnicion = models.ForeignKey(
+        'inventario.Guarnicion',
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name='items_pedido',
+    )
     cantidad = models.PositiveIntegerField(default=1)
     nota = models.CharField(max_length=200, blank=True)
+    cancelacion_solicitada = models.BooleanField(default=False)
+    motivo_cancelacion = models.CharField(max_length=300, blank=True, default='')
+    cancelado = models.BooleanField(default=False)
 
     def subtotal(self): return self.plato.precio * self.cantidad
     def __str__(self): return f'{self.cantidad}x {self.plato.nombre}'
