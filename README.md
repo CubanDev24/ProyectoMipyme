@@ -191,6 +191,7 @@ con el botón **Imprimir QR**.
 - El modelo pedido en la carta puede eliminarse
 - Se agregaron guarniciones incluidas configurables con receta de inventario, selección obligatoria por plato y visualización en comanda, cocina e historial.
 - Las tarjetas de platos en el administrador crecen para mostrar descripciones y recetas largas sin solapar su contenido ni el botón de edición.
+- La cuadrícula de platos ajusta sus columnas automáticamente para dar más ancho a cada tarjeta y reducir su altura cuando hay espacio disponible.
 
 
 ## Mejoras:
