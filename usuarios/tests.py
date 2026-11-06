@@ -369,8 +369,23 @@ class UsuarioTurnoTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'class="mesera-app bg-slate-900')
         self.assertContains(response, 'turn-mobile-nav')
+        self.assertNotContains(response, f'href="{reverse("inventario:entrada_almacen_cajera")}"')
         self.assertContains(response, 'aria-label="Cerrar sesión"')
         self.assertNotContains(response, 'responsive-sidebar.js')
+
+    def test_dashboard_de_cajera_incluye_entrada_al_almacen_en_el_sidebar(self):
+        self.client.force_login(self.cajera)
+
+        response = self.client.get(reverse('usuarios:dashboard'))
+
+        self.assertEqual(response.status_code, 200)
+        html = response.content.decode()
+        enlace_carta = html.index(f'href="{reverse("inventario:carta_cajera")}"')
+        enlace_almacen = html.index(
+            f'href="{reverse("inventario:entrada_almacen_cajera")}"'
+        )
+        self.assertLess(enlace_carta, enlace_almacen)
+        self.assertContains(response, 'Entrada al almacén')
 
     def test_dashboard_admin_sin_turno_muestra_fecha_apertura_y_turno_anterior(self):
         turno_anterior = Turno.objects.create(
@@ -1203,6 +1218,10 @@ class UsuarioTurnoTests(TestCase):
             reverse('usuarios:historial_turno_detalle', args=[turno_cerrado.pk])
         )
         self.assertEqual(response_detalle.status_code, 200)
+        self.assertContains(
+            response_detalle,
+            f'href="{reverse("inventario:entrada_almacen_cajera")}"',
+        )
         self.assertEqual(
             self.client.get(reverse('usuarios:ipv_turno', args=[turno_cerrado.pk])).status_code,
             200,
