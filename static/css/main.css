@@ -964,8 +964,8 @@ img[alt^="Código QR de la mesa"]{display:block;max-width:min(320px,100%);margin
 #admin-view-carta .carta-admin-category-heading{display:flex;align-items:center;justify-content:space-between;gap:.75rem;margin-bottom:.75rem;padding:.65rem .8rem;border-bottom:1px solid rgba(148,163,184,.18);color:#e2e8f0}
 #admin-view-carta .carta-admin-category-heading h3{font-size:.9rem;font-weight:800}
 #admin-view-carta .carta-admin-category-heading span{color:#94a3b8;font-size:.72rem}
-#admin-view-carta .carta-admin-category-items{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,360px),1fr));gap:1rem;justify-content:start}
-#admin-view-carta #carta-lista-platos .carta-admin-item{position:relative;box-sizing:border-box;width:100%;max-width:none;min-width:0;min-height:420px;display:flex;flex-direction:column;gap:.65rem;padding:1rem;background:rgba(15,23,42,.92);border:1px solid rgba(148,163,184,.16);border-radius:14px;box-shadow:none;cursor:pointer;transition:transform .18s ease,border-color .18s ease}
+#admin-view-carta .carta-admin-category-items{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:1rem;justify-content:start}
+#admin-view-carta #carta-lista-platos .carta-admin-item{position:relative;box-sizing:border-box;width:100%;max-width:320px;min-width:0;min-height:420px;display:flex;flex-direction:column;gap:.65rem;padding:1rem;background:rgba(15,23,42,.92);border:1px solid rgba(148,163,184,.16);border-radius:14px;box-shadow:none;cursor:pointer;transition:transform .18s ease,border-color .18s ease}
 #admin-view-carta #carta-lista-platos .carta-admin-item[hidden]{display:none}
 #admin-view-carta #carta-lista-platos .carta-admin-item:hover{transform:translateY(-2px);border-color:rgba(148,163,184,.34)}
 #admin-view-carta #carta-lista-platos .carta-admin-image{width:100%;height:150px;min-height:150px;flex:0 0 150px;border:1px solid rgba(148,163,184,.16);border-radius:10px;box-shadow:none}
@@ -1011,6 +1011,12 @@ img[alt^="Código QR de la mesa"]{display:block;max-width:min(320px,100%);margin
   #admin-view-carta #carta-lista-platos .carta-admin-item{min-height:420px}
   #admin-view-carta #carta-lista-platos .carta-admin-image{width:100%;height:150px;min-height:150px}
   #admin-view-carta .carta-preview-grid{grid-template-columns:1fr}
+}
+@media(min-width:701px) and (max-width:1100px){
+  #admin-view-carta .carta-admin-category-items{grid-template-columns:repeat(3,minmax(0,1fr))}
+}
+@media(min-width:701px) and (max-width:900px){
+  #admin-view-carta .carta-admin-category-items{grid-template-columns:repeat(2,minmax(0,1fr))}
 }
 #admin-view-carta #carta-lista-platos .carta-admin-item:focus-visible{outline:2px solid #34d399;outline-offset:3px}
 #admin-view-carta .carta-admin-category-group[hidden]{display:none}

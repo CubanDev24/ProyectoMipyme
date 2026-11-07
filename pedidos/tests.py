@@ -100,6 +100,20 @@ class FacturaWorkflowTests(TestCase):
 
         self.assertTrue(pedido['items'][0]['imagen_url'].endswith('/media/carta/pizza.png'))
 
+    def test_pedido_serializado_mantiene_visibles_los_platos_cancelados(self):
+        item_cancelado = ItemPedido.objects.create(
+            pedido=self.pedido,
+            plato=self.plato,
+            cantidad=1,
+            cancelado=True,
+        )
+
+        pedido = serializar_pedido(self.pedido)
+
+        item_serializado = next(item for item in pedido['items'] if item['id'] == item_cancelado.pk)
+        self.assertTrue(item_serializado['cancelado'])
+        self.assertEqual(item_serializado['plato'], self.plato.nombre)
+
     def test_public_menu_and_order_flow_hide_dishes_without_a_recipe(self):
         sin_receta = Plato.objects.create(
             categoria=self.categoria,
@@ -207,6 +221,20 @@ class FacturaWorkflowTests(TestCase):
         self.assertEqual(pedidos[0]['items'][0]['guarnicion_id'], guarnicion.pk)
         cuenta = serializar_cuenta([pedido])
         self.assertEqual(cuenta['items'][0]['guarnicion'], guarnicion.nombre)
+
+    def test_nota_del_plato_se_guarda_y_se_devuelve_a_la_mesera(self):
+        nota = 'Sin cebolla, por favor'
+
+        pedidos = crear_pedidos_por_destino(
+            self.mesa,
+            [{'plato_id': self.plato.pk, 'cantidad': 1, 'nota': nota}],
+            '',
+            estado='por_confirmar',
+        )
+
+        item = ItemPedido.objects.get(pedido_id=pedidos[0]['id'])
+        self.assertEqual(item.nota, nota)
+        self.assertEqual(pedidos[0]['items'][0]['nota'], nota)
 
     def test_pedido_de_exteriores_conserva_mesa_y_etiqueta_de_zona(self):
         mesa_exterior = Mesa.objects.create(
