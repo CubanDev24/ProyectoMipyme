@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+{% load static l10n %}
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Entrada al almacén - GourmetControl</title>
+  <link rel="icon" type="image/svg+xml" href="{% static 'img/favicon.svg' %}?v=20261013">
+  <link rel="stylesheet" href="{% static 'css/tailwind.css' %}">
+  <link rel="stylesheet" href="{% static 'vendor/fontawesome/css/all.min.css' %}">
+  <link rel="stylesheet" href="{% static 'css/main.css' %}?v=20261105-inventory-entry">
+  <script src="{% static 'js/responsive-sidebar.js' %}?v=20261001-sidebar-logout" defer></script>
+</head>
+<body class="inventory-entry-page bg-slate-900 text-slate-100 font-sans min-h-screen flex flex-col md:flex-row overflow-x-hidden">
+  <aside class="w-full md:w-20 lg:w-64 bg-slate-950 border-r border-slate-800 flex flex-col justify-between shrink-0">
+    <div>
+      <div class="p-4 lg:p-6 flex items-center gap-3 border-b border-slate-800/80">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-500 to-teal-400 flex items-center justify-center text-slate-950 text-xl" aria-hidden="true"><i class="fa-solid fa-utensils"></i></div>
+        <div class="hidden lg:block"><h1 class="font-bold text-lg text-white">GourmetControl</h1><span class="text-xs text-slate-400">Panel de Caja</span></div>
+      </div>
+      <div class="p-4 border-b border-slate-800/50 hidden lg:block">
+        <p class="text-sm font-semibold text-white">{{ request.user.get_full_name|default:request.user.username }}</p>
+        <p class="text-xs text-emerald-400">Caja • Activo</p>
+      </div>
+      {% include "usuarios/_cajera_sidebar_nav.html" with seccion_activa="entrada_almacen" %}
+    </div>
+    <div class="p-3 border-t border-slate-800/80">
+      <a href="{% url 'usuarios:logout' %}" class="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold text-rose-400 hover:bg-rose-500/10">
+        <i class="fa-solid fa-right-from-bracket" aria-hidden="true"></i><span class="hidden lg:inline">Cerrar sesión</span>
+      </a>
+    </div>
+  </aside>
+
+  <main class="flex-1 flex flex-col h-screen min-h-0 overflow-hidden">
+    <header class="h-16 border-b border-slate-800 bg-slate-950/60 px-6 flex items-center shrink-0">
+      <h2 class="text-lg font-bold text-white flex items-center gap-2"><i class="fa-solid fa-boxes-stacked text-emerald-400" aria-hidden="true"></i> Entrada al almacén</h2>
+    </header>
+    <div class="flex-1 min-h-0 overflow-y-auto p-4 md:p-6">
+      <div class="w-full">
+        <div class="mb-6">
+          <p class="text-xs font-bold uppercase tracking-wider text-emerald-400">Inventario</p>
+          <h1 class="text-2xl font-bold text-white mt-1">Inventario y entradas</h1>
+          <p class="text-sm text-slate-400 mt-2">Esta operación suma existencias y queda registrada en el historial del inventario. No cambia pedidos ni cobros.</p>
+        </div>
+
+        {% if messages %}
+        <div class="space-y-2 mb-5" role="status" aria-live="polite">
+          {% for message in messages %}
+          <div class="rounded-lg border px-4 py-3 text-sm {% if 'error' in message.tags %}border-rose-500/30 bg-rose-500/10 text-rose-200{% else %}border-emerald-500/30 bg-emerald-500/10 text-emerald-200{% endif %}">{{ message }}</div>
+          {% endfor %}
+        </div>
+        {% endif %}
+
+        <div class="inventory-entry-sections">
+        {% for inventario in inventarios %}
+        <section class="admin-card inventario-panel inventory-entry-card" id="inventario-{{ inventario.tipo }}" aria-labelledby="inventario-{{ inventario.tipo }}-heading">
+          <div class="turn-card-heading">
+            <div class="turn-section-icon" aria-hidden="true"><i class="fa-solid fa-boxes-stacked"></i></div>
+            <div><p class="panel-kicker">Control de existencias</p><h2 id="inventario-{{ inventario.tipo }}-heading">Inventario de {{ inventario.nombre }}</h2></div>
+            <span class="admin-section-count">{{ inventario.insumos.paginator.count }} productos</span>
+          </div>
+          <p id="inventario-{{ inventario.tipo }}-filter-status" class="inventory-ledger-meta" role="status" aria-live="polite"></p>
+          <p class="admin-hint">Registra la cantidad recibida en la fila del producto correspondiente.</p>
+          <form method="get" action="{% url 'inventario:entrada_almacen_cajera' %}#inventario-{{ inventario.tipo }}" class="inventario-toolbar" data-auto-filter>
+            {% for filtro in inventario.filtros_preservados %}
+            <input type="hidden" name="{{ filtro.nombre }}" value="{{ filtro.valor }}">
+            {% endfor %}
+            <label class="inventario-search">
+              <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
+              <span class="sr-only">Buscar producto en {{ inventario.nombre }}</span>
+              <input type="search" name="{{ inventario.tipo }}_producto" value="{{ inventario.producto_filtro }}" placeholder="Buscar producto">
+            </label>
+            <label class="sr-only" for="{{ inventario.tipo }}-categoria-filter">Filtrar por categoría</label>
+            <select id="{{ inventario.tipo }}-categoria-filter" name="{{ inventario.tipo }}_categoria" class="admin-input">
+              <option value="">Todas las categorías</option>
+              {% for categoria in inventario.categorias %}
+              <option value="{{ categoria.pk }}" {% if inventario.categoria_filtro == categoria.pk|stringformat:"s" %}selected{% endif %}>{{ categoria.nombre }}</option>
+              {% endfor %}
+            </select>
+            <a href="{{ inventario.limpiar_url }}" class="btn btn-outline btn-sm">Limpiar</a>
+          </form>
+          <div class="admin-table-wrap">
+            <table class="admin-table inventario-table">
+              <thead><tr><th>Producto</th><th>Categoría</th><th>Unidad</th><th>Existencia actual</th><th>Cantidad que entra</th><th>Motivo o referencia</th><th>Acción</th></tr></thead>
+              <tbody>
+                {% for insumo in inventario.insumos %}
+                <tr>
+                  <td><strong>{{ insumo.nombre }}</strong></td>
+                  <td>{{ insumo.categoria_inventario.nombre|default:"Sin categoría" }}</td>
+                  <td>{{ insumo.get_unidad_display }}</td>
+                  <td><strong>{{ insumo.stock_actual|unlocalize }}</strong> <small>{{ insumo.unidad }}</small></td>
+                  <td>
+                    <label class="sr-only" for="cantidad-entrada-{{ insumo.pk }}">Cantidad que entra para {{ insumo.nombre }}</label>
+                    <input form="entrada-insumo-{{ insumo.pk }}" id="cantidad-entrada-{{ insumo.pk }}" name="cantidad" class="admin-input-inline" type="number" min="0.001" max="99999999.999" step="0.001" inputmode="decimal" placeholder="0.000" required>
+                  </td>
+                  <td>
+                    <label class="sr-only" for="motivo-entrada-{{ insumo.pk }}">Motivo o referencia para {{ insumo.nombre }}</label>
+                    <input form="entrada-insumo-{{ insumo.pk }}" id="motivo-entrada-{{ insumo.pk }}" name="motivo" class="admin-input-inline" type="text" maxlength="200" placeholder="Opcional">
+                  </td>
+                  <td class="admin-actions">
+                    <form id="entrada-insumo-{{ insumo.pk }}" method="post">
+                      {% csrf_token %}
+                      <input type="hidden" name="insumo_id" value="{{ insumo.pk }}">
+                      <button type="submit" class="btn btn-primary btn-sm" aria-label="Registrar entrada para {{ insumo.nombre }}">
+                        <i class="fa-solid fa-plus" aria-hidden="true"></i> Entrada
+                      </button>
+                    </form>
+                  </td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="7" class="admin-empty">No hay productos que coincidan con los filtros de {{ inventario.nombre }}.</td></tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+          {% include 'includes/pagination.html' with page_obj=inventario.insumos page_parameter=inventario.page_parameter pagination_query=inventario.pagination_query pagination_anchor=inventario.pagination_anchor %}
+        </section>
+        {% endfor %}
+        </div>
+        <p class="text-xs text-slate-400">Solo se permiten entradas; no se realizan salidas ni ajustes desde esta página.</p>
+      </div>
+    </div>
+  </main>
+  <script>
+    document.querySelectorAll('form[data-auto-filter]').forEach(form => {
+      const producto = form.querySelector('input[type="search"]');
+      const categoria = form.querySelector('select');
+      const seccion = form.closest('section');
+      const estado = seccion.querySelector('[role="status"]');
+      const tipo = seccion.id.replace('inventario-', '');
+      let temporizador;
+      let controlador;
+
+      async function actualizarTabla() {
+        const solicitud = new AbortController();
+        controlador?.abort();
+        controlador = solicitud;
+        const url = new URL(form.action, window.location.href);
+        for (const [nombre, valor] of new FormData(form)) {
+          url.searchParams.set(nombre, valor);
+        }
+        url.searchParams.delete(`${tipo}_page`);
+        url.hash = '';
+        seccion.setAttribute('aria-busy', 'true');
+
+        try {
+          const response = await fetch(`${url.pathname}${url.search}`, {
+            headers: { 'X-Requested-With': 'XMLHttpRequest' },
+            signal: solicitud.signal,
+          });
+          if (!response.ok) throw new Error('No se pudieron actualizar los productos.');
+
+          const html = await response.text();
+          if (controlador !== solicitud) return;
+          const documento = new DOMParser().parseFromString(html, 'text/html');
+          const seccionActualizada = documento.getElementById(seccion.id);
+          const tbodyActualizado = seccionActualizada?.querySelector('tbody');
+          const tbodyActual = seccion.querySelector('tbody');
+          if (!tbodyActualizado || !tbodyActual) {
+            throw new Error('La respuesta de productos no tiene el formato esperado.');
+          }
+
+          tbodyActual.replaceWith(tbodyActualizado);
+          seccion.querySelector('.admin-section-count').textContent =
+            seccionActualizada.querySelector('.admin-section-count').textContent;
+
+          const paginacionActual = seccion.querySelector('nav[aria-label="Paginación"]');
+          const paginacionActualizada = seccionActualizada.querySelector('nav[aria-label="Paginación"]');
+          if (paginacionActual && paginacionActualizada) {
+            paginacionActual.replaceWith(paginacionActualizada);
+          } else if (paginacionActual) {
+            paginacionActual.remove();
+          } else if (paginacionActualizada) {
+            seccion.querySelector('.admin-table-wrap').after(paginacionActualizada);
+          }
+
+          window.history.replaceState(null, '', `${url.pathname}${url.search}`);
+        } catch (error) {
+          if (error.name === 'AbortError') return;
+          if (controlador === solicitud) {
+            estado.textContent = error.message || 'No se pudieron actualizar los productos.';
+          }
+        } finally {
+          if (controlador === solicitud) {
+            seccion.removeAttribute('aria-busy');
+          }
+        }
+      }
+
+      form.addEventListener('submit', event => {
+        event.preventDefault();
+        window.clearTimeout(temporizador);
+        actualizarTabla();
+      });
+
+      producto.addEventListener('input', () => {
+        window.clearTimeout(temporizador);
+        temporizador = window.setTimeout(() => form.requestSubmit(), 300);
+      });
+
+      categoria.addEventListener('change', () => form.requestSubmit());
+    });
+  </script>
+</body>
+</html>
