@@ -2724,7 +2724,7 @@ function renderCuentaFinal(factura) {
     return;
   }
   
-  const items = (factura.items_snapshot || factura.items || []).map(item => {
+  const items = (factura.items_snapshot || factura.items || []).filter(item => !item.es_merma).map(item => {
     const subtotal = toNumber(item.subtotal) || 0;
     return `
       <div class="cliente-order-item-row">

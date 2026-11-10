@@ -440,11 +440,18 @@
       });
     }
 
+    function escaparHtml(valor) {
+      return String(valor == null ? '' : valor).replace(/[&<>"']/g, function(caracter) {
+        return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[caracter];
+      });
+    }
+
     function buildTable(data) {
       var filas = data.filas || [];
+      var rechazos = data.rechazos || [];
 
-      if (!filas.length) {
-        return '<div class="ipv-skeleton" style="color:#475569">Sin movimientos registrados en este turno.</div>';
+      if (!filas.length && !rechazos.length) {
+        return '<div class="ipv-skeleton" style="color:#475569">No hay productos disponibles en la carta para este turno.</div>';
       }
 
       var totalImporte = parseFloat(data.total_importe || 0);
@@ -455,8 +462,8 @@
       html += '<thead>';
       html += '<tr class="ipv-group">';
       html += '<th colspan="2" class="g-id" style="text-align:left">Producto</th>';
-      html += '<th colspan="4" class="g-stock" style="text-align:center">Control de existencia</th>';
       html += '<th colspan="3" class="g-ventas" style="text-align:center">Ventas del día</th>';
+      html += '<th colspan="1" class="g-fin" style="text-align:center">Rechazos</th>';
       html += '<th colspan="1" class="g-fin" style="text-align:center">Merma</th>';
       html += '</tr>';
 
@@ -464,39 +471,21 @@
       html += '<tr class="ipv-cols">';
       html += '<th style="text-align:left">Descripción</th>';
       html += '<th style="text-align:left">Categoría</th>';
-      html += '<th class="g-stock">Saldo inicial</th>';
-      html += '<th class="g-stock">Entradas</th>';
-      html += '<th class="g-stock">En existencia</th>';
-      html += '<th class="g-stock">Saldo final</th>';
       html += '<th class="g-ventas">Cant. vendida</th>';
       html += '<th class="g-ventas">Precio venta</th>';
       html += '<th class="g-ventas">Importe</th>';
+      html += '<th class="g-fin">Platos rechazados</th>';
       html += '<th class="g-fin">Merma / rotura</th>';
       html += '</tr>';
       html += '</thead>';
 
       html += '<tbody>';
       filas.forEach(function(f) {
-        var noStock = !f.control_existencia;
-        html += '<tr class="' + (noStock ? 'ipv-no-stock' : '') + '">';
+        html += '<tr>';
 
         // Descripción
         html += '<td class="col-nombre" title="' + f.nombre + '">' + f.nombre + '</td>';
         html += '<td class="col-cat">' + f.categoria + '</td>';
-
-        if (f.control_existencia) {
-          var en   = parseFloat(f.entradas);
-          var ex   = parseFloat(f.cantidad_existencia);
-          html += '<td class="g-stock zero">-</td>';
-          html += '<td class="g-stock' + (en===0?' zero':'') + '">' + fmt(f.entradas) + '</td>';
-          html += '<td class="g-stock' + (ex===0?' zero':'') + '">' + fmt(f.cantidad_existencia) + '</td>';
-          html += '<td class="g-stock zero">-</td>';
-        } else {
-          html += '<td class="col-na">—</td>';
-          html += '<td class="col-na">—</td>';
-          html += '<td class="col-na">—</td>';
-          html += '<td class="col-na">—</td>';
-        }
 
         var cv  = parseFloat(f.cantidad_vendida);
         var pv  = parseFloat(f.precio_venta);
@@ -504,13 +493,9 @@
         html += '<td class="g-ventas' + (cv===0?' zero':'') + '">' + fmt(f.cantidad_vendida, 0) + '</td>';
         html += '<td class="g-ventas' + (pv===0?' zero':'') + '">' + fmt(f.precio_venta) + '</td>';
         html += '<td class="g-ventas importe' + (imp===0?' zero':'') + '">' + fmt(f.importe_venta) + '</td>';
-
-        if (f.control_existencia) {
-          var mr = parseFloat(f.merma_rotura);
-          html += '<td class="g-fin merma' + (mr===0?' zero':'') + '">' + fmt(f.merma_rotura) + '</td>';
-        } else {
-          html += '<td class="col-na">—</td>';
-        }
+        html += '<td class="g-fin">' + fmt(f.cantidad_rechazada, 0) + '</td>';
+        var mr = parseFloat(f.merma_rotura);
+        html += '<td class="g-fin merma' + (mr===0?' zero':'') + '">' + fmt(f.merma_rotura) + '</td>';
 
         html += '</tr>';
       });
@@ -518,12 +503,21 @@
 
       // Totales
       html += '<tfoot><tr>';
-      html += '<td colspan="8" class="lbl" style="text-align:right;letter-spacing:.05em;font-size:.7rem;text-transform:uppercase">Total importe de ventas</td>';
+      html += '<td colspan="4" class="lbl" style="text-align:right;letter-spacing:.05em;font-size:.7rem;text-transform:uppercase">Total importe de ventas</td>';
       html += '<td class="g-ventas importe" style="font-size:.9rem">' + fmt(String(totalImporte)) + '</td>';
+      html += '<td></td>';
       html += '<td></td>';
       html += '</tr></tfoot>';
 
       html += '</table>';
+      if (rechazos.length) {
+        html += '<section class="mt-4"><h3 class="text-sm font-bold text-slate-200">Detalle de platos rechazados</h3>';
+        html += '<div class="mt-2 overflow-x-auto"><table class="ipv-table"><thead><tr><th>Fecha</th><th>Mesa</th><th>Plato</th><th>Cantidad</th><th>Motivo</th><th>Reportado por</th></tr></thead><tbody>';
+        rechazos.forEach(function(rechazo) {
+          html += '<tr><td>' + escaparHtml(rechazo.creado_en) + '</td><td>' + escaparHtml(rechazo.mesa) + '</td><td>' + escaparHtml(rechazo.plato) + '</td><td>' + fmt(rechazo.cantidad, 0) + '</td><td>' + escaparHtml(rechazo.motivo) + '</td><td>' + escaparHtml(rechazo.reportado_por) + '</td></tr>';
+        });
+        html += '</tbody></table></div></section>';
+      }
       return html;
     }
 

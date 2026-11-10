@@ -21,6 +21,44 @@ def _es_admin(user):
     return user.is_authenticated and user.role == 'administrador'
 
 
+def _es_admin_o_cajera(user):
+    return user.is_authenticated and user.role in ('administrador', 'cajera')
+
+
+def _es_cajera(user):
+    return user.is_authenticated and user.role == 'cajera'
+
+
+def _url_gestion_carta(user):
+    if user.role == 'cajera':
+        return reverse('inventario:carta_cajera')
+    return f'{reverse("inventario:administrador")}#carta'
+
+
+def _platos_por_categoria(platos, categorias):
+    grupos = []
+    for categoria in categorias:
+        platos_categoria = [
+            plato for plato in platos if plato.categoria_id == categoria.pk
+        ]
+        if platos_categoria:
+            grupos.append({
+                'id': categoria.pk,
+                'nombre': categoria.nombre,
+                'platos': platos_categoria,
+            })
+    platos_sin_categoria = [
+        plato for plato in platos if plato.categoria_id is None
+    ]
+    if platos_sin_categoria:
+        grupos.append({
+            'id': '',
+            'nombre': 'Sin categoría',
+            'platos': platos_sin_categoria,
+        })
+    return grupos
+
+
 def _to_decimal(valor, default=None):
     try:
         decimal = Decimal(str(valor).replace(',', '.').strip())
@@ -137,24 +175,7 @@ def administrador(request):
             to_attr='platos_publicados',
         )
     )
-    platos_por_categoria = []
-    for categoria in categorias:
-        platos_categoria = [plato for plato in platos if plato.categoria_id == categoria.pk]
-        if platos_categoria:
-            platos_por_categoria.append({
-                'id': categoria.pk,
-                'nombre': categoria.nombre,
-                'platos': platos_categoria,
-            })
-    platos_sin_categoria_admin = [
-        plato for plato in platos if plato.categoria_id is None
-    ]
-    if platos_sin_categoria_admin:
-        platos_por_categoria.append({
-            'id': '',
-            'nombre': 'Sin categoría',
-            'platos': platos_sin_categoria_admin,
-        })
+    platos_por_categoria = _platos_por_categoria(platos, categorias)
     platos_sin_categoria = [
         plato for plato in platos
         if plato.categoria_id is None and plato.disponible and plato.receta_admin
@@ -236,6 +257,160 @@ def administrador(request):
         'wifi_qr': wifi_qr,
         'sistema_url': sistema_url,
         'sistema_qr': sistema_qr,
+    })
+
+
+@login_required
+@user_passes_test(_es_cajera)
+def carta_cajera(request):
+    platos = list(Plato.objects.select_related('categoria').prefetch_related(
+        Prefetch(
+            'receta',
+            queryset=RecetaItem.objects.select_related('insumo'),
+            to_attr='receta_admin',
+        )
+    ))
+    for plato in platos:
+        plato.receta_json = json.dumps([
+            {'insumo_id': item.insumo_id, 'cantidad': str(item.cantidad)}
+            for item in plato.receta_admin
+        ])
+        plato.receta_con_stock_bajo = any(
+            item.insumo.stock_bajo for item in plato.receta_admin
+        )
+
+    categorias = Categoria.objects.prefetch_related(
+        Prefetch(
+            'platos',
+            queryset=Plato.objects.filter(
+                disponible=True,
+                receta__isnull=False,
+            ).distinct(),
+            to_attr='platos_publicados',
+        )
+    )
+    platos_por_categoria = _platos_por_categoria(platos, categorias)
+    return render(request, 'administrador/administrador.html', {
+        'platos': platos,
+        'platos_por_categoria': platos_por_categoria,
+        'categorias': categorias,
+        'insumos_disponibles': Insumo.objects.filter(
+            activo=True,
+            tipo_inventario__in=['cocina', 'restaurante'],
+        ).select_related('categoria_inventario').order_by('nombre'),
+        'vista_cajera': True,
+    })
+
+
+@login_required
+@user_passes_test(_es_cajera)
+def entrada_almacen_cajera(request):
+    inventarios = []
+    for tipo, nombre in CategoriaInventario.TIPO_CHOICES:
+        producto_filtro = request.GET.get(f'{tipo}_producto', '').strip()
+        categoria_filtro = request.GET.get(f'{tipo}_categoria', '').strip()
+        categorias = list(CategoriaInventario.objects.filter(tipo=tipo).order_by('nombre'))
+        categoria_ids = {str(categoria.pk) for categoria in categorias}
+        if categoria_filtro not in categoria_ids:
+            categoria_filtro = ''
+
+        insumos = Insumo.objects.filter(
+            activo=True,
+            tipo_inventario=tipo,
+        ).select_related('categoria_inventario')
+        if producto_filtro:
+            insumos = insumos.filter(nombre__icontains=producto_filtro)
+        if categoria_filtro:
+            insumos = insumos.filter(categoria_inventario_id=int(categoria_filtro))
+        page_parameter = f'{tipo}_page'
+        insumos_paginados = Paginator(
+            insumos.order_by('nombre', 'pk'),
+            15,
+        ).get_page(request.GET.get(page_parameter))
+
+        otro_tipo = 'restaurante' if tipo == 'cocina' else 'cocina'
+        filtros_preservados = [
+            {
+                'nombre': f'{otro_tipo}_{campo}',
+                'valor': request.GET.get(f'{otro_tipo}_{campo}', ''),
+            }
+            for campo in ('producto', 'categoria', 'page')
+            if request.GET.get(f'{otro_tipo}_{campo}', '')
+        ]
+        query_sin_filtros_area = request.GET.copy()
+        for parametro in (
+            f'{tipo}_producto',
+            f'{tipo}_categoria',
+            page_parameter,
+        ):
+            query_sin_filtros_area.pop(parametro, None)
+        query_sin_filtros_area = query_sin_filtros_area.urlencode()
+        limpiar_url = (
+            f'?{query_sin_filtros_area}#inventario-{tipo}'
+            if query_sin_filtros_area
+            else f'#inventario-{tipo}'
+        )
+
+        inventarios.append({
+            'tipo': tipo,
+            'nombre': nombre,
+            'insumos': insumos_paginados,
+            'categorias': categorias,
+            'producto_filtro': producto_filtro,
+            'categoria_filtro': categoria_filtro,
+            'page_parameter': page_parameter,
+            'pagination_query': _pagination_query(request, page_parameter),
+            'pagination_anchor': f'#inventario-{tipo}',
+            'filtros_preservados': filtros_preservados,
+            'limpiar_url': limpiar_url,
+        })
+
+    if request.method == 'POST':
+        insumo_id = request.POST.get('insumo_id', '').strip()
+        cantidad = _to_decimal(request.POST.get('cantidad'))
+        motivo = request.POST.get('motivo', '').strip()
+
+        if not insumo_id.isdecimal():
+            messages.error(request, 'Selecciona un producto válido.')
+        elif cantidad is None or cantidad <= 0 or not _decimal_fits_field(cantidad, 11, 3):
+            messages.error(request, 'Introduce una cantidad positiva de hasta tres decimales.')
+        elif len(motivo) > 200:
+            messages.error(request, 'El motivo o referencia no puede superar 200 caracteres.')
+        else:
+            with transaction.atomic():
+                insumo = Insumo.objects.select_for_update().filter(
+                    pk=int(insumo_id),
+                    activo=True,
+                    tipo_inventario__in=['cocina', 'restaurante'],
+                ).first()
+                if insumo is None:
+                    messages.error(request, 'El producto seleccionado no está activo o ya no existe.')
+                else:
+                    stock_anterior = insumo.stock_actual
+                    stock_posterior = stock_anterior + cantidad
+                    if not _decimal_fits_field(stock_posterior, 11, 3):
+                        messages.error(request, 'La cantidad supera el límite de existencia permitido.')
+                    else:
+                        insumo.stock_actual = stock_posterior
+                        insumo.save(update_fields=['stock_actual', 'actualizado_en'])
+                        from .services import _registrar_movimiento
+                        _registrar_movimiento(
+                            insumo,
+                            'entrada',
+                            cantidad,
+                            stock_anterior,
+                            stock_posterior,
+                            usuario=request.user,
+                            motivo=motivo or 'Entrada manual por Caja',
+                        )
+                        messages.success(
+                            request,
+                            f'Entrada registrada para "{insumo.nombre}". Existencia actual: {stock_posterior} {insumo.unidad}.',
+                        )
+        return redirect('inventario:entrada_almacen_cajera')
+
+    return render(request, 'inventario/entrada_almacen_cajera.html', {
+        'inventarios': inventarios,
     })
 
 
@@ -374,43 +549,47 @@ def categoria_inventario_eliminar(request, tipo, pk):
 
 
 @login_required
-@user_passes_test(_es_admin)
+@user_passes_test(_es_admin_o_cajera)
 def plato_crear(request):
     if request.method == 'POST':
+        es_cajera = request.user.role == 'cajera'
         categoria_id = request.POST.get('categoria')
-        categoria_nombre = request.POST.get('categoria_nueva', '').strip()
+        categoria_nombre = '' if es_cajera else request.POST.get('categoria_nueva', '').strip()
         nombre = request.POST.get('nombre', '').strip()
         descripcion = request.POST.get('descripcion', '').strip()
         precio = _to_decimal(request.POST.get('precio'))
-        destino = request.POST.get('destino', 'cocina')
+        destino = request.POST.get('destino', 'barra' if es_cajera else 'cocina')
+        if es_cajera and destino != 'barra':
+            messages.error(request, 'Solo puedes agregar platos al área de Restaurante.')
+            return redirect(_url_gestion_carta(request.user))
 
         if not categoria_id and not categoria_nombre:
             messages.error(request, 'Debes elegir una categoría para el plato.')
-            return redirect('/administrador/#carta')
+            return redirect(_url_gestion_carta(request.user))
 
         if destino not in dict(Plato.DESTINO_CHOICES):
             messages.error(request, 'Selecciona Cocina o Barra como área de preparación.')
-            return redirect('/administrador/#carta')
+            return redirect(_url_gestion_carta(request.user))
 
         if not nombre or precio is None or precio <= 0:
             messages.error(request, 'Completa nombre y precio del plato.')
-            return redirect('/administrador/#carta')
+            return redirect(_url_gestion_carta(request.user))
 
         receta, error_receta = _receta_desde_post(request)
         guarniciones, error_guarniciones = _guarniciones_desde_post(request)
         disponible = request.POST.get('disponible') == 'on'
         if error_receta:
             messages.error(request, error_receta)
-            return redirect('/administrador/#carta')
+            return redirect(_url_gestion_carta(request.user))
         if error_guarniciones:
             messages.error(request, error_guarniciones)
-            return redirect('/administrador/#carta')
-        if disponible and not receta:
+            return redirect(_url_gestion_carta(request.user))
+        if disponible and not receta and not es_cajera:
             messages.error(request, 'Agrega al menos un producto de inventario antes de publicar el plato.')
-            return redirect('/administrador/#carta')
+            return redirect(_url_gestion_carta(request.user))
         if disponible and receta_tiene_insumo_sin_stock(receta):
             messages.error(request, 'No se puede publicar el plato porque uno o más productos de su receta no tienen stock.')
-            return redirect('/administrador/#carta')
+            return redirect(_url_gestion_carta(request.user))
 
         if categoria_id:
             categoria = get_object_or_404(Categoria, pk=categoria_id)
@@ -440,47 +619,65 @@ def plato_crear(request):
                 for insumo, cantidad in receta
             ])
         messages.success(request, f'Plato "{nombre}" creado con {len(receta)} producto(s) de inventario.')
-    return redirect('/administrador/#carta')
+    return redirect(_url_gestion_carta(request.user))
 
 
 @login_required
-@user_passes_test(_es_admin)
+@user_passes_test(_es_admin_o_cajera)
 def plato_editar(request, pk):
     plato = get_object_or_404(Plato, pk=pk)
+    es_cajera = request.user.role == 'cajera'
+    if es_cajera and plato.destino != 'barra':
+        if request.method == 'POST':
+            precio = _to_decimal(request.POST.get('precio'))
+            if precio is None or precio <= 0:
+                messages.error(request, 'Ingresa un precio válido.')
+            else:
+                plato.precio = precio
+                plato.save(update_fields=['precio'])
+                messages.success(request, f'Precio de "{plato.nombre}" actualizado.')
+        return redirect(_url_gestion_carta(request.user))
+
     if request.method == 'POST':
         categoria_id = request.POST.get('categoria')
         nombre = request.POST.get('nombre', plato.nombre).strip() or plato.nombre
         descripcion = request.POST.get('descripcion', plato.descripcion).strip()
         precio = _to_decimal(request.POST.get('precio'))
+        if es_cajera and (precio is None or precio <= 0):
+            messages.error(request, 'Ingresa un precio válido.')
+            return redirect(_url_gestion_carta(request.user))
         destino = request.POST.get('destino', plato.destino)
+        if es_cajera and destino != 'barra':
+            messages.error(request, 'No tienes permiso para cambiar el área de preparación.')
+            return redirect(_url_gestion_carta(request.user))
         if destino not in dict(Plato.DESTINO_CHOICES):
             messages.error(request, 'Selecciona Cocina o Barra como área de preparación.')
-            return redirect('/administrador/#carta')
+            return redirect(_url_gestion_carta(request.user))
 
         receta = None
         if 'receta_enviada' in request.POST:
             receta, error_receta = _receta_desde_post(request)
             if error_receta:
                 messages.error(request, error_receta)
-                return redirect('/administrador/#carta')
+                return redirect(_url_gestion_carta(request.user))
         guarniciones, error_guarniciones = _guarniciones_desde_post(request)
         if error_guarniciones:
             messages.error(request, error_guarniciones)
-            return redirect('/administrador/#carta')
+            return redirect(_url_gestion_carta(request.user))
         disponible = request.POST.get('disponible') == 'on'
-        if disponible and receta is not None and not receta:
+        if disponible and receta is not None and not receta and not es_cajera:
             messages.error(request, 'Agrega al menos un producto de inventario para publicar este plato.')
-            return redirect('/administrador/#carta')
-        if disponible and receta is None and not plato.receta.exists():
+            return redirect(_url_gestion_carta(request.user))
+        if disponible and receta is None and not plato.receta.exists() and not es_cajera:
             messages.error(request, 'Agrega al menos un producto de inventario para publicar este plato.')
-            return redirect('/administrador/#carta')
+            return redirect(_url_gestion_carta(request.user))
         receta_para_validar = receta if receta is not None else [
             (item.insumo, item.cantidad)
             for item in plato.receta.select_related('insumo')
         ]
         if disponible and receta_tiene_insumo_sin_stock(receta_para_validar):
             messages.error(request, 'No se puede publicar el plato porque uno o más productos de su receta no tienen stock.')
-            return redirect('/administrador/#carta')
+            return redirect(_url_gestion_carta(request.user))
         if 'categoria' in request.POST:
             plato.categoria = get_object_or_404(Categoria, pk=categoria_id) if categoria_id else None
         if precio is not None and precio > 0:
@@ -502,7 +699,7 @@ def plato_editar(request, pk):
                     for insumo, cantidad in receta
                 ])
         messages.success(request, f'Plato "{plato.nombre}" actualizado.')
-    return redirect('/administrador/#carta')
+    return redirect(_url_gestion_carta(request.user))
 
 
 @login_required
@@ -574,9 +771,12 @@ def guarnicion_editar(request, pk):
 
 
 @login_required
-@user_passes_test(_es_admin)
+@user_passes_test(_es_admin_o_cajera)
 def plato_eliminar(request, pk):
     plato = get_object_or_404(Plato, pk=pk)
+    if request.user.role == 'cajera':
+        messages.error(request, 'No tienes permiso para eliminar platos de la carta.')
+        return redirect(_url_gestion_carta(request.user))
     if request.method == 'POST':
         nombre = plato.nombre
         plato.delete()

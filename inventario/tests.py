@@ -34,6 +34,75 @@ class InventarioFlowTests(TestCase):
         self.assertContains(response, 'Reportes')
         self.assertContains(response, 'id="nav-wifi"')
 
+    def test_cashier_can_open_menu_and_inventory_entry(self):
+        cajera = get_user_model().objects.create_user(
+            username='cajera_menu', password='123456', role='cajera'
+        )
+        self.client.force_login(cajera)
+
+        respuesta_carta = self.client.get(reverse('inventario:carta_cajera'))
+        self.assertEqual(respuesta_carta.status_code, 200)
+        self.assertContains(respuesta_carta, 'Gestión de Carta')
+
+        respuesta_almacen = self.client.get(reverse('inventario:entrada_almacen_cajera'))
+        self.assertEqual(respuesta_almacen.status_code, 200)
+        self.assertContains(respuesta_almacen, 'Entrada al almacén')
+
+    def test_cashier_can_update_prices_from_her_menu_section(self):
+        cajera = get_user_model().objects.create_user(
+            username='cajera_precio', password='123456', role='cajera'
+        )
+        plato_cocina = Plato.objects.create(
+            categoria=self.categoria,
+            nombre='Plato de Cocina',
+            precio=Decimal('25.00'),
+            destino='cocina',
+            disponible=False,
+        )
+        plato_barra = Plato.objects.create(
+            categoria=self.categoria,
+            nombre='Producto de Restaurante',
+            precio=Decimal('10.00'),
+            destino='barra',
+        )
+        self.client.force_login(cajera)
+
+        respuesta = self.client.get(reverse('inventario:carta_cajera'))
+        self.assertEqual(respuesta.status_code, 200)
+        self.assertContains(respuesta, 'Cambiar precio')
+
+        respuesta_cocina = self.client.post(
+            reverse('inventario:plato_editar', args=[plato_cocina.pk]),
+            {
+                'nombre': 'Nombre no autorizado',
+                'categoria': '',
+                'destino': 'barra',
+                'descripcion': 'Descripción no autorizada',
+                'precio': '30.50',
+                'disponible': 'on',
+            },
+        )
+        self.assertEqual(respuesta_cocina.status_code, 302)
+        plato_cocina.refresh_from_db()
+        self.assertEqual(plato_cocina.precio, Decimal('30.50'))
+        self.assertEqual(plato_cocina.nombre, 'Plato de Cocina')
+        self.assertEqual(plato_cocina.destino, 'cocina')
+        self.assertEqual(plato_cocina.descripcion, '')
+        self.assertFalse(plato_cocina.disponible)
+
+        respuesta_barra = self.client.post(
+            reverse('inventario:plato_editar', args=[plato_barra.pk]),
+            {
+                'nombre': plato_barra.nombre,
+                'descripcion': '',
+                'precio': '12.75',
+                'destino': 'barra',
+            },
+        )
+        self.assertEqual(respuesta_barra.status_code, 302)
+        plato_barra.refresh_from_db()
+        self.assertEqual(plato_barra.precio, Decimal('12.75'))
+
     def test_inventory_forms_render_model_length_and_decimal_limits(self):
         response = self.client.get(reverse('inventario:administrador'))
 

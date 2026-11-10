@@ -7,7 +7,7 @@ from channels.generic.websocket import AsyncWebsocketConsumer
 from channels.db import database_sync_to_async
 from django.db.models import F, Q
 from django.utils import timezone
-from .models import Pedido, ItemPedido, Mesa, Factura
+from .models import Pedido, ItemPedido, Mesa, Factura, RechazoItemPedido
 from carta.models import Plato
 from inventario.services import descontar_inventario_por_pedido
 from usuarios.models import get_turno_abierto
@@ -30,6 +30,9 @@ def _to_decimal(valor):
 def serializar_pedido(pedido):
     es_para_llevar = pedido.modalidad == 'para_llevar'
     codigo_para_llevar = pedido.grupo_para_llevar.hex[:8].upper() if pedido.grupo_para_llevar else None
+    items = pedido.items.select_related('plato', 'guarnicion').prefetch_related(
+        'rechazos__reportado_por',
+    )
     return {
         'id': pedido.pk,
         'mesa_id': pedido.mesa_id,
@@ -53,26 +56,33 @@ def serializar_pedido(pedido):
         'comprobante_url': pedido.comprobante_transferencia.url if pedido.comprobante_transferencia else None,
         'creado_en': pedido.creado_en.strftime('%H:%M'),
         'total': str(pedido.total()),
-        'items': [
-            {
+        'items': [{
                 'id': i.pk,
                 'plato_id': i.plato_id,
                 'plato': i.plato.nombre,
                 'imagen_url': i.plato.imagen.url if i.plato.imagen else None,
                 'precio_unit': str(i.plato.precio),
                 'cantidad': i.cantidad,
+                'cantidad_cobrable': i.cantidad_cobrable,
+                'cantidad_rechazada': i.cantidad_rechazada,
                 'nota': i.nota,
                 'cancelacion_solicitada': i.cancelacion_solicitada,
                 'motivo_cancelacion': i.motivo_cancelacion,
                 'cancelado': i.cancelado,
+                'rechazos': [{
+                    'cantidad': rechazo.cantidad,
+                    'motivo': rechazo.motivo,
+                    'reportado_por': (
+                        rechazo.reportado_por.get_full_name() or rechazo.reportado_por.username
+                    ) if rechazo.reportado_por else '',
+                    'creado_en': timezone.localtime(rechazo.creado_en).strftime('%d/%m/%Y %H:%M'),
+                } for rechazo in i.rechazos.all()],
                 **({
                     'guarnicion_id': i.guarnicion_id,
                     'guarnicion': i.guarnicion.nombre,
                 } if i.guarnicion_id else {}),
                 'subtotal': str(i.subtotal()),
-            }
-            for i in pedido.items.all()
-        ],
+            } for i in items],
     }
 
 
@@ -201,21 +211,38 @@ def serializar_cuenta(pedidos):
     if not pedidos:
         return None
     items = []
+    rechazos = []
     total = Decimal('0')
     for pedido in pedidos:
         total += pedido.total()
-        items.extend({
-            'id': item.pk,
-            'plato': item.plato.nombre,
-            'precio_unit': str(item.plato.precio),
-            'cantidad': item.cantidad,
-            'nota': item.nota,
-            **({
-                'guarnicion_id': item.guarnicion_id,
-                'guarnicion': item.guarnicion.nombre,
-            } if item.guarnicion_id else {}),
-            'subtotal': str(item.subtotal()),
-        } for item in pedido.items.filter(cancelado=False))
+        pedido_items = pedido.items.select_related('plato', 'guarnicion').prefetch_related(
+            'rechazos__reportado_por',
+        ).filter(cancelado=False)
+        for item in pedido_items:
+            if item.cantidad_cobrable:
+                items.append({
+                    'id': item.pk,
+                    'plato': item.plato.nombre,
+                    'precio_unit': str(item.plato.precio),
+                    'cantidad': item.cantidad_cobrable,
+                    'nota': item.nota,
+                    **({
+                        'guarnicion_id': item.guarnicion_id,
+                        'guarnicion': item.guarnicion.nombre,
+                    } if item.guarnicion_id else {}),
+                    'subtotal': str(item.subtotal()),
+                })
+            rechazos.extend({
+                'plato': item.plato.nombre,
+                'cantidad': rechazo.cantidad,
+                'motivo': rechazo.motivo,
+                'reportado_por': (
+                    rechazo.reportado_por.get_full_name() or rechazo.reportado_por.username
+                ) if rechazo.reportado_por else '',
+                'creado_en': timezone.localtime(rechazo.creado_en).strftime('%d/%m/%Y %H:%M'),
+            } for rechazo in item.rechazos.all())
+    if total <= 0:
+        return None
     es_para_llevar = pedidos[0].modalidad == 'para_llevar'
     codigo_para_llevar = pedidos[0].grupo_para_llevar.hex[:8].upper() if pedidos[0].grupo_para_llevar else None
     return {
@@ -243,6 +270,7 @@ def serializar_cuenta(pedidos):
             None,
         ),
         'items': items,
+        'rechazos': rechazos,
         'pdf_url': None,
     }
 
@@ -285,8 +313,12 @@ def serializar_factura(factura):
                 **({'categoria': item['categoria']} if 'categoria' in item else {}),
             }
             for item in factura.items_snapshot
+            if not item.get('es_merma')
         ],
-        'items_snapshot': factura.items_snapshot,
+        'items_snapshot': [
+            item for item in factura.items_snapshot
+            if not item.get('es_merma')
+        ],
         'pdf_url': f'/pedidos/caja/factura/{factura.id}/imprimir/',
         'web_url': f'/pedidos/caja/factura/{factura.id}/imprimir-web/',
     }
@@ -325,6 +357,43 @@ class MeseraConsumer(AsyncWebsocketConsumer):
     async def receive(self, text_data):
         data = json.loads(text_data)
         accion = data.get('accion')
+
+        if accion == 'rechazar_plato':
+            usuario = self.scope.get('user')
+            if not getattr(usuario, 'is_authenticated', False) or getattr(usuario, 'role', None) != 'mesera':
+                await self.send(text_data=json.dumps({
+                    'tipo': 'error_rechazo_plato',
+                    'mensaje': 'Solo la mesera puede registrar el rechazo de un plato.',
+                }))
+                return
+
+            pedido, rechazo, error = await self.registrar_rechazo_plato(
+                data.get('pedido_id'),
+                data.get('item_id'),
+                data.get('cantidad'),
+                data.get('motivo', ''),
+                usuario.pk,
+            )
+            if not pedido:
+                await self.send(text_data=json.dumps({
+                    'tipo': 'error_rechazo_plato',
+                    'mensaje': error or 'No se pudo registrar el rechazo del plato.',
+                }))
+                return
+
+            await self.channel_layer.group_send(
+                'mesera',
+                {'type': 'pedido_actualizado', 'pedido': pedido},
+            )
+            await self.channel_layer.group_send(
+                'caja',
+                {'type': 'plato_rechazado', 'rechazo': rechazo},
+            )
+            await self.send(text_data=json.dumps({
+                'tipo': 'rechazo_plato_registrado',
+                'rechazo': rechazo,
+            }))
+            return
 
         if accion in ['solicitar_cancelacion', 'aceptar_cancelacion']:
             await self.send(text_data=json.dumps({
@@ -856,8 +925,14 @@ class MeseraConsumer(AsyncWebsocketConsumer):
         if not mesa.abierta:
             return None, 'La mesa ya está cerrada.'
         if Pedido.objects.filter(
-            mesa=mesa, sesion_id=mesa.sesion_id,
-        ).exclude(estado__in=['cerrado', 'rechazado', 'cancelado']).exists():
+            mesa=mesa,
+            sesion_id=mesa.sesion_id,
+        ).exclude(
+            estado__in=['cerrado', 'rechazado', 'cancelado'],
+        ).filter(
+            items__cancelado=False,
+            items__cantidad_rechazada__lt=F('items__cantidad'),
+        ).exists():
             return None, 'Cobra y cierra primero los pedidos activos de esta mesa.'
         mesa.abierta = False
         mesa.save(update_fields=['abierta'])
@@ -869,6 +944,64 @@ class MeseraConsumer(AsyncWebsocketConsumer):
             'etiqueta': mesa.etiqueta,
             'abierta': mesa.abierta,
         }, None
+
+    @database_sync_to_async
+    def registrar_rechazo_plato(self, pedido_id, item_id, cantidad, motivo, usuario_id):
+        try:
+            pedido_id = int(pedido_id)
+            item_id = int(item_id)
+            cantidad = int(cantidad)
+        except (TypeError, ValueError):
+            return None, None, 'Indica una cantidad válida para el rechazo.'
+        motivo = str(motivo or '').strip()
+        if cantidad <= 0 or len(motivo) > 300 or not motivo:
+            return None, None, 'La cantidad debe ser positiva y el motivo es obligatorio (máximo 300 caracteres).'
+
+        with transaction.atomic():
+            pedido = Pedido.objects.select_for_update().filter(
+                pk=pedido_id,
+                modalidad='mesa',
+                estado='servido',
+                cuenta_solicitada=False,
+                mesa__abierta=True,
+                sesion_id=F('mesa__sesion_id'),
+            ).select_related('mesa').first()
+            if not pedido:
+                return None, None, 'El pedido debe estar servido y la cuenta aún no debe haberse solicitado.'
+
+            item = ItemPedido.objects.select_for_update().select_related('plato').filter(
+                pk=item_id,
+                pedido=pedido,
+                cancelado=False,
+            ).first()
+            if not item:
+                return None, None, 'El plato ya no está disponible para registrar un rechazo.'
+            if item.cantidad_rechazada + cantidad > item.cantidad:
+                return None, None, 'La cantidad rechazada supera las unidades cobrables.'
+
+            rechazo = RechazoItemPedido.objects.create(
+                item=item,
+                cantidad=cantidad,
+                motivo=motivo,
+                reportado_por_id=usuario_id,
+            )
+            item.cantidad_rechazada += cantidad
+            item.save(update_fields=['cantidad_rechazada'])
+
+            pedido = Pedido.objects.select_related('mesa').get(pk=pedido.pk)
+            pedido_data = serializar_pedido(pedido)
+            rechazo_data = {
+                'pedido_id': pedido.pk,
+                'mesa_numero': pedido.mesa.numero,
+                'etiqueta': pedido.mesa.etiqueta,
+                'plato': item.plato.nombre,
+                'cantidad': rechazo.cantidad,
+                'motivo': rechazo.motivo,
+                'reportado_por': (
+                    rechazo.reportado_por.get_full_name() or rechazo.reportado_por.username
+                ) if rechazo.reportado_por else '',
+            }
+            return pedido_data, rechazo_data, None
 
     @database_sync_to_async
     def crear_pedido(self, mesa_id, items_data, nota):
@@ -1063,7 +1196,7 @@ class MeseraConsumer(AsyncWebsocketConsumer):
             mesa_id=mesa_id,
             estado__in=['pendiente', 'en_preparacion', 'listo', 'servido'],
         ).select_related('mesa').prefetch_related('items__plato'))
-        if not pedidos:
+        if not pedidos or sum((pedido.total() for pedido in pedidos), Decimal('0')) <= 0:
             return []
         Pedido.objects.filter(pk__in=[p.pk for p in pedidos]).update(cuenta_solicitada=True)
         for pedido in pedidos:
@@ -1129,6 +1262,8 @@ class MeseraConsumer(AsyncWebsocketConsumer):
                 return None, 'No hay una cuenta pendiente para esta mesa.'
             if any(pedido.estado != 'servido' for pedido in pedidos):
                 return None, 'No se puede cobrar hasta que todos los pedidos de la mesa estén servidos.'
+            if sum((pedido.total() for pedido in pedidos), Decimal('0')) <= 0:
+                return None, 'No hay platos cobrables en esta mesa.'
             if forma_pago in {'transferencia', 'mixto'} and not any(
                 pedido.comprobante_transferencia for pedido in pedidos
             ):
@@ -1447,6 +1582,12 @@ class CajaConsumer(AsyncWebsocketConsumer):
     async def cuenta_actualizada(self, event):
         await self.send(text_data=json.dumps({'tipo': 'pedido_actualizado', 'pedido': event['cuenta']}))
 
+    async def plato_rechazado(self, event):
+        await self.send(text_data=json.dumps({
+            'tipo': 'plato_rechazado',
+            'rechazo': event['rechazo'],
+        }))
+
     async def factura_solicitada(self, event):
         factura = dict(event['factura'])
         if event.get('mesera_nombre'):
@@ -1599,22 +1740,29 @@ class CajaConsumer(AsyncWebsocketConsumer):
                 return None, 'El efectivo USD recibido no puede ser menor que el monto a cobrar.'
             cambio_usd = monto_recibido_usd - monto_usd
 
-        items_snapshot = [
-            {
-                'plato_id': i.plato_id,
-                'plato': i.plato.nombre,
-                'categoria': i.plato.categoria.nombre if i.plato.categoria else 'Sin categoría',
-                'cantidad': i.cantidad,
-                'precio_unit': str(i.plato.precio),
-                'subtotal': str(i.subtotal()),
-                **({
-                    'guarnicion_id': i.guarnicion_id,
-                    'guarnicion': i.guarnicion.nombre,
-                } if i.guarnicion_id else {}),
-            }
-            for pedido in pedidos
-            for i in pedido.items.filter(cancelado=False)
-        ]
+        items_snapshot = []
+        for pedido in pedidos:
+            items = pedido.items.filter(cancelado=False).select_related(
+                'plato__categoria',
+                'guarnicion',
+            ).prefetch_related('rechazos__reportado_por')
+            for item in items:
+                base = {
+                    'plato_id': item.plato_id,
+                    'plato': item.plato.nombre,
+                    'categoria': item.plato.categoria.nombre if item.plato.categoria else 'Sin categoría',
+                    **({
+                        'guarnicion_id': item.guarnicion_id,
+                        'guarnicion': item.guarnicion.nombre,
+                    } if item.guarnicion_id else {}),
+                }
+                if item.cantidad_cobrable:
+                    items_snapshot.append({
+                        **base,
+                        'cantidad': item.cantidad_cobrable,
+                        'precio_unit': str(item.plato.precio),
+                        'subtotal': str(item.subtotal()),
+                    })
 
         factura = Factura.objects.create(
             pedido=principal,
@@ -1672,6 +1820,12 @@ class CajaConsumer(AsyncWebsocketConsumer):
                     'cantidad': item['cantidad'],
                     'precio_unit': item['precio_unit'],
                     'subtotal': item['subtotal'],
+                    **({
+                        'es_merma': True,
+                        'motivo_rechazo': item['motivo_rechazo'],
+                        'reportado_por': item.get('reportado_por', ''),
+                        'rechazado_en': item.get('rechazado_en', ''),
+                    } if item.get('es_merma') else {}),
                     **({
                         'guarnicion_id': item['guarnicion_id'],
                         'guarnicion': item['guarnicion'],

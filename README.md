@@ -108,11 +108,11 @@ con el botón **Imprimir QR**.
 - El descuento de stock ocurre una sola vez por pedido (campo
   `Pedido.inventario_descontado`), disparado cuando la mesera marca el pedido
   como "Servido".
-- El IPV se controla por turno con productos seleccionados de la carta, no con
-  insumos ni movimientos de ingredientes. Al iniciar, caja registra el fondo
-  inicial CUP, saldo inicial por producto y entradas del almacén; las roturas se
-  registran durante el turno. Las facturas suman automáticamente las unidades
-  vendidas y el saldo final pasa como sugerencia inicial al siguiente turno.
+- El IPV se controla por turno con todos los productos disponibles de la carta,
+  que se incorporan automáticamente y se actualizan durante el turno. Las facturas
+  suman automáticamente las unidades y el importe vendido; la pantalla actualiza
+  el acumulado en tiempo real. El reporte conserva cantidades vendidas, rechazadas
+  y roturas, sin mostrar columnas de saldo inicial, entradas, disponible ni saldo final.
 - Los avisos de inventario (`stock bajo` o `insuficiente`) se transmiten por
   WebSocket al grupo `caja` y se muestran como notificaciones + un panel de
   alertas recientes en la pantalla de Caja.
@@ -181,7 +181,7 @@ con el botón **Imprimir QR**.
 - La carta se genera a partir de los productos que decida el administrador del inventario.
 - Ya se eliminan y editan las categorias.
 - Se agrego una reestriccion para que no se pueda cerrar un turno con pedidos o tickets pendientes por cobrar.
-- Se implemento el IPV por productos de la carta y turno, con fondo inicial, entradas, roturas registradas durante el turno y ventas automáticas desde los cobros.
+- Se implemento el IPV por turno con todos los productos disponibles de la carta incorporados automaticamente; las unidades y el importe vendido se actualizan desde las facturas y el importe acumulado se refresca en tiempo real. Se retiraron las columnas de saldo inicial, entradas, disponible y saldo final.
 - La cajera y el administrador pueden consultar el historial de turnos cerrados y sus detalles, incluidos los datos del IPV; se muestran las horas de apertura y cierre y se agrego el aviso para continuar o cerrar un turno que pasa de medianoche. El cierre de la cajera notifica al administrador.
 - En las ventas del día de Cocina se muestran por plato las unidades vendidas, su imagen, los insumos de la receta, la cantidad por unidad y el consumo total estimado, sin importes.
 - La mesera puede solicitar cancelar pedidos pendientes indicando el motivo; la estación de destino acepta la solicitud y el pedido se retira de sus listados.
@@ -204,6 +204,9 @@ con el botón **Imprimir QR**.
 - Agregar categorias de cantidades al ipv
 - Inventario resumen para los productos vendidos
 
-
-## Mejoras:
-- arreglar error de edicion en el editar producto de la cajera
+**10-11-2026 hecho por el tanke**
+- La mesera puede cerrar una mesa abierta sin pedidos o con todos sus pedidos cancelados desde la pestaña **Comanda actual**; la acción no aparece si hay productos sin enviar.
+- Si un cliente devuelve un plato ya servido, la mesera puede registrar unidades parciales y el motivo antes de enviar la cuenta. Las unidades rechazadas se guardan como merma, no se cobran, aparecen en el detalle del IPV y se notifican a Caja en tiempo real. Si no quedan unidades cobrables, no se genera una factura vacía ni aparece la opción de cobrar; la mesera puede cerrar la mesa directamente. Los platos rechazados tampoco aparecen en el ticket que ve o imprime el cliente.
+- La eliminación de guarniciones no está implementada; en su lugar, el administrador puede activar o desactivar si están disponibles para elegir.
+- El IPV incluye automáticamente todos los productos disponibles en la carta y actualiza las ventas y el importe acumulado durante el turno. Se quitaron las columnas de saldo inicial, entradas, disponible y saldo final; los rechazos se muestran en una tabla separada debajo del IPV.
+- En Estadísticas de Caja, la lista de salidas y existencias se puede filtrar automáticamente por nombre de producto mientras se escribe, ignorando mayúsculas y tildes.

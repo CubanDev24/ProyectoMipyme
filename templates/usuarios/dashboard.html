@@ -86,7 +86,7 @@
     .inventory-ledger-card { grid-column: 1 / -1; min-width: 0; }
     .inventory-ledger-meta { color: #94a3b8; font-size: .68rem; }
     .inventory-ledger-wrap { max-width: 100%; overflow: auto; border: 1px solid rgba(148, 163, 184, .16); border-radius: 10px; }
-    .inventory-ledger { width: 100%; min-width: 1120px; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+    .inventory-ledger { width: 100%; min-width: 900px; border-collapse: collapse; font-variant-numeric: tabular-nums; }
     .inventory-ledger th { padding: .75rem .8rem; background: rgba(2, 6, 23, .82); color: #94a3b8; font-size: .62rem; font-weight: 800; text-align: right; text-transform: uppercase; white-space: nowrap; }
     .inventory-ledger th:first-child, .inventory-ledger td:first-child { position: sticky; left: 0; text-align: left; }
     .inventory-ledger td { padding: .75rem .8rem; border-top: 1px solid rgba(148, 163, 184, .12); color: #cbd5e1; font-size: .72rem; text-align: right; white-space: nowrap; }
@@ -390,11 +390,13 @@
           <section class="invoice-detail-section">
             <h3>Artículos cobrados</h3>
             {% for item in factura.items_snapshot %}
+              {% if not item.es_merma %}
               <div class="invoice-item-row">
                 <strong>{{ item.plato }}</strong>
                 <span>{{ item.cantidad }} × {{ item.precio_unit }} CUP</span>
                 <span class="invoice-item-subtotal">{{ item.subtotal }} CUP</span>
               </div>
+              {% endif %}
             {% empty %}
               <div class="turn-empty">No hay artículos guardados en esta factura.</div>
             {% endfor %}
@@ -415,6 +417,7 @@
         <span id="inventory-ledger-updated" class="inventory-ledger-meta" role="status" aria-live="polite">Cargando…</span>
       </div>
       <div class="turn-metric-grid mt-4">
+        <div><span>Importe de ventas acumulado</span><strong id="ipv-importe-acumulado">0.00 CUP</strong></div>
         <div><span>Fondo inicial</span><strong id="ipv-fondo-inicial-resumen">0.00 CUP</strong></div>
         <div><span>Ventas en efectivo</span><strong id="ipv-ventas-efectivo">0.00 CUP</strong></div>
         <div><span>Efectivo esperado</span><strong id="ipv-efectivo-final">0.00 CUP</strong></div>
@@ -433,11 +436,24 @@
       <div class="inventory-ledger-wrap">
         <table class="inventory-ledger">
           <thead><tr>
-            <th>Producto</th><th>Saldo inicial</th><th>Entradas</th><th>Disponible</th><th>Vendido</th><th>Saldo final</th><th>Precio venta</th><th>Importe ventas</th><th>Roturas</th><th>Registrar rotura</th>
+            <th>Producto</th><th>Vendido</th><th>Rechazados</th><th>Precio venta</th><th>Importe ventas</th><th>Roturas</th><th>Registrar rotura</th>
           </tr></thead>
-          <tbody id="inventory-ledger-body"><tr><td colspan="10" class="inventory-ledger-status">Consultando IPV del turno…</td></tr></tbody>
+          <tbody id="inventory-ledger-body"><tr><td colspan="7" class="inventory-ledger-status">Consultando IPV del turno…</td></tr></tbody>
         </table>
       </div>
+      <section class="mt-4" aria-labelledby="ipv-rejections-heading">
+        <div class="turn-card-heading">
+          <div><p class="panel-kicker">Detalle</p><h3 id="ipv-rejections-heading">Platos rechazados</h3></div>
+        </div>
+        <div class="inventory-ledger-wrap">
+          <table class="inventory-ledger">
+            <thead><tr>
+              <th>Fecha</th><th>Mesa</th><th>Producto</th><th>Cantidad</th><th>Motivo</th><th>Reportado por</th>
+            </tr></thead>
+            <tbody id="ipv-rejections-body"><tr><td colspan="6" class="inventory-ledger-status">Consultando rechazos del turno…</td></tr></tbody>
+          </table>
+        </div>
+      </section>
     </section>
     {% endif %}
 
@@ -589,7 +605,8 @@
     async function actualizarInventarioTurno() {
       const cuerpo = document.getElementById('inventory-ledger-body');
       const estado = document.getElementById('inventory-ledger-updated');
-      if (!cuerpo || !estado) return;
+      const cuerpoRechazos = document.getElementById('ipv-rejections-body');
+      if (!cuerpo || !cuerpoRechazos || !estado) return;
       try {
         const response = await fetch(inventarioVentasUrl, { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
         if (!response.ok) throw new Error('No se pudo cargar el inventario.');
@@ -604,26 +621,38 @@
         const efectivoFinal = document.getElementById('ipv-efectivo-final');
         const transferencia = document.getElementById('ipv-ventas-transferencia');
         const usd = document.getElementById('ipv-ventas-usd');
+        const importeAcumulado = document.getElementById('ipv-importe-acumulado');
         if (fondo) fondo.textContent = `${formatoNumero(data.fondo_inicial_cup)} CUP`;
         if (efectivo) efectivo.textContent = `${formatoNumero(data.ventas_efectivo_cup)} CUP`;
         if (efectivoFinal) efectivoFinal.textContent = `${formatoNumero(data.efectivo_final_cup)} CUP`;
         if (transferencia) transferencia.textContent = `${formatoNumero(data.ventas_transferencia_cup)} CUP`;
         if (usd) usd.textContent = `${formatoNumero(data.ventas_usd)} USD`;
+        if (importeAcumulado) importeAcumulado.textContent = `${formatoNumero(data.total_importe)} CUP`;
         if (!data.productos.length) {
-          cuerpo.innerHTML = '<tr><td colspan="10" class="inventory-ledger-status">No hay productos configurados para este turno.</td></tr>';
+          cuerpo.innerHTML = '<tr><td colspan="7" class="inventory-ledger-status">No hay productos disponibles en la carta.</td></tr>';
         } else {
           cuerpo.innerHTML = data.productos.map(producto => `
             <tr>
               <td><span class="ledger-product">${escaparCelda(producto.nombre)}</span><span class="ledger-muted">${escaparCelda(producto.categoria)}</span></td>
-              <td class="ledger-number">${formatoNumero(producto.saldo_inicial)}</td>
-              <td class="ledger-number">${formatoNumero(producto.entradas)}</td>
-              <td class="ledger-number">${formatoNumero(producto.cantidad_existencia)}</td>
               <td class="ledger-number">${formatoNumero(producto.cantidad_vendida)}</td>
-              <td class="ledger-balance">${formatoNumero(producto.saldo_final)}</td>
+              <td class="ledger-loss">${formatoNumero(producto.cantidad_rechazada)}</td>
               <td class="ledger-number">${formatoNumero(producto.precio_venta)} CUP</td>
               <td class="ledger-sales">${formatoNumero(producto.importe_venta)} CUP</td>
               <td class="ledger-loss">${formatoNumero(producto.merma_rotura)}</td>
               <td><div class="flex gap-1"><input class="admin-input w-24" type="number" min="0.001" step="0.001" data-merma-cantidad aria-label="Cantidad rota de ${escaparCelda(producto.nombre)}"><button type="button" class="btn btn-outline btn-sm" data-merma-url="${escaparCelda(producto.merma_url)}" title="Registrar rotura de ${escaparCelda(producto.nombre)}"><i class="fa-solid fa-plus" aria-hidden="true"></i></button></div></td>
+            </tr>`).join('');
+        }
+        if (!data.rechazos.length) {
+          cuerpoRechazos.innerHTML = '<tr><td colspan="6" class="inventory-ledger-status">No hay platos rechazados en este turno.</td></tr>';
+        } else {
+          cuerpoRechazos.innerHTML = data.rechazos.map(rechazo => `
+            <tr>
+              <td>${escaparCelda(rechazo.creado_en)}</td>
+              <td>${escaparCelda(rechazo.mesa)}</td>
+              <td><span class="ledger-product">${escaparCelda(rechazo.plato)}</span></td>
+              <td class="ledger-loss">${formatoNumero(rechazo.cantidad)}</td>
+              <td>${escaparCelda(rechazo.motivo)}</td>
+              <td>${escaparCelda(rechazo.reportado_por) || '—'}</td>
             </tr>`).join('');
         }
         estado.textContent = `Actualizado ${data.actualizado_en}`;

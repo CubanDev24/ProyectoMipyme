@@ -9,7 +9,7 @@ from django.utils import timezone
 
 from inventario.models import Insumo, MovimientoInventario
 from carta.models import Categoria, Plato
-from pedidos.models import Factura, Mesa, Pedido
+from pedidos.models import Factura, ItemPedido, Mesa, Pedido, RechazoItemPedido
 from usuarios.models import ProductoIPVTurno, Usuario, Notificacion, Turno, configurar_turno, get_turno_abierto, registrar_inicio_turno, cerrar_turno, mesas_del_turno
 from usuarios.views import historial_turnos_view, historial_turno_detalle_view, ipv_turno
 
@@ -103,7 +103,11 @@ class UsuarioTurnoTests(TestCase):
         self.assertContains(response, 'Plato de prueba')
         self.assertContains(response, 'Inventario perpetuo de ventas')
         self.assertContains(response, 'Fondo inicial')
-        self.assertContains(response, 'Saldo inicial')
+        self.assertContains(response, 'Importe de ventas acumulado')
+        self.assertNotContains(response, '<th>Saldo inicial</th>')
+        self.assertNotContains(response, '<th>Entradas</th>')
+        self.assertNotContains(response, '<th>Disponible</th>')
+        self.assertNotContains(response, '<th>Saldo final</th>')
         self.assertNotContains(response, 'Configurar IPV del turno')
         self.assertContains(response, 'setInterval(actualizarInventarioTurno, 5000)')
         self.assertNotContains(response, f'Factura #{factura_anterior.pk}')
@@ -641,7 +645,7 @@ class UsuarioTurnoTests(TestCase):
             'platos': [str(plato.pk)],
         }, follow=True)
 
-        self.assertContains(configuracion, 'El IPV del turno quedó configurado.')
+        self.assertContains(configuracion, 'El fondo inicial quedó guardado')
         registro = ProductoIPVTurno.objects.get(turno=turno, plato=plato)
         self.assertEqual(turno.__class__.objects.get(pk=turno.pk).fondo_inicial_cup, Decimal('100.00'))
         self.assertEqual(registro.cantidad_inicial, Decimal('12'))
@@ -696,6 +700,116 @@ class UsuarioTurnoTests(TestCase):
         self.assertEqual(insumo.stock_actual, Decimal('10'))
         self.assertFalse(MovimientoInventario.objects.exists())
 
+    def test_ipv_incluye_toda_la_carta_disponible_y_acumula_importes_en_tiempo_real(self):
+        turno = registrar_inicio_turno(self.cajera)
+        categoria = Categoria.objects.create(nombre='Carta automatica IPV')
+        platos = [
+            Plato.objects.create(
+                categoria=categoria,
+                nombre='Producto IPV A',
+                precio=Decimal('10.00'),
+                disponible=True,
+            ),
+            Plato.objects.create(
+                categoria=categoria,
+                nombre='Producto IPV B',
+                precio=Decimal('20.00'),
+                disponible=True,
+            ),
+        ]
+        no_disponible = Plato.objects.create(
+            categoria=categoria,
+            nombre='Producto oculto IPV',
+            precio=Decimal('30.00'),
+            disponible=True,
+        )
+        pedido = Pedido.objects.create(mesa=Mesa.objects.create(numero=85), estado='cerrado')
+        Factura.objects.create(
+            pedido=pedido,
+            mesa_numero=pedido.mesa.numero,
+            forma_pago='efectivo_cup',
+            total_cup=Decimal('50.00'),
+            items_snapshot=[
+                {
+                    'plato_id': platos[0].pk,
+                    'plato': platos[0].nombre,
+                    'cantidad': 2,
+                    'precio_unit': '10.00',
+                    'subtotal': '20.00',
+                },
+                {
+                    'plato_id': no_disponible.pk,
+                    'plato': no_disponible.nombre,
+                    'cantidad': 1,
+                    'precio_unit': '30.00',
+                    'subtotal': '30.00',
+                },
+            ],
+        )
+        no_disponible.disponible = False
+        no_disponible.save(update_fields=['disponible'])
+        self.client.force_login(self.cajera)
+
+        respuesta_inicial = self.client.get(reverse('usuarios:inventario_ventas_turno'))
+
+        self.assertEqual(respuesta_inicial.status_code, 200)
+        datos_iniciales = respuesta_inicial.json()
+        self.assertEqual(
+            {producto['nombre'] for producto in datos_iniciales['productos']},
+            {platos[0].nombre, platos[1].nombre},
+        )
+        self.assertEqual(datos_iniciales['total_importe'], '50.00')
+        self.assertTrue(
+            ProductoIPVTurno.objects.filter(turno=turno, plato=platos[0]).exists()
+        )
+        self.assertFalse(
+            ProductoIPVTurno.objects.filter(turno=turno, plato=no_disponible).exists()
+        )
+
+        plato_nuevo = Plato.objects.create(
+            categoria=categoria,
+            nombre='Producto IPV C',
+            precio=Decimal('15.00'),
+            disponible=True,
+        )
+        pedido_actualizado = Pedido.objects.create(
+            mesa=Mesa.objects.create(numero=86),
+            estado='cerrado',
+        )
+        Factura.objects.create(
+            pedido=pedido_actualizado,
+            mesa_numero=pedido_actualizado.mesa.numero,
+            forma_pago='efectivo_cup',
+            total_cup=Decimal('35.00'),
+            items_snapshot=[
+                {
+                    'plato_id': platos[1].pk,
+                    'plato': platos[1].nombre,
+                    'cantidad': 1,
+                    'precio_unit': '20.00',
+                    'subtotal': '20.00',
+                },
+                {
+                    'plato_id': plato_nuevo.pk,
+                    'plato': plato_nuevo.nombre,
+                    'cantidad': 1,
+                    'precio_unit': '15.00',
+                    'subtotal': '15.00',
+                },
+            ],
+        )
+
+        respuesta_actualizada = self.client.get(reverse('usuarios:inventario_ventas_turno'))
+
+        self.assertEqual(respuesta_actualizada.status_code, 200)
+        datos_actualizados = respuesta_actualizada.json()
+        productos = {producto['nombre']: producto for producto in datos_actualizados['productos']}
+        self.assertEqual(set(productos), {platos[0].nombre, platos[1].nombre, plato_nuevo.nombre})
+        self.assertEqual(datos_actualizados['total_importe'], '85.00')
+        self.assertEqual(productos[platos[0].nombre]['cantidad_vendida'], '2')
+        self.assertEqual(productos[platos[1].nombre]['cantidad_vendida'], '1')
+        self.assertEqual(productos[plato_nuevo.nombre]['cantidad_vendida'], '1')
+
     def test_ipv_se_configura_con_saldo_final_del_turno_anterior_y_sin_entradas_manuales(self):
         categoria = Categoria.objects.create(nombre='Platos IPV', orden=1)
         plato = Plato.objects.create(categoria=categoria, nombre='Ropa vieja', precio=Decimal('18.00'))
@@ -741,12 +855,11 @@ class UsuarioTurnoTests(TestCase):
         self.client.force_login(self.cajera)
         response = self.client.post(reverse('usuarios:configurar_ipv_turno'), {
             'fondo_inicial_cup': '150.00',
-            'platos': [str(plato.pk)],
             f'inicial_{plato.pk}': '999',
             f'entradas_{plato.pk}': '77',
         }, follow=True)
 
-        self.assertContains(response, 'El IPV del turno quedó configurado.')
+        self.assertContains(response, 'El fondo inicial quedó guardado')
         registro = ProductoIPVTurno.objects.get(turno=turno, plato=plato)
         self.assertEqual(registro.cantidad_inicial, Decimal('5'))
         self.assertEqual(registro.entradas, Decimal('0'))
@@ -1268,6 +1381,73 @@ class UsuarioTurnoTests(TestCase):
         self.assertEqual(producto['merma_rotura'], '1.000')
         self.assertEqual(producto['saldo_final'], '12.000')
 
+    def test_ipv_registra_rechazos_como_merma_y_no_como_venta(self):
+        turno = registrar_inicio_turno(self.admin)
+        plato = Plato.objects.create(
+            categoria=Categoria.objects.create(nombre='Carta rechazos IPV'),
+            nombre='Plato devuelto',
+            precio=Decimal('25.00'),
+        )
+        ProductoIPVTurno.objects.create(
+            turno=turno,
+            plato=plato,
+            cantidad_inicial=Decimal('5'),
+        )
+        mesa = Mesa.objects.create(numero=94)
+        pedido = Pedido.objects.create(mesa=mesa, estado='cerrado')
+        item = ItemPedido.objects.create(pedido=pedido, plato=plato, cantidad=2, cantidad_rechazada=1)
+        RechazoItemPedido.objects.create(
+            item=item,
+            cantidad=1,
+            motivo='El cliente devolvió el plato',
+            reportado_por=self.mesera,
+        )
+        Factura.objects.create(
+            pedido=pedido,
+            mesa_numero=mesa.numero,
+            forma_pago='efectivo_cup',
+            total_cup=Decimal('25.00'),
+            items_snapshot=[
+                {
+                    'plato_id': plato.pk,
+                    'plato': plato.nombre,
+                    'cantidad': 1,
+                    'precio_unit': '25.00',
+                    'subtotal': '25.00',
+                },
+                {
+                    'plato_id': plato.pk,
+                    'plato': plato.nombre,
+                    'cantidad': 1,
+                    'precio_unit': '25.00',
+                    'subtotal': '0.00',
+                    'es_merma': True,
+                    'motivo_rechazo': 'El cliente devolvió el plato',
+                },
+            ],
+        )
+
+        self.client.force_login(self.admin)
+        respuesta = self.client.get(reverse('usuarios:ipv_turno', args=[turno.pk]))
+
+        producto = respuesta.json()['filas'][0]
+        self.assertEqual(producto['cantidad_vendida'], '1')
+        self.assertEqual(producto['cantidad_rechazada'], '1')
+        self.assertEqual(producto['importe_venta'], '25.00')
+        self.assertEqual(producto['saldo_final'], '3.000')
+        self.assertEqual(producto['rechazos'][0]['motivo'], 'El cliente devolvió el plato')
+        self.assertEqual(respuesta.json()['rechazos'][0]['reportado_por'], self.mesera.username)
+
+        dashboard = self.client.get(reverse('usuarios:dashboard'))
+        self.assertContains(dashboard, 'id="ipv-rejections-body"')
+        self.assertContains(dashboard, 'Platos rechazados')
+        self.assertContains(dashboard, 'data.rechazos.map')
+        self.assertNotContains(dashboard, 'producto.rechazos || []')
+        self.assertLess(
+            dashboard.content.index(b'id="inventory-ledger-body"'),
+            dashboard.content.index(b'id="ipv-rejections-body"'),
+        )
+
     def test_ipv_turno_se_exporta_a_pdf_y_excel(self):
         turno = registrar_inicio_turno(self.admin)
         self.client.force_login(self.admin)
@@ -1304,6 +1484,18 @@ class UsuarioTurnoTests(TestCase):
         hoja = libro['IPV']
         self.assertEqual(hoja['A3'].value, 'Fondo inicial CUP')
         self.assertEqual(hoja['A4'].value, 'Descripción')
+        self.assertEqual(
+            [celda.value for celda in next(hoja.iter_rows(min_row=4, max_row=4, max_col=7))],
+            [
+                'Descripción',
+                'Categoría',
+                'Cant. vendida',
+                'Platos rechazados',
+                'Precio venta',
+                'Importe',
+                'Merma / rotura',
+            ],
+        )
         self.assertEqual(hoja['A5'].value, '=2+3')
         self.assertEqual(hoja['A5'].data_type, 's')
         libro.close()

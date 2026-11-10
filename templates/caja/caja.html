@@ -184,6 +184,14 @@
                     <i class="fa-solid fa-clock-rotate-left text-lg w-6 text-center"></i>
                     <span class="hidden lg:inline">Detalle del turno actual</span>
                 </a>
+                <a href="{% url 'inventario:carta_cajera' %}" class="w-full flex items-center gap-3 px-3 py-3 rounded-xl font-medium text-sm text-slate-400 hover:text-white hover:bg-slate-800/50 transition-all">
+                    <i class="fa-solid fa-book-open text-lg w-6 text-center" aria-hidden="true"></i>
+                    <span class="hidden lg:inline">Carta</span>
+                </a>
+                <a href="{% url 'inventario:entrada_almacen_cajera' %}" class="w-full flex items-center gap-3 px-3 py-3 rounded-xl font-medium text-sm text-slate-400 hover:text-white hover:bg-slate-800/50 transition-all">
+                    <i class="fa-solid fa-boxes-stacked text-lg w-6 text-center" aria-hidden="true"></i>
+                    <span class="hidden lg:inline">Entrada al almacén</span>
+                </a>
                 <a href="{% url 'usuarios:historial_turnos' %}" class="w-full flex items-center gap-3 px-3 py-3 rounded-xl font-medium text-sm text-slate-400 hover:text-white hover:bg-slate-800/50 transition-all">
                     <i class="fa-solid fa-clock-rotate-left text-lg w-6 text-center" aria-hidden="true"></i>
                     <span class="hidden lg:inline">Historial</span>
@@ -443,6 +451,13 @@
           sonidoCambioEstado();
         } else if (d.tipo === 'alerta_inventario') {
           recibirAlertasInventario(d.alertas, d.mesa_numero, d.etiqueta_pedido);
+        } else if (d.tipo === 'plato_rechazado') {
+          const rechazo = d.rechazo;
+          toast(
+            `${rechazo.etiqueta}: ${rechazo.cantidad}x ${rechazo.plato} rechazado · no cobrar`,
+            'orange',
+          );
+          sonidoAlerta(520);
         } else if (d.tipo === 'factura_registrada') {
           onFacturaRegistrada(d.factura);
         } else if (d.tipo === 'error_cobro') {
@@ -479,6 +494,9 @@
         card.className = 'caja-card' + (pedidoSeleccionado && pedidoSeleccionado.id === p.id ? ' seleccionada' : '');
         card.onclick = () => seleccionarCuenta(p);
         const items = p.items.map(i => `<li><span>${i.cantidad}x ${escaparHtml(i.plato)} ${i.guarnicion ? `<small class="caja-item-guarnicion">Guarnición: ${escaparHtml(i.guarnicion)}</small>` : ''}</span> <span>${i.subtotal} CUP</span></li>`).join('');
+        const rechazos = (p.rechazos || []).map(rechazo =>
+          `<li>${rechazo.cantidad}x ${escaparHtml(rechazo.plato)} · <strong>No cobrar</strong>: ${escaparHtml(rechazo.motivo)}${rechazo.reportado_por ? ` · ${escaparHtml(rechazo.reportado_por)}` : ''}</li>`
+        ).join('');
         card.innerHTML = `
           <div class="caja-card-top">
             <div class="caja-mesa">${escaparHtml(etiquetaPedido(p))}</div>
@@ -486,6 +504,7 @@
           </div>
           ${p.es_para_llevar ? `<div class="caja-hora">Cliente: ${escaparHtml(p.nombre_cliente || 'Sin nombre')} · Teléfono: ${escaparHtml(p.telefono_cliente || 'Sin teléfono')}</div>` : ''}
           <ul class="caja-items-ul">${items}</ul>
+          ${rechazos ? `<div class="caja-hora">Platos rechazados (merma):</div><ul class="caja-items-ul">${rechazos}</ul>` : ''}
           <div class="caja-total-row"><span>Total</span><span class="caja-total-val">${p.total} CUP</span></div>`;
         lista.appendChild(card);
       });
@@ -509,9 +528,13 @@
       const ul = document.getElementById('cobro-items-ul');
       ul.innerHTML = p.items.map(i => `
         <li>
-          <span>${i.cantidad}x ${i.plato}</span>
+          <span>${i.cantidad}x ${escaparHtml(i.plato)}</span>
           <span>${i.subtotal} CUP</span>
-        </li>`).join('');
+        </li>`).join('') + (p.rechazos || []).map(rechazo => `
+          <li class="caja-item-rechazado">
+            <span>${rechazo.cantidad}x ${escaparHtml(rechazo.plato)} · Merma: ${escaparHtml(rechazo.motivo)}</span>
+            <span>No cobrar</span>
+          </li>`).join('');
       document.getElementById('cobro-total').textContent = `${p.total} CUP`;
       document.getElementById('cobro-comprobante').innerHTML = comprobanteHtml(p);
 

@@ -4,6 +4,8 @@ from . import views
 app_name = 'inventario'
 urlpatterns = [
     path('', views.administrador, name='administrador'),
+    path('carta/cajera/', views.carta_cajera, name='carta_cajera'),
+    path('almacen/entrada/cajera/', views.entrada_almacen_cajera, name='entrada_almacen_cajera'),
     path('wifi/configurar/', views.configurar_wifi, name='configurar_wifi'),
     path('categoria/nueva/', views.categoria_crear, name='categoria_crear'),
     path('categoria/<int:pk>/editar/', views.categoria_editar, name='categoria_editar'),
