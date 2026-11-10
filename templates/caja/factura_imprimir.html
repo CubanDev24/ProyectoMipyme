@@ -218,10 +218,12 @@
       
       <table class="item-list">
         {% for item in factura.items_snapshot %}
+        {% if not item.es_merma %}
         <tr>
           <td>{{ item.cantidad }}x {{ item.plato }}{% if item.guarnicion %}<br><small>Guarnición: {{ item.guarnicion }}</small>{% endif %}</td>
           <td class="price-col">{{ item.subtotal }} CUP</td>
         </tr>
+        {% endif %}
         {% endfor %}
       </table>
 

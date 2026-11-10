@@ -393,6 +393,8 @@ def factura_imprimir(request, pk):
 
     anchos_items = [8 * mm, ancho_contenido - 8 * mm - 23 * mm, 23 * mm]
     for item in factura.items_snapshot or []:
+        if item.get('es_merma'):
+            continue
         nombre_producto = escape_html(str(item.get('plato', 'Item')))
         if item.get('cantidad', 1) > 1 and item.get('precio_unit'):
             nombre_producto += (

@@ -3314,6 +3314,13 @@
                         actualizarEstadoBotonEnviarComanda(table);
                     }
                     showToast('No se pudo crear el pedido', data.mensaje);
+                } else if (data.tipo === 'rechazo_plato_registrado') {
+                    showToast(
+                        'Merma registrada',
+                        `${data.rechazo.cantidad} ${data.rechazo.cantidad === 1 ? 'unidad' : 'unidades'} de ${data.rechazo.plato} no se cobrarán.`,
+                    );
+                } else if (data.tipo === 'error_rechazo_plato') {
+                    showToast('No se pudo registrar la merma', data.mensaje, 'error');
                 } else if (data.tipo === 'error_mesa') {
                     showToast('No se pudo actualizar', data.mensaje);
                 }
@@ -3383,7 +3390,10 @@
             table.order = (table.pedidos || []).flatMap(pedido => pedido.items.map(item => ({
                 itemId: item.plato_id,
                 itemPedidoId: item.id,
-                qty: item.cantidad,
+                qty: item.cantidad_cobrable ?? item.cantidad,
+                cantidadOriginal: item.cantidad,
+                cantidadRechazada: item.cantidad_rechazada || 0,
+                rechazos: item.rechazos || [],
                 note: item.nota || '',
                 guarnicionId: item.guarnicion_id,
                 guarnicion: item.guarnicion || '',
@@ -3392,6 +3402,7 @@
                 estado: pedido.estado,
                 estadoDisplay: pedido.estado_display,
                 motivo_cancelacion: pedido.motivo_cancelacion,
+                cuentaSolicitada: pedido.cuenta_solicitada,
                 cancelacion_item_solicitada: item.cancelacion_solicitada,
                 motivo_cancelacion_item: item.motivo_cancelacion,
                 cancelado: item.cancelado
@@ -3495,6 +3506,24 @@
         }
 
         // MOSTRAR MESAS
+        function mesaPuedeCerrarse(table) {
+            const pedidos = table.pedidos || [];
+            const hayPedidoSinEnviar = (table.newOrder || []).some(item => item.qty > 0);
+
+            return table.status === 'ocupada'
+                && !hayPedidoSinEnviar
+                && !mesaTieneUnidadesCobrables(table);
+        }
+
+        function mesaTieneUnidadesCobrables(table) {
+            return (table?.pedidos || []).some(pedido =>
+                !['cerrado', 'rechazado', 'cancelado'].includes(pedido.estado)
+                && (pedido.items || []).some(item =>
+                    !item.cancelado && Number(item.cantidad_cobrable ?? item.cantidad) > 0
+                )
+            );
+        }
+
         function renderTables(filter = activeTableFilter) {
             const grid = document.getElementById('tables-grid');
             grid.innerHTML = '';
@@ -3508,7 +3537,7 @@
 
             filteredTables.forEach(t => {
                 const totalAmount = calculateTableTotal(t.id);
-                const activeOrderItems = t.order.filter(item => !item.cancelado);
+                const activeOrderItems = t.order.filter(item => !item.cancelado && item.qty > 0);
                 const resumenCuenta = resumenCuentaMesa(t);
                 const cuentaSolicitada = resumenCuenta.pedidosSolicitados > 0;
                 const cuentaParcial = cuentaSolicitada && resumenCuenta.tienePendiente;
@@ -3664,7 +3693,12 @@
         }
 
         function resumenCuentaMesa(table) {
-            const pedidosActivos = (table.pedidos || []).filter(pedido => !['cerrado', 'rechazado', 'cancelado'].includes(pedido.estado));
+            const pedidosActivos = (table.pedidos || []).filter(pedido =>
+                !['cerrado', 'rechazado', 'cancelado'].includes(pedido.estado)
+                && (pedido.items || []).some(item =>
+                    !item.cancelado && Number(item.cantidad_cobrable ?? item.cantidad) > 0
+                )
+            );
             const pedidosSolicitados = pedidosActivos.filter(pedido => pedido.cuenta_solicitada);
             const pedidosPendientes = pedidosActivos.filter(pedido => !pedido.cuenta_solicitada);
             const pedidosSinEnviar = table.newOrder || [];
@@ -3672,7 +3706,9 @@
             const unidadesPedidos = pedidos => pedidos.reduce((total, pedido) => (
                 total + (pedido.items || [])
                     .filter(item => !item.cancelado)
-                    .reduce((unidades, item) => unidades + Number(item.cantidad || 0), 0)
+                    .reduce((unidades, item) => (
+                        unidades + Number(item.cantidad_cobrable ?? item.cantidad ?? 0)
+                    ), 0)
             ), 0);
             const totalSinEnviar = pedidosSinEnviar.reduce((total, linea) => {
                 const producto = menuItems.find(item => item.id === linea.itemId);
@@ -3731,7 +3767,9 @@
                 tieneSolicitudCliente || tienePedidoSinEnviar ? 'cart' : 'menu'
             );
             setTableModalTab(
-                tieneSolicitudCliente || tienePedidoSinEnviar || !(table.order || []).length
+                mesaPuedeCerrarse(table)
+                    ? 'current'
+                    : tieneSolicitudCliente || tienePedidoSinEnviar || !(table.order || []).length
                     ? 'new'
                     : 'current'
             );
@@ -3759,6 +3797,11 @@
             if (sendButton) sendButton.hidden = !mostrarNuevoPedido;
             const paymentButton = document.querySelector('#modal-footer-actions [data-modal-payment-action]');
             if (paymentButton) paymentButton.hidden = mostrarNuevoPedido;
+            const closeTableButton = document.querySelector('#modal-footer-actions [data-modal-close-table-action]');
+            const activeTable = tables.find(table => table.id === activeTableId);
+            if (closeTableButton) {
+                closeTableButton.hidden = mostrarNuevoPedido || !mesaPuedeCerrarse(activeTable);
+            }
         }
 
         function setMobileNewOrderSection(section) {
@@ -3799,9 +3842,14 @@
                     <button id="send-order-${table.id}" data-modal-new-order-action hidden onclick="sendOrderToKitchen(${table.id})" ${table.comandaEnviandose || !(table.newOrder || []).some(item => item.qty > 0) ? 'disabled' : ''} class="w-full px-4 py-3 bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold rounded-xl text-xs flex items-center gap-2 transition-all disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-slate-800">
                         <i class="fa-solid fa-paper-plane text-amber-400"></i> Enviar comanda
                     </button>
-                    ${(table.pedidos || []).length ? `
+                    ${mesaTieneUnidadesCobrables(table) ? `
                     <button data-modal-payment-action hidden onclick="openPaymentModal()" class="w-full bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold py-3 rounded-xl transition-all shadow-lg shadow-emerald-500/20 flex items-center justify-center gap-2 text-sm">
                         <i class="fa-solid fa-receipt"></i> Cobrar y Cerrar Cuenta
+                    </button>
+                    ` : ''}
+                    ${mesaPuedeCerrarse(table) ? `
+                    <button type="button" data-modal-close-table-action hidden onclick="changeTableStatus(${table.id}, 'libre')" class="w-full bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold py-3 rounded-xl transition-all shadow-lg shadow-emerald-500/20 flex items-center justify-center gap-2 text-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-300" aria-label="Cerrar ${table.name}">
+                        <i class="fa-solid fa-door-closed" aria-hidden="true"></i> Cerrar mesa
                     </button>
                     ` : ''}
                 `;
@@ -4046,8 +4094,16 @@
                         && ord.estado === 'pendiente'
                         && !ord.cancelado
                         && !ord.cancelacion_item_solicitada;
+                    const mostrarRechazarPlato = ord.pedidoId
+                        && ord.estado === 'servido'
+                        && !ord.cancelado
+                        && !ord.cuentaSolicitada
+                        && ord.qty > 0;
                     const estado = ord.pedidoId ? estadoPlato(ord) : 'Por enviar';
                     const destino = ord.destino === 'barra' ? 'Barra' : ord.destino === 'cocina' ? 'Cocina' : '';
+                    const detalleRechazos = (ord.rechazos || []).map(rechazo =>
+                        `<p class="text-[10px] text-rose-300">${rechazo.cantidad} rechazada(s): ${escaparHtml(rechazo.motivo)}${rechazo.reportado_por ? ` · ${escaparHtml(rechazo.reportado_por)}` : ''}</p>`
+                    ).join('');
 
                     const row = document.createElement('div');
                     row.className = 'modal-order-item p-2.5 rounded-xl bg-slate-900 border border-slate-800 space-y-2';
@@ -4070,9 +4126,12 @@
                             ${!ord.pedidoId ? `<button type="button" onclick="removeOrderItem('${lineKey}')" ${table?.comandaEnviandose ? 'disabled' : ''} aria-label="Eliminar ${escaparHtml(item.name)} de la comanda" title="Eliminar producto sin enviar" class="order-item-remove"><i class="fa-solid fa-trash-can" aria-hidden="true"></i></button>` : ''}
                             ${!ord.pedidoId ? `<input type="text" maxlength="200" placeholder="Añadir nota" aria-label="Nota para ${escaparHtml(item.name)}" value="${escaparHtml(ord.note || '')}" onchange="updateOrderNote('${lineKey}', 0, 0, this.value)" class="order-item-note bg-slate-950 border border-slate-800 text-[10px] text-slate-300 rounded px-2 py-1 focus:outline-none focus:border-emerald-500 w-32">` : ord.note?.trim() ? `<span class="text-[10px] text-slate-400">Nota: ${escaparHtml(ord.note.trim())}</span>` : ''}
                             ${mostrarCancelarPlato ? `<button type="button" onclick="toggleCancelacionItemForm(${ord.itemPedidoId})" aria-expanded="false" aria-controls="cancelacion-item-${ord.itemPedidoId}" class="cancel-order-button"><span>Cancelar plato</span></button>` : ''}
-                        </div>
-                        ${mostrarCancelarPlato ? `<form id="cancelacion-item-${ord.itemPedidoId}" class="cancel-order-form" hidden onsubmit="enviarSolicitudCancelacionItem(event, ${ord.pedidoId}, ${ord.itemPedidoId})"><label for="motivo-cancelacion-item-${ord.itemPedidoId}">Motivo para cancelar ${escaparHtml(item.name)}</label><textarea id="motivo-cancelacion-item-${ord.itemPedidoId}" maxlength="300" rows="2" required placeholder="Explica brevemente la razón"></textarea><div class="cancel-order-actions"><button type="button" class="cancel-order-dismiss" onclick="toggleCancelacionItemForm(${ord.itemPedidoId})">Volver</button><button type="submit" class="cancel-order-submit"><i class="fa-solid fa-paper-plane" aria-hidden="true"></i>Enviar solicitud</button></div></form>` : ''}
-                        ${mostrarEnviarSolicitud ? `<div class="flex gap-2"><button type="button" onclick="aceptarPedidoCliente(${ord.pedidoId})" class="min-w-0 flex-1 rounded-lg border border-amber-500/20 bg-amber-500/10 px-2 py-2 text-[10px] font-bold text-amber-300 transition-all hover:bg-amber-400 hover:text-slate-950"><i class="fa-solid ${ord.destino === 'barra' ? 'fa-martini-glass-citrus' : 'fa-paper-plane'} mr-1"></i>${ord.destino === 'barra' ? 'Enviar a barra' : 'Enviar a cocina'}</button><button type="button" onclick="rechazarPedidoCliente(${ord.pedidoId})" aria-label="Rechazar solicitud de pedido" title="Rechazar solicitud" class="min-w-0 flex-1 rounded-lg border border-rose-500/25 bg-rose-500/10 px-2 py-2 text-[10px] font-bold text-rose-300 transition-all hover:border-rose-400/60 hover:bg-rose-500/20 hover:text-rose-100"><i class="fa-solid fa-ban mr-1" aria-hidden="true"></i>Rechazar</button></div>` : ''}
+                            ${mostrarRechazarPlato ? `<button type="button" onclick="toggleRechazoPlatoForm(${ord.itemPedidoId})" aria-expanded="false" aria-controls="rechazo-plato-${ord.itemPedidoId}" class="cancel-order-button"><span>Registrar plato rechazado</span></button>` : ''}
+                            </div>
+                            ${mostrarCancelarPlato ? `<form id="cancelacion-item-${ord.itemPedidoId}" class="cancel-order-form" hidden onsubmit="enviarSolicitudCancelacionItem(event, ${ord.pedidoId}, ${ord.itemPedidoId})"><label for="motivo-cancelacion-item-${ord.itemPedidoId}">Motivo para cancelar ${escaparHtml(item.name)}</label><textarea id="motivo-cancelacion-item-${ord.itemPedidoId}" maxlength="300" rows="2" required placeholder="Explica brevemente la razón"></textarea><div class="cancel-order-actions"><button type="button" class="cancel-order-dismiss" onclick="toggleCancelacionItemForm(${ord.itemPedidoId})">Volver</button><button type="submit" class="cancel-order-submit"><i class="fa-solid fa-paper-plane" aria-hidden="true"></i>Enviar solicitud</button></div></form>` : ''}
+                            ${mostrarRechazarPlato ? `<form id="rechazo-plato-${ord.itemPedidoId}" class="cancel-order-form" hidden onsubmit="enviarRechazoPlato(event, ${ord.pedidoId}, ${ord.itemPedidoId}, ${ord.qty})"><label for="cantidad-rechazo-${ord.itemPedidoId}">Unidades rechazadas de ${escaparHtml(item.name)} (máximo ${ord.qty})</label><input id="cantidad-rechazo-${ord.itemPedidoId}" class="w-full rounded-lg border border-slate-700 bg-slate-950 px-2 py-1 text-slate-100" type="number" min="1" max="${ord.qty}" step="1" value="1" required><label for="motivo-rechazo-${ord.itemPedidoId}">Motivo</label><textarea id="motivo-rechazo-${ord.itemPedidoId}" maxlength="300" rows="2" required placeholder="Explica brevemente por qué se retiró el plato"></textarea><div class="cancel-order-actions"><button type="button" class="cancel-order-dismiss" onclick="toggleRechazoPlatoForm(${ord.itemPedidoId})">Volver</button><button type="submit" class="cancel-order-submit"><i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i>Registrar merma</button></div></form>` : ''}
+                            ${detalleRechazos}
+                            ${mostrarEnviarSolicitud ? `<div class="flex gap-2"><button type="button" onclick="aceptarPedidoCliente(${ord.pedidoId})" class="min-w-0 flex-1 rounded-lg border border-amber-500/20 bg-amber-500/10 px-2 py-2 text-[10px] font-bold text-amber-300 transition-all hover:bg-amber-400 hover:text-slate-950"><i class="fa-solid ${ord.destino === 'barra' ? 'fa-martini-glass-citrus' : 'fa-paper-plane'} mr-1"></i>${ord.destino === 'barra' ? 'Enviar a barra' : 'Enviar a cocina'}</button><button type="button" onclick="rechazarPedidoCliente(${ord.pedidoId})" aria-label="Rechazar solicitud de pedido" title="Rechazar solicitud" class="min-w-0 flex-1 rounded-lg border border-rose-500/25 bg-rose-500/10 px-2 py-2 text-[10px] font-bold text-rose-300 transition-all hover:border-rose-400/60 hover:bg-rose-500/20 hover:text-rose-100"><i class="fa-solid fa-ban mr-1" aria-hidden="true"></i>Rechazar</button></div>` : ''}
                         ${ord.cancelacion_item_solicitada ? `<p class="text-[10px] text-rose-300">Cancelación enviada: ${escaparHtml(ord.motivo_cancelacion_item || '')}</p>` : ''}
                         ${ord.cancelado ? `<p class="text-[10px] text-rose-300">Plato cancelado: ${escaparHtml(ord.motivo_cancelacion_item || '')}</p>` : ''}
                         ${ord.pedidoId && ord.estado === 'listo' && !ord.cancelado ? `<button type="button" onclick="marcarServidoMesera(${ord.pedidoId})" class="w-full rounded-lg bg-sky-500/10 border border-sky-500/20 text-sky-300 hover:bg-sky-500 hover:text-slate-950 py-1.5 text-[10px] font-bold transition-all"><i class="fa-solid fa-hand-holding-heart"></i> Marcar servido</button>` : ''}
@@ -4108,6 +4167,33 @@
             form.hidden = !form.hidden;
             button.setAttribute('aria-expanded', String(!form.hidden));
             if (!form.hidden) form.querySelector('textarea').focus();
+        }
+
+        function toggleRechazoPlatoForm(itemId) {
+            const form = document.getElementById(`rechazo-plato-${itemId}`);
+            const button = document.querySelector(`[aria-controls="rechazo-plato-${itemId}"]`);
+            if (!form || !button) return;
+            form.hidden = !form.hidden;
+            button.setAttribute('aria-expanded', String(!form.hidden));
+            if (!form.hidden) form.querySelector('input').focus();
+        }
+
+        function enviarRechazoPlato(event, pedidoId, itemId, cantidadMaxima) {
+            event.preventDefault();
+            const form = event.currentTarget;
+            const cantidad = Number(form.querySelector('input').value);
+            const motivo = form.querySelector('textarea').value.trim();
+            if (!Number.isInteger(cantidad) || cantidad < 1 || cantidad > cantidadMaxima || !motivo) {
+                showToast('Datos incompletos', 'Indica una cantidad válida y el motivo del rechazo.', 'error');
+                return;
+            }
+            enviarMensajeMesera({
+                accion: 'rechazar_plato',
+                pedido_id: pedidoId,
+                item_id: itemId,
+                cantidad,
+                motivo,
+            });
         }
 
         function enviarSolicitudCancelacionItem(event, pedidoId, itemId) {
@@ -4223,6 +4309,10 @@
             const total = cuentaEnProceso ? parseFloat(cuentaEnProceso.total_cup || cuentaEnProceso.total || 0) : calculateTableTotal(activeTableId);
             if (!table && !cuentaEnProceso) return;
             const itemsCuenta = cuentaEnProceso?.items || cuentaEnProceso?.items_snapshot || [];
+            if (table && !mesaTieneUnidadesCobrables(table)) {
+                showToast('No hay platos cobrables', 'Todos los platos de esta mesa fueron rechazados o cancelados. Cierra la mesa sin generar una factura.');
+                return;
+            }
             if (table && !(table.pedidos || []).length && !itemsCuenta.length) {
                 showToast('No hay pedidos', 'Agrega productos y envía una comanda antes de abrir la cuenta.');
                 return;

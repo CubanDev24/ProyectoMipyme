@@ -1,5 +1,6 @@
 import uuid
 
+from django.conf import settings
 from django.db import models
 from carta.models import Plato
 
@@ -100,13 +101,54 @@ class ItemPedido(models.Model):
         related_name='items_pedido',
     )
     cantidad = models.PositiveIntegerField(default=1)
+    cantidad_rechazada = models.PositiveIntegerField(default=0)
     nota = models.CharField(max_length=200, blank=True)
     cancelacion_solicitada = models.BooleanField(default=False)
     motivo_cancelacion = models.CharField(max_length=300, blank=True, default='')
     cancelado = models.BooleanField(default=False)
 
-    def subtotal(self): return self.plato.precio * self.cantidad
+    @property
+    def cantidad_cobrable(self):
+        return 0 if self.cancelado else self.cantidad - self.cantidad_rechazada
+
+    def subtotal(self):
+        return self.plato.precio * self.cantidad_cobrable
+
     def __str__(self): return f'{self.cantidad}x {self.plato.nombre}'
+
+    class Meta:
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(cantidad_rechazada__lte=models.F('cantidad')),
+                name='itempedido_rechazo_no_supera_cantidad',
+            ),
+        ]
+
+
+class RechazoItemPedido(models.Model):
+    item = models.ForeignKey(ItemPedido, on_delete=models.PROTECT, related_name='rechazos')
+    cantidad = models.PositiveIntegerField()
+    motivo = models.CharField(max_length=300)
+    reportado_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='rechazos_platos_reportados',
+    )
+    creado_en = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['creado_en', 'pk']
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(cantidad__gt=0),
+                name='rechazo_item_cantidad_positiva',
+            ),
+        ]
+
+    def __str__(self):
+        return f'{self.cantidad}x rechazo de {self.item.plato.nombre}'
 
 
 class Factura(models.Model):

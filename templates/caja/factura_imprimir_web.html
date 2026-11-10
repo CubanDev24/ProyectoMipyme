@@ -278,11 +278,13 @@
         <div class="section-label"><span>Detalle</span><span>Importe</span></div>
         <table class="item-list">
           {% for item in factura.items_snapshot %}
+          {% if not item.es_merma %}
           <tr>
             <td class="qty">{{ item.cantidad }}x</td>
-            <td class="name">{{ item.plato }}{% if item.guarnicion %}<span class="unit">Guarnición: {{ item.guarnicion }}</span>{% endif %}{% if item.cantidad > 1 and item.precio %}<span class="unit">{{ item.cantidad }} × {{ item.precio }} CUP</span>{% endif %}</td>
+            <td class="name">{{ item.plato }}{% if item.guarnicion %}<span class="unit">Guarnición: {{ item.guarnicion }}</span>{% endif %}{% if item.cantidad > 1 and item.precio_unit %}<span class="unit">{{ item.cantidad }} × {{ item.precio_unit }} CUP</span>{% endif %}</td>
             <td class="price-col">{{ item.subtotal }} <small>CUP</small></td>
           </tr>
+          {% endif %}
           {% endfor %}
         </table>
 

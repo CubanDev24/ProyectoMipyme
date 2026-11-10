@@ -19,7 +19,7 @@ from asgiref.sync import async_to_sync
 from inventario.models import Insumo, RecetaItem
 from inventario.models import Guarnicion, GuarnicionRecetaItem, Insumo, RecetaItem
 from pedidos.consumers import CajaConsumer, ClienteConsumer, CocinaConsumer, MeseraConsumer, crear_pedidos_por_destino, serializar_cuenta, serializar_factura, serializar_pedido
-from pedidos.models import Factura, ItemPedido, Mesa, Pedido
+from pedidos.models import Factura, ItemPedido, Mesa, Pedido, RechazoItemPedido
 from pedidos.order_routing import destino_para_plato
 from pedidos.views import en_turno
 from usuarios.models import Turno, registrar_inicio_turno
@@ -113,6 +113,128 @@ class FacturaWorkflowTests(TestCase):
         item_serializado = next(item for item in pedido['items'] if item['id'] == item_cancelado.pk)
         self.assertTrue(item_serializado['cancelado'])
         self.assertEqual(item_serializado['plato'], self.plato.nombre)
+
+    def test_rechazo_parcial_reduce_cuenta_y_conserva_motivo(self):
+        item = self.pedido.items.get()
+        item.cantidad_rechazada = 1
+        item.save(update_fields=['cantidad_rechazada'])
+        RechazoItemPedido.objects.create(
+            item=item,
+            cantidad=1,
+            motivo='El cliente no quiso el plato',
+        )
+
+        cuenta = serializar_cuenta([self.pedido])
+        pedido = serializar_pedido(self.pedido)
+
+        self.assertEqual(cuenta['total'], '25.00')
+        self.assertEqual(cuenta['items'][0]['cantidad'], 1)
+        self.assertEqual(cuenta['rechazos'][0]['motivo'], 'El cliente no quiso el plato')
+        self.assertEqual(pedido['items'][0]['cantidad_cobrable'], 1)
+        self.assertEqual(pedido['items'][0]['cantidad_rechazada'], 1)
+
+    def test_mesera_registra_merma_y_notifica_a_caja_en_tiempo_real(self):
+        usuario = get_user_model().objects.create_user(
+            username='mesera_rechazo',
+            password='test',
+            role='mesera',
+        )
+        self.pedido.estado = 'servido'
+        self.pedido.save(update_fields=['estado'])
+        item = self.pedido.items.get()
+        consumer = MeseraConsumer()
+        consumer.scope = {'user': usuario}
+        consumer.send = AsyncMock()
+        consumer.channel_layer = AsyncMock()
+
+        async_to_sync(consumer.receive)(json.dumps({
+            'accion': 'rechazar_plato',
+            'pedido_id': self.pedido.pk,
+            'item_id': item.pk,
+            'cantidad': 1,
+            'motivo': 'El cliente lo devolvió',
+        }))
+
+        item.refresh_from_db()
+        self.assertEqual(item.cantidad_rechazada, 1)
+        self.assertEqual(RechazoItemPedido.objects.get(item=item).reportado_por, usuario)
+        self.assertTrue(any(
+            llamada.args[0] == 'caja' and llamada.args[1]['type'] == 'plato_rechazado'
+            for llamada in consumer.channel_layer.group_send.await_args_list
+        ))
+        self.assertEqual(
+            json.loads(consumer.send.await_args.kwargs['text_data'])['tipo'],
+            'rechazo_plato_registrado',
+        )
+
+    def test_rechazo_no_permite_exceder_unidades_cobrables(self):
+        self.pedido.estado = 'servido'
+        self.pedido.save(update_fields=['estado'])
+        item = self.pedido.items.get()
+
+        _, _, error = async_to_sync(MeseraConsumer().registrar_rechazo_plato)(
+            self.pedido.pk,
+            item.pk,
+            3,
+            'No aceptado',
+            None,
+        )
+
+        item.refresh_from_db()
+        self.assertEqual(item.cantidad_rechazada, 0)
+        self.assertEqual(RechazoItemPedido.objects.count(), 0)
+        self.assertIn('supera', error)
+
+    def test_mesa_se_puede_cerrar_sin_cuenta_si_todos_los_platos_fueron_rechazados(self):
+        self.pedido.estado = 'servido'
+        self.pedido.save(update_fields=['estado'])
+        item = self.pedido.items.get()
+        item.cantidad_rechazada = item.cantidad
+        item.save(update_fields=['cantidad_rechazada'])
+        RechazoItemPedido.objects.create(
+            item=item,
+            cantidad=item.cantidad,
+            motivo='El cliente rechazó todos los platos',
+        )
+
+        pedidos = async_to_sync(MeseraConsumer().marcar_cuenta_solicitada)(self.mesa.pk)
+        mesa_data, error = async_to_sync(MeseraConsumer().cerrar_mesa)(self.mesa.pk)
+
+        self.pedido.refresh_from_db()
+        self.assertEqual(pedidos, [])
+        self.assertIsNone(error)
+        self.assertFalse(mesa_data['abierta'])
+        self.assertFalse(self.pedido.cuenta_solicitada)
+        self.assertIsNone(serializar_cuenta([self.pedido]))
+        self.assertFalse(Factura.objects.filter(pedido=self.pedido).exists())
+
+    def test_factura_cobra_solo_unidades_no_rechazadas_y_guarda_merma(self):
+        self.pedido.estado = 'servido'
+        self.pedido.cuenta_solicitada = True
+        self.pedido.save(update_fields=['estado', 'cuenta_solicitada'])
+        item = self.pedido.items.get()
+        item.cantidad_rechazada = 1
+        item.save(update_fields=['cantidad_rechazada'])
+        RechazoItemPedido.objects.create(
+            item=item,
+            cantidad=1,
+            motivo='Plato devuelto',
+        )
+
+        factura_data, error = async_to_sync(CajaConsumer().cerrar_pedido_con_pago)(
+            self.pedido.pk,
+            'efectivo_cup',
+            None,
+            '25.00',
+        )
+
+        self.assertIsNone(error)
+        self.assertEqual(factura_data['total_cup'], '25.00')
+        self.assertEqual(len(factura_data['items_snapshot']), 1)
+        self.assertEqual(factura_data['items_snapshot'][0]['cantidad'], 1)
+        factura = serializar_factura(Factura.objects.get(pedido=self.pedido))
+        self.assertEqual(len(factura['items']), 1)
+        self.assertNotIn('Plato devuelto', str(factura['items_snapshot']))
 
     def test_public_menu_and_order_flow_hide_dishes_without_a_recipe(self):
         sin_receta = Plato.objects.create(
@@ -265,6 +387,7 @@ class FacturaWorkflowTests(TestCase):
         response = self.client.get(reverse('pedidos:cocina'))
 
         self.assertEqual(response.status_code, 200)
+        self.assertContains(response, '20261110-kitchen-laptop-sidebar')
         self.assertContains(response, 'id="nav-cocina-pedidos"')
         self.assertContains(response, 'class="cocina-tv-brand">Cocina</span>')
         self.assertContains(response, 'id="nav-cocina-ventas"')
@@ -352,6 +475,30 @@ class FacturaWorkflowTests(TestCase):
         self.assertNotContains(response, '${esperandoCancelacion ?')
         self.assertContains(response, 'sonidoPedidoNuevo()')
         self.assertContains(response, 'event.target === event.currentTarget')
+
+    def test_vista_mesera_muestra_cerrar_mesa_solo_si_no_quedan_pedidos_activos(self):
+        mesera = get_user_model().objects.create_user(
+            username='mesera_cerrar_mesa_ui', role='mesera'
+        )
+        self.client.force_login(mesera)
+
+        response = self.client.get(reverse('pedidos:mesera'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'function mesaPuedeCerrarse(table)')
+        self.assertContains(response, 'function mesaTieneUnidadesCobrables(table)')
+        self.assertContains(response, '${mesaTieneUnidadesCobrables(table) ? `')
+        self.assertContains(response, 'Todos los platos de esta mesa fueron rechazados o cancelados.')
+        self.assertContains(response, 'Cerrar mesa')
+        self.assertContains(response, 'Abrir Mesa / Ocupar')
+        self.assertContains(response, 'mesaPuedeCerrarse(table) ?')
+        self.assertContains(response, "changeTableStatus(${table.id}, 'libre')")
+        self.assertContains(response, 'data-modal-close-table-action')
+        self.assertContains(response, 'closeTableButton.hidden = mostrarNuevoPedido')
+        self.assertContains(response, 'data-modal-new-order-action')
+        self.assertContains(response, '!hayPedidoSinEnviar')
+        self.assertContains(response, 'w-full bg-emerald-500 hover:bg-emerald-400')
+        self.assertContains(response, 'shadow-emerald-500/20')
 
     def test_mesera_y_cocina_rechazan_cancelacion_de_pedido_completo(self):
         User = get_user_model()
@@ -942,6 +1089,13 @@ class FacturaWorkflowTests(TestCase):
                 'cantidad': 2,
                 'precio_unit': '25.00',
                 'subtotal': '50.00',
+            }, {
+                'plato': 'Plato rechazado confidencial',
+                'cantidad': 1,
+                'precio_unit': '25.00',
+                'subtotal': '0.00',
+                'es_merma': True,
+                'motivo_rechazo': 'El cliente lo devolvió',
             }],
         )
 
@@ -1475,6 +1629,29 @@ class FacturaWorkflowTests(TestCase):
         self.assertFalse(Factura.objects.filter(pedido=self.pedido).exists())
         self.mesa.refresh_from_db()
         self.assertTrue(self.mesa.abierta)
+
+    def test_mesera_puede_cerrar_mesa_sin_pedidos_o_con_todos_cancelados(self):
+        _, error_pedido_activo = async_to_sync(MeseraConsumer().cerrar_mesa)(self.mesa.pk)
+        self.assertIn('pedidos activos', error_pedido_activo)
+        self.mesa.refresh_from_db()
+        self.assertTrue(self.mesa.abierta)
+
+        mesa_sin_pedidos = Mesa.objects.create(numero=8, abierta=True, activa=True)
+        mesa_con_pedidos_cancelados = Mesa.objects.create(numero=9, abierta=True, activa=True)
+        Pedido.objects.create(
+            mesa=mesa_con_pedidos_cancelados,
+            estado='cancelado',
+            sesion_id=mesa_con_pedidos_cancelados.sesion_id,
+        )
+
+        for mesa in (mesa_sin_pedidos, mesa_con_pedidos_cancelados):
+            with self.subTest(mesa=mesa.numero):
+                mesa_data, error = async_to_sync(MeseraConsumer().cerrar_mesa)(mesa.pk)
+
+                self.assertIsNone(error)
+                self.assertFalse(mesa_data['abierta'])
+                mesa.refresh_from_db()
+                self.assertFalse(mesa.abierta)
 
     def test_caja_cierra_mesa_sin_borrar_pedidos_y_cliente_recupera_factura_pdf(self):
         self.pedido.estado = 'servido'
@@ -2014,6 +2191,9 @@ class FacturaWorkflowTests(TestCase):
         self.assertContains(response, 'Reparto Puente Nuevo, Marianao')
         self.assertContains(response, 'El ingrediente secreto siempre es tu visita.')
         self.assertContains(response, '¡Vuelve pronto!')
+        self.assertContains(response, self.plato.nombre)
+        self.assertNotContains(response, 'Plato rechazado confidencial')
+        self.assertNotContains(response, 'El cliente lo devolvió')
 
     def test_factura_impresa_muestra_importe_recibido_y_cambio(self):
         factura = Factura.objects.create(
@@ -2063,12 +2243,23 @@ class FacturaWorkflowTests(TestCase):
     def test_vista_estadisticas_caja_existe_y_usa_template(self):
         User = get_user_model()
         User.objects.create_user(username='cajera_test', password='123456', role='cajera')
+        Insumo.objects.create(
+            nombre='Agua Mineral',
+            tipo_inventario='restaurante',
+            stock_actual=Decimal('12'),
+        )
         self.client.login(username='cajera_test', password='123456')
         response = self.client.get('/pedidos/caja/estadisticas/pagina/')
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'Estadísticas acumuladas')
         self.assertContains(response, 'Panel de Caja')
+        self.assertContains(response, 'id="filtro-inventario-productos"')
+        self.assertContains(response, 'data-inventario-producto')
+        self.assertContains(response, 'Agua Mineral')
+        self.assertContains(response, 'filtroInventario.addEventListener(\'input\'')
+        self.assertContains(response, "producto.style.display = coincide ? 'grid' : 'none'")
+        self.assertContains(response, "normalize('NFD')")
 
     def test_sidebar_de_cajera_muestra_historial_en_caja_y_estadisticas(self):
         User = get_user_model()
@@ -2081,3 +2272,5 @@ class FacturaWorkflowTests(TestCase):
 
                 self.assertEqual(response.status_code, 200)
                 self.assertContains(response, f'href="{reverse("usuarios:historial_turnos")}"')
+                self.assertContains(response, f'href="{reverse("inventario:carta_cajera")}"')
+                self.assertContains(response, f'href="{reverse("inventario:entrada_almacen_cajera")}"')

@@ -31,7 +31,7 @@ from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, Tabl
 from carta.models import Plato
 from carta.qr import generar_qr_mesa
 from inventario.models import Insumo, MovimientoInventario
-from pedidos.models import Factura, Mesa, Pedido
+from pedidos.models import Factura, Mesa, Pedido, RechazoItemPedido
 from .models import Notificacion, ProductoIPVTurno, Turno, Usuario, cerrar_turno, configurar_turno, crear_mesas_del_turno, get_turno_abierto
 
 
@@ -135,31 +135,15 @@ def dashboard(request):
     ipv_configurado = False
     opciones_ipv = []
     if turno and turno.estado == 'abierto' and request.user.role in ROLES_CON_ACCESO_FINANCIERO:
+        _sincronizar_productos_ipv_turno(turno)
         ipv_configurado = ProductoIPVTurno.objects.filter(turno=turno).exists()
-        if not ipv_configurado:
-            platos = list(
-                Plato.objects.filter(disponible=True)
-                .select_related('categoria')
-                .order_by('categoria__orden', 'nombre')
-            )
-            cantidades_iniciales = _cantidades_finales_productos_ipv(platos)
-            registros = [
-                ProductoIPVTurno(
-                    turno=turno,
-                    plato=plato,
-                    cantidad_inicial=cantidades_iniciales.get(plato.pk, Decimal('0')),
-                    entradas=Decimal('0'),
-                )
-                for plato in platos
-            ]
-            ProductoIPVTurno.objects.bulk_create(registros)
-            ipv_configurado = True
         opciones_ipv = [
             {
                 'plato': registro.plato,
                 'cantidad_inicial': registro.cantidad_inicial,
             }
             for registro in ProductoIPVTurno.objects.filter(turno=turno)
+            .filter(plato__disponible=True)
             .select_related('plato__categoria')
             .order_by('plato__nombre')
         ]
@@ -283,6 +267,8 @@ def _ventas_facturadas_por_plato(turno, cierre, platos):
     ).values_list('items_snapshot', flat=True)
     for snapshot in snapshots:
         for item in snapshot or []:
+            if item.get('es_merma'):
+                continue
             plato_id = item.get('plato_id')
             try:
                 plato_id = int(plato_id) if plato_id is not None else None
@@ -301,6 +287,53 @@ def _ventas_facturadas_por_plato(turno, cierre, platos):
             datos['importe'] += _decimal_o_cero(item.get('subtotal'))
             datos['precio_total'] += _decimal_o_cero(item.get('precio_unit')) * cantidad
     return ventas
+
+
+def _importe_ventas_facturadas(turno, cierre):
+    snapshots = Factura.objects.filter(
+        creado_en__gte=turno.apertura,
+        creado_en__lte=cierre,
+    ).values_list('items_snapshot', flat=True)
+    return sum(
+        (
+            _decimal_o_cero(item.get('subtotal'))
+            for snapshot in snapshots
+            for item in snapshot or []
+            if not item.get('es_merma')
+        ),
+        Decimal('0'),
+    )
+
+
+def _rechazos_por_plato(turno, cierre, platos=None):
+    rechazos = RechazoItemPedido.objects.filter(
+        creado_en__gte=turno.apertura,
+        creado_en__lte=cierre,
+    )
+    if platos is not None:
+        rechazos = rechazos.filter(item__plato_id__in=[plato.pk for plato in platos])
+    cantidades = defaultdict(lambda: Decimal('0'))
+    for plato_id, cantidad in rechazos.values_list('item__plato_id', 'cantidad'):
+        cantidades[plato_id] += Decimal(cantidad)
+    return cantidades
+
+
+def _detalle_rechazos_ipv(turno, cierre):
+    registros = RechazoItemPedido.objects.filter(
+        creado_en__gte=turno.apertura,
+        creado_en__lte=cierre,
+    ).select_related('item__plato', 'item__pedido__mesa', 'reportado_por')
+    return [{
+        'plato_id': rechazo.item.plato_id,
+        'plato': rechazo.item.plato.nombre,
+        'cantidad': rechazo.cantidad,
+        'motivo': rechazo.motivo,
+        'reportado_por': (
+            rechazo.reportado_por.get_full_name() or rechazo.reportado_por.username
+        ) if rechazo.reportado_por else '',
+        'creado_en': timezone.localtime(rechazo.creado_en).strftime('%d/%m/%Y %H:%M'),
+        'mesa': rechazo.item.pedido.mesa.etiqueta if rechazo.item.pedido.mesa_id else 'Para llevar',
+    } for rechazo in registros.order_by('creado_en', 'pk')]
 
 
 def _cantidades_finales_productos_ipv(platos):
@@ -329,14 +362,50 @@ def _cantidades_finales_productos_ipv(platos):
             turno_anterior.cierre,
             [registro.plato for registro in registros_turno],
         )
+        rechazos = _rechazos_por_plato(
+            turno_anterior,
+            turno_anterior.cierre,
+            [registro.plato for registro in registros_turno],
+        )
         for registro in registros_turno:
             cantidades[registro.plato_id] = (
                 registro.cantidad_inicial
                 + registro.entradas
                 - registro.merma_rotura
                 - ventas[registro.plato_id]['cantidad']
+                - rechazos[registro.plato_id]
             )
     return cantidades
+
+
+def _sincronizar_productos_ipv_turno(turno):
+    platos = list(
+        Plato.objects.filter(disponible=True)
+        .select_related('categoria')
+        .order_by('categoria__orden', 'nombre')
+    )
+    if not platos:
+        return
+
+    registros_existentes = set(
+        ProductoIPVTurno.objects.filter(
+            turno=turno,
+            plato_id__in=[plato.pk for plato in platos],
+        ).values_list('plato_id', flat=True)
+    )
+    platos_nuevos = [plato for plato in platos if plato.pk not in registros_existentes]
+    cantidades_iniciales = _cantidades_finales_productos_ipv(platos_nuevos)
+    ProductoIPVTurno.objects.bulk_create(
+        [
+            ProductoIPVTurno(
+                turno=turno,
+                plato=plato,
+                cantidad_inicial=cantidades_iniciales.get(plato.pk, Decimal('0')),
+            )
+            for plato in platos_nuevos
+        ],
+        ignore_conflicts=True,
+    )
 
 
 @login_required
@@ -350,34 +419,12 @@ def configurar_ipv_turno_view(request):
         messages.error(request, 'No hay un turno abierto para configurar el IPV.')
         return redirect('usuarios:dashboard')
 
-    plato_ids = list(dict.fromkeys(request.POST.getlist('platos')))
-    productos_ipv_existentes = ProductoIPVTurno.objects.filter(turno=turno).exists()
-    platos = []
-    if not productos_ipv_existentes:
-        platos = list(Plato.objects.filter(pk__in=plato_ids, disponible=True).order_by('pk'))
-        if not platos:
-            messages.error(request, 'Selecciona al menos un producto de la carta.')
-            return redirect('usuarios:dashboard')
-        if len(platos) != len(plato_ids):
-            messages.error(request, 'Uno o más productos seleccionados ya no están disponibles.')
-            return redirect('usuarios:dashboard')
-
     try:
         fondo_inicial = _decimal_ipv_no_negativo(
             request.POST.get('fondo_inicial_cup'),
             'el fondo inicial',
             decimal_places=2,
         )
-        cantidades_iniciales = _cantidades_finales_productos_ipv(platos)
-        registros = [
-            ProductoIPVTurno(
-                turno=turno,
-                plato=plato,
-                cantidad_inicial=cantidades_iniciales.get(plato.pk, Decimal('0')),
-                entradas=Decimal('0'),
-            )
-            for plato in platos
-        ]
     except ValueError as exc:
         messages.error(request, str(exc))
         return redirect('usuarios:dashboard')
@@ -387,12 +434,11 @@ def configurar_ipv_turno_view(request):
         if turno is None:
             messages.error(request, 'El turno se cerró antes de configurar su IPV.')
             return redirect('usuarios:dashboard')
-        if not ProductoIPVTurno.objects.filter(turno=turno).exists() and registros:
-            ProductoIPVTurno.objects.bulk_create(registros)
         turno.fondo_inicial_cup = fondo_inicial
         turno.save(update_fields=['fondo_inicial_cup'])
+        _sincronizar_productos_ipv_turno(turno)
 
-    messages.success(request, 'El IPV del turno quedó configurado.')
+    messages.success(request, 'El fondo inicial quedó guardado y el IPV incluye automáticamente la carta disponible.')
     return redirect('usuarios:dashboard')
 
 
@@ -421,6 +467,11 @@ def registrar_merma_ipv_view(request, producto_turno_id):
                 + registro.entradas
                 - registro.merma_rotura
                 - venta['cantidad']
+                - _rechazos_por_plato(
+                    registro.turno,
+                    cierre,
+                    [registro.plato],
+                )[registro.plato_id]
             )
             if cantidad > disponible:
                 raise ValueError('La rotura no puede superar las unidades disponibles.')
@@ -445,22 +496,6 @@ def inventario_ventas_turno(request):
             'productos': [],
             'actualizado_en': timezone.localtime().strftime('%H:%M:%S'),
         })
-    if not ProductoIPVTurno.objects.filter(turno=turno).exists():
-        platos = list(
-            Plato.objects.filter(disponible=True)
-            .select_related('categoria')
-            .order_by('categoria__orden', 'nombre')
-        )
-        cantidades_iniciales = _cantidades_finales_productos_ipv(platos)
-        ProductoIPVTurno.objects.bulk_create([
-            ProductoIPVTurno(
-                turno=turno,
-                plato=plato,
-                cantidad_inicial=cantidades_iniciales.get(plato.pk, Decimal('0')),
-                entradas=Decimal('0'),
-            )
-            for plato in platos
-        ])
     datos = _datos_ipv_turno(turno)
     return JsonResponse({
         **datos,
@@ -1082,13 +1117,19 @@ def ipv_turno(request, turno_id):
 
 
 def _datos_ipv_turno(turno):
+    if turno.estado == 'abierto':
+        _sincronizar_productos_ipv_turno(turno)
     cierre = turno.cierre if turno.estado == 'cerrado' and turno.cierre else timezone.now()
-    registros = list(
-        ProductoIPVTurno.objects.filter(turno=turno)
-        .select_related('plato__categoria')
-        .order_by('plato__nombre')
-    )
+    registros_query = ProductoIPVTurno.objects.filter(turno=turno)
+    if turno.estado == 'abierto':
+        registros_query = registros_query.filter(plato__disponible=True)
+    registros = list(registros_query.select_related('plato__categoria').order_by('plato__nombre'))
     ventas = _ventas_facturadas_por_plato(turno, cierre, [registro.plato for registro in registros])
+    rechazos = _rechazos_por_plato(turno, cierre, [registro.plato for registro in registros])
+    detalle_rechazos = _detalle_rechazos_ipv(turno, cierre)
+    motivos_por_plato = defaultdict(list)
+    for rechazo in detalle_rechazos:
+        motivos_por_plato[rechazo['plato_id']].append(rechazo)
     facturas = Factura.objects.filter(creado_en__gte=turno.apertura, creado_en__lte=cierre)
     pagos = facturas.aggregate(
         efectivo=Sum('monto_efectivo_cup'),
@@ -1098,16 +1139,18 @@ def _datos_ipv_turno(turno):
     efectivo_ventas = pagos['efectivo'] or Decimal('0')
     fondo_inicial = turno.fondo_inicial_cup
     filas = []
-    total_importe = Decimal('0')
+    total_importe = _importe_ventas_facturadas(turno, cierre)
     for registro in registros:
         plato = registro.plato
         venta = ventas[plato.pk]
         cantidad_vendida = venta['cantidad']
+        cantidad_rechazada = rechazos[plato.pk]
         importe_venta = venta['importe']
         saldo_final = (
             registro.cantidad_inicial
             + registro.entradas
             - cantidad_vendida
+            - cantidad_rechazada
             - registro.merma_rotura
         )
         precio_venta = (
@@ -1115,7 +1158,6 @@ def _datos_ipv_turno(turno):
             if cantidad_vendida
             else plato.precio
         )
-        total_importe += importe_venta
         filas.append({
             'id': registro.pk,
             'plato_id': plato.pk,
@@ -1127,6 +1169,8 @@ def _datos_ipv_turno(turno):
             'entradas': str(registro.entradas),
             'cantidad_existencia': str(saldo_final),
             'cantidad_vendida': str(cantidad_vendida),
+            'cantidad_rechazada': str(cantidad_rechazada),
+            'rechazos': motivos_por_plato[plato.pk],
             'saldo_final': str(saldo_final),
             'precio_venta': str(precio_venta),
             'importe_venta': str(importe_venta),
@@ -1147,17 +1191,15 @@ def _datos_ipv_turno(turno):
         'ventas_transferencia_cup': f'{pagos["transferencia"] or Decimal("0"):.2f}',
         'ventas_usd': f'{pagos["usd"] or Decimal("0"):.2f}',
         'filas': filas,
+        'rechazos': detalle_rechazos,
     }
 
 
 IPV_COLUMNAS = (
     ('Descripción', 'nombre'),
     ('Categoría', 'categoria'),
-    ('Saldo inicial', 'saldo_inicial'),
-    ('Entradas', 'entradas'),
-    ('En existencia', 'cantidad_existencia'),
-    ('Saldo final', 'saldo_final'),
     ('Cant. vendida', 'cantidad_vendida'),
+    ('Platos rechazados', 'cantidad_rechazada'),
     ('Precio venta', 'precio_venta'),
     ('Importe', 'importe_venta'),
     ('Merma / rotura', 'merma_rotura'),
@@ -1212,14 +1254,13 @@ def ipv_turno_pdf(request, turno_id):
             )
             for indice, (_, clave) in enumerate(IPV_COLUMNAS)
         ])
-    filas_tabla.append([
-        Paragraph('Total importe de ventas', estilo_celda),
-        '', '', '', '', '', '', '',
-        Paragraph(escape(datos['total_importe']), estilo_numero),
-        '',
-    ])
+    filas_tabla.append(
+        [Paragraph('Total importe de ventas', estilo_celda)]
+        + [''] * 4
+        + [Paragraph(escape(datos['total_importe']), estilo_numero), '']
+    )
     ancho_disponible = pagina[0] - 20 * mm
-    proporciones = (0.19, 0.12, 0.08, 0.08, 0.10, 0.08, 0.10, 0.09, 0.09, 0.07)
+    proporciones = (0.24, 0.15, 0.10, 0.12, 0.12, 0.15, 0.12)
     tabla = Table(
         filas_tabla,
         colWidths=[ancho_disponible * proporcion for proporcion in proporciones],
@@ -1231,7 +1272,7 @@ def ipv_turno_pdf(request, turno_id):
         ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
         ('BACKGROUND', (0, -1), (-1, -1), colors.HexColor('#e2e8f0')),
         ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'),
-        ('SPAN', (0, -1), (7, -1)),
+        ('SPAN', (0, -1), (4, -1)),
         ('GRID', (0, 0), (-1, -1), 0.25, colors.HexColor('#cbd5e1')),
         ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
         ('ALIGN', (2, 1), (-1, -1), 'RIGHT'),
@@ -1265,6 +1306,46 @@ def ipv_turno_pdf(request, turno_id):
         Spacer(1, 8 * mm),
         tabla,
     ]
+    if datos['rechazos']:
+        estilo_detalle = ParagraphStyle(
+            'IPVDetalleRechazo',
+            parent=estilo_celda,
+            fontSize=7,
+            leading=8,
+        )
+        encabezados_rechazo = ['Fecha', 'Mesa', 'Plato', 'Cantidad', 'Motivo', 'Reportado por']
+        detalle = [[Paragraph(escape(valor), estilo_encabezado) for valor in encabezados_rechazo]]
+        for rechazo in datos['rechazos']:
+            detalle.append([
+                Paragraph(escape(rechazo['creado_en']), estilo_detalle),
+                Paragraph(escape(rechazo['mesa']), estilo_detalle),
+                Paragraph(escape(rechazo['plato']), estilo_detalle),
+                Paragraph(str(rechazo['cantidad']), estilo_detalle),
+                Paragraph(escape(rechazo['motivo']), estilo_detalle),
+                Paragraph(escape(rechazo['reportado_por']), estilo_detalle),
+            ])
+        tabla_rechazos = Table(detalle, colWidths=[
+            ancho_disponible * 0.15,
+            ancho_disponible * 0.16,
+            ancho_disponible * 0.18,
+            ancho_disponible * 0.09,
+            ancho_disponible * 0.27,
+            ancho_disponible * 0.15,
+        ], repeatRows=1)
+        tabla_rechazos.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1e293b')),
+            ('GRID', (0, 0), (-1, -1), 0.25, colors.HexColor('#cbd5e1')),
+            ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+            ('LEFTPADDING', (0, 0), (-1, -1), 4),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 4),
+            ('TOPPADDING', (0, 0), (-1, -1), 4),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+        ]))
+        contenido.extend([
+            Spacer(1, 8 * mm),
+            Paragraph('Detalle de platos rechazados', estilos['Heading2']),
+            tabla_rechazos,
+        ])
     documento.build(contenido)
     respuesta = HttpResponse(buffer.getvalue(), content_type='application/pdf')
     respuesta['Content-Disposition'] = f'attachment; filename="ipv_turno_{turno.pk}.pdf"'
@@ -1310,11 +1391,8 @@ def ipv_turno_excel(request, turno_id):
             if valor is None:
                 valores.append(None)
             elif clave in {
-                'saldo_inicial',
-                'entradas',
-                'cantidad_existencia',
-                'saldo_final',
                 'cantidad_vendida',
+                'cantidad_rechazada',
                 'precio_venta',
                 'importe_venta',
                 'merma_rotura',
@@ -1326,18 +1404,18 @@ def ipv_turno_excel(request, turno_id):
 
     fila_total = hoja.max_row + 1
     hoja.cell(row=fila_total, column=1, value='Total importe de ventas')
-    hoja.cell(row=fila_total, column=9, value=Decimal(datos['total_importe']))
+    hoja.cell(row=fila_total, column=6, value=Decimal(datos['total_importe']))
     for celda in hoja[fila_total]:
         celda.font = Font(bold=True)
         celda.fill = PatternFill('solid', fgColor='E2E8F0')
 
     hoja.freeze_panes = 'A5'
-    hoja.auto_filter.ref = f'A4:J{fila_total - 1}'
-    anchos = (32, 22, 16, 14, 16, 14, 16, 16, 16, 18)
+    hoja.auto_filter.ref = f'A4:G{fila_total - 1}'
+    anchos = (32, 22, 16, 18, 16, 18, 18)
     for indice, ancho in enumerate(anchos, start=1):
         hoja.column_dimensions[chr(64 + indice)].width = ancho
     for fila in hoja.iter_rows(min_row=5, max_row=fila_total):
-        for indice in range(3, 11):
+        for indice in range(3, 8):
             celda = fila[indice - 1]
             if celda.value is not None:
                 celda.number_format = '#,##0.00'
@@ -1345,6 +1423,31 @@ def ipv_turno_excel(request, turno_id):
             celda = fila[indice - 1]
             if celda.value is not None:
                 celda.data_type = 's'
+
+    hoja_rechazos = libro.create_sheet('Rechazos')
+    encabezados_rechazos = ['Fecha', 'Mesa', 'Plato', 'Cantidad', 'Motivo', 'Reportado por']
+    hoja_rechazos.append(encabezados_rechazos)
+    for celda in hoja_rechazos[1]:
+        celda.font = Font(bold=True, color='FFFFFF')
+        celda.fill = PatternFill('solid', fgColor='1E293B')
+        celda.alignment = Alignment(horizontal='center', wrap_text=True)
+    for rechazo in datos['rechazos']:
+        hoja_rechazos.append([
+            rechazo['creado_en'],
+            rechazo['mesa'],
+            rechazo['plato'],
+            rechazo['cantidad'],
+            rechazo['motivo'],
+            rechazo['reportado_por'],
+        ])
+    for fila in hoja_rechazos.iter_rows(min_row=2):
+        for celda in fila:
+            if celda.column != 4 and celda.value is not None:
+                celda.data_type = 's'
+    hoja_rechazos.freeze_panes = 'A2'
+    hoja_rechazos.auto_filter.ref = f'A1:F{max(1, hoja_rechazos.max_row)}'
+    for columna, ancho in zip(('A', 'B', 'C', 'D', 'E', 'F'), (20, 20, 28, 12, 48, 24)):
+        hoja_rechazos.column_dimensions[columna].width = ancho
 
     buffer = BytesIO()
     libro.save(buffer)

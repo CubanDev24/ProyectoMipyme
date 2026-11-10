@@ -10,7 +10,7 @@
     <link rel="stylesheet" href="{% static 'vendor/fontawesome/css/all.min.css' %}">    <script>
    
     </script>
-    <link rel="stylesheet" href="{% static 'css/main.css' %}?v=20261013-caja-estadisticas">
+    <link rel="stylesheet" href="{% static 'css/main.css' %}?v=20261110-caja-estadisticas-filtro">
     <script src="{% static 'js/responsive-sidebar.js' %}?v=20261001-sidebar-logout" defer></script>
 </head>
 <body class="bg-slate-900 text-slate-100 font-sans min-h-screen flex flex-col md:flex-row overflow-x-hidden">
@@ -51,6 +51,14 @@
                 <a href="{% url 'usuarios:dashboard' %}" class="w-full flex items-center gap-3 px-3 py-3 rounded-xl font-medium text-sm text-slate-400 hover:text-white hover:bg-slate-800/50 transition-all">
                     <i class="fa-solid fa-clock-rotate-left text-lg w-6 text-center"></i>
                     <span class="hidden lg:inline">Detalle del turno actual</span>
+                </a>
+                <a href="{% url 'inventario:carta_cajera' %}" class="w-full flex items-center gap-3 px-3 py-3 rounded-xl font-medium text-sm text-slate-400 hover:text-white hover:bg-slate-800/50 transition-all">
+                    <i class="fa-solid fa-book-open text-lg w-6 text-center" aria-hidden="true"></i>
+                    <span class="hidden lg:inline">Carta</span>
+                </a>
+                <a href="{% url 'inventario:entrada_almacen_cajera' %}" class="w-full flex items-center gap-3 px-3 py-3 rounded-xl font-medium text-sm text-slate-400 hover:text-white hover:bg-slate-800/50 transition-all">
+                    <i class="fa-solid fa-boxes-stacked text-lg w-6 text-center" aria-hidden="true"></i>
+                    <span class="hidden lg:inline">Entrada al almacén</span>
                 </a>
                 <a href="{% url 'usuarios:historial_turnos' %}" class="w-full flex items-center gap-3 px-3 py-3 rounded-xl font-medium text-sm text-slate-400 hover:text-white hover:bg-slate-800/50 transition-all">
                     <i class="fa-solid fa-clock-rotate-left text-lg w-6 text-center" aria-hidden="true"></i>
@@ -103,16 +111,19 @@
 
                 <section class="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 shadow-2xl shadow-slate-950/20">
                     <h3 class="caja-subtitulo">Salidas y existencias de productos</h3>
+                    <label class="sr-only" for="filtro-inventario-productos">Filtrar productos por nombre</label>
+                    <input id="filtro-inventario-productos" class="admin-input mb-4 w-full md:max-w-md" type="search" placeholder="Buscar producto por nombre…" autocomplete="off">
                     <div class="caja-inventario">
                         {% if inventario %}
                             {% for producto in inventario %}
-                                <div class="caja-inventario-row {% if producto.stock_bajo %}stock-bajo{% endif %}">
+                                <div class="caja-inventario-row {% if producto.stock_bajo %}stock-bajo{% endif %}" data-inventario-producto>
                                     <strong>{{ producto.nombre }}</strong>
                                     <span>{{ producto.area }} · {{ producto.categoria }}</span>
                                     <span>Salida: {{ producto.salida }} {{ producto.unidad }}</span>
                                     <span>Quedan: <b>{{ producto.stock_actual }} {{ producto.unidad }}</b></span>
                                 </div>
                             {% endfor %}
+                            <p id="filtro-inventario-sin-resultados" class="admin-empty" hidden>No hay productos que coincidan con ese nombre.</p>
                         {% else %}
                             <div class="admin-empty">No hay productos registrados.</div>
                         {% endif %}
@@ -129,6 +140,26 @@
         }
         actualizarReloj();
         setInterval(actualizarReloj, 30000);
+
+        const filtroInventario = document.getElementById('filtro-inventario-productos');
+        if (filtroInventario) {
+            const productosInventario = Array.from(document.querySelectorAll('[data-inventario-producto]'));
+            const mensajeSinResultados = document.getElementById('filtro-inventario-sin-resultados');
+            const normalizarNombre = nombre => nombre.toLocaleLowerCase('es').normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+
+            filtroInventario.addEventListener('input', () => {
+                const consulta = normalizarNombre(filtroInventario.value.trim());
+                let visibles = 0;
+                productosInventario.forEach(producto => {
+                    const nombre = normalizarNombre(producto.querySelector('strong').textContent);
+                    const coincide = nombre.includes(consulta);
+                    producto.hidden = !coincide;
+                    producto.style.display = coincide ? 'grid' : 'none';
+                    if (coincide) visibles += 1;
+                });
+                if (mensajeSinResultados) mensajeSinResultados.hidden = visibles > 0;
+            });
+        }
     </script>
 </body>
 </html>
