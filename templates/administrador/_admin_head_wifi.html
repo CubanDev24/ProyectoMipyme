@@ -1,0 +1,60 @@
+{% load static %}
+<style>
+    .num{font-variant-numeric:tabular-nums}
+    .wifi-print-content::-webkit-scrollbar,.wifi-print-content *::-webkit-scrollbar{width:6px;height:6px}
+    .wifi-print-content::-webkit-scrollbar-thumb,.wifi-print-content *::-webkit-scrollbar-thumb{background:#1e293b;border-radius:4px}
+    .bg-bg{background-color:#0b0f19}.bg-side{background-color:#090d16}.border-line{border-color:#1e293b}
+    .card{background:#101625;border:1px solid #1e293b;border-radius:.9rem;padding:1.25rem;box-shadow:0 1px 0 rgba(255,255,255,.03) inset,0 8px 24px -12px rgba(0,0,0,.6)}
+    .kic{width:2rem;height:2rem;border-radius:.55rem;background:#1e293b;color:#94a3b8;display:flex;align-items:center;justify-content:center;font-size:.8rem;flex-shrink:0}
+    .btn{display:inline-flex;align-items:center;gap:.5rem;padding:.45rem .8rem;border-radius:.5rem;font-size:.75rem;font-weight:500;background:#0a0d14;border:1px solid #334155;color:#e2e8f0;transition:background .15s,border-color .15s}
+    .btn:hover{background:#1e293b;border-color:#475569}
+    .btn-p{display:inline-flex;align-items:center;gap:.5rem;padding:.55rem .95rem;border-radius:.55rem;font-size:.8rem;font-weight:600;background:#10b981;color:#04130d;transition:background .15s}
+    .btn-p:hover{background:#34d399}
+    .fld{background:#0a0d14;border:1px solid #334155;border-radius:.5rem;padding:.5rem .75rem;font-size:.75rem;color:#e2e8f0;width:100%;transition:border-color .15s}
+    .fld:focus{border-color:#10b981}
+    .fld::placeholder{color:#64748b}
+    .lbl-f{display:block;font-size:.75rem;font-weight:500;color:#94a3b8;margin-bottom:.35rem}
+    .stat{border:1px solid #1e293b;background:#0a0d14;border-radius:.6rem;padding:.65rem .75rem}
+    .meta{display:inline-flex;align-items:center;gap:.45rem;border-radius:999px;border:1px solid #1e293b;background:#0a0d14;padding:.25rem .7rem;font-size:.72rem;color:#cbd5e1;white-space:nowrap}
+    .meta i{color:#34d399;font-size:.7rem}
+    .wifi-print-content{max-width:80rem;margin:auto;padding:1.25rem;display:grid;gap:1.5rem}
+    .card-h{display:flex;align-items:center;gap:.9rem;padding-bottom:1rem;margin-bottom:1.1rem;border-bottom:1px solid #1e293b}
+    .card-top{position:relative}.card-top::before{content:"";position:absolute;left:8%;right:8%;top:-1px;height:2px;background:linear-gradient(90deg,transparent,#10b981aa,transparent)}
+    .qrbox{background:#fff;border-radius:.8rem;padding:.9rem;display:inline-block;line-height:0;box-shadow:0 8px 24px -12px rgba(0,0,0,.7)}
+    .qrbox img,.qrbox canvas{width:232px;max-width:100%;height:auto}
+    .wifi-config-form{display:grid;gap:1rem}
+    .wifi-input{padding-right:2.5rem!important}
+    .wifi-password-wrap{position:relative}
+    .wifi-password-toggle{position:absolute;right:.75rem;top:50%;transform:translateY(-50%);color:#64748b}
+    .wifi-password-toggle:hover{color:#e2e8f0}
+    .wifi-error{display:flex;align-items:center;gap:.5rem;color:#fda4af;font-size:.75rem}
+    .wifi-error:empty{display:none}
+    .wifi-qr-output{display:flex;flex:1;flex-direction:column;align-items:center;gap:1rem}
+    .wifi-system-url{overflow-wrap:anywhere}
+    .wifi-copy-status{min-height:1.25rem;margin-top:.4rem;color:#6ee7b7;font-size:.75rem}
+    .admin-flash-list{display:flex;flex-direction:column;gap:.5rem;margin-bottom:1.25rem}
+    .admin-flash{display:flex;align-items:center;gap:.65rem;padding:.65rem 1rem;border:1px solid #10b98155;border-left:4px solid #10b981;border-radius:.5rem;background:#101625;color:#a7f3d0;font-size:.83rem}
+    .admin-flash-error{border-color:#f8717155;border-left-color:#f87171;color:#fecaca}
+    @media(min-width:640px){.wifi-print-content{padding:1.5rem}}
+    @media(min-width:1024px){.wifi-print-content{padding:2rem}}
+    @media(max-width:520px){.wifi-print-content{padding:1rem;gap:1.25rem}}
+    @media print{
+      body{background:#fff;color:#000}
+      .card,.stat{border:1px solid #ccc!important;background:#fff!important;box-shadow:none!important;break-inside:avoid}
+      *{color:#000!important}
+      body.imprimir-qrs{display:block!important;min-height:0!important}
+      body.imprimir-qrs .wifi-print-content{max-width:none!important;padding:0!important}
+      body.imprimir-qrs .wifi-print-content>:not(.wifi-print-cards):not([data-qr-card]){display:none!important}
+      body.imprimir-qrs .wifi-print-cards{display:block!important}
+      body.imprimir-qrs .wifi-print-cards>[data-qr-card="configuracion"]{display:none!important}
+      body.imprimir-qrs[data-qr-para-imprimir="wifi"] [data-qr-card="sistema"],
+      body.imprimir-qrs[data-qr-para-imprimir="sistema"] [data-qr-card="wifi"]{display:none!important}
+      body.imprimir-qrs .qrbox img{width:min(100%,220px)!important;margin:1rem auto}
+      body.imprimir-qrs .qr-print-actions,body.imprimir-qrs .wifi-copy-status{display:none!important}
+    }
+  </style>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+    tailwind.config={theme:{extend:{fontFamily:{sans:['Inter','sans-serif']},colors:{bg:'#0b0f19',side:'#090d16',card:'#101625',inner:'#0a0d14',line:'#1e293b'}}}}
+  </script>

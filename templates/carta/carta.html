@@ -2678,6 +2678,10 @@ function numeroVisiblePedido(pedido) {
 
 function mostrarEstado(p) {
   renderHistorialCliente();
+  const btnSolicitarCuenta = document.querySelector('#view-invoice .cliente-amber-btn');
+  if (btnSolicitarCuenta) {
+    btnSolicitarCuenta.style.display = p.cuenta_solicitada ? 'none' : '';
+  }
   
   const estadoBox = document.getElementById('estado-box');
   if (estadoBox) {

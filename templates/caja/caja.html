@@ -297,7 +297,7 @@
                                     <input type="radio" name="forma_pago" value="transferencia" onchange="seleccionarPago('transferencia')"> Transferencia
                                 </label>
                                 <label class="pago-opcion" data-forma="mixto">
-                                    <input type="radio" name="forma_pago" value="mixto" onchange="seleccionarPago('mixto')"> Mixto (mitad/mitad)
+                                    <input type="radio" name="forma_pago" value="mixto" onchange="seleccionarPago('mixto')"> Mixto (efectivo + transferencia)
                                 </label>
                                 <label class="pago-opcion" data-forma="usd">
                                     <input type="radio" name="forma_pago" value="usd" onchange="seleccionarPago('usd')"> USD
@@ -464,6 +464,7 @@
           toast(d.mensaje, 'red');
           sonidoError();
           if (formaPagoSeleccionada === 'efectivo_cup') actualizarCambio();
+          else if (formaPagoSeleccionada === 'mixto') actualizarPagoMixto();
           else if (formaPagoSeleccionada === 'usd') actualizarCambioUsd();
           else document.getElementById('btn-cobrar').disabled = false;
         }
@@ -594,11 +595,20 @@
       } else if (formaPagoSeleccionada === 'transferencia') {
         cont.innerHTML = `<div class="pago-detalle-linea"><span>Transferencia</span><strong>${total.toFixed(2)} CUP</strong></div>`;
       } else if (formaPagoSeleccionada === 'mixto') {
-        const mitad = Math.round((total/2) * 100) / 100;
-        const resto = Math.round((total - mitad) * 100) / 100;
         cont.innerHTML = `
-          <div class="pago-detalle-linea"><span>Efectivo CUP</span><strong>${mitad.toFixed(2)} CUP</strong></div>
-          <div class="pago-detalle-linea"><span>Transferencia</span><strong>${resto.toFixed(2)} CUP</strong></div>`;
+          <div class="caja-pago-resumen"><span>Total de la cuenta</span><strong>${total.toFixed(2)} CUP</strong></div>
+          <label class="caja-recibido-field" for="input-transferencia-mixto">
+            <span class="caja-recibido-label"><i class="fa-solid fa-building-columns" aria-hidden="true"></i> Transferencia aceptada</span>
+            <span class="caja-recibido-control"><i class="fa-solid fa-credit-card" aria-hidden="true"></i><input type="number" step="0.01" min="0.01" max="${total.toFixed(2)}" id="input-transferencia-mixto" inputmode="decimal" placeholder="Importe por transferencia" oninput="actualizarPagoMixto()"><span class="caja-recibido-moneda">CUP</span></span>
+          </label>
+          <div class="caja-cambio-resumen"><span>Efectivo restante a cobrar</span><strong id="efectivo-mixto-calc">${total.toFixed(2)} CUP</strong></div>
+          <label class="caja-recibido-field" for="input-recibido-mixto">
+            <span class="caja-recibido-label"><i class="fa-solid fa-money-bill-wave" aria-hidden="true"></i> Efectivo recibido</span>
+            <span class="caja-recibido-control"><i class="fa-solid fa-hand-holding-dollar" aria-hidden="true"></i><input type="number" step="0.01" min="0" id="input-recibido-mixto" inputmode="decimal" placeholder="Escribe el importe" oninput="actualizarPagoMixto()"><span class="caja-recibido-moneda">CUP</span></span>
+            <span class="caja-recibido-ayuda">El efectivo recibido debe cubrir la parte en efectivo.</span>
+          </label>
+          <div class="caja-cambio-resumen" id="caja-cambio-mixto"><span><i class="fa-solid fa-arrow-rotate-left mr-1" aria-hidden="true"></i> Cambio a devolver</span><strong id="cambio-mixto-calc">—</strong></div>`;
+        actualizarPagoMixto();
       } else if (formaPagoSeleccionada === 'usd') {
         const tasaInicial = pedidoSeleccionado.tasa_cambio || (TASA_ACTUAL !== null ? TASA_ACTUAL : '');
         cont.innerHTML = `
@@ -617,7 +627,7 @@
           <div class="caja-cambio-resumen" id="caja-cambio-usd-cup"><span>Equivalente del cambio en CUP</span><strong id="cambio-usd-cup-calc">—</strong></div>`;
         actualizarMontoUsd();
       }
-      if (['transferencia', 'mixto'].includes(formaPagoSeleccionada)) {
+      if (formaPagoSeleccionada === 'transferencia') {
         document.getElementById('btn-cobrar').disabled = false;
       }
     }
@@ -639,6 +649,44 @@
       output.textContent = valido
         ? `${redondearMoneda(recibido - total).toFixed(2)} CUP`
         : input.value ? 'Importe insuficiente' : '—';
+      document.getElementById('btn-cobrar').disabled = !valido;
+    }
+
+    function actualizarPagoMixto() {
+      const transferenciaInput = document.getElementById('input-transferencia-mixto');
+      const recibidoInput = document.getElementById('input-recibido-mixto');
+      const efectivoOutput = document.getElementById('efectivo-mixto-calc');
+      const cambioOutput = document.getElementById('cambio-mixto-calc');
+      if (!transferenciaInput || !recibidoInput || !efectivoOutput || !cambioOutput || !pedidoSeleccionado) return;
+
+      const total = Number(pedidoSeleccionado.total);
+      const transferencia = Number(transferenciaInput.value);
+      const transferenciaValida = transferenciaInput.value !== ''
+        && Number.isFinite(transferencia)
+        && transferencia > 0
+        && transferencia < total;
+      const efectivo = transferenciaInput.value === ''
+        ? total
+        : transferenciaValida ? redondearMoneda(total - transferencia) : NaN;
+      efectivoOutput.textContent = Number.isFinite(efectivo) ? `${efectivo.toFixed(2)} CUP` : '—';
+      if (Number.isFinite(efectivo)) recibidoInput.min = efectivo.toFixed(2);
+
+      const recibido = Number(recibidoInput.value);
+      const valido = transferenciaValida
+        && recibidoInput.value !== ''
+        && Number.isFinite(recibido)
+        && Number.isFinite(efectivo)
+        && recibido >= efectivo;
+      const cambioResumen = document.getElementById('caja-cambio-mixto');
+      cambioResumen.classList.toggle('is-valid', valido);
+      cambioResumen.classList.toggle(
+        'is-invalid',
+        (transferenciaInput.value !== '' && !transferenciaValida)
+          || (recibidoInput.value !== '' && !valido),
+      );
+      cambioOutput.textContent = valido
+        ? `${redondearMoneda(recibido - efectivo).toFixed(2)} CUP`
+        : recibidoInput.value ? 'Importe insuficiente' : '—';
       document.getElementById('btn-cobrar').disabled = !valido;
     }
 
@@ -714,8 +762,10 @@
         tasa_cambio = pedidoSeleccionado.tasa_cambio || (input ? parseFloat(input.value) : null);
         if (!tasa_cambio || tasa_cambio <= 0) { toast('Indica una tasa de cambio válida', 'red'); return; }
       }
-      const montoRecibidoCup = document.getElementById('input-recibido-cup')?.value;
+      const montoRecibidoCup = document.getElementById('input-recibido-mixto')?.value
+        || document.getElementById('input-recibido-cup')?.value;
       const montoRecibidoUsd = document.getElementById('input-recibido-usd')?.value;
+      const montoTransferenciaCup = document.getElementById('input-transferencia-mixto')?.value;
       if (formaPagoSeleccionada === 'efectivo_cup' && (!montoRecibidoCup || Number(montoRecibidoCup) < Number(pedidoSeleccionado.total))) {
         toast('El efectivo recibido debe cubrir el total de la cuenta', 'red');
         return;
@@ -723,6 +773,24 @@
       if (formaPagoSeleccionada === 'usd' && (!montoRecibidoUsd || !Number.isFinite(Number(montoRecibidoUsd)))) {
         toast('Indica el efectivo USD recibido', 'red');
         return;
+      }
+      if (formaPagoSeleccionada === 'mixto') {
+        const total = Number(pedidoSeleccionado.total);
+        const transferencia = Number(montoTransferenciaCup);
+        const recibidoMixto = Number(montoRecibidoCup);
+        const efectivo = redondearMoneda(total - transferencia);
+        if (
+          !montoTransferenciaCup
+          || !Number.isFinite(transferencia)
+          || transferencia <= 0
+          || transferencia >= total
+          || !montoRecibidoCup
+          || !Number.isFinite(recibidoMixto)
+          || recibidoMixto < efectivo
+        ) {
+          toast('Indica la transferencia y el efectivo suficiente para cubrir la cuenta', 'red');
+          return;
+        }
       }
       document.getElementById('btn-cobrar').disabled = true;
       ws.send(JSON.stringify({
@@ -733,6 +801,7 @@
         tasa_cambio: tasa_cambio,
         monto_recibido_cup: montoRecibidoCup || null,
         monto_recibido_usd: montoRecibidoUsd || null,
+        monto_transferencia_cup: montoTransferenciaCup || null,
         mesera_nombre: pedidoSeleccionado.mesera_nombre || '',
       }));
     }

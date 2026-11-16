@@ -1,0 +1,10 @@
+{% load static l10n %}
+<style>
+    .guarnicion-options { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,160px),1fr)); gap:8px; margin-top:6px; }
+    .guarnicion-options label { display:flex; min-height:44px; align-items:center; gap:9px; border:1px solid #334155; border-radius:8px; background:#0f172a; padding:9px 11px; color:#e2e8f0; font-size:12px; }
+    .guarnicion-options input { width:18px; height:18px; flex:0 0 auto; accent-color:#10b981; }
+    .guarnicion-admin-list { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,360px),1fr)); gap:12px; }
+    .guarnicion-form { min-width:0; }
+    .admin-input-label { display:block; margin-bottom:5px; color:#cbd5e1; font-size:12px; font-weight:600; }
+    @media (max-width:640px) { .guarnicion-admin-list { grid-template-columns:minmax(0,1fr); } .guarnicion-form .turn-card-heading { align-items:flex-start; flex-wrap:wrap; } }
+  </style>

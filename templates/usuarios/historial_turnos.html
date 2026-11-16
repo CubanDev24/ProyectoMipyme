@@ -4,303 +4,544 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Historial de turnos - GourmetControl</title>
-  <link rel="icon" type="image/svg+xml" href="{% static 'img/favicon.svg' %}?v=20261013">
+  <title>GourmetControl · Historial de turnos</title>
+  <link rel="icon" type="image/svg+xml" href="{% static 'img/favicon.svg' %}">
   <link rel="stylesheet" href="{% static 'css/tailwind.css' %}">
-  <link rel="stylesheet" href="{% static 'vendor/fontawesome/css/all.min.css' %}">  <link rel="stylesheet" href="{% static 'css/main.css' %}?v=20261001-responsive-sidebar-logout">
-  <script src="{% static 'js/responsive-sidebar.js' %}?v=20261001-sidebar-logout" defer></script>
+  <link rel="stylesheet" href="{% static 'vendor/fontawesome/css/all.min.css' %}">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <style>
-    a:focus-visible,
-    button:focus-visible {
-      outline: 2px solid #34d399;
-      outline-offset: 2px;
-      border-radius: 8px;
+    :root{color-scheme:dark;--history-bg:#0b0f19;--history-side:#090d16;--history-card:#101625;--history-inner:#0a0d14;--history-line:#1e293b;--history-muted:#94a3b8;--history-green:#34d399}
+    *{box-sizing:border-box}
+    body.history-body{margin:0;min-height:100vh;background:radial-gradient(900px 380px at 70% -120px,rgba(16,185,129,.1),transparent 70%),var(--history-bg);background-attachment:fixed;color:#e2e8f0;font-family:Inter,system-ui,sans-serif;font-size:.875rem}
+    .history-shell{display:flex;height:100dvh;overflow:hidden}
+    .history-overlay{display:none;position:fixed;inset:0;z-index:30;background:rgba(0,0,0,.6)}
+    .history-sidebar{position:relative;z-index:40;display:flex;flex:0 0 16rem;flex-direction:column;overflow:hidden;background:var(--history-side);border-right:1px solid var(--history-line);transition:flex-basis .2s ease,width .2s ease,transform .2s ease}
+    .history-brand{height:3.5rem;display:flex;align-items:center;gap:.75rem;padding:0 1rem;border-bottom:1px solid var(--history-line);flex-shrink:0}
+    .history-brand-icon{width:2.25rem;height:2.25rem;display:grid;place-items:center;flex-shrink:0;border-radius:.55rem;background:rgba(16,185,129,.15);color:var(--history-green)}
+    .history-brand-name{min-width:0}
+    .history-brand-name strong,.history-brand-name span{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .history-brand-name strong{color:#fff;font-size:.875rem;line-height:1.1}
+    .history-brand-name span{margin-top:.2rem;color:var(--history-muted);font-size:.7rem}
+    .history-sidebar nav{flex:1;overflow:auto;padding:.75rem}
+    .history-sidebar nav a{display:flex;align-items:center;gap:.75rem;padding:.6rem .75rem;border:1px solid transparent;border-radius:.5rem;color:var(--history-muted);font-size:.8rem;text-decoration:none;transition:background .15s,color .15s}
+    .history-sidebar nav a:hover{background:rgba(30,41,59,.55);color:#fff}
+    .history-sidebar nav a[aria-current=page]{border-color:rgba(16,185,129,.25);background:rgba(16,185,129,.1);color:#6ee7b7}
+    .history-sidebar nav a i{width:1rem;flex-shrink:0;text-align:center}
+    .history-sidebar nav a span{display:inline!important;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .history-sidebar-foot{padding:.75rem;border-top:1px solid var(--history-line);flex-shrink:0}
+    .history-profile{display:flex;align-items:center;gap:.75rem;padding:.6rem .4rem}
+    .history-profile-icon{width:2.25rem;height:2.25rem;display:grid;place-items:center;flex-shrink:0;border:1px solid rgba(16,185,129,.3);border-radius:50%;background:rgba(5,150,105,.25);color:#6ee7b7}
+    .history-profile-info{min-width:0}
+    .history-profile-info p{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .history-profile-name{color:#fff;font-size:.75rem;font-weight:500}
+    .history-profile-role{margin-top:.15rem;color:var(--history-muted);font-size:.7rem}
+    .history-logout{display:flex;align-items:center;gap:.75rem;padding:.6rem .75rem;border-radius:.5rem;color:var(--history-muted);font-size:.8rem;text-decoration:none}
+    .history-logout:hover{background:rgba(239,68,68,.1);color:#fca5a5}
+    .history-content{display:flex;flex:1;flex-direction:column;min-width:0}
+    .history-header{height:3.5rem;display:flex;align-items:center;justify-content:space-between;gap:.75rem;padding:0 1rem;border-bottom:1px solid var(--history-line);background:rgba(11,15,25,.95);backdrop-filter:blur(12px);flex-shrink:0}
+    .history-header-left,.history-header-title,.history-header-badge{display:flex;align-items:center}
+    .history-header-left{gap:.65rem;min-width:0}
+    .history-menu{padding:.5rem;margin-left:-.5rem;border:0;border-radius:.5rem;background:transparent;color:#cbd5e1;cursor:pointer}
+    .history-menu:hover{background:rgba(30,41,59,.6);color:#fff}
+    .history-header-title{gap:.5rem;overflow:hidden;color:#fff;font-size:.9rem;font-weight:600;white-space:nowrap}
+    .history-header-title i{color:var(--history-green)}
+    .history-clock{display:none;color:#cbd5e1;background:rgba(30,41,59,.7);border:1px solid #334155;border-radius:999px;padding:.25rem .65rem;font-size:.7rem;white-space:nowrap}
+    .history-header-badge{gap:.45rem;padding:.35rem .7rem;border:1px solid rgba(16,185,129,.3);border-radius:999px;background:rgba(16,185,129,.1);color:#6ee7b7;font-size:.7rem;font-weight:500;white-space:nowrap}
+    .history-main{flex:1;overflow:auto}
+    .history-inner{max-width:80rem;margin:auto;padding:1rem;display:grid;gap:1.5rem}
+    .history-heading{display:flex;flex-direction:column;justify-content:space-between;gap:.85rem}
+    .history-kicker{color:var(--history-green);font-size:.68rem;font-weight:700;letter-spacing:.14em;text-transform:uppercase}
+    .history-title{color:#fff;font-size:1.5rem;font-weight:700;line-height:2rem;letter-spacing:-.03em}
+    .history-subtitle{margin-top:.35rem;color:var(--history-muted);font-size:.85rem}
+    .history-actions{display:flex;flex-wrap:wrap;gap:.5rem}
+    .history-btn{display:inline-flex;align-items:center;justify-content:center;gap:.5rem;min-height:2.25rem;padding:.48rem .8rem;border:1px solid #334155;border-radius:.5rem;background:var(--history-inner);color:#e2e8f0;font:inherit;font-size:.75rem;font-weight:500;text-decoration:none;cursor:pointer;transition:background .15s,border-color .15s}
+    .history-btn:hover{border-color:#475569;background:#1e293b}
+    .history-btn-primary{min-height:2.5rem;padding:.55rem .95rem;border-color:transparent;background:#10b981;color:#04130d;font-weight:600}
+    .history-btn-primary:hover{background:var(--history-green)}
+    .history-card{min-width:0;padding:1.25rem;border:1px solid var(--history-line);border-radius:.9rem;background:var(--history-card);box-shadow:inset 0 1px rgba(255,255,255,.03),0 8px 24px -12px rgba(0,0,0,.6)}
+    .history-card-heading{display:flex;align-items:center;gap:.75rem;margin-bottom:1rem;padding-bottom:.9rem;border-bottom:1px solid var(--history-line)}
+    .history-section-icon{width:2.5rem;height:2.5rem;display:grid;place-items:center;flex-shrink:0;border-radius:.65rem;background:rgba(16,185,129,.15);color:#6ee7b7}
+    .history-card-kicker{color:var(--history-muted);font-size:.65rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase}
+    .history-card-title{margin-top:.1rem;color:#fff;font-size:1rem;font-weight:700}
+    .history-card-subtitle{margin-top:.2rem;color:var(--history-muted);font-size:.72rem}
+    .history-filters{display:grid;grid-template-columns:minmax(0,1fr);gap:.75rem 1rem}
+    .history-field{display:grid;gap:.35rem;min-width:0;color:#cbd5e1;font-size:.75rem;font-weight:600}
+    .history-input-wrap{display:flex;align-items:center;gap:.55rem;min-width:0;min-height:2.25rem;padding:0 .7rem;border:1px solid #334155;border-radius:.55rem;background:var(--history-inner);color:var(--history-green)}
+    .history-input-wrap:focus-within{border-color:rgba(52,211,153,.75);box-shadow:0 0 0 3px rgba(52,211,153,.1)}
+    .history-input-wrap>i{flex:0 0 auto}
+    .history-input{width:100%;min-width:0;border:0;outline:0;background:transparent;color:#f8fafc;color-scheme:dark;font:inherit;font-size:.75rem}
+    .history-input::placeholder{color:#64748b}
+    .history-input option{background-color:#0f172a;color:#f8fafc}
+    .history-date{display:grid;gap:.35rem;min-width:0;color:var(--history-muted);font-size:.75rem;font-weight:600}
+    .history-date input{width:100%;min-width:0;min-height:2.65rem;padding:.4rem .55rem;border:1px solid #334155;border-radius:.55rem;background:var(--history-inner);color:#f8fafc;color-scheme:dark;font:inherit;font-size:.75rem}
+    .history-filter-footer{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:.75rem;margin-top:.75rem;padding-top:.75rem;border-top:1px solid var(--history-line)}
+    .history-filter-options,.history-filter-summary{display:flex;flex-wrap:wrap;align-items:center;gap:.5rem 1.25rem}
+    .history-filter-options label{display:flex;align-items:center;gap:.5rem;color:#cbd5e1;font-size:.75rem}
+    .history-filter-options input[type=checkbox]{width:1rem;height:1rem;accent-color:#10b981}
+    .history-filter-options input:disabled{cursor:not-allowed;opacity:1}
+    .history-filter-sort{width:auto;min-height:2.25rem;padding:.4rem .75rem;border:1px solid #334155;border-radius:.5rem;background:var(--history-inner);color:#f8fafc;color-scheme:dark;font:inherit;font-size:.75rem}
+    .history-filters .history-filter-sort{width:100%;min-height:2.65rem}
+    .history-visually-hidden{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+    .history-filter-summary{gap:.75rem}
+    .history-filter-status{margin:0;color:var(--history-muted);font-size:.75rem}
+    .history-filter-error{display:flex;align-items:flex-start;gap:.45rem;margin-top:.7rem;color:#fca5a5;font-size:.72rem}
+    .history-section-title{display:flex;align-items:center;gap:.6rem;margin:0 0 1rem;color:#fff;font-size:1rem;font-weight:700}
+    .history-section-title i{color:var(--history-green);font-size:.9rem}
+    .history-section-tag{margin-left:.15rem;color:var(--history-muted);font-size:.72rem;font-weight:400}
+    .history-kpis{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.75rem}
+    .history-kpi{min-width:0;padding:1rem;border:1px solid var(--history-line);border-radius:.8rem;background:var(--history-card);box-shadow:inset 0 1px rgba(255,255,255,.03),0 8px 24px -12px rgba(0,0,0,.6)}
+    .history-kpi-highlight{border-color:rgba(16,185,129,.4);background:linear-gradient(160deg,rgba(16,185,129,.13),var(--history-card) 70%)}
+    .history-kpi-warning{border-color:rgba(245,158,11,.4);background:linear-gradient(160deg,rgba(245,158,11,.1),var(--history-card) 70%)}
+    .history-kpi-label{display:flex;align-items:center;gap:.625rem;color:var(--history-muted);font-size:.75rem}
+    .history-kpi-icon{width:2rem;height:2rem;display:grid;place-items:center;flex-shrink:0;border-radius:.55rem;background:#1e293b;color:var(--history-muted);font-size:.8rem}
+    .history-kpi-highlight .history-kpi-icon{background:rgba(16,185,129,.2);color:var(--history-green)}
+    .history-kpi-warning .history-kpi-icon{background:rgba(245,158,11,.16);color:#fcd34d}
+    .history-kpi-value{margin-top:.75rem;overflow-wrap:anywhere;color:#fff;font-size:1.5rem;font-weight:700;letter-spacing:-.025em;font-variant-numeric:tabular-nums}
+    .history-kpi-highlight .history-kpi-value{color:#6ee7b7}
+    .history-kpi-note{margin-top:.25rem;color:#64748b;font-size:.75rem}
+    .history-analysis{display:grid;grid-template-columns:minmax(0,1fr);gap:1rem}
+    .history-chart-scroll{overflow-x:auto;padding-bottom:.35rem}
+    .history-chart{display:flex;width:100%;align-items:flex-end;gap:.5rem;min-height:0;padding:0 0 .25rem}
+    .history-bar-link{display:flex;width:auto;min-width:3rem;flex:1 0 3rem;flex-direction:column;align-items:center;justify-content:flex-end;gap:.4rem;border-radius:.45rem;color:inherit;text-decoration:none}
+    .history-bar-link:hover .history-bar{filter:brightness(1.25)}
+    .history-bar-value{color:#94a3b8;font-size:.62rem;font-variant-numeric:tabular-nums}
+    .history-bar-track{display:flex;width:100%;height:10rem;align-items:flex-end;justify-content:center}
+    .history-bar{width:70%;min-height:3px;border-radius:.35rem .35rem .12rem .12rem;background:rgba(16,185,129,.65);transition:filter .15s}
+    .history-bar-zero{background:#334155}
+    .history-bar-date{color:#64748b;font-size:.62rem;font-variant-numeric:tabular-nums}
+    .history-chart-legend{display:flex;flex-wrap:wrap;gap:.5rem 1rem;margin-top:.55rem;color:var(--history-muted);font-size:.67rem}
+    .history-chart-legend span{display:inline-flex;align-items:center;gap:.4rem}
+    .history-dot{width:.55rem;height:.55rem;border-radius:.15rem;background:rgba(16,185,129,.75)}
+    .history-mix-list{display:grid;gap:1.1rem}
+    .history-mix-head{display:flex;align-items:center;justify-content:space-between;gap:.5rem;color:#cbd5e1;font-size:.875rem}
+    .history-mix-head strong{color:#fff;font-size:.875rem;font-variant-numeric:tabular-nums}
+    .history-mix-track{height:.45rem;overflow:hidden;margin-top:.5rem;border-radius:999px;background:#1e293b}
+    .history-mix-fill{height:100%;border-radius:inherit;background:#10b981}
+    .history-mix-fill-transfer{background:#38bdf8}
+    .history-mix-icon-cash{color:#34d399}
+    .history-mix-icon-transfer{color:#38bdf8}
+    .history-mix-icon-usd{color:#fcd34d}
+    .history-mix-note{display:flex;align-items:flex-start;gap:.5rem;margin:1.1rem 0 0;color:var(--history-muted);font-size:.75rem}
+    .history-turn-grid{display:grid;grid-template-columns:minmax(0,1fr);gap:1rem}
+    .history-turn-card{display:flex;flex-direction:column;gap:.85rem;min-width:0;padding:1.25rem;border:1px solid var(--history-line);border-radius:.9rem;background:var(--history-card);box-shadow:inset 0 1px rgba(255,255,255,.03),0 8px 24px -12px rgba(0,0,0,.6);scroll-margin:1.5rem}
+    .history-turn-card:focus{outline:2px solid var(--history-green);outline-offset:2px}
+    .history-turn-heading{display:flex;align-items:center;gap:.7rem;min-width:0;padding-bottom:.8rem;border-bottom:1px solid var(--history-line)}
+    .history-turn-heading-copy{min-width:0;flex:1}
+    .history-turn-date{color:#fff;font-size:1.125rem;font-weight:700;line-height:1.25}
+    .history-status{display:inline-flex;align-items:center;gap:.35rem;flex-shrink:0;padding:.25rem .7rem;border:1px solid rgba(16,185,129,.35);border-radius:999px;background:rgba(16,185,129,.1);color:#6ee7b7;font-size:.72rem;font-weight:600;white-space:nowrap}
+    .history-turn-meta{display:flex;flex-wrap:wrap;gap:.45rem}
+    .history-meta-pill{display:inline-flex;align-items:center;gap:.45rem;padding:.25rem .7rem;border:1px solid var(--history-line);border-radius:999px;background:var(--history-inner);color:#cbd5e1;font-size:.72rem}
+    .history-meta-pill-warning{border-color:rgba(245,158,11,.4);background:rgba(245,158,11,.08);color:#fde68a}
+    .history-meta-pill i{color:var(--history-green);font-size:.7rem}
+    .history-participants{display:flex;flex-wrap:wrap;align-items:center;gap:.4rem}
+    .history-participants-label{margin-right:.15rem;color:var(--history-muted);font-size:.75rem}
+    .history-chip{max-width:100%;overflow:hidden;padding:.2rem .6rem;border:1px solid #334155;border-radius:.375rem;background:#1e293b;color:#e2e8f0;font-size:.75rem;text-overflow:ellipsis;white-space:nowrap}
+    .history-turn-metrics{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.5rem}
+    .history-stat{min-width:0;padding:.65rem .75rem;border:1px solid var(--history-line);border-radius:.6rem;background:var(--history-inner)}
+    .history-stat-highlight{border-color:rgba(16,185,129,.3);background:linear-gradient(160deg,rgba(16,185,129,.1),var(--history-inner) 75%)}
+    .history-stat-label{color:var(--history-muted);font-size:.75rem}
+    .history-stat-value{margin-top:.125rem;overflow-wrap:anywhere;color:#fff;font-size:.875rem;font-weight:600;font-variant-numeric:tabular-nums}
+    .history-stat-highlight .history-stat-value{color:#6ee7b7}
+    .history-notes{min-height:6rem;padding-top:.75rem;border-top:1px solid var(--history-line)}
+    .history-notes-title{margin:0 0 .4rem;color:#cbd5e1;font-size:.875rem;font-weight:500}
+    .history-notes-text{margin:0;overflow-wrap:anywhere;color:var(--history-muted);font-size:.875rem;line-height:1.5;white-space:pre-wrap}
+    .history-note-facts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.5rem;margin-top:.7rem}
+    .history-note-fact{min-width:0;padding:.55rem .65rem;border:1px solid var(--history-line);border-radius:.55rem;background:var(--history-inner)}
+    .history-note-fact-label{color:var(--history-muted);font-size:.7rem}
+    .history-note-fact-value{margin-top:.15rem;overflow-wrap:anywhere;color:#e2e8f0;font-size:.8rem;font-weight:600;font-variant-numeric:tabular-nums}
+    .history-note-disclaimer{margin-top:.4rem;font-size:.7rem}
+    .history-notes-text.is-collapsed{max-height:3em;overflow:hidden}
+    .history-note-toggle{margin-top:.2rem;padding:0;border:0;background:transparent;color:var(--history-green);font:inherit;font-size:.75rem;cursor:pointer}
+    .history-detail-link{align-self:flex-start;margin-top:auto}
+    .history-empty{padding:2.5rem 1rem;border:1px dashed #334155;border-radius:.9rem;background:rgba(16,22,37,.55);text-align:center}
+    .history-empty-icon{color:#475569;font-size:1.8rem}
+    .history-empty-title{margin-top:.75rem;color:#fff;font-size:.9rem;font-weight:700}
+    .history-empty-text{margin-top:.35rem;color:var(--history-muted);font-size:.75rem}
+    .history-flash{padding:.75rem 1rem;border:1px solid rgba(16,185,129,.3);border-radius:.65rem;background:rgba(16,185,129,.08);color:#a7f3d0;font-size:.8rem}
+    .history-pagination{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:.5rem;margin-top:.25rem}
+    .history-skip-link{position:absolute;left:-9999px;top:1rem;z-index:100;padding:.65rem 1rem;border-radius:.5rem;background:var(--history-green);color:#04130d}
+    .history-skip-link:focus{left:1rem}
+    .history-body :focus-visible{outline:2px solid var(--history-green);outline-offset:2px}
+    @media(min-width:640px){.history-inner{padding:1.5rem}.history-heading{flex-direction:row;align-items:end}.history-clock{display:inline-flex}.history-filters{grid-template-columns:repeat(2,minmax(0,1fr))}.history-turn-metrics{grid-template-columns:repeat(3,minmax(0,1fr))}}
+    @media(min-width:1024px){
+      .history-sidebar.collapsed{flex-basis:4.5rem;width:4.5rem}
+      .history-sidebar.collapsed .history-brand,.history-sidebar.collapsed .history-profile{justify-content:center;padding-left:0;padding-right:0}
+      .history-sidebar.collapsed .history-brand-name,.history-sidebar.collapsed .history-profile-info,.history-sidebar.collapsed nav a span,.history-sidebar.collapsed .history-logout span{display:none!important}
+      .history-sidebar.collapsed nav a,.history-sidebar.collapsed .history-logout{justify-content:center;padding-left:0;padding-right:0}
+      .history-sidebar.collapsed nav a{gap:0}
+      .history-inner{padding:2rem}
     }
-    .turn-filter-grid {
-      display: grid;
-      grid-template-columns: minmax(180px, 1.4fr) minmax(190px, 1fr) minmax(260px, 1.5fr) auto;
-      gap: 1rem;
-      align-items: end;
+    @media(min-width:1280px){
+      .history-filters{grid-template-columns:minmax(0,4fr) minmax(0,1.5fr) minmax(0,1.5fr) minmax(0,2.5fr) minmax(0,2.5fr)}
+      .history-filters>:nth-child(3){grid-column:auto}
+      .history-kpis{grid-template-columns:repeat(4,minmax(0,1fr))}
+      .history-analysis{grid-template-columns:minmax(0,3fr) minmax(17rem,2fr)}
+      .history-turn-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
     }
-    .turn-filter-actions {
-      display: flex;
-      align-items: end;
-      gap: .65rem;
+    @media(max-width:1023px){
+      .history-sidebar{position:fixed;inset:0 auto 0 0;width:16rem;flex-basis:16rem;transform:translateX(-100%)}
+      .history-sidebar.is-open{transform:translateX(0)}
+      .history-overlay.is-open{display:block}
     }
-    .turn-filter-actions .btn {
-      height: 48px;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      gap: .5rem;
-      white-space: nowrap;
+    @media(max-width:520px){.history-inner{padding:1rem;gap:1.25rem}.history-header{padding:0 .75rem}.history-header-badge{padding:.35rem .5rem}.history-filter-footer{align-items:flex-start}.history-kpi{padding:.7rem}.history-kpi-value{font-size:1.15rem}.history-turn-card{padding:1rem}}
+    @media print{
+      .history-sidebar,.history-header,.history-actions,.history-overlay,.history-filter-options,.history-detail-link{display:none!important}
+      .history-shell,.history-content,.history-main{display:block;height:auto;overflow:visible}
+      body.history-body{background:#fff;color:#000}
+      .history-card,.history-kpi,.history-turn-card{break-inside:avoid;border:1px solid #ccc;background:#fff;box-shadow:none}
+      .history-title,.history-card-title,.history-section-title,.history-turn-date,.history-stat-value,.history-empty-title{color:#000}
+      .history-main{overflow:visible}
     }
-    .turn-filter-actions .btn-filter {
-      border: 1px solid #2563eb;
-      background: linear-gradient(135deg, #2563eb, #1d4ed8);
-      color: #fff;
-      box-shadow: 0 5px 14px rgba(37, 99, 235, .2);
-      transition: background .18s ease, box-shadow .18s ease, transform .18s ease;
-    }
-    .turn-filter-actions .btn-filter:hover {
-      background: linear-gradient(135deg, #3b82f6, #2563eb);
-      box-shadow: 0 7px 18px rgba(37, 99, 235, .3);
-      transform: translateY(-1px);
-    }
-    .turn-filter-field {
-      display: grid;
-      gap: .45rem;
-      color: #cbd5e1;
-      font-size: .75rem;
-      font-weight: 650;
-      letter-spacing: .025em;
-    }
-    .turn-filter-control {
-      display: flex;
-      align-items: center;
-      gap: .7rem;
-      min-width: 0;
-      min-height: 48px;
-      padding: 0 .85rem;
-      border: 1px solid rgba(148, 163, 184, .22);
-      border-radius: 12px;
-      background: linear-gradient(145deg, rgba(15, 23, 42, .98), rgba(2, 8, 23, .96));
-      color: #94a3b8;
-      box-shadow: inset 0 1px 0 rgba(255, 255, 255, .025);
-      transition: border-color .18s ease, box-shadow .18s ease, background .18s ease;
-    }
-    .turn-filter-control:focus-within {
-      border-color: rgba(52, 211, 153, .75);
-      background: #020817;
-      box-shadow: 0 0 0 3px rgba(52, 211, 153, .12);
-    }
-    .turn-filter-control i {
-      flex: 0 0 auto;
-      color: #34d399;
-    }
-    .turn-filter-control input {
-      width: 100%;
-      min-width: 0;
-      border: 0;
-      outline: 0;
-      background: transparent;
-      color: #f8fafc;
-      color-scheme: dark;
-      font: inherit;
-      font-size: .85rem;
-      letter-spacing: normal;
-    }
-    .turn-filter-date-parts,
-    .turn-filter-range {
-      display: grid;
-      gap: .55rem;
-      flex: 1;
-    }
-    .turn-filter-date-parts {
-      grid-template-columns: minmax(0, 1.2fr) minmax(0, .8fr);
-    }
-    .turn-filter-range {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      align-items: stretch;
-    }
-    .turn-filter-date-field {
-      display: grid;
-      min-width: 0;
-      gap: .3rem;
-      color: #94a3b8;
-      font-size: .8rem;
-      font-weight: 700;
-      letter-spacing: normal;
-    }
-    .turn-filter-date-field input {
-      width: 100%;
-      min-width: 0;
-      height: 44px;
-      box-sizing: border-box;
-      border: 1px solid rgba(148, 163, 184, .22);
-      border-radius: 9px;
-      background: #020817;
-      padding: 0 .55rem;
-      color: #f8fafc;
-      color-scheme: dark;
-      font: inherit;
-      font-size: .75rem;
-    }
-    .turn-filter-date-field input:focus-visible {
-      outline: 2px solid #34d399;
-      outline-offset: 1px;
-    }
-    .turn-filter-control select {
-      width: 100%;
-      min-width: 0;
-      border: 0;
-      outline: 0;
-      background: transparent;
-      color: #f8fafc;
-      color-scheme: dark;
-      font: inherit;
-      font-size: .85rem;
-      letter-spacing: normal;
-      cursor: pointer;
-    }
-    .turn-filter-control select option {
-      background-color: #0f172a;
-      color: #f8fafc;
-    }
-    .turn-filter-control input::placeholder {
-      color: #64748b;
-      opacity: 1;
-    }
-    .turn-filter-status {
-      min-height: 1.25rem;
-      margin-top: .8rem;
-      color: #94a3b8;
-      font-size: .75rem;
-    }
-    @media (max-width: 700px) {
-      .turn-filter-grid {
-        grid-template-columns: minmax(0, 1fr);
-        gap: .8rem;
-      }
-    }
-    @media (max-width: 380px) {
-      .turn-filter-range {
-        grid-template-columns: minmax(0, 1fr);
-      }
-    }
-    @media (prefers-reduced-motion: reduce) {
-      *, *::before, *::after {
-        animation-duration: 0.001ms !important;
-        animation-iteration-count: 1 !important;
-        transition-duration: 0.001ms !important;
-      }
-    }
+    @media(prefers-reduced-motion:reduce){*,*::before,*::after{transition:none!important}}
   </style>
 </head>
-<body class="bg-slate-900 text-slate-100 font-sans min-h-screen flex flex-col md:flex-row overflow-x-hidden">
-  <aside class="w-full md:w-20 lg:w-64 bg-slate-950 border-r border-slate-800 flex flex-col justify-between shrink-0"><div><div class="p-4 lg:p-6 flex items-center justify-between border-b border-slate-800/80"><div class="flex items-center gap-3"><div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-500 to-teal-400 flex items-center justify-center text-slate-950 font-black text-xl shadow-lg shadow-emerald-500/20" aria-hidden="true"><i class="fa-solid fa-utensils"></i></div><div class="hidden lg:block"><h1 class="font-bold text-lg tracking-tight leading-none text-white">GourmetControl</h1><span class="text-xs text-slate-400 font-medium">Historial de turnos</span></div></div></div><div class="p-4 border-b border-slate-800/50 hidden lg:flex items-center gap-3 bg-slate-900/40"><div class="w-10 h-10 rounded-full bg-emerald-500/15 border-2 border-emerald-500 flex items-center justify-center text-emerald-400" aria-hidden="true"><i class="fa-solid fa-user-shield"></i></div><div><p class="text-sm font-semibold text-white leading-tight">{{ request.user.get_full_name|default:request.user.username }}</p><p class="text-xs text-emerald-400 font-medium">{{ request.user.get_role_display }} • Activo</p></div></div>{% if request.user.role == 'cajera' %}{% include "usuarios/_cajera_sidebar_nav.html" with seccion_activa="historial" %}{% else %}{% include "usuarios/_admin_sidebar_nav.html" with seccion_activa="historial" %}{% endif %}</div><div class="p-3 border-t border-slate-800/80"><a href="{% url 'usuarios:logout' %}" class="w-full flex items-center justify-center lg:justify-start gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold text-rose-400 hover:bg-rose-500/10 transition-all"><i class="fa-solid fa-right-from-bracket text-base" aria-hidden="true"></i><span class="hidden lg:inline">Cerrar sesión</span></a></div></aside>
-  <main class="flex-1 flex flex-col h-screen overflow-hidden"><header class="h-16 border-b border-slate-800 bg-slate-950/60 backdrop-blur px-6 flex items-center justify-between shrink-0"><div class="flex items-center gap-4"><h2 class="text-lg font-bold text-white flex items-center gap-2 leading-none"><i class="fa-solid fa-clock-rotate-left text-emerald-400 text-base" aria-hidden="true"></i><span>Historial de turnos</span></h2><span class="text-[11px] bg-slate-800 text-slate-300 px-2.5 py-1 rounded-full border border-slate-700 font-medium tracking-wide" id="clock-display" aria-live="off">12:00 PM</span></div><div class="flex items-center gap-3 text-[11px]"><div class="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400"><span class="w-2 h-2 rounded-full bg-emerald-400" aria-hidden="true"></span><span class="font-medium">Archivo histórico</span></div></div></header><div class="flex-1 overflow-y-auto"><div class="admin-body">
-  <div class="turn-page-heading"><div><p class="panel-kicker">Rendimiento</p><h1 class="admin-h1">Historial de turnos</h1><p class="turn-page-subtitle">Consulta el rendimiento y los cierres registrados.</p></div><span class="turn-live-badge"><span aria-hidden="true"></span> Archivo histórico</span></div>
-
-  <div class="admin-grid" id="historial-turnos">
-    <section class="admin-card" aria-label="Filtros del historial">
-      <form id="turn-filter-form" method="get" action="{% url 'usuarios:historial_turnos' %}">
-        <div class="turn-filter-grid">
-          <label class="turn-filter-field" for="filtro-texto">Buscar por texto
-            <span class="turn-filter-control"><i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i><input type="search" id="filtro-texto" name="texto" value="{{ texto_filtro }}" placeholder="Participante o notas" autocomplete="off"></span>
-          </label>
-          <div class="turn-filter-field" role="group" aria-labelledby="filtro-periodo-label">
-            <span id="filtro-periodo-label">Filtrar por mes y año</span>
-            <span class="turn-filter-control"><i class="fa-solid fa-calendar-days" aria-hidden="true"></i>
-              <span class="turn-filter-date-parts">
-                <select id="filtro-mes" name="mes" aria-label="Mes" data-selected="{{ mes_filtro }}">
-                  <option value="">Mes</option>
-                </select>
-                <select id="filtro-anio" name="anio" aria-label="Año">
-                  <option value="">Año</option>
-                  {% for anio in anios_disponibles %}
-                    <option value="{{ anio }}"{% if anio_filtro == anio|stringformat:"s" %} selected{% endif %}>{{ anio }}</option>
-                  {% endfor %}
-                </select>
-              </span>
-            </span>
-          </div>
-          <div class="turn-filter-field" role="group" aria-labelledby="filtro-rango-label">
-            <span id="filtro-rango-label">Filtrar por rango de fechas</span>
-            <span class="turn-filter-range">
-              <label class="turn-filter-date-field" for="filtro-fecha-desde">Desde
-                <input type="date" id="filtro-fecha-desde" name="fecha_desde" value="{{ fecha_desde_filtro }}" aria-label="Fecha desde">
-              </label>
-              <label class="turn-filter-date-field" for="filtro-fecha-hasta">Hasta
-                <input type="date" id="filtro-fecha-hasta" name="fecha_hasta" value="{{ fecha_hasta_filtro }}" aria-label="Fecha hasta">
-              </label>
-            </span>
-          </div>
-          <div class="turn-filter-actions">
-            <button class="btn btn-filter" type="submit"><i class="fa-solid fa-filter" aria-hidden="true"></i> Filtrar</button>
-            <button class="btn btn-outline" type="button" id="limpiar-filtros"><i class="fa-solid fa-eraser" aria-hidden="true"></i> Limpiar</button>
-          </div>
-        </div>
-      </form>
-      <p class="turn-filter-status" id="turn-filter-status" role="status" aria-live="polite">
-        {% if error_filtros %}{{ error_filtros }}{% elif filtros_aplicados %}{{ historial.paginator.count }} turnos coinciden con los filtros.{% elif historial.paginator.count %}{{ historial.paginator.count }} turnos cerrados.{% else %}Aún no se registran cierres de turno.{% endif %}
-      </p>
-    </section>
-
-    <section class="admin-card turn-dashboard-card" aria-labelledby="resumen-general-heading">
-      <div class="turn-card-heading"><div class="turn-section-icon" aria-hidden="true"><i class="fa-solid fa-chart-line"></i></div><div><p class="panel-kicker">Resumen acumulado</p><h2 id="resumen-general-heading">Rendimiento General</h2></div></div>
-      <div class="turn-metric-grid">
-        <div><span>Turnos cerrados</span><strong>{{ resumen_general.turnos_cerrados }}</strong></div>
-        <div><span>Total general</span><strong>{{ resumen_general.total_general_cup }} CUP</strong></div>
-        <div><span>Total USD</span><strong>{{ resumen_general.total_usd|floatformat:2 }} USD</strong></div>
-        <div><span>Efectivo CUP</span><strong>{{ resumen_general.total_efectivo_cup }} CUP</strong></div>
-        <div><span>Transferencia CUP</span><strong>{{ resumen_general.total_transferencia_cup }} CUP</strong></div>
-        <div><span>IPV promedio</span><strong>{{ resumen_general.promedio_ipv|floatformat:2 }} CUP</strong></div>
-        <div><span>Rendimiento promedio</span><strong>{{ resumen_general.rendimiento_promedio|floatformat:2 }} CUP/h</strong></div>
+<body class="history-body">
+  <a href="#contenido" class="history-skip-link">Saltar al contenido</a>
+  <div class="history-shell">
+    <div id="history-overlay" class="history-overlay" aria-hidden="true"></div>
+    <aside id="history-sidebar" class="history-sidebar" aria-label="Navegación principal">
+      <div class="history-brand">
+        <div class="history-brand-icon"><i class="fa-solid fa-utensils" aria-hidden="true"></i></div>
+        <div class="history-brand-name"><strong>GourmetControl</strong><span>Panel de administración</span></div>
       </div>
-    </section>
-
-    {% if historial %}
-      {% for item in historial %}
-      <section class="admin-card turn-history-card turn-dashboard-card" aria-labelledby="turno-heading-{{ forloop.counter }}">
-        <div class="turn-card-heading"><div class="turn-section-icon" aria-hidden="true"><i class="fa-solid fa-calendar-check"></i></div><div><p class="panel-kicker">Cierre registrado</p><h2 id="turno-heading-{{ forloop.counter }}">Turno {{ item.turno.fecha|date:'d/m/Y' }}</h2></div><span class="turn-status-value">{{ item.turno.get_estado_display }}</span></div>
-        <div class="turn-history-meta">
-          <span><i class="fa-solid fa-lock-open" aria-hidden="true"></i> Apertura: {{ item.turno.apertura|date:'d/m/Y H:i' }}</span>
-          <span><i class="fa-solid fa-lock" aria-hidden="true"></i> Cierre: {{ item.turno.cierre|date:'d/m/Y H:i'|default:'—' }}</span>
-          <span><i class="fa-solid fa-users" aria-hidden="true"></i> <span class="sr-only">Participantes:</span>{% for user in item.turno.usuarios.all %}{{ user.username }}{% if not forloop.last %}, {% endif %}{% empty %}Sin participantes{% endfor %}</span>
-          <span><i class="fa-solid fa-receipt" aria-hidden="true"></i> {{ item.cantidad_facturas }} facturas</span>
-        </div>
-        <div class="turn-metric-grid turn-metric-grid-small">
-          <div><span>Total</span><strong>{{ item.total_general_cup }} CUP</strong></div>
-          <div><span>Efectivo</span><strong>{{ item.total_efectivo_cup }} CUP</strong></div>
-          <div><span>Transferencia</span><strong>{{ item.total_transferencia_cup }} CUP</strong></div>
-          <div><span>USD</span><strong>{{ item.total_usd|floatformat:2 }} USD</strong></div>
-          <div><span>IPV</span><strong>{{ item.ipv|floatformat:2 }} CUP</strong></div>
-          <div><span>Rendimiento/h</span><strong>{{ item.rendimiento_por_hora_cup|floatformat:2 }} CUP/h</strong></div>
-        </div>
-        <a href="{% url 'usuarios:historial_turno_detalle' item.turno.pk %}" class="btn btn-primary turn-action-btn"><i class="fa-solid fa-arrow-right" aria-hidden="true"></i> Ver detalle del turno</a>
-        {% if item.turno.resumen %}
-          <div class="turn-notes">
-            <p class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Notas del cierre</p>
-            <pre class="text-xs text-slate-300 bg-slate-950/60 border border-slate-800 rounded-xl p-3 whitespace-pre-wrap break-words font-sans">{{ item.turno.resumen }}</pre>
+      {% if request.user.role == 'cajera' %}
+        {% include "usuarios/_cajera_sidebar_nav.html" with seccion_activa="historial" %}
+      {% else %}
+        {% include "usuarios/_admin_sidebar_nav.html" with seccion_activa="historial" %}
+      {% endif %}
+      <div class="history-sidebar-foot">
+        <div class="history-profile">
+          <div class="history-profile-icon"><i class="fa-solid fa-user" aria-hidden="true"></i></div>
+          <div class="history-profile-info">
+            <p class="history-profile-name">{{ request.user.get_full_name|default:request.user.username }}</p>
+            <p class="history-profile-role">{{ request.user.get_role_display }} &bull; Activo</p>
           </div>
-        {% endif %}
-      </section>
-      {% endfor %}
-    {% else %}
-      <section class="admin-card">
-        <div class="flex flex-col items-center text-center gap-2 py-6">
-          <i class="fa-solid fa-calendar-xmark text-3xl text-slate-700" aria-hidden="true"></i>
-          <h2>{% if filtros_aplicados %}No hay turnos que coincidan con estos filtros{% else %}No hay turnos cerrados{% endif %}</h2>
-          <p class="text-sm text-slate-400">{% if filtros_aplicados %}Prueba con otro rango o ajusta los filtros.{% else %}Aún no se registran cierres de turno.{% endif %}</p>
         </div>
-      </section>
-    {% endif %}
-    {% include 'includes/pagination.html' with page_obj=historial page_parameter='page' pagination_query=historial_pagination_query pagination_anchor='#historial-turnos' %}
+        <a href="{% url 'usuarios:logout' %}" class="history-logout"><i class="fa-solid fa-arrow-right-from-bracket" aria-hidden="true"></i><span>Cerrar sesión</span></a>
+      </div>
+    </aside>
+
+    <div class="history-content">
+      <header class="history-header">
+        <div class="history-header-left">
+          <button id="history-menu-button" type="button" class="history-menu" aria-label="Desplegar menú" aria-controls="history-sidebar" aria-expanded="false"><i class="fa-solid fa-bars" aria-hidden="true"></i></button>
+          <p class="history-header-title"><i class="fa-solid fa-clock-rotate-left" aria-hidden="true"></i>Historial de turnos</p>
+          <span id="history-clock" class="history-clock" aria-hidden="true"></span>
+        </div>
+        <span class="history-header-badge"><i class="fa-solid fa-box-archive" aria-hidden="true"></i><span>Archivo histórico</span></span>
+      </header>
+
+      <main id="contenido" class="history-main">
+        <div class="history-inner">
+          {% if messages %}
+            <div role="status" aria-live="polite">
+              {% for message in messages %}<p class="history-flash">{{ message }}</p>{% endfor %}
+            </div>
+          {% endif %}
+          <section class="history-heading" aria-labelledby="history-page-title">
+            <div>
+              <h1 id="history-page-title" class="history-title">Historial de turnos</h1>
+              <p class="history-subtitle">Consulta el rendimiento y los cierres registrados.</p>
+            </div>
+            <div class="history-actions no-print">
+              <button type="button" class="history-btn" onclick="window.print()"><i class="fa-solid fa-print" aria-hidden="true"></i>Imprimir</button>
+            </div>
+          </section>
+
+          <section class="history-card no-print" aria-labelledby="history-filter-title">
+            <h2 id="history-filter-title" class="history-section-title"><i class="fa-solid fa-filter" aria-hidden="true"></i>Filtros</h2>
+            <form id="turn-filter-form" method="get" action="{% url 'usuarios:historial_turnos' %}">
+              <div class="history-filters">
+                <label class="history-field" for="filtro-texto">Buscar por texto
+                  <span class="history-input-wrap"><i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i><input class="history-input" type="search" id="filtro-texto" name="texto" value="{{ texto_filtro }}" placeholder="Participante o notas" autocomplete="off"></span>
+                </label>
+                <label class="history-field" for="filtro-mes">Mes
+                  <select class="history-filter-sort" id="filtro-mes" name="mes" aria-label="Mes" data-selected="{{ mes_filtro }}"><option value="">Todos</option></select>
+                </label>
+                <label class="history-field" for="filtro-anio">Año
+                  <select class="history-filter-sort" id="filtro-anio" name="anio" aria-label="Año"><option value="">Todos</option>{% for anio in anios_disponibles %}<option value="{{ anio }}"{% if anio_filtro == anio|stringformat:"s" %} selected{% endif %}>{{ anio }}</option>{% endfor %}</select>
+                </label>
+                <label class="history-date" for="filtro-fecha-desde">Desde<input lang="es" type="date" id="filtro-fecha-desde" name="fecha_desde" value="{{ fecha_desde_filtro }}" aria-label="Fecha desde"></label>
+                <label class="history-date" for="filtro-fecha-hasta">Hasta<input lang="es" type="date" id="filtro-fecha-hasta" name="fecha_hasta" value="{{ fecha_hasta_filtro }}" aria-label="Fecha hasta"></label>
+              </div>
+              {% if error_filtros %}<p class="history-filter-error" role="alert"><i class="fa-solid fa-circle-exclamation" aria-hidden="true"></i>{{ error_filtros }}</p>{% endif %}
+              <div class="history-filter-footer">
+                <div class="history-filter-options">
+                  <label for="filtro-orden">Ordenar por
+                    <select class="history-filter-sort" id="filtro-orden" name="orden">
+                      <option value="reciente"{% if orden_filtro == 'reciente' %} selected{% endif %}>Más recientes</option>
+                      <option value="antiguo"{% if orden_filtro == 'antiguo' %} selected{% endif %}>Más antiguos</option>
+                      <option value="venta"{% if orden_filtro == 'venta' %} selected{% endif %}>Mayor venta</option>
+                      <option value="rendimiento"{% if orden_filtro == 'rendimiento' %} selected{% endif %}>Mayor rendimiento</option>
+                    </select>
+                  </label>
+                  <label for="filtro-solo-diferencias" title="El cierre actual no guarda el importe declarado para comparar el arqueo.">
+                    <input type="checkbox" id="filtro-solo-diferencias" disabled aria-describedby="arqueo-filter-help">Solo con diferencia de arqueo
+                    <span id="arqueo-filter-help" class="history-visually-hidden">No disponible: el sistema no registra el importe declarado al cierre.</span>
+                  </label>
+                </div>
+                <div class="history-filter-summary">
+                  <p class="history-filter-status" id="turn-filter-status" role="status" aria-live="polite">
+                    {% if error_filtros %}{{ error_filtros }}{% elif filtros_aplicados %}{{ historial.paginator.count }} turnos coinciden con los filtros.{% elif historial.paginator.count %}{{ historial.paginator.count }} turnos cerrados.{% else %}Aún no se registran cierres de turno.{% endif %}
+                  </p>
+                  <button class="history-btn" type="button" id="limpiar-filtros"><i class="fa-solid fa-eraser" aria-hidden="true"></i>Limpiar</button>
+                </div>
+              </div>
+            </form>
+          </section>
+
+          <section aria-labelledby="resumen-general-heading">
+            <h2 id="resumen-general-heading" class="history-section-title"><i class="fa-solid fa-chart-line" aria-hidden="true"></i>Rendimiento general{% if filtros_aplicados %}<span class="history-section-tag">· según filtros</span>{% endif %}</h2>
+            <div class="history-kpis">
+              <article class="history-kpi">
+                <div class="history-kpi-label"><span class="history-kpi-icon"><i class="fa-solid fa-calendar-check" aria-hidden="true"></i></span>Turnos cerrados</div>
+                <p class="history-kpi-value">{{ resumen_general.turnos_cerrados }}</p>
+                <p class="history-kpi-note">en el período</p>
+              </article>
+              <article class="history-kpi history-kpi-highlight">
+                <div class="history-kpi-label"><span class="history-kpi-icon"><i class="fa-solid fa-sack-dollar" aria-hidden="true"></i></span>Total general</div>
+                <p class="history-kpi-value">{{ resumen_general.total_general_cup|floatformat:0 }} CUP</p>
+                <p class="history-kpi-note">ingresos registrados</p>
+              </article>
+              <article class="history-kpi">
+                <div class="history-kpi-label"><span class="history-kpi-icon"><i class="fa-solid fa-dollar-sign" aria-hidden="true"></i></span>Total USD</div>
+                <p class="history-kpi-value">{{ resumen_general.total_usd|floatformat:2 }} USD</p>
+                <p class="history-kpi-note">divisas registradas</p>
+              </article>
+              <article class="history-kpi">
+                <div class="history-kpi-label"><span class="history-kpi-icon"><i class="fa-solid fa-money-bill-wave" aria-hidden="true"></i></span>Efectivo CUP</div>
+                <p class="history-kpi-value">{{ resumen_general.total_efectivo_cup|floatformat:0 }} CUP</p>
+                <p class="history-kpi-note">caja física</p>
+              </article>
+              <article class="history-kpi">
+                <div class="history-kpi-label"><span class="history-kpi-icon"><i class="fa-solid fa-credit-card" aria-hidden="true"></i></span>Transferencia CUP</div>
+                <p class="history-kpi-value">{{ resumen_general.total_transferencia_cup|floatformat:0 }} CUP</p>
+                <p class="history-kpi-note">pagos digitales</p>
+              </article>
+              <article class="history-kpi">
+                <div class="history-kpi-label"><span class="history-kpi-icon"><i class="fa-solid fa-receipt" aria-hidden="true"></i></span>Facturas</div>
+                <p class="history-kpi-value">{{ resumen_general.total_facturas }}</p>
+                <p class="history-kpi-note">en los turnos filtrados</p>
+              </article>
+              <article class="history-kpi">
+                <div class="history-kpi-label"><span class="history-kpi-icon"><i class="fa-solid fa-chart-simple" aria-hidden="true"></i></span>Promedio por factura</div>
+                <p class="history-kpi-value">{{ resumen_general.promedio_ipv|floatformat:2 }} CUP</p>
+                <p class="history-kpi-note">importe promedio</p>
+              </article>
+              <article class="history-kpi">
+                <div class="history-kpi-label"><span class="history-kpi-icon"><i class="fa-solid fa-gauge-high" aria-hidden="true"></i></span>Rendimiento promedio</div>
+                <p class="history-kpi-value">{{ resumen_general.rendimiento_promedio|floatformat:2 }} CUP/h</p>
+                <p class="history-kpi-note">por hora abierta</p>
+              </article>
+            </div>
+          </section>
+
+          {% if ventas_grafico %}
+            <div class="history-analysis" id="historial-analisis">
+              <section class="history-card" aria-labelledby="history-chart-title">
+                <h2 id="history-chart-title" class="history-section-title"><i class="fa-solid fa-chart-column" aria-hidden="true"></i>Ventas por turno</h2>
+                <div class="history-chart-scroll"><div class="history-chart" id="history-chart" role="list" aria-label="Ventas por turno"></div></div>
+                <div class="history-chart-legend"><span><i class="history-dot" aria-hidden="true"></i>Total registrado en CUP</span></div>
+              </section>
+              <section class="history-card" aria-labelledby="history-mix-title">
+                <h2 id="history-mix-title" class="history-section-title"><i class="fa-solid fa-coins" aria-hidden="true"></i>Ingresos por forma de pago</h2>
+                <div class="history-mix-list">
+                  <div>
+                    <div class="history-mix-head"><span><i class="fa-solid fa-money-bill-wave history-mix-icon-cash" aria-hidden="true"></i> Efectivo CUP</span><strong>{{ resumen_general.total_efectivo_cup|floatformat:0 }} CUP</strong></div>
+                    <div class="history-mix-track" role="img" aria-label="Efectivo: {{ efectivo_porcentaje|floatformat:0 }} por ciento"><div class="history-mix-fill" style="width:{{ efectivo_porcentaje|floatformat:2 }}%"></div></div>
+                  </div>
+                  <div>
+                    <div class="history-mix-head"><span><i class="fa-solid fa-credit-card history-mix-icon-transfer" aria-hidden="true"></i> Transferencia CUP</span><strong>{{ resumen_general.total_transferencia_cup|floatformat:0 }} CUP</strong></div>
+                    <div class="history-mix-track" role="img" aria-label="Transferencia: {{ transferencia_porcentaje|floatformat:0 }} por ciento"><div class="history-mix-fill history-mix-fill-transfer" style="width:{{ transferencia_porcentaje|floatformat:2 }}%"></div></div>
+                  </div>
+                  <div class="history-mix-head"><span><i class="fa-solid fa-dollar-sign history-mix-icon-usd" aria-hidden="true"></i> Divisas</span><strong>{{ resumen_general.total_usd|floatformat:2 }} USD</strong></div>
+                </div>
+                <p class="history-mix-note"><i class="fa-solid fa-circle-info" aria-hidden="true"></i>Las proporciones comparan efectivo y transferencia en CUP. USD se muestra por separado, sin convertirlo.</p>
+              </section>
+            </div>
+          {% endif %}
+
+          <section id="historial-turnos" aria-labelledby="history-closures-title">
+            <h2 id="history-closures-title" class="history-section-title"><i class="fa-solid fa-clipboard-check" aria-hidden="true"></i>Cierres registrados</h2>
+            {% if historial %}
+              <div class="history-turn-grid">
+                {% for item in historial %}
+                  <article class="history-turn-card" id="turno-{{ item.turno.pk }}" tabindex="-1" aria-labelledby="turno-heading-{{ forloop.counter }}">
+                    <div class="history-turn-heading">
+                      <span class="history-section-icon"><i class="fa-solid fa-calendar-check" aria-hidden="true"></i></span>
+                      <div class="history-turn-heading-copy"><p class="history-card-kicker">Cierre registrado</p><h3 id="turno-heading-{{ forloop.counter }}" class="history-turn-date">Turno {{ item.turno.fecha|date:'d/m/Y' }}</h3></div>
+                      <span class="history-status"><i class="fa-solid fa-circle-check" aria-hidden="true"></i>{{ item.turno.get_estado_display }}</span>
+                    </div>
+                    <div class="history-turn-meta">
+                      <span class="history-meta-pill"><i class="fa-solid fa-lock-open" aria-hidden="true"></i>Apertura: {{ item.turno.apertura|date:'d/m/Y H:i' }}</span>
+                      <span class="history-meta-pill"><i class="fa-solid fa-lock" aria-hidden="true"></i>Cierre: {{ item.turno.cierre|date:'d/m/Y H:i'|default:'—' }}</span>
+                      <span class="history-meta-pill{% if item.horas_abiertas > 24 %} history-meta-pill-warning{% endif %}"><i class="fa-solid fa-hourglass-half" aria-hidden="true"></i>{{ item.horas_abiertas|floatformat:1 }} h{% if item.horas_abiertas > 24 %} · supera las 24 h{% endif %}</span>
+                      <span class="history-meta-pill"><i class="fa-solid fa-receipt" aria-hidden="true"></i>{{ item.cantidad_facturas }} factura{{ item.cantidad_facturas|pluralize:"s" }}</span>
+                    </div>
+                    <div class="history-participants">
+                      <span class="history-participants-label"><i class="fa-solid fa-user-group" aria-hidden="true"></i> Participantes</span>
+                      {% for user in item.turno.usuarios.all %}<span class="history-chip" title="{{ user.get_full_name|default:user.username }}">{{ user.get_full_name|default:user.username }}</span>{% empty %}<span class="history-chip">Sin participantes</span>{% endfor %}
+                    </div>
+                    <div class="history-turn-metrics">
+                      <div class="history-stat history-stat-highlight"><p class="history-stat-label">Total</p><p class="history-stat-value">{{ item.total_general_cup|floatformat:0 }} CUP</p></div>
+                      <div class="history-stat"><p class="history-stat-label">Efectivo</p><p class="history-stat-value">{{ item.total_efectivo_cup|floatformat:0 }} CUP</p></div>
+                      <div class="history-stat"><p class="history-stat-label">Transferencia</p><p class="history-stat-value">{{ item.total_transferencia_cup|floatformat:0 }} CUP</p></div>
+                      <div class="history-stat"><p class="history-stat-label">USD</p><p class="history-stat-value">{{ item.total_usd|floatformat:2 }} USD</p></div>
+                      <div class="history-stat"><p class="history-stat-label">IPV</p><p class="history-stat-value">{{ item.ipv|floatformat:2 }} CUP</p></div>
+                      <div class="history-stat"><p class="history-stat-label">Rendimiento/h</p><p class="history-stat-value">{{ item.rendimiento_por_hora_cup|floatformat:2 }} CUP/h</p></div>
+                    </div>
+                    <div class="history-notes">
+                      <h4 class="history-notes-title">Notas del cierre</h4>
+                      <p class="history-notes-title">Observaciones</p>
+                      {% if item.turno.observaciones %}
+                        <p class="history-notes-text{% if item.turno.observaciones|length > 140 %} is-collapsed{% endif %}">{{ item.turno.observaciones }}</p>
+                        {% if item.turno.observaciones|length > 140 %}<button type="button" class="history-note-toggle no-print" data-note-toggle aria-expanded="false">Ver más</button>{% endif %}
+                      {% else %}<p class="history-notes-text">Sin notas.</p>{% endif %}
+                      <div class="history-note-facts" aria-label="Información adicional de caja">
+                        <div class="history-note-fact">
+                          <p class="history-note-fact-label">Fondo inicial registrado</p>
+                          <p class="history-note-fact-value">{{ item.fondo_inicial_cup|floatformat:2 }} CUP</p>
+                        </div>
+                        <div class="history-note-fact">
+                          <p class="history-note-fact-label">Efectivo esperado al cierre</p>
+                          <p class="history-note-fact-value">{{ item.efectivo_esperado_cup|floatformat:2 }} CUP</p>
+                        </div>
+                      </div>
+                      <p class="history-notes-text history-note-disclaimer">Calculado como fondo inicial más efectivo cobrado; no representa un arqueo contado.</p>
+                    </div>
+                    <a href="{% url 'usuarios:historial_turno_detalle' item.turno.pk %}" class="history-btn history-btn-primary history-detail-link no-print"><i class="fa-solid fa-arrow-right" aria-hidden="true"></i>Ver detalle del turno</a>
+                  </article>
+                {% endfor %}
+              </div>
+            {% else %}
+              <div class="history-empty">
+                <i class="fa-solid fa-calendar-xmark history-empty-icon" aria-hidden="true"></i>
+                <h3 class="history-empty-title">{% if filtros_aplicados %}No hay turnos que coincidan con estos filtros{% else %}No hay turnos cerrados{% endif %}</h3>
+                <p class="history-empty-text">{% if filtros_aplicados %}Prueba con otro rango o ajusta los filtros.{% else %}Aún no se registran cierres de turno.{% endif %}</p>
+              </div>
+            {% endif %}
+          </section>
+
+          <div class="history-pagination">
+            {% include 'includes/pagination.html' with page_obj=historial page_parameter='page' pagination_query=historial_pagination_query pagination_anchor='#historial-turnos' %}
+          </div>
+        </div>
+      </main>
+    </div>
   </div>
-</div></div></main>
+
+  {{ ventas_grafico|json_script:"history-chart-data" }}
   <script>
-    function actualizarReloj(){document.getElementById('clock-display').textContent=new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});}
-    actualizarReloj();
-    setInterval(actualizarReloj,30000);
+    const sidebar = document.getElementById('history-sidebar');
+    const overlay = document.getElementById('history-overlay');
+    const menuButton = document.getElementById('history-menu-button');
+    const isDesktop = () => window.matchMedia('(min-width: 1024px)').matches;
+    const syncMenu = () => {
+      const expanded = isDesktop()
+        ? !sidebar.classList.contains('collapsed')
+        : sidebar.classList.contains('is-open');
+      menuButton.setAttribute('aria-expanded', String(expanded));
+      menuButton.setAttribute('aria-label', expanded ? 'Replegar menú' : 'Desplegar menú');
+    };
+    const closeDrawer = () => {
+      sidebar.classList.remove('is-open');
+      overlay.classList.remove('is-open');
+      syncMenu();
+    };
+    menuButton.addEventListener('click', () => {
+      if (isDesktop()) sidebar.classList.toggle('collapsed');
+      else {
+        sidebar.classList.toggle('is-open');
+        overlay.classList.toggle('is-open');
+      }
+      syncMenu();
+    });
+    overlay.addEventListener('click', closeDrawer);
+    window.addEventListener('resize', () => {
+      if (isDesktop()) closeDrawer();
+      syncMenu();
+    });
+    document.addEventListener('keydown', event => {
+      if (event.key === 'Escape' && !isDesktop()) closeDrawer();
+    });
 
     const filtroMes = document.getElementById('filtro-mes');
     const formularioFiltros = document.getElementById('turn-filter-form');
     const botonLimpiar = document.getElementById('limpiar-filtros');
     const formatoMes = new Intl.DateTimeFormat('es', { month: 'long', timeZone: 'UTC' });
-    const meses = Array.from({ length: 12 }, (_, index) => index + 1);
-
-    meses.forEach((mes) => {
+    for (let mes = 1; mes <= 12; mes += 1) {
       const opcion = document.createElement('option');
       opcion.value = String(mes).padStart(2, '0');
       const nombreMes = formatoMes.format(new Date(Date.UTC(2020, mes - 1, 1)));
       opcion.textContent = nombreMes.charAt(0).toLocaleUpperCase('es') + nombreMes.slice(1);
       filtroMes.append(opcion);
+    }
+    const mesSeleccionado = Number(filtroMes.dataset.selected);
+    filtroMes.value = mesSeleccionado ? String(mesSeleccionado).padStart(2, '0') : '';
+    formularioFiltros.querySelectorAll('select, input[type="date"]').forEach(control => {
+      control.addEventListener('change', () => formularioFiltros.requestSubmit());
     });
-    filtroMes.value = filtroMes.dataset.selected;
     botonLimpiar.addEventListener('click', () => {
       window.location.assign(formularioFiltros.action);
     });
+    document.querySelectorAll('[data-note-toggle]').forEach(button => {
+      button.addEventListener('click', () => {
+        const note = button.previousElementSibling;
+        const expanded = button.getAttribute('aria-expanded') === 'true';
+        note.classList.toggle('is-collapsed', expanded);
+        button.setAttribute('aria-expanded', String(!expanded));
+        button.textContent = expanded ? 'Ver más' : 'Ver menos';
+      });
+    });
+
+    const chartElement = document.getElementById('history-chart');
+    const chartData = JSON.parse(document.getElementById('history-chart-data').textContent);
+    if (chartElement && chartData.length) {
+      const numberFormat = new Intl.NumberFormat('es', { maximumFractionDigits: 0 });
+      const maximum = Math.max(...chartData.map(item => Number(item.total)), 0);
+      chartData.slice().reverse().forEach(item => {
+        const amount = Number(item.total);
+        const link = document.createElement('a');
+        link.className = 'history-bar-link';
+        link.href = item.url;
+        link.setAttribute('role', 'listitem');
+        link.setAttribute('aria-label', `Turno del ${item.fecha}: ${numberFormat.format(amount)} CUP. Ver detalle`);
+        link.title = `Turno del ${item.fecha} · ${numberFormat.format(amount)} CUP`;
+
+        const value = document.createElement('span');
+        value.className = 'history-bar-value';
+        value.textContent = amount >= 10000
+          ? `${new Intl.NumberFormat('es', { maximumFractionDigits: 1 }).format(amount / 1000)} mil`
+          : numberFormat.format(amount);
+
+        const track = document.createElement('span');
+        track.className = 'history-bar-track';
+        const bar = document.createElement('span');
+        bar.className = `history-bar${amount === 0 ? ' history-bar-zero' : ''}`;
+        bar.style.height = `${maximum > 0 ? Math.max(amount > 0 ? 4 : 0, amount / maximum * 100) : 0}%`;
+        track.append(bar);
+
+        const date = document.createElement('span');
+        date.className = 'history-bar-date';
+        date.textContent = item.fecha.slice(0, 5);
+        link.append(value, track, date);
+        chartElement.append(link);
+      });
+    }
+
+    const clock = document.getElementById('history-clock');
+    const updateClock = () => {
+      clock.textContent = new Intl.DateTimeFormat('es', {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true,
+      }).format(new Date());
+    };
+    updateClock();
+    window.setInterval(updateClock, 30000);
+    syncMenu();
   </script>
 </body>
 </html>

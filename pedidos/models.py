@@ -156,7 +156,7 @@ class Factura(models.Model):
     FORMA_PAGO_CHOICES = [
         ('transferencia', 'Transferencia'),
         ('efectivo_cup', 'Efectivo CUP'),
-        ('mixto', 'Mixto (mitad transferencia, mitad efectivo CUP)'),
+        ('mixto', 'Mixto (efectivo y transferencia)'),
         ('usd', 'USD'),
     ]
     pedido = models.OneToOneField(Pedido, on_delete=models.PROTECT, related_name='factura')

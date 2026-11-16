@@ -1,0 +1,376 @@
+{% load l10n %}
+<div class="turn-admin-heading">
+  <div>
+    <h1 class="turn-admin-title">Panel de turno</h1>
+    <p class="turn-admin-subtitle">Estado y resumen del turno correspondiente a la fecha.</p>
+  </div>
+  {% if turno %}
+    <span class="badge self-start sm:self-auto {% if turno.estado == 'abierto' %}open{% else %}closed{% endif %}">
+      <span class="w-2 h-2 rounded-full {% if turno.estado == 'abierto' %}bg-emerald-400 animate-pulse{% else %}bg-slate-400{% endif %}" aria-hidden="true"></span>
+      Turno {{ turno.get_estado_display }}
+    </span>
+  {% else %}
+    <span class="badge self-start sm:self-auto closed"><i class="fa-regular fa-calendar-xmark" aria-hidden="true"></i> Sin turno abierto</span>
+  {% endif %}
+</div>
+
+{% if messages %}
+  <div role="status" aria-live="polite">
+    {% for message in messages %}
+      <div class="admin-flash {% if message.tags == 'error' %}admin-flash-error{% else %}admin-flash-ok{% endif %}">
+        <i class="fa-solid {% if message.tags == 'error' %}fa-circle-xmark{% else %}fa-circle-check{% endif %} admin-flash-icon" aria-hidden="true"></i><span>{{ message }}</span>
+      </div>
+    {% endfor %}
+  </div>
+{% endif %}
+
+<nav class="turn-admin-nav no-print" aria-label="Secciones de la página">
+  <a href="#facturas"><i class="fa-solid fa-receipt" aria-hidden="true"></i>Facturas</a>
+  {% if turno and turno.estado == 'abierto' %}<a href="#inventario"><i class="fa-solid fa-table" aria-hidden="true"></i>Inventario</a>{% endif %}
+  {% if turno and turno.estado == 'abierto' %}<a href="#mesas"><i class="fa-solid fa-qrcode" aria-hidden="true"></i>Mesas y QR</a>{% endif %}
+  {% if turno and turno.estado == 'abierto' %}<a href="#cierre"><i class="fa-solid fa-lock" aria-hidden="true"></i>Cierre</a>{% endif %}
+  <a href="#notificaciones"><i class="fa-solid fa-bell" aria-hidden="true"></i>Notificaciones</a>
+</nav>
+
+{% if turno %}
+  {% if turno.estado == 'abierto' %}
+    <div class="turn-admin-banner {% if turno_requiere_confirmacion %}is-warning{% endif %}" role="status">
+      <i class="fa-solid {% if turno_requiere_confirmacion %}fa-triangle-exclamation{% else %}fa-circle-check{% endif %} mt-0.5" aria-hidden="true"></i>
+      <p class="flex-1">Turno del <strong class="num">{{ turno.fecha|date:"d/m/Y" }}</strong> abierto correctamente.</p>
+      <button type="button" class="turn-banner-dismiss no-print" aria-label="Cerrar aviso"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
+    </div>
+  {% else %}
+    <div class="turn-admin-banner is-neutral" role="status">
+      <i class="fa-solid fa-lock mt-0.5" aria-hidden="true"></i>
+      <p class="flex-1">Turno del <strong class="num">{{ turno.fecha|date:"d/m/Y" }}</strong> cerrado{% if turno.cierre %} a las <strong class="num">{{ turno.cierre|date:"d/m/Y H:i" }}</strong>{% endif %}. Ya puedes consultarlo en el historial.</p>
+    </div>
+  {% endif %}
+{% else %}
+  <div class="turn-admin-banner is-neutral" role="status">
+    <i class="fa-regular fa-calendar-xmark mt-0.5" aria-hidden="true"></i>
+    <p class="flex-1">No hay un turno abierto para hoy, {{ hoy|date:"d/m/Y" }}.</p>
+  </div>
+{% endif %}
+
+<div class="turn-admin-overview">
+  <section class="turn-admin-card" aria-labelledby="turn-operational-heading">
+    <h2 id="turn-operational-heading" class="turn-admin-card-title"><i class="fa-solid fa-clock" aria-hidden="true"></i>Información operativa</h2>
+    {% if turno %}
+      <div class="turn-admin-timeline">
+        <div class="turn-admin-timeline-markers" aria-hidden="true"><span></span><i></i><span></span></div>
+        <div class="turn-admin-time-details">
+          <div><p class="turn-admin-label">Apertura</p><p class="turn-admin-value">{{ turno.apertura|date:"H:i" }} <span class="text-sm font-normal text-slate-400">· {{ turno.apertura|date:"d/m/Y" }}</span></p></div>
+          <span id="turn-duration" class="turn-admin-duration" data-opened="{{ turno.apertura|date:'c' }}" data-closed="{% if turno.cierre %}{{ turno.cierre|date:'c' }}{% endif %}"><i class="fa-solid {% if turno.estado == 'abierto' %}fa-hourglass-half{% else %}fa-hourglass-end{% endif %} mr-1" aria-hidden="true"></i><span></span></span>
+          <div><p class="turn-admin-label">Cierre</p><p class="turn-admin-value">{% if turno.cierre %}{{ turno.cierre|date:"H:i" }} <span class="text-sm font-normal text-slate-400">· {{ turno.cierre|date:"d/m/Y" }}</span>{% else %}<span class="text-slate-500 font-medium">Pendiente</span>{% endif %}</p></div>
+        </div>
+      </div>
+      <div class="turn-admin-stat-grid">
+        <div class="turn-admin-stat"><span class="turn-admin-label"><i class="fa-solid fa-chair mr-1 text-slate-500" aria-hidden="true"></i>Mesas de salón activas</span><strong>{{ mesas_activas_salon }}</strong></div>
+        <div class="turn-admin-stat"><span class="turn-admin-label"><i class="fa-solid fa-umbrella-beach mr-1 text-slate-500" aria-hidden="true"></i>Mesas exteriores activas</span><strong>{{ mesas_activas_exteriores }}</strong></div>
+      </div>
+      <div class="turn-admin-staff">
+        <p class="turn-admin-label font-medium text-slate-300">Miembros del turno</p>
+        <ul class="turn-admin-staff-list" aria-label="Miembros del turno">
+          {% for miembro in turno.usuarios.all %}
+            <li><span class="turn-admin-avatar" aria-hidden="true">{% if miembro.first_name or miembro.last_name %}{{ miembro.first_name|first|upper }}{{ miembro.last_name|first|upper }}{% else %}{{ miembro.username|first|upper }}{% endif %}</span>{{ miembro.get_full_name|default:miembro.username }}</li>
+          {% empty %}
+            <li class="text-slate-400">Sin participantes registrados.</li>
+          {% endfor %}
+        </ul>
+      </div>
+      {% if turno.resumen and puede_ver_datos_financieros %}
+        <div class="turn-note mt-4"><span>Resumen registrado</span><pre class="whitespace-pre-wrap break-words">{{ turno.resumen }}</pre></div>
+      {% endif %}
+      {% if turno.estado == 'cerrado' and turno.observaciones %}
+        <div class="turn-note mt-4"><span>Observaciones del cierre</span><p class="whitespace-pre-wrap break-words">{{ turno.observaciones }}</p></div>
+      {% endif %}
+    {% else %}
+      <div class="turn-admin-stat-grid">
+        <div class="turn-admin-stat"><span class="turn-admin-label">Fecha de hoy</span><strong>{{ hoy|date:"d/m/Y" }}</strong></div>
+        <div class="turn-admin-stat"><span class="turn-admin-label">Estado</span><strong>Sin abrir</strong></div>
+      </div>
+      {% if not turno_abierto_pendiente %}
+        <form method="post" action="{% url 'usuarios:abrir_turno' %}" class="mt-4">
+          {% csrf_token %}<button type="submit" class="btn btn-primary turn-action-btn"><i class="fa-solid fa-lock-open" aria-hidden="true"></i> Abrir turno de hoy</button>
+        </form>
+      {% endif %}
+      {% if turno_anterior %}
+        <div class="turn-note mt-4"><span>Turno anterior</span><p>El turno anterior fue el {{ turno_anterior.fecha|date:"d/m/Y" }} y quedó {{ turno_anterior.get_estado_display|lower }}. Ventas: {{ resumen_turno_anterior.total_general_cup|floatformat:2 }} CUP en {{ resumen_turno_anterior.cantidad_facturas }} facturas.</p><a href="{% url 'usuarios:historial_turno_detalle' turno_anterior.pk %}" class="btn btn-outline btn-sm mt-2"><i class="fa-solid fa-eye" aria-hidden="true"></i> Ver detalles del turno anterior</a></div>
+      {% else %}
+        <div class="turn-note mt-4"><span>Turnos anteriores</span><p>No hay turnos anteriores registrados.</p></div>
+      {% endif %}
+    {% endif %}
+  </section>
+
+  <section class="turn-admin-card flex flex-col" aria-labelledby="turn-sales-heading">
+    <div class="flex items-center justify-between gap-3 mb-4">
+      <h2 id="turn-sales-heading" class="turn-admin-card-title !mb-0"><i class="fa-solid fa-sack-dollar" aria-hidden="true"></i>Resumen de ventas</h2>
+      <span class="chip num">{% if turno %}{{ turno.fecha|date:"d/m/Y" }}{% else %}{{ hoy|date:"d/m/Y" }}{% endif %}</span>
+    </div>
+    <div class="turn-admin-kpis">
+      <div class="turn-admin-kpi primary"><div class="turn-admin-kpi-head"><span class="turn-admin-kpi-icon"><i class="fa-solid fa-sack-dollar" aria-hidden="true"></i></span><span class="turn-admin-label">Ventas totales</span></div><p class="turn-admin-kpi-value num">{{ resumen_turno.total_general_cup|default:0|floatformat:2 }} CUP</p><p class="text-xs text-slate-500 mt-1">Ingresos registrados</p></div>
+      <div class="turn-admin-kpi"><div class="turn-admin-kpi-head"><span class="turn-admin-kpi-icon"><i class="fa-solid fa-receipt" aria-hidden="true"></i></span><span class="turn-admin-label">Facturas</span></div><p class="turn-admin-kpi-value num">{{ resumen_turno.cantidad_facturas|default:0 }}</p><p class="text-xs text-slate-500 mt-1">Órdenes procesadas</p></div>
+      <div class="turn-admin-kpi"><div class="turn-admin-kpi-head"><span class="turn-admin-kpi-icon"><i class="fa-solid fa-money-bill-wave" aria-hidden="true"></i></span><span class="turn-admin-label">Efectivo</span></div><p class="turn-admin-kpi-value num">{{ resumen_turno.total_efectivo_cup|default:0|floatformat:2 }} CUP</p><p class="text-xs text-slate-500 mt-1">Caja física</p></div>
+      <div class="turn-admin-kpi"><div class="turn-admin-kpi-head"><span class="turn-admin-kpi-icon"><i class="fa-solid fa-credit-card" aria-hidden="true"></i></span><span class="turn-admin-label">Transferencia</span></div><p class="turn-admin-kpi-value num">{{ resumen_turno.total_transferencia_cup|default:0|floatformat:2 }} CUP</p><p class="text-xs text-slate-500 mt-1">Pagos digitales</p></div>
+    </div>
+    <div class="mt-auto pt-5 flex flex-wrap gap-2 no-print">
+      {% if turno %}
+        <a href="{% url 'usuarios:historial_turno_detalle' turno.pk %}" class="btn btn-outline btn-sm"><i class="fa-solid fa-eye text-emerald-400" aria-hidden="true"></i> Ver detalle del turno</a>
+      {% endif %}
+      <a href="{% url 'usuarios:historial_turnos' %}" class="btn btn-primary btn-sm"><i class="fa-solid fa-clock-rotate-left" aria-hidden="true"></i> Historial</a>
+    </div>
+  </section>
+</div>
+
+<section id="facturas" class="turn-admin-card scroll-mt-4" aria-labelledby="facturas-turno-heading">
+  <div class="flex items-center justify-between gap-3 mb-4">
+    <h2 id="facturas-turno-heading" class="turn-admin-card-title !mb-0"><i class="fa-solid fa-receipt" aria-hidden="true"></i>Facturas del turno</h2>
+    <span class="pill num" aria-label="Cantidad de facturas">{{ facturas_turno|length }}</span>
+  </div>
+  {% if facturas_turno %}
+    <div class="xl">
+      <div class="xl-scroll">
+      <table class="tbl xl-t xl-r turn-invoice-table">
+        <thead><tr class="cols"><th>N.º</th><th>Hora</th><th class="l">Mesa</th><th class="l">Forma de pago</th><th>Total</th></tr></thead>
+        <tbody>
+          {% for factura in facturas_turno %}
+            <tr>
+              <td class="c"><button type="button" class="turn-invoice-number" data-factura-id="{{ factura.id }}" aria-label="Ver detalle de la factura {{ factura.id }}">{{ factura.id }}</button></td>
+              <td class="c">{{ factura.creado_en|date:"H:i" }}</td>
+              <td class="l">{% if factura.pedido.mesa_id %}{{ factura.pedido.mesa.etiqueta }}{% else %}Para llevar{% endif %}</td>
+              <td class="l"><i class="fa-solid fa-credit-card text-sky-400 mr-2" aria-hidden="true"></i>{{ factura.get_forma_pago_display }}</td>
+              <td class="r font-semibold text-white">{{ factura.total_cup }} CUP</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+        <tfoot><tr><td colspan="3"></td><td class="c turn-invoice-total-label">TOTAL</td><td class="r">{{ resumen_turno.total_general_cup|default:0|floatformat:2 }} CUP</td></tr></tfoot>
+      </table>
+      </div>
+    </div>
+  {% else %}
+    <div class="turn-admin-empty"><i class="fa-solid fa-receipt text-emerald-400 mr-2" aria-hidden="true"></i>No hay facturas registradas en este turno.</div>
+  {% endif %}
+  {% for factura in facturas_turno %}
+    <template id="factura-detalle-{{ factura.id }}">
+      <div class="invoice-detail-grid">
+        <div class="invoice-detail-cell"><span>Factura</span><strong>#{{ factura.id }}</strong></div>
+        <div class="invoice-detail-cell"><span>Servicio</span><strong>{% if factura.pedido.mesa_id %}{{ factura.pedido.mesa.etiqueta }}{% else %}Para llevar{% endif %}</strong></div>
+        <div class="invoice-detail-cell"><span>Fecha y hora</span><strong>{{ factura.creado_en|date:"d/m/Y H:i:s" }}</strong></div>
+        <div class="invoice-detail-cell"><span>Método de pago</span><strong>{{ factura.get_forma_pago_display }}</strong></div>
+        <div class="invoice-detail-cell"><span>Mesera</span><strong>{{ factura.mesera_nombre|default:"Sin registrar" }}</strong></div>
+        <div class="invoice-detail-cell"><span>Cajera</span><strong>{{ factura.cajera_nombre|default:"Sin registrar" }}</strong></div>
+        <div class="invoice-detail-cell"><span>Efectivo CUP</span><strong>{{ factura.monto_efectivo_cup }} CUP</strong></div>
+        <div class="invoice-detail-cell"><span>Transferencia CUP</span><strong>{{ factura.monto_transferencia_cup }} CUP</strong></div>
+        <div class="invoice-detail-cell"><span>USD recibido</span><strong>{{ factura.monto_usd }} USD</strong></div>
+        <div class="invoice-detail-cell"><span>Tasa de cambio</span><strong>{% if factura.tasa_cambio %}{{ factura.tasa_cambio }} CUP/USD{% else %}No aplica{% endif %}</strong></div>
+      </div>
+      <section class="invoice-detail-section">
+        <h3>Artículos cobrados</h3>
+        {% for item in factura.items_snapshot %}{% if not item.es_merma %}
+          <div class="invoice-item-row"><strong>{{ item.plato }}</strong><span>{{ item.cantidad }} × {{ item.precio_unit }} CUP</span><span class="invoice-item-subtotal">{{ item.subtotal }} CUP</span></div>
+        {% endif %}{% empty %}
+          <div class="turn-empty">No hay artículos guardados en esta factura.</div>
+        {% endfor %}
+      </section>
+      <div class="invoice-modal-total"><span>Total cobrado</span><strong>{{ factura.total_cup }} CUP</strong></div>
+    </template>
+  {% endfor %}
+</section>
+
+{% if puede_ver_datos_financieros and turno and turno.estado == 'abierto' %}
+<section id="inventario" class="turn-admin-card inventory-ledger-card scroll-mt-4" aria-labelledby="inventory-ledger-heading">
+  <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-4">
+    <div class="turn-ipv-heading flex flex-wrap items-center gap-x-3 gap-y-1">
+      <h2 id="inventory-ledger-heading" class="turn-admin-card-title turn-ipv-title !mb-0"><i class="fa-solid fa-table" aria-hidden="true"></i>Inventario perpetuo de ventas</h2>
+      <span id="inventory-ledger-updated" class="inventory-ledger-meta turn-ipv-updated" role="status" aria-live="polite">Cargando…</span>
+    </div>
+    <div class="turn-ipv-actions flex flex-wrap items-center gap-2 no-print">
+      <button type="button" class="btn btn-outline" onclick="actualizarInventarioTurno()"><i class="fa-solid fa-rotate text-emerald-400" aria-hidden="true"></i>Actualizar</button>
+      <a href="{% url 'usuarios:ipv_turno_excel' turno.pk %}" class="btn btn-outline"><i class="fa-solid fa-file-excel text-emerald-400" aria-hidden="true"></i>Excel</a>
+      <a href="{% url 'usuarios:ipv_turno_pdf' turno.pk %}" class="btn btn-outline"><i class="fa-solid fa-file-pdf text-rose-400" aria-hidden="true"></i>PDF</a>
+    </div>
+  </div>
+  <div id="ipv-cash-summary" class="turn-ipv-cash-summary">
+    <div class="stat"><p>Fondo inicial</p><p id="ipv-fondo-inicial-resumen" class="num">0.00 CUP</p></div>
+    <div class="stat"><p>Ventas en efectivo</p><p id="ipv-ventas-efectivo" class="num">0.00 CUP</p></div>
+    <div class="stat hi"><p>Efectivo esperado</p><p id="ipv-efectivo-final" class="num">0.00 CUP</p></div>
+    <div class="stat"><p>Transferencias</p><p id="ipv-ventas-transferencia" class="num">0.00 CUP</p></div>
+    <div class="stat"><p>Ventas USD</p><p id="ipv-ventas-usd" class="num">0.00 USD</p></div>
+  </div>
+  <form method="post" action="{% url 'usuarios:configurar_ipv_turno' %}" class="turn-ipv-fund-form mt-4 flex flex-wrap items-end gap-3 no-print">
+    {% csrf_token %}
+    <label class="turn-ipv-fund-label" for="ipv-fondo-inicial-input">Fondo inicial CUP
+      <input id="ipv-fondo-inicial-input" class="turn-template-field turn-ipv-fund-input" type="number" name="fondo_inicial_cup" min="0" step="0.01" value="{{ turno.fondo_inicial_cup|unlocalize }}" placeholder="0,00" required>
+    </label>
+    <button type="submit" class="btn btn-primary turn-ipv-fund-submit"><i class="fa-solid fa-floppy-disk" aria-hidden="true"></i>Guardar fondo</button>
+  </form>
+  <form id="ipv-csrf-form" class="hidden">{% csrf_token %}</form>
+  <div class="turn-inventory-filters flex flex-wrap items-center gap-2 mt-5 mb-3 no-print">
+    <label class="turn-search"><i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i><input id="ipv-search" class="turn-template-field" type="search" placeholder="Buscar producto" aria-label="Buscar producto"></label>
+    <select id="ipv-category-filter" class="turn-template-field turn-category-filter" aria-label="Filtrar por categoría"><option value="">Todas las categorías</option></select>
+    <label class="turn-sold-filter"><input id="ipv-only-sold" type="checkbox"> Solo con ventas</label>
+  </div>
+  <div class="xl">
+    <div class="xl-head">
+      <p class="xl-title">INVENTARIO PERPETUO DE VENTAS</p>
+      <div class="xl-meta"><span><b>RESTAURANT:</b> ________</span><span><b>FECHA:</b> {{ turno.fecha|date:"d/m/Y" }}</span><span><b>TOTAL:</b> <span id="ipv-sheet-total">0.00 CUP</span></span></div>
+    </div>
+    <div class="xl-scroll">
+      <table class="tbl xl-t turn-ipv-table">
+        <thead>
+          <tr class="letters"><th></th><th>A</th><th>B</th><th>C</th><th>D</th><th>E</th><th class="act-col">F</th></tr>
+          <tr class="cols"><th class="rn">4</th><th class="l">PRODUCTO</th><th>Vendido</th><th>Precio venta</th><th>Importe ventas</th><th>Roturas</th><th class="act-col no-print">Registrar rotura</th></tr>
+        </thead>
+        <tbody id="inventory-ledger-body"><tr><td colspan="7" class="inventory-ledger-status">Consultando IPV del turno…</td></tr></tbody>
+        <tfoot><tr id="ipv-total-row"></tr></tfoot>
+      </table>
+    </div>
+    <p id="ipv-empty" class="turn-admin-empty hidden mt-3">Ningún producto coincide con la búsqueda. Prueba con otro nombre o quita los filtros.</p>
+    <div class="xl-status"><span class="tab">IPV turno actual</span><span id="ipv-stat" class="num"></span></div>
+  </div>
+  <p id="ipv-conciliation" class="hidden mt-3 text-xs text-amber-200"><i class="fa-solid fa-triangle-exclamation mr-1" aria-hidden="true"></i><span></span></p>
+</section>
+
+<section id="rechazados" class="turn-admin-card scroll-mt-4" aria-labelledby="ipv-rejections-heading">
+  <div class="mb-4">
+    <h2 id="ipv-rejections-heading" class="turn-admin-card-title !mb-1"><i class="fa-solid fa-ban" aria-hidden="true"></i>Detalle de platos rechazados</h2>
+    <p class="text-xs text-slate-400">Pérdidas por platos devueltos o rechazados por los clientes durante el turno.</p>
+  </div>
+  <div class="xl">
+    <div class="xl-scroll">
+      <table class="tbl xl-t xl-r inventory-ledger">
+        <thead><tr class="cols"><th class="l">Fecha</th><th class="l">Mesa</th><th class="l">Plato</th><th>Cantidad</th><th class="l">Motivo</th><th class="l">Reportado por</th></tr></thead>
+        <tbody id="ipv-rejections-body"><tr><td colspan="6" class="inventory-ledger-status">Consultando rechazos del turno…</td></tr></tbody>
+      </table>
+    </div>
+    <div class="xl-status"><span class="tab">Platos rechazados</span><span id="ipv-rejections-stat" class="num">Consultando rechazos…</span></div>
+  </div>
+</section>
+{% endif %}
+
+<section class="turn-admin-card" aria-labelledby="historial-heading">
+  <h2 id="historial-heading" class="turn-admin-card-title turn-history-title"><i class="fa-solid fa-chart-line" aria-hidden="true"></i>Historial de turnos</h2>
+  <p class="turn-history-description">Consulta el rendimiento histórico, el IPV y el cierre de cada turno.</p>
+  <a href="{% url 'usuarios:historial_turnos' %}" class="btn btn-primary turn-history-link no-print"><i class="fa-solid fa-arrow-right" aria-hidden="true"></i>Ver historial</a>
+</section>
+
+{% if turno and turno.estado == 'abierto' %}
+<section id="mesas" class="turn-admin-card scroll-mt-4" aria-labelledby="configurar-mesas-heading">
+  <div class="flex items-center justify-between gap-3 mb-2">
+    <h2 id="configurar-mesas-heading" class="turn-admin-card-title !mb-0"><i class="fa-solid fa-qrcode" aria-hidden="true"></i>Mesas y códigos QR</h2>
+    <span class="pill num">{{ mesas_activas_salon|add:mesas_activas_exteriores }} activas</span>
+  </div>
+  <p class="text-slate-400 text-sm">Activa o desactiva cada mesa por separado. El QR de cada una abre directamente la carta correspondiente.</p>
+  <div class="flex flex-wrap gap-2 mt-4 no-print">
+    <form method="post" action="{% url 'usuarios:agregar_mesa_turno' %}">{% csrf_token %}<input type="hidden" name="zona" value="salon"><button type="submit" class="btn btn-primary btn-sm"><i class="fa-solid fa-plus" aria-hidden="true"></i> Agregar mesa</button></form>
+    <form method="post" action="{% url 'usuarios:agregar_mesa_turno' %}">{% csrf_token %}<input type="hidden" name="zona" value="exteriores"><button type="submit" class="btn btn-outline btn-sm"><i class="fa-solid fa-plus" aria-hidden="true"></i> Agregar exterior</button></form>
+  </div>
+  {% regroup mesas_admin by zona as mesas_por_zona %}
+  <div class="turn-table-groups">
+    {% for grupo in mesas_por_zona %}
+      <section class="turn-table-group" aria-labelledby="mesas-zona-{{ grupo.grouper }}">
+        <h3 id="mesas-zona-{{ grupo.grouper }}">{% if grupo.grouper == 'exteriores' %}Mesas exteriores{% else %}Mesas del salón{% endif %}</h3>
+        <div class="turn-table-grid">
+          {% for mesa in grupo.list %}
+            <article class="turn-table-card {% if not mesa.activa %}is-inactive{% endif %}">
+              <img class="turn-table-qr" src="{{ mesa.qr_data }}" alt="Código QR de {{ mesa.etiqueta }}">
+              <div class="turn-table-details">
+                <strong>{{ mesa.etiqueta }}</strong>
+                <span class="turn-table-state">{% if mesa.activa %}Activa{% else %}Inactiva{% endif %}</span>
+                {% if mesa.activa %}<a href="{% url 'carta:qr_mesa' mesa.numero %}" target="_blank" rel="noopener"><i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i> Abrir / imprimir QR</a>{% endif %}
+                <form method="post" action="{% url 'usuarios:cambiar_estado_mesa_turno' mesa.pk %}">{% csrf_token %}<input type="hidden" name="activa" value="{% if mesa.activa %}0{% else %}1{% endif %}"><button type="submit" class="btn btn-sm {% if mesa.activa %}btn-outline{% else %}btn-primary{% endif %}"><i class="fa-solid {% if mesa.activa %}fa-ban{% else %}fa-check{% endif %}" aria-hidden="true"></i> {% if mesa.activa %}Desactivar{% else %}Activar{% endif %}</button></form>
+              </div>
+            </article>
+          {% empty %}<p class="admin-hint">Todavía no hay mesas en esta zona.</p>{% endfor %}
+        </div>
+      </section>
+    {% empty %}<p class="admin-hint">Todavía no hay mesas creadas.</p>{% endfor %}
+  </div>
+</section>
+{% endif %}
+
+{% if turno %}
+<section id="cierre" class="turn-admin-card scroll-mt-4" style="border-color:rgba(245,158,11,.25)" aria-labelledby="cierre-turno-heading">
+  <h2 id="cierre-turno-heading" class="turn-admin-card-title"><i class="fa-solid fa-lock text-amber-300" aria-hidden="true"></i>Cierre de turno</h2>
+  {% if turno_abierto_pendiente %}
+    <div class="turn-admin-alert" role="alert">
+      <strong>El turno pasó de medianoche</strong>
+      <p>El turno abierto desde {{ turno_abierto_pendiente.apertura|date:"d/m/Y H:i" }} continúa sin cerrar. ¿Desea mantenerlo abierto o cerrarlo?</p>
+    </div>
+    <div class="flex flex-wrap gap-2 mt-3">
+      <form method="post" action="{% url 'usuarios:continuar_turno' %}">
+        {% csrf_token %}<input type="hidden" name="turno_id" value="{{ turno_abierto_pendiente.pk }}">
+        <button type="submit" class="btn btn-primary btn-sm"><i class="fa-solid fa-play" aria-hidden="true"></i> Continuar turno</button>
+      </form>
+      <a href="{% url 'usuarios:historial_turno_detalle' turno_abierto_pendiente.pk %}" class="btn btn-outline btn-sm"><i class="fa-solid fa-eye" aria-hidden="true"></i> Ver turno</a>
+    </div>
+    <form id="{% if turno_requiere_confirmacion %}turn-close-form{% else %}pending-turn-close-form{% endif %}" method="post" action="{% url 'usuarios:cerrar_turno' %}" class="turn-close-form mt-4" onsubmit="return confirm('¿Confirmas el cierre del turno del {{ turno_abierto_pendiente.fecha|date:"d/m/Y" }}? Esta acción no se puede deshacer.');">
+      {% csrf_token %}<input type="hidden" name="turno_id" value="{{ turno_abierto_pendiente.pk }}">
+      <label for="observaciones-cierre-pendiente">Observaciones del cierre</label>
+      <textarea id="observaciones-cierre-pendiente" name="observaciones" rows="4" placeholder="Observaciones del cierre" class="admin-input"></textarea>
+      <button type="submit" class="btn btn-orange turn-action-btn"><i class="fa-solid fa-lock" aria-hidden="true"></i> Cerrar turno</button>
+    </form>
+  {% endif %}
+  {% if turno.estado == 'abierto' and not turno_requiere_confirmacion %}
+    <form id="turn-close-form" method="post" action="{% url 'usuarios:cerrar_turno' %}" class="turn-close-form">
+      {% csrf_token %}
+      <label for="observaciones-cierre">Observaciones</label>
+      <textarea id="observaciones-cierre" name="observaciones" rows="4" maxlength="500" placeholder="Observaciones del cierre" class="admin-input"></textarea>
+      <div class="flex flex-wrap items-center justify-between gap-3 mt-3">
+        <p class="text-xs text-slate-500"><span id="turn-close-observations-count" class="num">0</span>/500 · Antes de cerrar, revisa el inventario y las facturas.</p>
+        <button type="submit" class="btn btn-orange turn-action-btn no-print"><i class="fa-solid fa-lock" aria-hidden="true"></i> Cerrar turno</button>
+      </div>
+    </form>
+  {% elif turno.estado == 'cerrado' %}
+    <label for="observaciones-cierre" class="turn-close-label">Observaciones</label>
+    <textarea id="observaciones-cierre" rows="4" class="admin-input" disabled>{{ turno.observaciones }}</textarea>
+    <div class="flex justify-end mt-3"><button type="button" class="btn btn-orange turn-action-btn" disabled><i class="fa-solid fa-lock" aria-hidden="true"></i> Turno cerrado</button></div>
+  {% endif %}
+</section>
+{% endif %}
+{% if turno and turno.estado == 'abierto' and not turno_requiere_confirmacion %}
+<dialog id="dlgCierre" aria-labelledby="dlgCierre-title">
+  <h2 id="dlgCierre-title"><i class="fa-solid fa-lock" aria-hidden="true"></i>¿Cerrar el turno?</h2>
+  <p class="turn-close-dialog-note">Esta acción no se puede deshacer. Se registrará el cierre con la hora actual.</p>
+  <div class="turn-close-dialog-summary" id="dlgResumen">
+    <p><span>Facturas</span><strong class="num">{{ resumen_turno.cantidad_facturas|default:0 }}</strong></p>
+    <p><span>Total general</span><strong class="num">{{ resumen_turno.total_general_cup|default:0|floatformat:2 }} CUP</strong></p>
+    <p><span>Apertura</span><strong class="num">{{ turno.apertura|date:"d/m/Y H:i" }}</strong></p>
+  </div>
+  <div class="turn-close-dialog-actions">
+    <button type="button" class="btn btn-outline" id="dlgNo">Cancelar</button>
+    <button type="button" class="btn btn-orange" id="dlgSi"><i class="fa-solid fa-lock" aria-hidden="true"></i>Cerrar turno</button>
+  </div>
+</dialog>
+{% endif %}
+
+<section id="notificaciones" class="turn-admin-card scroll-mt-4" aria-labelledby="notificaciones-heading">
+  <div class="flex items-center justify-between gap-3 mb-4">
+    <h2 id="notificaciones-heading" class="turn-admin-card-title !mb-0"><i class="fa-solid fa-bell" aria-hidden="true"></i>Notificaciones</h2>
+    <span class="pill num">{{ notificaciones|length }}</span>
+  </div>
+  {% for n in notificaciones %}
+    <article class="turn-notification">
+      <div class="turn-notification-head">
+        <div class="flex items-start gap-3 min-w-0">
+          <span class="kic !bg-emerald-500/15 !text-emerald-300"><i class="fa-solid fa-circle-check" aria-hidden="true"></i></span>
+          <div class="min-w-0"><h3 class="turn-notification-title">{{ n.asunto }}</h3><p class="turn-notification-message">{{ n.mensaje }}</p></div>
+        </div>
+        <span class="turn-notification-date num">{{ n.creada_en|date:"d/m/Y H:i" }}</span>
+      </div>
+      {% if n.turno %}
+        <dl class="turn-notification-data">
+          <div class="stat"><dt class="text-[11px] text-slate-400">Facturas</dt><dd class="num text-sm font-semibold mt-0.5 text-white">{{ n.turno_resumen.cantidad_facturas|default:0 }}</dd></div>
+          <div class="stat"><dt class="text-[11px] text-slate-400">USD</dt><dd class="num text-sm font-semibold mt-0.5 text-white">{{ n.turno_resumen.total_usd|default:0|floatformat:2 }} USD</dd></div>
+          <div class="stat"><dt class="text-[11px] text-slate-400">Fondo inicial</dt><dd class="num text-sm font-semibold mt-0.5 text-white">{{ n.turno.fondo_inicial_cup|floatformat:2 }} CUP</dd></div>
+          <div class="stat"><dt class="text-[11px] text-slate-400">Efectivo</dt><dd class="num text-sm font-semibold mt-0.5 text-white">{{ n.turno_resumen.total_efectivo_cup|default:0|floatformat:2 }} CUP</dd></div>
+          <div class="stat"><dt class="text-[11px] text-slate-400">Transferencia</dt><dd class="num text-sm font-semibold mt-0.5 text-white">{{ n.turno_resumen.total_transferencia_cup|default:0|floatformat:2 }} CUP</dd></div>
+          <div class="stat hi"><dt class="text-[11px] text-slate-400">Total general</dt><dd class="num text-sm font-semibold mt-0.5 text-emerald-300">{{ n.turno_resumen.total_general_cup|default:0|floatformat:2 }} CUP</dd></div>
+        </dl>
+        <div class="flex flex-wrap items-center gap-1.5 mt-3"><span class="text-xs text-slate-400 mr-1">Participantes</span>{% for participante in n.turno.usuarios.all %}<span class="chip">{{ participante.get_full_name|default:participante.username }}</span>{% empty %}<span class="chip">Sin participantes</span>{% endfor %}</div>
+      {% endif %}
+    </article>
+  {% empty %}
+    <div class="turn-admin-empty"><i class="fa-regular fa-bell-slash mr-2" aria-hidden="true"></i>No hay notificaciones.</div>
+  {% endfor %}
+</section>

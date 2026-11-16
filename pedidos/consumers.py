@@ -612,6 +612,10 @@ class MeseraConsumer(AsyncWebsocketConsumer):
                 'caja',
                 {'type': 'factura_solicitada', 'factura': cuenta, 'mesa_numero': mesa_numero, 'mesera_nombre': cuenta['mesera_nombre']}
             )
+            await self.channel_layer.group_send(
+                f'cliente_{mesa_numero}',
+                {'type': 'pedido_actualizado', 'pedido': cuenta},
+            )
             await self.send(text_data=json.dumps({'tipo': 'cobro_preparado', 'mesa_numero': mesa_numero}))
 
         elif accion == 'preparar_cobro_para_llevar':
@@ -1450,6 +1454,7 @@ class CajaConsumer(AsyncWebsocketConsumer):
                 data.get('monto_recibido_usd'),
                 mesera_nombre=mesera_nombre,
                 cajera_nombre=cajera_nombre,
+                monto_transferencia_cup_raw=data.get('monto_transferencia_cup'),
             )
             if error:
                 await self.send(text_data=json.dumps({'tipo': 'error_cobro', 'mensaje': error}))
@@ -1643,6 +1648,7 @@ class CajaConsumer(AsyncWebsocketConsumer):
         monto_recibido_usd_raw=None,
         mesera_nombre='',
         cajera_nombre='',
+        monto_transferencia_cup_raw=None,
     ):
         """
         Verifica el pedido, calcula el monto según la forma de pago elegida
@@ -1710,9 +1716,28 @@ class CajaConsumer(AsyncWebsocketConsumer):
         elif forma_pago == 'transferencia':
             monto_transferencia_cup = total
         elif forma_pago == 'mixto':
-            mitad = _redondear(total / 2)
-            monto_efectivo_cup = mitad
-            monto_transferencia_cup = total - mitad
+            monto_transferencia_cup = _to_decimal(monto_transferencia_cup_raw)
+            if (
+                monto_transferencia_cup is None
+                or not monto_transferencia_cup.is_finite()
+                or monto_transferencia_cup > Decimal('99999999.99')
+            ):
+                return None, 'Indica el importe aceptado por transferencia.'
+            monto_transferencia_cup = _redondear(monto_transferencia_cup)
+            if monto_transferencia_cup <= 0 or monto_transferencia_cup >= total:
+                return None, 'La transferencia debe ser mayor que cero y menor que el total de la cuenta.'
+            monto_efectivo_cup = total - monto_transferencia_cup
+            monto_recibido_cup = _to_decimal(monto_recibido_cup_raw)
+            if (
+                monto_recibido_cup is None
+                or not monto_recibido_cup.is_finite()
+                or monto_recibido_cup > Decimal('99999999.99')
+            ):
+                return None, 'Indica el importe recibido en efectivo CUP.'
+            monto_recibido_cup = _redondear(monto_recibido_cup)
+            if monto_recibido_cup < monto_efectivo_cup:
+                return None, 'El efectivo recibido no puede ser menor que la parte de efectivo de la cuenta.'
+            cambio_cup = monto_recibido_cup - monto_efectivo_cup
         elif forma_pago == 'usd':
             tasa_cambio = _to_decimal(tasa_cambio_raw)
             if (

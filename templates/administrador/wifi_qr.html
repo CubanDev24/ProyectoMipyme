@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+{% load static %}
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GourmetControl · Wi-Fi y QR</title>
+  <link rel="icon" type="image/svg+xml" href="{% static 'img/favicon.svg' %}?v=20261013">
+  <link rel="stylesheet" href="{% static 'vendor/fontawesome/css/all.min.css' %}">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config={theme:{extend:{fontFamily:{sans:['Inter','sans-serif']},colors:{bg:'#0b0f19',side:'#090d16',card:'#101625',inner:'#0a0d14',line:'#1e293b'}}}}
+  </script>
+  <style>
+    body.report-body{font-family:Inter,system-ui,sans-serif;background:radial-gradient(900px 380px at 70% -120px,rgba(16,185,129,.10),transparent 70%),#0b0f19;background-attachment:fixed;color:#e2e8f0;min-height:100vh}
+    .num{font-variant-numeric:tabular-nums}
+    :focus-visible{outline:2px solid #34d399;outline-offset:2px;border-radius:6px}
+    ::-webkit-scrollbar{width:6px;height:6px}::-webkit-scrollbar-thumb{background:#1e293b;border-radius:4px}
+    .bg-bg{background-color:#0b0f19}.bg-side{background-color:#090d16}.border-line{border-color:#1e293b}
+    .card{background:#101625;border:1px solid #1e293b;border-radius:.9rem;padding:1.25rem;box-shadow:0 1px 0 rgba(255,255,255,.03) inset,0 8px 24px -12px rgba(0,0,0,.6)}
+    .kic{width:2rem;height:2rem;border-radius:.55rem;background:#1e293b;color:#94a3b8;display:flex;align-items:center;justify-content:center;font-size:.8rem;flex-shrink:0}
+    .btn{display:inline-flex;align-items:center;gap:.5rem;padding:.45rem .8rem;border-radius:.5rem;font-size:.75rem;font-weight:500;background:#0a0d14;border:1px solid #334155;color:#e2e8f0;transition:background .15s,border-color .15s}
+    .btn:hover{background:#1e293b;border-color:#475569}
+    .btn-p{display:inline-flex;align-items:center;gap:.5rem;padding:.55rem .95rem;border-radius:.55rem;font-size:.8rem;font-weight:600;background:#10b981;color:#04130d;transition:background .15s}
+    .btn-p:hover{background:#34d399}
+    .fld{background:#0a0d14;border:1px solid #334155;border-radius:.5rem;padding:.5rem .75rem;font-size:.75rem;color:#e2e8f0;width:100%;transition:border-color .15s}
+    .fld:focus{border-color:#10b981}
+    .fld::placeholder{color:#64748b}
+    .lbl-f{display:block;font-size:.75rem;font-weight:500;color:#94a3b8;margin-bottom:.35rem}
+    .stat{border:1px solid #1e293b;background:#0a0d14;border-radius:.6rem;padding:.65rem .75rem}
+    .meta{display:inline-flex;align-items:center;gap:.45rem;border-radius:999px;border:1px solid #1e293b;background:#0a0d14;padding:.25rem .7rem;font-size:.72rem;color:#cbd5e1;white-space:nowrap}
+    .meta i{color:#34d399;font-size:.7rem}
+    .reports-shell{display:flex;height:100dvh;overflow:hidden}
+    .reports-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:30}
+    .reports-sidebar{position:relative;z-index:40;display:flex;flex:0 0 16rem;flex-direction:column;overflow:hidden;background:#090d16;border-right:1px solid #1e293b;transition:width .2s ease,transform .2s ease}
+    .reports-brand{height:3.5rem;display:flex;align-items:center;gap:.75rem;padding:0 1rem;border-bottom:1px solid #1e293b;flex-shrink:0}
+    .reports-brand-icon{width:2.25rem;height:2.25rem;border-radius:.55rem;display:flex;align-items:center;justify-content:center;flex-shrink:0;background:rgba(16,185,129,.15);color:#34d399}
+    .reports-brand-name{min-width:0}
+    .reports-brand-name strong{display:block;color:#fff;font-size:.875rem;line-height:1.1}
+    .reports-brand-name span{display:block;margin-top:.2rem;color:#94a3b8;font-size:.7rem}
+    .reports-sidebar nav{flex:1;overflow:auto;padding:.75rem}
+    #reports-sidebar nav a{display:flex;align-items:center;gap:.75rem;padding:.6rem .75rem;border:1px solid transparent;border-radius:.5rem;color:#94a3b8;font-size:.8rem;text-decoration:none;transition:background .15s,color .15s}
+    #reports-sidebar nav a:hover{background:rgba(30,41,59,.55);color:#fff}
+    #reports-sidebar nav a[aria-current=page]{background:rgba(16,185,129,.1);border-color:rgba(16,185,129,.25);color:#6ee7b7}
+    #reports-sidebar nav a i{width:1rem;text-align:center;flex-shrink:0;line-height:1}
+    #reports-sidebar nav a span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .reports-sidebar-foot{padding:.75rem;border-top:1px solid #1e293b;flex-shrink:0}
+    .reports-user{display:flex;align-items:center;gap:.75rem;padding:.6rem .4rem}
+    .reports-user-icon{width:2.25rem;height:2.25rem;border-radius:50%;display:grid;place-items:center;flex-shrink:0;background:rgba(5,150,105,.25);border:1px solid rgba(16,185,129,.3);color:#6ee7b7}
+    .reports-user p{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .reports-user-name{font-size:.75rem;font-weight:500;color:#fff}
+    .reports-user-role{margin-top:.15rem;font-size:.7rem;color:#94a3b8}
+    .reports-logout{display:flex;align-items:center;gap:.75rem;padding:.6rem .75rem;border-radius:.5rem;color:#94a3b8;font-size:.8rem;text-decoration:none}
+    .reports-logout:hover{background:rgba(239,68,68,.1);color:#fca5a5}
+    .reports-content{display:flex;flex:1;flex-direction:column;min-width:0}
+    .reports-header{height:3.5rem;display:flex;align-items:center;justify-content:space-between;gap:.75rem;padding:0 1rem;border-bottom:1px solid #1e293b;background:rgba(11,15,25,.95);backdrop-filter:blur(12px);flex-shrink:0}
+    .reports-header-left,.reports-header-title,.reports-header-badge{display:flex;align-items:center}
+    .reports-header-left{gap:.65rem;min-width:0}
+    .reports-menu{padding:.5rem;margin-left:-.5rem;border-radius:.5rem;color:#cbd5e1}
+    .reports-menu:hover{background:rgba(30,41,59,.6);color:#fff}
+    .reports-header-title{gap:.5rem;overflow:hidden;color:#fff;font-size:.9rem;font-weight:600;white-space:nowrap}
+    .reports-header-title i{color:#34d399}
+    .reports-clock{display:none;color:#cbd5e1;background:rgba(30,41,59,.7);border:1px solid #334155;border-radius:999px;padding:.25rem .65rem;font-size:.7rem;white-space:nowrap}
+    .reports-header-badge{gap:.45rem;padding:.35rem .7rem;border:1px solid rgba(16,185,129,.3);border-radius:999px;background:rgba(16,185,129,.1);color:#6ee7b7;font-size:.7rem;font-weight:500;white-space:nowrap}
+    .wifi-print-main{flex:1;overflow:auto}
+    .wifi-print-content{max-width:80rem;margin:auto;padding:1.25rem;display:grid;gap:1.5rem}
+    .card-h{display:flex;align-items:center;gap:.9rem;padding-bottom:1rem;margin-bottom:1.1rem;border-bottom:1px solid #1e293b}
+    .card-top{position:relative}.card-top::before{content:"";position:absolute;left:8%;right:8%;top:-1px;height:2px;background:linear-gradient(90deg,transparent,#10b981aa,transparent)}
+    .qrbox{background:#fff;border-radius:.8rem;padding:.9rem;display:inline-block;line-height:0;box-shadow:0 8px 24px -12px rgba(0,0,0,.7)}
+    .qrbox img,.qrbox canvas{width:232px;max-width:100%;height:auto}
+    .wifi-config-form{display:grid;gap:1rem}
+    .wifi-input{padding-right:2.5rem!important}
+    .wifi-password-wrap{position:relative}
+    .wifi-password-toggle{position:absolute;right:.75rem;top:50%;transform:translateY(-50%);color:#64748b}
+    .wifi-password-toggle:hover{color:#e2e8f0}
+    .wifi-error{display:flex;align-items:center;gap:.5rem;color:#fda4af;font-size:.75rem}
+    .wifi-error:empty{display:none}
+    .wifi-qr-output{display:flex;flex:1;flex-direction:column;align-items:center;gap:1rem}
+    .wifi-system-url{overflow-wrap:anywhere}
+    .wifi-copy-status{min-height:1.25rem;margin-top:.4rem;color:#6ee7b7;font-size:.75rem}
+    .admin-flash-list{display:flex;flex-direction:column;gap:.5rem;margin-bottom:1.25rem}
+    .admin-flash{display:flex;align-items:center;gap:.65rem;padding:.65rem 1rem;border:1px solid #10b98155;border-left:4px solid #10b981;border-radius:.5rem;background:#101625;color:#a7f3d0;font-size:.83rem}
+    .admin-flash-error{border-color:#f8717155;border-left-color:#f87171;color:#fecaca}
+    @media(min-width:640px){.wifi-print-content{padding:1.5rem}.reports-clock{display:inline-flex}}
+    @media(min-width:1024px){.reports-sidebar.collapsed{flex-basis:4.5rem;width:4.5rem}.reports-sidebar.collapsed .reports-brand,.reports-sidebar.collapsed .reports-user{justify-content:center;padding-left:0;padding-right:0}.reports-sidebar.collapsed .reports-brand-name,.reports-sidebar.collapsed .reports-user-info,.reports-sidebar.collapsed nav a span,.reports-sidebar.collapsed .reports-logout span{display:none}.reports-sidebar.collapsed nav a,.reports-sidebar.collapsed .reports-logout{justify-content:center;padding-left:0;padding-right:0}.reports-sidebar.collapsed nav a{gap:0}.wifi-print-content{padding:2rem}}
+    @media(max-width:1023px){.reports-sidebar{position:fixed;inset:0 auto 0 0;width:16rem;transform:translateX(-100%)}.reports-sidebar.is-open{transform:translateX(0)}.reports-overlay.is-open{display:block}}
+    @media(max-width:520px){.wifi-print-content{padding:1rem;gap:1.25rem}}
+    @media print{
+      .reports-sidebar,.reports-header,.no-print,.reports-overlay{display:none!important}
+      body{background:#fff;color:#000}
+      .card,.stat{border:1px solid #ccc!important;background:#fff!important;box-shadow:none!important;break-inside:avoid}
+      *{color:#000!important}
+      body.imprimir-qrs{display:block!important;min-height:0!important}
+      body.imprimir-qrs .reports-shell,body.imprimir-qrs .reports-content,body.imprimir-qrs .wifi-print-main{display:block!important;height:auto!important;overflow:visible!important}
+      body.imprimir-qrs .wifi-print-content{max-width:none!important;padding:0!important}
+      body.imprimir-qrs .wifi-print-content>:not(.wifi-print-cards):not([data-qr-card]){display:none!important}
+      body.imprimir-qrs .wifi-print-cards{display:block!important}
+      body.imprimir-qrs .wifi-print-cards>[data-qr-card="configuracion"]{display:none!important}
+      body.imprimir-qrs[data-qr-para-imprimir="wifi"] [data-qr-card="sistema"],
+      body.imprimir-qrs[data-qr-para-imprimir="sistema"] [data-qr-card="wifi"]{display:none!important}
+      body.imprimir-qrs .qrbox img{width:min(100%,220px)!important;margin:1rem auto}
+      body.imprimir-qrs .qr-print-actions,body.imprimir-qrs .wifi-copy-status{display:none!important}
+    }
+    @media(prefers-reduced-motion:reduce){*{transition:none!important}}
+  </style>
+</head>
+<body class="report-body">
+<a href="#contenido" class="sr-only focus:not-sr-only focus:absolute focus:z-50 focus:bg-emerald-500 focus:text-black focus:px-3 focus:py-2">Saltar al contenido</a>
+
+<div class="reports-shell">
+<div id="reports-overlay" class="reports-overlay no-print"></div>
+
+<aside id="reports-sidebar" class="reports-sidebar no-print">
+  <div class="reports-brand">
+    <div class="reports-brand-icon"><i class="fa-solid fa-utensils" aria-hidden="true"></i></div>
+    <div class="reports-brand-name"><strong>GourmetControl</strong><span>Panel de administración</span></div>
+  </div>
+  {% include "usuarios/_admin_sidebar_nav.html" with seccion_activa="wifi" %}
+  <div class="reports-sidebar-foot">
+    <div class="reports-user">
+      <div class="reports-user-icon"><i class="fa-solid fa-user text-xs" aria-hidden="true"></i></div>
+      <div class="reports-user-info"><p class="reports-user-name">{{ request.user.get_full_name|default:request.user.username }}</p><p class="reports-user-role">{{ request.user.get_role_display }} · Activo</p></div>
+    </div>
+    <a href="{% url 'usuarios:logout' %}" class="reports-logout" title="Cerrar sesión"><i class="fa-solid fa-arrow-right-from-bracket" aria-hidden="true"></i><span>Cerrar sesión</span></a>
+  </div>
+</aside>
+
+<div class="reports-content">
+
+<header class="reports-header no-print">
+  <div class="reports-header-left">
+    <button id="reports-menu" type="button" class="reports-menu" aria-label="Abrir menú" aria-controls="reports-sidebar" aria-expanded="false"><i class="fa-solid fa-bars" aria-hidden="true"></i></button>
+    <p class="reports-header-title"><i class="fa-solid fa-wifi" aria-hidden="true"></i>Wi-Fi y código QR</p>
+    <span id="reports-clock" class="reports-clock num" aria-hidden="true"></span>
+  </div>
+  <span class="reports-header-badge"><i class="fa-solid fa-qrcode" aria-hidden="true"></i>Conexión del local</span>
+</header>
+
+<main id="contenido" class="wifi-print-main">
+<div class="wifi-print-content">
+
+  {% if messages %}
+  <div class="admin-flash-list">
+    {% for message in messages %}
+  {% if message.tags != 'error' %}
+  <div class="admin-flash {% if message.tags == 'error' %}admin-flash-error{% else %}admin-flash-ok{% endif %}"><i class="fa-solid {% if message.tags == 'error' %}fa-circle-xmark{% else %}fa-circle-check{% endif %} admin-flash-icon" aria-hidden="true"></i><span>{{ message }}</span></div>
+  {% endif %}
+  {% endfor %}
+</div>
+{% endif %}
+
+<div class="wifi-page-intro">
+    <p class="text-[11px] font-semibold tracking-widest text-emerald-400 uppercase">Administración</p>
+    <h1 class="text-2xl font-bold text-white tracking-tight">Wi-Fi y código QR</h1>
+    <p class="text-slate-400 mt-1">Conecta a los clientes a la red del local y abre el sistema desde otros dispositivos.</p>
+  </div>
+
+  <div class="wifi-print-cards grid grid-cols-1 xl:grid-cols-2 gap-6">
+    <section class="card card-top" data-qr-card="configuracion" aria-labelledby="t-cfg">
+      <div class="card-h"><span class="kic !w-11 !h-11 !bg-emerald-500/15 !text-emerald-300 text-base"><i class="fa-solid fa-wifi" aria-hidden="true"></i></span><div><p class="text-[11px] font-semibold tracking-widest text-slate-400 uppercase">Conexión del local</p><h2 id="t-cfg" class="font-bold text-white text-lg">Red Wi-Fi</h2></div></div>
+      <p class="text-sm text-slate-400 mb-4">Configura la red del local para generar un QR que los clientes puedan escanear y usar para conectarse. Los QR de las mesas no cambian.</p>
+      <form method="post" action="{% url 'inventario:configurar_wifi' %}" class="wifi-config-form">
+        {% csrf_token %}
+        <div><label for="ssid" class="lbl-f">Nombre de la red Wi-Fi</label><input id="ssid" name="ssid" value="{{ wifi_configuracion.ssid|default:'' }}" class="fld !text-sm !py-2.5" placeholder="Ej. LasCuquis-Clientes" autocomplete="off" maxlength="32" required></div>
+        <div><label for="wpass" class="lbl-f">Contraseña</label>
+          <div class="relative"><input id="wpass" name="password" type="password" value="{{ wifi_configuracion.password|default:'' }}" class="fld wifi-input !text-sm !py-2.5" placeholder="Contraseña de la red" autocomplete="new-password" maxlength="63">
+          <button type="button" id="eye" class="wifi-password-toggle" aria-label="Mostrar u ocultar contraseña" aria-pressed="false"><i class="fa-solid fa-eye text-sm" aria-hidden="true"></i></button></div>
+          <p class="text-xs text-slate-500 mt-1.5 flex items-center gap-1.5"><i class="fa-solid fa-circle-info" aria-hidden="true"></i>Déjala vacía si la red no tiene contraseña.</p></div>
+        <p id="wErr" role="alert" class="wifi-error">{% if messages %}{% for message in messages %}{% if message.tags == 'error' %}<i class="fa-solid fa-circle-exclamation" aria-hidden="true"></i>{{ message }}{% endif %}{% endfor %}{% endif %}</p>
+        <button type="submit" id="saveWifi" class="btn-p w-full justify-center !py-2.5"><i class="fa-solid fa-floppy-disk" aria-hidden="true"></i>Guardar y generar QR</button>
+      </form>
+    </section>
+
+    <section class="card card-top flex flex-col" data-qr-card="wifi" aria-labelledby="t-qw">
+      <div class="card-h"><span class="kic !w-11 !h-11 !bg-emerald-500/15 !text-emerald-300 text-base"><i class="fa-solid fa-qrcode" aria-hidden="true"></i></span><div><p class="text-[11px] font-semibold tracking-widest text-slate-400 uppercase">Código para los clientes</p><h2 id="t-qw" class="font-bold text-white text-lg">QR de la Wi-Fi</h2></div></div>
+      {% if wifi_qr %}
+      <div id="wifiOut" class="wifi-qr-output">
+        <div id="wifiQR" class="qrbox"><img id="wifi-qr-image" src="{{ wifi_qr }}" alt="Código QR para conectarse a la red Wi-Fi {{ wifi_configuracion.ssid }}"></div>
+        <div class="flex flex-wrap justify-center gap-2"><span class="meta"><i class="fa-solid fa-wifi" aria-hidden="true"></i><span id="mSsid">{{ wifi_configuracion.ssid }}</span></span><span class="meta"><i class="fa-solid fa-{% if wifi_configuracion.password %}lock{% else %}lock-open{% endif %}" aria-hidden="true"></i><span id="mSec">{% if wifi_configuracion.password %}WPA/WPA2{% else %}Red abierta{% endif %}</span></span></div>
+        <div class="flex flex-wrap justify-center gap-2 w-full qr-print-actions">
+          <button type="button" class="btn" id="jpgW" onclick="descargarQrJpg('wifi-qr-image', 'qr-wifi.jpg')"><i class="fa-solid fa-download" aria-hidden="true"></i>Guardar JPG</button>
+          <button type="button" class="btn-p" id="prW" onclick="imprimirQr('wifi')"><i class="fa-solid fa-print" aria-hidden="true"></i>Imprimir QR</button>
+        </div>
+      </div>
+      {% else %}
+      <div id="wifiEmpty" class="flex-1 flex flex-col items-center justify-center text-center py-10 gap-3">
+        <span class="kic !w-12 !h-12 text-lg"><i class="fa-solid fa-qrcode" aria-hidden="true"></i></span>
+        <p class="text-slate-400 text-sm max-w-xs">Guarda el nombre de la red y su contraseña para mostrar aquí el QR de conexión.</p>
+      </div>
+      {% endif %}
+    </section>
+  </div>
+
+  <section class="card card-top" data-qr-card="sistema" aria-labelledby="t-qs">
+    <div class="card-h"><span class="kic !w-11 !h-11 !bg-emerald-500/15 !text-emerald-300 text-base"><i class="fa-solid fa-desktop" aria-hidden="true"></i></span><div><p class="text-[11px] font-semibold tracking-widest text-slate-400 uppercase">Acceso al restaurante</p><h2 id="t-qs" class="font-bold text-white text-lg">QR del sistema</h2></div></div>
+    <div class="flex flex-col md:flex-row items-center gap-8">
+      <div id="sysQR" class="qrbox shrink-0"><img id="sistema-qr-image" src="{{ sistema_qr }}" alt="Código QR para abrir el sistema en {{ sistema_url }}"></div>
+      <div class="flex-1 w-full">
+        <p class="text-sm text-slate-400">Escanea este código para abrir el sistema en otro equipo. La dirección incluye la IP y el puerto usados para acceder a esta página.</p>
+        <div class="stat mt-4 flex items-center justify-between gap-3"><div class="min-w-0"><p class="text-xs text-slate-400">Dirección del sistema</p><p id="sysUrl" class="num font-semibold text-emerald-300 truncate wifi-system-url">{{ sistema_url }}</p></div>
+          <button type="button" class="btn shrink-0" id="copyUrl" data-url="{{ sistema_url }}"><i class="fa-regular fa-copy" aria-hidden="true"></i>Copiar</button></div>
+        <p id="wifi-copy-status" class="wifi-copy-status" role="status" aria-live="polite"></p>
+        <div class="flex flex-wrap gap-2 mt-4 qr-print-actions">
+          <button type="button" class="btn" id="jpgS" onclick="descargarQrJpg('sistema-qr-image', 'qr-sistema.jpg')"><i class="fa-solid fa-download" aria-hidden="true"></i>Guardar JPG</button>
+          <button type="button" class="btn-p" id="prS" onclick="imprimirQr('sistema')"><i class="fa-solid fa-print" aria-hidden="true"></i>Imprimir QR</button>
+        </div>
+      </div>
+    </div>
+  </section>
+</div>
+</main>
+</div>
+</div>
+<div id="toast" role="status" aria-live="polite" class="fixed bottom-5 left-1/2 -translate-x-1/2 bg-emerald-500 text-black font-medium px-4 py-2 rounded-lg shadow-lg opacity-0 pointer-events-none transition-opacity no-print"></div>
+<script>
+async function descargarQrJpg(imageId,nombreArchivo){
+  const imagen=document.getElementById(imageId);
+  if(!imagen){alert('No se encontró el código QR que quieres guardar.');return}
+  try{
+    await imagen.decode();
+    const canvas=document.createElement('canvas');
+    canvas.width=imagen.naturalWidth;canvas.height=imagen.naturalHeight;
+    const contexto=canvas.getContext('2d');
+    if(!contexto)throw new Error('El navegador no pudo preparar la imagen.');
+    contexto.fillStyle='#fff';contexto.fillRect(0,0,canvas.width,canvas.height);contexto.drawImage(imagen,0,0);
+    const jpg=await new Promise(resolve=>canvas.toBlob(resolve,'image/jpeg',.95));
+    if(!jpg)throw new Error('El navegador no pudo convertir el QR a JPG.');
+    const url=URL.createObjectURL(jpg),enlace=document.createElement('a');
+    enlace.href=url;enlace.download=nombreArchivo;enlace.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
+  }catch(error){alert(`No se pudo guardar el QR como JPG: ${error.message}`)}
+}
+function imprimirQr(tipo){
+  document.body.dataset.qrParaImprimir=tipo;document.body.classList.add('imprimir-qrs');
+  window.addEventListener('afterprint',()=>{document.body.classList.remove('imprimir-qrs');delete document.body.dataset.qrParaImprimir},{once:true});
+  window.print();
+}
+document.getElementById('eye').onclick=()=>{
+  const input=document.getElementById('wpass'),boton=document.getElementById('eye'),visible=input.type==='password';
+  input.type=visible?'text':'password';boton.setAttribute('aria-pressed',String(visible));
+  boton.setAttribute('aria-label',visible?'Ocultar contraseña':'Mostrar contraseña');
+  boton.innerHTML=`<i class="fa-solid fa-eye${visible?'-slash':''} text-sm" aria-hidden="true"></i>`;
+};
+document.getElementById('copyUrl').onclick=async event=>{
+  const url=event.currentTarget.dataset.url,estado=document.getElementById('wifi-copy-status');
+  try{
+    if(navigator.clipboard&&window.isSecureContext)await navigator.clipboard.writeText(url);
+    else{
+      const input=document.createElement('textarea');input.value=url;input.setAttribute('readonly','');input.style.position='fixed';input.style.opacity='0';
+      document.body.appendChild(input);input.select();const copiado=document.execCommand('copy');input.remove();
+      if(!copiado)throw new Error('El navegador no permitió copiar la dirección.');
+    }
+    estado.textContent='Dirección copiada.';
+  }catch(error){estado.textContent=`No se pudo copiar la dirección: ${error.message}`}
+};
+const tick=()=>{document.getElementById('reports-clock').textContent=new Date().toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit',hour12:true})};
+tick();setInterval(tick,30000);
+const sidebar=document.getElementById('reports-sidebar'),overlay=document.getElementById('reports-overlay'),menuButton=document.getElementById('reports-menu');
+const desktop=()=>window.matchMedia('(min-width:1024px)').matches;
+const sidebarKey='gc-sidebar-collapsed';
+const sidebarStore={get(){try{return localStorage.getItem(sidebarKey)}catch{return null}},set(value){try{localStorage.setItem(sidebarKey,value)}catch{}}};
+function syncSidebar(){
+  const open=desktop()?!sidebar.classList.contains('collapsed'):sidebar.classList.contains('is-open');
+  menuButton.setAttribute('aria-expanded',String(open));menuButton.setAttribute('aria-label',open?'Cerrar menú':'Abrir menú');
+}
+function drawer(open){sidebar.classList.toggle('is-open',open);overlay.classList.toggle('is-open',open);syncSidebar()}
+menuButton.onclick=()=>{
+  if(desktop()){const collapsed=sidebar.classList.toggle('collapsed');sidebarStore.set(collapsed?'1':'0');syncSidebar()}
+  else drawer(!sidebar.classList.contains('is-open'));
+};
+overlay.onclick=()=>drawer(false);
+document.addEventListener('keydown',event=>{if(event.key==='Escape'&&!desktop())drawer(false)});
+window.addEventListener('resize',()=>{if(desktop()){sidebar.classList.remove('is-open');overlay.classList.remove('is-open')}syncSidebar()});
+if(desktop()&&sidebarStore.get()==='1')sidebar.classList.add('collapsed');
+syncSidebar();
+</script>
+</body>
+</html>

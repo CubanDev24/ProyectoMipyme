@@ -1,6 +1,6 @@
 from collections import defaultdict
 from datetime import datetime, timedelta
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from io import BytesIO
 from xml.sax.saxutils import escape
 
@@ -9,7 +9,7 @@ from django.contrib.auth import logout, login, authenticate, get_user, update_se
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
 from django.db import transaction
-from django.db.models import Max, Q, Sum
+from django.db.models import Count, Max, Q, Sum
 from django.db.models.functions import Coalesce
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
@@ -20,7 +20,12 @@ from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_POST, require_http_methods
 from django.views.csrf import csrf_failure as django_csrf_failure
 from openpyxl import Workbook
-from openpyxl.styles import Alignment, Font, PatternFill
+from openpyxl.chart import BarChart, DoughnutChart, Reference
+from openpyxl.chart.label import DataLabelList
+from openpyxl.chart.series import DataPoint
+from openpyxl.chart.shapes import GraphicalProperties
+from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
+from openpyxl.utils import get_column_letter
 from reportlab.lib import colors
 from reportlab.lib.enums import TA_RIGHT
 from reportlab.lib.pagesizes import A4, landscape
@@ -30,18 +35,48 @@ from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, Tabl
 
 from carta.models import Plato
 from carta.qr import generar_qr_mesa
-from inventario.models import Insumo, MovimientoInventario
+from inventario.models import (
+    GuarnicionRecetaItem,
+    Insumo,
+    MovimientoInventario,
+    RecetaItem,
+)
 from pedidos.models import Factura, Mesa, Pedido, RechazoItemPedido
+from .admin_layout import admin_page_context
 from .models import Notificacion, ProductoIPVTurno, Turno, Usuario, cerrar_turno, configurar_turno, crear_mesas_del_turno, get_turno_abierto
 
 
 ROLE_HOME = {
-    'administrador': 'inventario:administrador',
+    'administrador': 'usuarios:dashboard',
     'cocina': 'pedidos:cocina',
     'mesera': 'pedidos:mesera',
     'cajera': 'pedidos:caja',
 }
 ROLES_CON_ACCESO_FINANCIERO = {'administrador', 'cajera'}
+
+
+def _decimal_reporte(value):
+    try:
+        amount = Decimal(str(value).replace(',', '.'))
+    except (InvalidOperation, TypeError, ValueError, AttributeError):
+        return None
+    return amount if amount.is_finite() else None
+
+
+def _costos_recetas_reporte():
+    costos_plato = defaultdict(lambda: Decimal('0'))
+    platos_con_receta = set()
+    for item in RecetaItem.objects.select_related('insumo').iterator(chunk_size=500):
+        costos_plato[item.plato_id] += item.cantidad * item.insumo.costo
+        platos_con_receta.add(item.plato_id)
+
+    costos_guarnicion = defaultdict(lambda: Decimal('0'))
+    guarniciones_con_receta = set()
+    for item in GuarnicionRecetaItem.objects.select_related('insumo').iterator(chunk_size=500):
+        costos_guarnicion[item.guarnicion_id] += item.cantidad * item.insumo.costo
+        guarniciones_con_receta.add(item.guarnicion_id)
+
+    return costos_plato, platos_con_receta, costos_guarnicion, guarniciones_con_receta
 
 
 @never_cache
@@ -94,6 +129,7 @@ def login_view(request):
     return redirect(ROLE_HOME.get(user.role, 'usuarios:landing'))
 
 
+@never_cache
 @login_required
 def dashboard(request):
     hoy = timezone.localdate()
@@ -131,7 +167,28 @@ def dashboard(request):
             mesas_admin = list(Mesa.objects.order_by('zona', 'numero_zona', 'numero'))
         for mesa in mesas_admin:
             mesa.qr_url, mesa.qr_data = generar_qr_mesa(request, mesa)
-    notificaciones = Notificacion.objects.filter(destinatario=request.user).order_by('-creada_en')[:10]
+    notificaciones = list(
+        Notificacion.objects.filter(destinatario=request.user)
+        .select_related('turno')
+        .prefetch_related('turno__usuarios')
+        .order_by('-creada_en')[:10]
+    )
+    resumenes_notificacion = {}
+    for notificacion in notificaciones:
+        turno_notificacion = notificacion.turno
+        if turno_notificacion and turno_notificacion.pk not in resumenes_notificacion:
+            fin_turno_notificacion = turno_notificacion.cierre or timezone.now()
+            resumenes_notificacion[turno_notificacion.pk] = turno_notificacion.facturas_queryset.filter(
+                creado_en__lte=fin_turno_notificacion,
+            ).aggregate(
+                cantidad_facturas=Count('pk'),
+                total_general_cup=Sum('total_cup'),
+                total_efectivo_cup=Sum('monto_efectivo_cup'),
+                total_transferencia_cup=Sum('monto_transferencia_cup'),
+                total_usd=Sum('monto_usd'),
+            )
+        if turno_notificacion:
+            notificacion.turno_resumen = resumenes_notificacion[turno_notificacion.pk]
     ipv_configurado = False
     opciones_ipv = []
     if turno and turno.estado == 'abierto' and request.user.role in ROLES_CON_ACCESO_FINANCIERO:
@@ -154,7 +211,7 @@ def dashboard(request):
             creado_en__gte=turno.apertura,
             creado_en__lte=fin_turno,
         ).select_related('pedido__mesa').order_by('-creado_en')
-    return render(request, 'usuarios/dashboard.html', {
+    context = {
         'turno': turno,
         'hoy': hoy,
         'turno_anterior': turno_anterior,
@@ -170,7 +227,11 @@ def dashboard(request):
         'notificaciones': notificaciones,
         'ipv_configurado': ipv_configurado,
         'opciones_ipv': opciones_ipv,
-    })
+    }
+    if request.user.role == 'administrador':
+        context.update(admin_page_context('dashboard'))
+        return render(request, 'administrador/base_admin.html', context)
+    return render(request, 'usuarios/dashboard.html', context)
 
 
 @login_required
@@ -178,9 +239,15 @@ def gestion_usuarios_view(request):
     if request.user.role != 'administrador':
         messages.error(request, 'Solo el administrador puede gestionar usuarios.')
         return redirect('usuarios:dashboard')
-    return render(request, 'usuarios/gestion_usuarios.html', {
-        'usuarios': Usuario.objects.order_by('role', 'username'),
-    })
+    usuarios = list(Usuario.objects.order_by('role', 'username'))
+    context = {
+        'usuarios': usuarios,
+        'usuarios_activos': sum(usuario.is_active for usuario in usuarios),
+        'usuarios_inactivos': sum(not usuario.is_active for usuario in usuarios),
+        'administradores': sum(usuario.role == 'administrador' for usuario in usuarios),
+    }
+    context.update(admin_page_context('users'))
+    return render(request, 'administrador/base_admin.html', context)
 
 
 @login_required
@@ -765,6 +832,9 @@ def historial_turnos_view(request):
     anio = request.GET.get('anio', '').strip()
     fecha_desde = request.GET.get('fecha_desde', '').strip()
     fecha_hasta = request.GET.get('fecha_hasta', '').strip()
+    orden = request.GET.get('orden', 'reciente').strip()
+    if orden not in {'reciente', 'antiguo', 'venta', 'rendimiento'}:
+        orden = 'reciente'
     error_filtros = ''
 
     fecha_desde_valor = parse_date(fecha_desde) if fecha_desde else None
@@ -814,10 +884,22 @@ def historial_turnos_view(request):
     total_usd = Decimal('0')
     total_facturas = 0
     total_horas = Decimal('0')
+    ventas_grafico = []
 
     for turno in turnos:
         data = turno.resumen_financiero
-        historial.append({'turno': turno, **data})
+        historial.append({
+            'turno': turno,
+            'fondo_inicial_cup': turno.fondo_inicial_cup,
+            'efectivo_esperado_cup': turno.fondo_inicial_cup + data['total_efectivo_cup'],
+            **data,
+        })
+        ventas_grafico.append({
+            'id': turno.pk,
+            'fecha': turno.fecha.strftime('%d/%m/%Y'),
+            'total': str(data['total_general_cup']),
+            'url': reverse('usuarios:historial_turno_detalle', args=[turno.pk]),
+        })
         total_general += data['total_general_cup']
         total_efectivo += data['total_efectivo_cup']
         total_transferencia += data['total_transferencia_cup']
@@ -825,8 +907,24 @@ def historial_turnos_view(request):
         total_facturas += data['cantidad_facturas']
         total_horas += data['horas_abiertas']
 
+    if orden == 'antiguo':
+        historial.sort(key=lambda item: (item['turno'].apertura, item['turno'].pk))
+    elif orden == 'venta':
+        historial.sort(key=lambda item: (item['total_general_cup'], item['turno'].apertura), reverse=True)
+    elif orden == 'rendimiento':
+        historial.sort(key=lambda item: (item['rendimiento_por_hora_cup'], item['turno'].apertura), reverse=True)
+
     promedio_ipv = (total_general / Decimal(total_facturas)) if total_facturas else Decimal('0')
     rendimiento_promedio = (total_general / total_horas) if total_horas > 0 else Decimal('0')
+    total_pagos_cup = total_efectivo + total_transferencia
+    efectivo_porcentaje = (
+        total_efectivo * Decimal('100') / total_pagos_cup
+        if total_pagos_cup else Decimal('0')
+    )
+    transferencia_porcentaje = (
+        total_transferencia * Decimal('100') / total_pagos_cup
+        if total_pagos_cup else Decimal('0')
+    )
     turnos_paginados = Paginator(historial, 10).get_page(request.GET.get('page'))
     pagination_query = request.GET.copy()
     pagination_query.pop('page', None)
@@ -842,9 +940,13 @@ def historial_turnos_view(request):
         'anio_filtro': anio,
         'fecha_desde_filtro': fecha_desde,
         'fecha_hasta_filtro': fecha_hasta,
+        'orden_filtro': orden,
         'anios_disponibles': anios_disponibles,
         'error_filtros': error_filtros,
         'filtros_aplicados': any((texto, mes, anio, fecha_desde, fecha_hasta)),
+        'ventas_grafico': ventas_grafico,
+        'efectivo_porcentaje': efectivo_porcentaje,
+        'transferencia_porcentaje': transferencia_porcentaje,
         'resumen_general': {
             'total_general_cup': total_general,
             'total_efectivo_cup': total_efectivo,
@@ -856,6 +958,9 @@ def historial_turnos_view(request):
             'turnos_cerrados': len(historial),
         },
     }
+    if request.user.role == 'administrador':
+        context.update(admin_page_context('history'))
+        return render(request, 'administrador/base_admin.html', context)
     return render(request, 'usuarios/historial_turnos.html', context)
 
 
@@ -866,12 +971,20 @@ def reportes_view(request):
         return redirect('usuarios:dashboard')
 
     hoy = timezone.localdate()
-    periodo = request.GET.get('periodo', 'semana')
+    mes_anterior_fecha = hoy.replace(day=1) - timedelta(days=1)
+    inicio_semana = hoy - timedelta(days=hoy.weekday())
+    fin_semana = inicio_semana + timedelta(days=6)
+    periodo = request.GET.get('periodo', 'mes')
+    periodo = {'mesant': 'mes_anterior', 'anio': 'ano'}.get(periodo, periodo)
     fecha_desde_raw = request.GET.get('fecha_desde', '').strip()
     fecha_hasta_raw = request.GET.get('fecha_hasta', '').strip()
     error_fechas = ''
 
-    if periodo == 'mes':
+    if periodo == 'hoy':
+        fecha_desde = hoy
+        fecha_hasta = hoy
+        periodo_label = 'Hoy'
+    elif periodo == 'mes':
         fecha_desde = hoy.replace(day=1)
         fecha_hasta = hoy
         periodo_label = 'Mes actual'
@@ -902,20 +1015,36 @@ def reportes_view(request):
         fecha_hasta = hoy
         periodo_label = 'Semana actual'
 
+    agrupar_por_mes = (
+        not error_fechas and (fecha_hasta - fecha_desde).days > 62
+    )
     facturas = Factura.objects.none()
     if not error_fechas:
         desde = timezone.make_aware(datetime.combine(fecha_desde, datetime.min.time()))
         hasta = timezone.make_aware(datetime.combine(fecha_hasta, datetime.max.time()))
         facturas = Factura.objects.filter(creado_en__gte=desde, creado_en__lte=hasta).order_by('creado_en')
 
+    platos = list(Plato.objects.select_related('categoria').order_by('nombre'))
+    platos_por_id = {plato.pk: plato for plato in platos}
+    platos_por_nombre = defaultdict(list)
+    for plato in platos:
+        platos_por_nombre[plato.nombre.strip().casefold()].append(plato)
     categorias_por_producto = {
         nombre.strip().casefold(): categoria or 'Sin categoría'
         for nombre, categoria in Plato.objects.values_list('nombre', 'categoria__nombre')
     }
+    costos_plato, platos_con_receta, costos_guarnicion, guarniciones_con_receta = (
+        _costos_recetas_reporte()
+    )
     cantidades_productos = defaultdict(int)
     cantidades_categorias = defaultdict(int)
+    unidades_por_plato = defaultdict(int)
+    ventas_productos_costo = {}
+    ventas_categorias_costo = {}
+    unidades_sin_costo_receta = 0
     recaudacion_por_forma = {
         forma: {
+            'forma': forma,
             'nombre': nombre,
             'facturas': 0,
             'total_cup': Decimal('0'),
@@ -924,6 +1053,9 @@ def reportes_view(request):
         for forma, nombre in Factura.FORMA_PAGO_CHOICES
     }
     recaudacion_por_periodo = defaultdict(lambda: Decimal('0'))
+    facturas_por_periodo = defaultdict(int)
+    recaudacion_por_hora = defaultdict(lambda: Decimal('0'))
+    facturas_por_hora = defaultdict(int)
     total_cup = Decimal('0')
     total_usd = Decimal('0')
     total_efectivo_cup = Decimal('0')
@@ -931,13 +1063,19 @@ def reportes_view(request):
     total_unidades = 0
     items_invalidos = 0
     cantidad_facturas = 0
+    reportes_export = []
+    facturas_export = []
+    inicio_periodo = fin_periodo = None
+    dias_periodo = 1
 
     for factura in facturas.values(
+        'id',
         'forma_pago',
         'total_cup',
         'monto_usd',
         'monto_efectivo_cup',
         'monto_transferencia_cup',
+        'mesa_numero',
         'items_snapshot',
         'creado_en',
     ).iterator(chunk_size=500):
@@ -954,9 +1092,23 @@ def reportes_view(request):
             resumen_pago['total_cup'] += factura['total_cup']
             resumen_pago['total_usd'] += factura['monto_usd']
 
-        fecha_factura = timezone.localtime(factura['creado_en']).date()
-        clave_periodo = fecha_factura.replace(day=1) if (fecha_hasta - fecha_desde).days > 30 else fecha_factura
+        fecha_local = timezone.localtime(factura['creado_en'])
+        fecha_factura = fecha_local.date()
+        if fecha_desde == fecha_hasta:
+            recaudacion_por_hora[fecha_local.hour] += factura['total_cup']
+            facturas_por_hora[fecha_local.hour] += 1
+        facturas_export.append([
+            fecha_local.strftime('%d/%m/%Y'),
+            factura['id'],
+            fecha_local.strftime('%H:%M'),
+            factura['mesa_numero'] or '',
+            dict(Factura.FORMA_PAGO_CHOICES).get(forma_pago, forma_pago),
+            str(factura['total_cup']),
+            str(factura['monto_usd']),
+        ])
+        clave_periodo = fecha_factura.replace(day=1) if agrupar_por_mes else fecha_factura
         recaudacion_por_periodo[clave_periodo] += factura['total_cup']
+        facturas_por_periodo[clave_periodo] += 1
 
         for item in factura['items_snapshot'] or []:
             if not isinstance(item, dict):
@@ -979,22 +1131,120 @@ def reportes_view(request):
             cantidades_categorias[nombre_categoria] += cantidad
             total_unidades += cantidad
 
+            try:
+                plato_id = int(item.get('plato_id'))
+            except (TypeError, ValueError):
+                plato_id = None
+            plato = platos_por_id.get(plato_id)
+            if plato is None:
+                coincidencias = platos_por_nombre.get(nombre_producto.casefold(), [])
+                plato = coincidencias[0] if len(coincidencias) == 1 else None
+            if plato is not None:
+                unidades_por_plato[plato.pk] += cantidad
+
+            precio_unitario = _decimal_reporte(item.get('precio_unit'))
+            if precio_unitario is None and plato is not None:
+                precio_unitario = plato.precio
+            costo_unitario = costos_plato.get(plato.pk) if plato and plato.pk in platos_con_receta else None
+            guarnicion_id = item.get('guarnicion_id')
+            if guarnicion_id not in (None, ''):
+                try:
+                    guarnicion_id = int(guarnicion_id)
+                except (TypeError, ValueError):
+                    guarnicion_id = None
+                    costo_unitario = None
+                if guarnicion_id is not None:
+                    if guarnicion_id not in guarniciones_con_receta:
+                        costo_unitario = None
+                    elif costo_unitario is not None:
+                        costo_unitario += costos_guarnicion[guarnicion_id]
+
+            producto_costo = ventas_productos_costo.setdefault(
+                (nombre_producto, nombre_categoria),
+                {
+                    'nombre': nombre_producto,
+                    'categoria': nombre_categoria,
+                    'unidades': 0,
+                    'venta': Decimal('0'),
+                    'unidades_con_costo': 0,
+                    'costo': Decimal('0'),
+                    'venta_total': Decimal('0'),
+                    'precio_total': Decimal('0'),
+                    'unidades_con_precio': 0,
+                },
+            )
+            categoria_costo = ventas_categorias_costo.setdefault(
+                nombre_categoria,
+                {
+                    'nombre': nombre_categoria,
+                    'unidades': 0,
+                    'venta': Decimal('0'),
+                    'unidades_con_costo': 0,
+                    'costo': Decimal('0'),
+                },
+            )
+            producto_costo['unidades'] += cantidad
+            categoria_costo['unidades'] += cantidad
+            if precio_unitario is not None:
+                producto_costo['venta_total'] += precio_unitario * cantidad
+                producto_costo['precio_total'] += precio_unitario * cantidad
+                producto_costo['unidades_con_precio'] += cantidad
+            if costo_unitario is not None:
+                producto_costo['unidades_con_costo'] += cantidad
+                categoria_costo['unidades_con_costo'] += cantidad
+                producto_costo['costo'] += costo_unitario * cantidad
+                categoria_costo['costo'] += costo_unitario * cantidad
+                if precio_unitario is not None:
+                    importe = precio_unitario * cantidad
+                    producto_costo['venta'] += importe
+                    categoria_costo['venta'] += importe
+            else:
+                unidades_sin_costo_receta += cantidad
+
+            reportes_export.append([
+                factura['id'],
+                fecha_factura.isoformat(),
+                dict(Factura.FORMA_PAGO_CHOICES).get(forma_pago, forma_pago),
+                str(factura['total_cup']),
+                str(factura['monto_usd']),
+                nombre_producto,
+                nombre_categoria,
+                cantidad,
+            ])
+
+    if not error_fechas:
+        inicio_periodo = timezone.make_aware(
+            datetime.combine(fecha_desde, datetime.min.time())
+        )
+        fin_periodo = timezone.make_aware(
+            datetime.combine(fecha_hasta + timedelta(days=1), datetime.min.time())
+        )
+        dias_periodo = max((min(fecha_hasta, hoy) - fecha_desde).days + 1, 1)
+
     colores_grafico = ['#34d399', '#38bdf8', '#a78bfa', '#fbbf24', '#fb7185', '#2dd4bf', '#818cf8', '#f97316']
+    colores_categoria = ['#34d399', '#117a60', '#b88d26', '#64748b', '#a3b8cc', '#475569']
     max_producto = max(cantidades_productos.values(), default=0)
     max_categoria = max(cantidades_categorias.values(), default=0)
     productos_mas_vendidos = [
         {
             'nombre': nombre,
+            'categoria': categorias_por_producto.get(
+                nombre.casefold(),
+                'Sin categoría',
+            ),
             'cantidad': cantidad,
             'porcentaje': max(2, round(cantidad * 100 / max_producto)),
         }
         for nombre, cantidad in sorted(
             cantidades_productos.items(),
             key=lambda fila: (-fila[1], fila[0].casefold()),
-        )[:10]
+        )[:8]
     ] if max_producto else []
     for indice, producto in enumerate(productos_mas_vendidos):
         producto['color'] = colores_grafico[indice % len(colores_grafico)]
+        producto['participacion'] = (
+            round(producto['cantidad'] * 100 / total_unidades) if total_unidades else 0
+        )
 
     ventas_por_categoria = [
         {
@@ -1009,22 +1259,39 @@ def reportes_view(request):
     ] if max_categoria else []
 
     for indice, categoria in enumerate(ventas_por_categoria):
-        categoria['color'] = colores_grafico[indice % len(colores_grafico)]
+        categoria['color'] = colores_categoria[indice % len(colores_categoria)]
         categoria['participacion'] = round(categoria['cantidad'] * 100 / total_unidades) if total_unidades else 0
 
     max_pago = max(
         (resumen['total_cup'] for resumen in recaudacion_por_forma.values()),
         default=Decimal('0'),
     )
+    colores_pago = {
+        'transferencia': '#2fb594',
+        'efectivo_cup': '#f2994a',
+        'mixto': '#8da2c0',
+        'usd': '#e9c46a',
+    }
+    etiquetas_cortas_pago = {
+        'transferencia': 'Transferencia',
+        'efectivo_cup': 'Efectivo CUP',
+        'mixto': 'Mixto',
+        'usd': 'USD',
+    }
     pagos = [
         {
             **resumen,
-            'porcentaje': max(2, round(resumen['total_cup'] * 100 / max_pago)),
+            'porcentaje': (
+                max(2, round(resumen['total_cup'] * 100 / max_pago))
+                if max_pago
+                else 0
+            ),
             'participacion': round(resumen['total_cup'] * 100 / total_cup) if total_cup else 0,
-            'color': colores_grafico[indice % len(colores_grafico)],
+            'color': colores_pago[forma],
+            'etiqueta_corta': etiquetas_cortas_pago[forma],
         }
-        for indice, resumen in enumerate(recaudacion_por_forma.values())
-    ] if max_pago else list(recaudacion_por_forma.values())
+        for forma, resumen in recaudacion_por_forma.items()
+    ]
 
     pagos_con_recaudacion = [pago for pago in pagos if pago['total_cup'] > 0]
     segmentos_categorias = []
@@ -1042,25 +1309,470 @@ def reportes_view(request):
         fin = Decimal('100') if indice == len(pagos_con_recaudacion) - 1 else acumulado_pagos
         segmentos_pagos.append(f"{pago['color']} {inicio:.2f}% {fin:.2f}%")
 
+    if not error_fechas:
+        if agrupar_por_mes:
+            fecha_periodo = fecha_desde.replace(day=1)
+            while fecha_periodo <= fecha_hasta:
+                recaudacion_por_periodo.setdefault(fecha_periodo, Decimal('0'))
+                if fecha_periodo.month == 12:
+                    fecha_periodo = fecha_periodo.replace(
+                        year=fecha_periodo.year + 1,
+                        month=1,
+                    )
+                else:
+                    fecha_periodo = fecha_periodo.replace(
+                        month=fecha_periodo.month + 1,
+                    )
+        else:
+            fecha_periodo = fecha_desde
+            while fecha_periodo <= fecha_hasta:
+                recaudacion_por_periodo.setdefault(fecha_periodo, Decimal('0'))
+                fecha_periodo += timedelta(days=1)
+
+    recaudacion_periodo_anterior = defaultdict(lambda: Decimal('0'))
+    periodos_anterior = []
+    if not error_fechas:
+        if agrupar_por_mes:
+            periodos_actuales = sorted(recaudacion_por_periodo)
+            primer_mes_actual = periodos_actuales[0]
+            cursor = (primer_mes_actual - timedelta(days=1)).replace(day=1)
+            for _ in periodos_actuales:
+                periodos_anterior.append(cursor)
+                cursor = (cursor - timedelta(days=1)).replace(day=1)
+            periodos_anterior.reverse()
+            inicio_anterior = periodos_anterior[0]
+            fin_anterior_exclusivo = primer_mes_actual
+        else:
+            cantidad_dias = (fecha_hasta - fecha_desde).days + 1
+            inicio_anterior = fecha_desde - timedelta(days=cantidad_dias)
+            fin_anterior_exclusivo = fecha_desde
+            cursor = inicio_anterior
+            while cursor < fin_anterior_exclusivo:
+                periodos_anterior.append(cursor)
+                cursor += timedelta(days=1)
+
+        inicio_anterior_aware = timezone.make_aware(
+            datetime.combine(inicio_anterior, datetime.min.time())
+        )
+        fin_anterior_aware = timezone.make_aware(
+            datetime.combine(fin_anterior_exclusivo, datetime.min.time())
+        )
+        facturas_anteriores = Factura.objects.filter(
+            creado_en__gte=inicio_anterior_aware,
+            creado_en__lt=fin_anterior_aware,
+        ).values('creado_en', 'total_cup').iterator(chunk_size=500)
+        for factura_anterior in facturas_anteriores:
+            fecha_anterior = timezone.localtime(
+                factura_anterior['creado_en']
+            ).date()
+            clave_anterior = (
+                fecha_anterior.replace(day=1) if agrupar_por_mes else fecha_anterior
+            )
+            recaudacion_periodo_anterior[clave_anterior] += (
+                factura_anterior['total_cup']
+            )
+
     max_recaudacion = max(recaudacion_por_periodo.values(), default=Decimal('0'))
+    meses_abreviados = (
+        'Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun',
+        'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic',
+    )
+    periodos_actuales = sorted(recaudacion_por_periodo.items())
     recaudacion_grafico = [
         {
-            'etiqueta': fecha.strftime('%b %Y' if (fecha_hasta - fecha_desde).days > 30 else '%d/%m'),
+            'etiqueta': (
+                f'{meses_abreviados[fecha.month - 1]} {fecha.year}'
+                if agrupar_por_mes
+                else fecha.strftime('%d/%m')
+            ),
             'total': total,
-            'porcentaje': max(2, round(total * 100 / max_recaudacion)),
+            'facturas': facturas_por_periodo.get(fecha, 0),
+            'total_anterior': recaudacion_periodo_anterior.get(
+                periodos_anterior[indice],
+                Decimal('0'),
+            ),
+            'porcentaje': (
+                max(2, round(total * 100 / max_recaudacion))
+                if total and max_recaudacion
+                else 0
+            ),
+            'es_maximo': bool(total and total == max_recaudacion),
         }
-        for fecha, total in sorted(recaudacion_por_periodo.items())
-    ] if max_recaudacion else []
+        for indice, (fecha, total) in enumerate(periodos_actuales)
+    ] if not error_fechas else []
+
+    if not error_fechas and fecha_desde == fecha_hasta:
+        horas_con_ventas = [
+            hora for hora, total in recaudacion_por_hora.items() if total > 0
+        ]
+        hora_inicio = max(0, min(horas_con_ventas) - 1) if horas_con_ventas else 11
+        hora_fin = min(23, max(horas_con_ventas) + 1) if horas_con_ventas else 22
+        recaudacion_grafico = [
+            {
+                'etiqueta': f'{hora:02d}h',
+                'total': recaudacion_por_hora[hora],
+                'facturas': facturas_por_hora[hora],
+                'total_anterior': Decimal('0'),
+                'porcentaje': 0,
+                'es_maximo': False,
+            }
+            for hora in range(hora_inicio, hora_fin + 1)
+        ]
 
     for indice, punto in enumerate(recaudacion_grafico):
         punto['color'] = colores_grafico[indice % len(colores_grafico)]
 
+    reportes_costo_categorias = []
+    for resumen in sorted(
+        ventas_categorias_costo.values(),
+        key=lambda item: (-item['unidades'], item['nombre'].casefold()),
+    ):
+        if not resumen['unidades_con_costo']:
+            continue
+        resumen['margen'] = resumen['venta'] - resumen['costo']
+        resumen['margen_porcentaje'] = (
+            resumen['margen'] * Decimal('100') / resumen['venta']
+            if resumen['venta']
+            else Decimal('0')
+        )
+        reportes_costo_categorias.append(resumen)
+
+    reportes_costo_productos = []
+    for resumen in ventas_productos_costo.values():
+        resumen['precio_promedio'] = (
+            resumen['precio_total'] / resumen['unidades_con_precio']
+            if resumen['unidades_con_precio']
+            else None
+        )
+        resumen['costo_unitario'] = (
+            resumen['costo'] / resumen['unidades_con_costo']
+            if resumen['unidades_con_costo']
+            else None
+        )
+        resumen['margen'] = resumen['venta'] - resumen['costo']
+        resumen['margen_porcentaje'] = (
+            resumen['margen'] * Decimal('100') / resumen['venta']
+            if resumen['venta']
+            else Decimal('0')
+        )
+        reportes_costo_productos.append(resumen)
+    reportes_costo_productos.sort(
+        key=lambda item: (-item['margen'], item['nombre'].casefold())
+    )
+    venta_con_costo = sum(
+        (item['venta'] for item in reportes_costo_categorias),
+        Decimal('0'),
+    )
+    costo_ventas = sum(
+        (item['costo'] for item in reportes_costo_categorias),
+        Decimal('0'),
+    )
+    margen_bruto = venta_con_costo - costo_ventas
+    margen_bruto_porcentaje = (
+        margen_bruto * Decimal('100') / venta_con_costo
+        if venta_con_costo
+        else Decimal('0')
+    )
+    unidades_con_costo_total = sum(
+        (item['unidades_con_costo'] for item in reportes_costo_categorias),
+        0,
+    )
+
+    merma_filas = []
+    merma_por_tipo = {}
+    unidades_merma = Decimal('0')
+    perdida_merma_conocida = Decimal('0')
+    unidades_merma_sin_costo = Decimal('0')
+    if inicio_periodo is not None:
+        movimientos_merma = MovimientoInventario.objects.filter(
+            tipo='merma',
+            creado_en__gte=inicio_periodo,
+            creado_en__lt=fin_periodo,
+        ).select_related('insumo', 'usuario').order_by('-creado_en')
+        for movimiento in movimientos_merma:
+            cantidad = movimiento.cantidad
+            costo = movimiento.insumo.costo if movimiento.insumo_id else None
+            perdida = cantidad * costo if costo is not None else None
+            tipo = 'Rotura'
+            fila = {
+                'fecha': timezone.localtime(movimiento.creado_en),
+                'producto': movimiento.producto_nombre,
+                'tipo': tipo,
+                'cantidad': cantidad,
+                'motivo': movimiento.motivo or 'Sin motivo registrado',
+                'valor': perdida,
+                'responsable': movimiento.responsable_nombre,
+            }
+            merma_filas.append(fila)
+            resumen_tipo = merma_por_tipo.setdefault(
+                tipo,
+                {'tipo': tipo, 'cantidad': Decimal('0'), 'valor': Decimal('0')},
+            )
+            resumen_tipo['cantidad'] += cantidad
+            unidades_merma += cantidad
+            if perdida is None:
+                unidades_merma_sin_costo += cantidad
+            else:
+                resumen_tipo['valor'] += perdida
+                perdida_merma_conocida += perdida
+
+        rechazos = RechazoItemPedido.objects.filter(
+            creado_en__gte=inicio_periodo,
+            creado_en__lt=fin_periodo,
+        ).select_related(
+            'item__plato',
+            'item__guarnicion',
+            'reportado_por',
+        ).order_by('-creado_en')
+        for rechazo in rechazos:
+            plato = rechazo.item.plato
+            costo_unitario = (
+                costos_plato.get(plato.pk)
+                if plato.pk in platos_con_receta
+                else None
+            )
+            guarnicion = rechazo.item.guarnicion
+            if guarnicion:
+                if guarnicion.pk not in guarniciones_con_receta:
+                    costo_unitario = None
+                elif costo_unitario is not None:
+                    costo_unitario += costos_guarnicion[guarnicion.pk]
+            perdida = costo_unitario * rechazo.cantidad if costo_unitario is not None else None
+            tipo = 'Rechazo'
+            fila = {
+                'fecha': timezone.localtime(rechazo.creado_en),
+                'producto': plato.nombre,
+                'tipo': tipo,
+                'cantidad': rechazo.cantidad,
+                'motivo': rechazo.motivo,
+                'valor': perdida,
+                'responsable': (
+                    rechazo.reportado_por.get_full_name()
+                    or rechazo.reportado_por.username
+                    if rechazo.reportado_por
+                    else 'Sin responsable'
+                ),
+            }
+            merma_filas.append(fila)
+            resumen_tipo = merma_por_tipo.setdefault(
+                tipo,
+                {'tipo': tipo, 'cantidad': Decimal('0'), 'valor': Decimal('0')},
+            )
+            resumen_tipo['cantidad'] += rechazo.cantidad
+            unidades_merma += rechazo.cantidad
+            if perdida is None:
+                unidades_merma_sin_costo += rechazo.cantidad
+            else:
+                resumen_tipo['valor'] += perdida
+                perdida_merma_conocida += perdida
+    merma_por_tipo = sorted(
+        merma_por_tipo.values(),
+        key=lambda item: (-item['valor'], item['tipo']),
+    )
+    merma_filas.sort(key=lambda item: item['fecha'], reverse=True)
+
+    rotacion_insumos = []
+    if inicio_periodo is not None:
+        consumo_por_insumo = {
+            fila['insumo_id']: fila['cantidad'] or Decimal('0')
+            for fila in MovimientoInventario.objects.filter(
+                tipo='salida',
+                creado_en__gte=inicio_periodo,
+                creado_en__lt=fin_periodo,
+                insumo_id__isnull=False,
+            ).values('insumo_id').annotate(cantidad=Sum('cantidad'))
+        }
+        ultima_salida_por_insumo = {
+            fila['insumo_id']: fila['ultima_salida']
+            for fila in MovimientoInventario.objects.filter(
+                tipo='salida',
+                insumo_id__isnull=False,
+            ).values('insumo_id').annotate(ultima_salida=Max('creado_en'))
+        }
+        for insumo in Insumo.objects.filter(activo=True).select_related(
+            'categoria_inventario',
+            'categoria',
+        ).order_by('nombre'):
+            consumo = consumo_por_insumo.get(insumo.pk, Decimal('0'))
+            ultima_salida = ultima_salida_por_insumo.get(insumo.pk)
+            dias_sin_salida = (
+                (hoy - timezone.localtime(ultima_salida).date()).days
+                if ultima_salida
+                else None
+            )
+            cobertura = (
+                insumo.stock_actual / (consumo / Decimal(dias_periodo))
+                if consumo > 0
+                else None
+            )
+            if insumo.stock_actual <= 0:
+                estado, estado_clase = 'Agotado', 'bad'
+            elif cobertura is not None:
+                if cobertura <= 3:
+                    estado, estado_clase = 'Rápida', 'ok'
+                elif cobertura <= 10:
+                    estado, estado_clase = 'Normal', 'info'
+                elif cobertura <= 30:
+                    estado, estado_clase = 'Lenta', 'warn'
+                else:
+                    estado, estado_clase = 'Muerta', 'bad'
+            elif dias_sin_salida is not None and dias_sin_salida >= 15:
+                estado, estado_clase = 'Muerta', 'bad'
+            elif dias_sin_salida is not None and dias_sin_salida >= 7:
+                estado, estado_clase = 'Lenta', 'warn'
+            else:
+                estado, estado_clase = 'Sin consumo', 'muted'
+            rotacion_insumos.append({
+                'nombre': insumo.nombre,
+                'categoria': (
+                    insumo.categoria_inventario.nombre
+                    if insumo.categoria_inventario_id
+                    else insumo.categoria.nombre
+                    if insumo.categoria_id
+                    else 'Sin categoría'
+                ),
+                'stock': insumo.stock_actual,
+                'consumo': consumo,
+                'rotacion': consumo / insumo.stock_actual if insumo.stock_actual > 0 else None,
+                'cobertura': cobertura,
+                'dias_sin_salida': dias_sin_salida,
+                'valor_stock': insumo.stock_actual * insumo.costo,
+                'estado': estado,
+                'estado_clase': estado_clase,
+                'ultima_salida': timezone.localtime(ultima_salida) if ultima_salida else None,
+            })
+    rotacion_insumos.sort(
+        key=lambda item: (
+            item['dias_sin_salida'] is None,
+            -(item['dias_sin_salida'] or 0),
+            item['nombre'].casefold(),
+        )
+    )
+
+    meses_largos = (
+        'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
+        'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre',
+    )
+    dias_largos = (
+        'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado', 'domingo',
+    )
+
+    def fecha_larga(fecha, incluir_anio=True):
+        resultado = f'{fecha.day} de {meses_largos[fecha.month - 1]}'
+        if incluir_anio:
+            resultado += f' de {fecha.year}'
+        return resultado
+
+    if fecha_desde and fecha_hasta and fecha_desde == fecha_hasta:
+        periodo_subtitulo_prefijo = 'hoy, ' if periodo == 'hoy' else 'el '
+        periodo_subtitulo_fecha = (
+            f'{dias_largos[fecha_desde.weekday()]} {fecha_larga(fecha_desde)}'
+        )
+    elif periodo in ('mes', 'mes_anterior'):
+        periodo_subtitulo_prefijo = ''
+        periodo_subtitulo_fecha = (
+            f'{meses_largos[fecha_desde.month - 1]} de {fecha_desde.year}'
+        )
+    elif periodo == 'ano':
+        periodo_subtitulo_prefijo = 'el año '
+        periodo_subtitulo_fecha = str(fecha_desde.year)
+    elif fecha_desde and fecha_hasta:
+        periodo_subtitulo_prefijo = (
+            'la semana del ' if periodo == 'semana' else 'el período del '
+        )
+        inicio_subtitulo = (
+            str(fecha_desde.day)
+            if fecha_desde.year == fecha_hasta.year
+            and fecha_desde.month == fecha_hasta.month
+            else fecha_larga(
+                fecha_desde,
+                incluir_anio=fecha_desde.year != fecha_hasta.year,
+            )
+        )
+        periodo_subtitulo_fecha = (
+            f'{inicio_subtitulo} al {fecha_larga(fecha_hasta)}'
+        )
+    else:
+        periodo_subtitulo_prefijo = ''
+        periodo_subtitulo_fecha = periodo_label.lower()
+
+    platos_huerfanos = []
+    if not error_fechas:
+        ultima_venta_por_plato = {}
+        for fecha_factura, snapshot in Factura.objects.filter(
+            creado_en__lte=timezone.now(),
+        ).values_list('creado_en', 'items_snapshot').iterator(chunk_size=500):
+            fecha_ultima_venta = timezone.localtime(fecha_factura).date()
+            for item in snapshot or []:
+                if not isinstance(item, dict):
+                    continue
+                try:
+                    plato_id = int(item.get('plato_id'))
+                except (TypeError, ValueError):
+                    nombre = str(item.get('plato') or '').strip().casefold()
+                    coincidencias = platos_por_nombre.get(nombre, [])
+                    plato_id = coincidencias[0].pk if len(coincidencias) == 1 else None
+                if plato_id in platos_por_id:
+                    ultima_venta_por_plato[plato_id] = max(
+                        fecha_ultima_venta,
+                        ultima_venta_por_plato.get(plato_id, fecha_ultima_venta),
+                    )
+
+        fecha_corte = min(fecha_hasta, hoy)
+        for plato in platos:
+            if unidades_por_plato.get(plato.pk, 0):
+                continue
+            ultima_venta = ultima_venta_por_plato.get(plato.pk)
+            dias_sin_venta = (
+                (fecha_corte - ultima_venta).days if ultima_venta else None
+            )
+            if dias_sin_venta is None:
+                recomendacion = 'Sin ventas históricas'
+                recomendacion_clase = 'muted'
+            elif dias_sin_venta >= 15:
+                recomendacion = 'Retirar del menú'
+                recomendacion_clase = 'bad'
+            elif dias_sin_venta >= 7:
+                recomendacion = 'Revisar / promocionar'
+                recomendacion_clase = 'warn'
+            else:
+                recomendacion = 'Observar'
+                recomendacion_clase = 'muted'
+            platos_huerfanos.append({
+                'nombre': plato.nombre,
+                'categoria': plato.categoria.nombre if plato.categoria else 'Sin categoría',
+                'precio': plato.precio,
+                'costo': (
+                    costos_plato.get(plato.pk)
+                    if plato.pk in platos_con_receta
+                    else None
+                ),
+                'dias_sin_venta': dias_sin_venta,
+                'ultima_venta': ultima_venta,
+                'recomendacion': recomendacion,
+                'recomendacion_clase': recomendacion_clase,
+                'disponible': plato.disponible,
+            })
+        platos_huerfanos.sort(
+            key=lambda item: (
+                item['dias_sin_venta'] is None,
+                -(item['dias_sin_venta'] or 0),
+                item['nombre'].casefold(),
+            )
+        )
+
     context = {
         'periodo': periodo,
         'periodo_label': periodo_label,
+        'hoy': hoy,
+        'mes_anterior_fecha': mes_anterior_fecha,
+        'inicio_semana': inicio_semana,
+        'fin_semana': fin_semana,
+        'periodo_subtitulo_prefijo': periodo_subtitulo_prefijo,
+        'periodo_subtitulo_fecha': periodo_subtitulo_fecha,
         'fecha_desde': fecha_desde,
         'fecha_hasta': fecha_hasta,
-        'agrupar_por_mes': not error_fechas and (fecha_hasta - fecha_desde).days > 30,
+        'agrupar_por_mes': agrupar_por_mes,
         'fecha_desde_raw': fecha_desde_raw,
         'fecha_hasta_raw': fecha_hasta_raw,
         'error_fechas': error_fechas,
@@ -1072,22 +1784,116 @@ def reportes_view(request):
         'promedio_factura': total_cup / cantidad_facturas if cantidad_facturas else Decimal('0'),
         'total_unidades': total_unidades,
         'items_invalidos': items_invalidos,
+        'reportes_export': reportes_export,
+        'facturas_export': facturas_export,
         'productos_unicos': len(cantidades_productos),
         'productos_mas_vendidos': productos_mas_vendidos,
+        'reportes_costo_categorias': reportes_costo_categorias,
+        'reportes_costo_productos': reportes_costo_productos,
+        'venta_con_costo': venta_con_costo,
+        'costo_ventas': costo_ventas,
+        'margen_bruto': margen_bruto,
+        'margen_bruto_porcentaje': margen_bruto_porcentaje,
+        'unidades_con_costo_total': unidades_con_costo_total,
+        'porcentaje_merma_sobre_costo': (
+            perdida_merma_conocida * Decimal('100') / costo_ventas
+            if costo_ventas
+            else Decimal('0')
+        ),
+        'unidades_sin_costo_receta': unidades_sin_costo_receta,
+        'unidades_merma': unidades_merma,
+        'perdida_merma_conocida': perdida_merma_conocida,
+        'unidades_merma_sin_costo': unidades_merma_sin_costo,
+        'merma_por_tipo': merma_por_tipo,
+        'merma_filas': merma_filas,
+        'rotacion_insumos': rotacion_insumos,
+        'platos_huerfanos': platos_huerfanos,
         'ventas_por_categoria': ventas_por_categoria,
         'pagos': pagos,
         'pagos_con_recaudacion': pagos_con_recaudacion,
         'categorias_donut': ', '.join(segmentos_categorias),
         'pagos_donut': ', '.join(segmentos_pagos),
         'recaudacion_grafico': recaudacion_grafico,
+        'total_platos': len(platos),
+        'cantidad_huerfanos_retirar': sum(
+            plato['recomendacion'] == 'Retirar del menú'
+            for plato in platos_huerfanos
+        ),
+        'total_stock_rotacion': sum(
+            (insumo['stock'] for insumo in rotacion_insumos),
+            Decimal('0'),
+        ),
+        'total_consumo_rotacion': sum(
+            (insumo['consumo'] for insumo in rotacion_insumos),
+            Decimal('0'),
+        ),
+        'valor_stock_rotacion': sum(
+            (insumo['valor_stock'] for insumo in rotacion_insumos),
+            Decimal('0'),
+        ),
+        'cantidad_rotacion_muerta': sum(
+            insumo['estado_clase'] == 'bad' for insumo in rotacion_insumos
+        ),
+        'cantidad_rotacion_lenta': sum(
+            insumo['estado_clase'] == 'warn' for insumo in rotacion_insumos
+        ),
+        'estados_rotacion': [
+            {
+                'nombre': 'Rápida',
+                'clase': 'ok',
+                'cantidad': sum(
+                    insumo['estado_clase'] == 'ok' for insumo in rotacion_insumos
+                ),
+                'descripcion': '≤ 3 días',
+            },
+            {
+                'nombre': 'Normal',
+                'clase': 'info',
+                'cantidad': sum(
+                    insumo['estado_clase'] == 'info' for insumo in rotacion_insumos
+                ),
+                'descripcion': '≤ 10 días',
+            },
+            {
+                'nombre': 'Lenta',
+                'clase': 'warn',
+                'cantidad': sum(
+                    insumo['estado_clase'] == 'warn' for insumo in rotacion_insumos
+                ),
+                'descripcion': '≤ 30 días o sin ventas recientes',
+            },
+            {
+                'nombre': 'Muerta / agotada',
+                'clase': 'bad',
+                'cantidad': sum(
+                    insumo['estado_clase'] == 'bad' for insumo in rotacion_insumos
+                ),
+                'descripcion': '> 30 días o sin existencias',
+            },
+        ],
+        'resumen_export': [
+            ['Recaudación total', str(total_cup), 'CUP'],
+            ['Recaudado en USD', str(total_usd), 'USD'],
+            ['Facturas', cantidad_facturas, 'u.'],
+            [
+                'Promedio por factura',
+                str(total_cup / cantidad_facturas if cantidad_facturas else Decimal('0')),
+                'CUP',
+            ],
+            ['Unidades vendidas', total_unidades, 'u.'],
+            ['Productos vendidos', len(cantidades_productos), 'SKU'],
+            ['Margen bruto', str(margen_bruto), 'CUP'],
+            ['Mermas (al costo)', str(perdida_merma_conocida), 'CUP'],
+        ],
     }
-    return render(request, 'usuarios/reportes.html', context)
+    context.update(admin_page_context('reports'))
+    return render(request, 'administrador/base_admin.html', context)
 
 
 @login_required
 def historial_turno_detalle_view(request, turno_id):
     if request.user.role not in ROLES_CON_ACCESO_FINANCIERO:
-        messages.error(request, 'Solo caja o el administrador pueden ver el detalle del turno actual.')
+        messages.error(request, 'Solo caja o el administrador pueden ver el detalle del turno.')
         return redirect('usuarios:dashboard')
 
     turno = get_object_or_404(Turno.objects.prefetch_related('usuarios'), pk=turno_id)
@@ -1095,11 +1901,43 @@ def historial_turno_detalle_view(request, turno_id):
     datos_ipv = _datos_ipv_turno(turno)
     data['fondo_inicial_cup'] = turno.fondo_inicial_cup
     data['efectivo_esperado_cup'] = Decimal(datos_ipv['efectivo_final_cup'])
+    if turno.estado == 'abierto':
+        duracion_segundos = max((timezone.now() - turno.apertura).total_seconds(), 0)
+        data['horas_abiertas'] = Decimal(str(duracion_segundos / 3600))
+        data['rendimiento_por_hora_cup'] = (
+            data['total_general_cup'] / data['horas_abiertas']
+            if data['horas_abiertas']
+            else Decimal('0')
+        )
+    total_pagos_cup = data['total_efectivo_cup'] + data['total_transferencia_cup']
+    porcentaje_efectivo = (
+        int(data['total_efectivo_cup'] * 100 / total_pagos_cup + Decimal('0.5'))
+        if total_pagos_cup
+        else 0
+    )
+    porcentaje_transferencia = 100 - porcentaje_efectivo if total_pagos_cup else 0
+    mesas_atendidas = turno.facturas_queryset.exclude(
+        mesa_numero__isnull=True,
+    ).values('mesa_numero').distinct().count()
+    participantes = list(turno.usuarios.all())
     context = {
         'turno': turno,
         'detalles': data,
         'resumen': turno.resumen or 'Sin resumen registrado.',
+        'mesas_atendidas': mesas_atendidas,
+        'participantes': participantes,
+        'porcentaje_efectivo': porcentaje_efectivo,
+        'porcentaje_transferencia': porcentaje_transferencia,
+        'duracion_supera_24h': data['horas_abiertas'] > Decimal('24'),
     }
+    if request.user.role == 'administrador':
+        context.update(admin_page_context(
+            'turn_detail',
+            admin_page_title=f'Detalle del turno #{turno.pk}',
+            admin_badge_text=turno.get_estado_display(),
+            admin_badge_icon='fa-circle-check' if turno.estado == 'cerrado' else 'fa-circle-dot',
+        ))
+        return render(request, 'administrador/base_admin.html', context)
     return render(request, 'usuarios/historial_turno_detalle.html', context)
 
 
@@ -1360,94 +2198,521 @@ def ipv_turno_excel(request, turno_id):
     turno = get_object_or_404(Turno, pk=turno_id)
     datos = _datos_ipv_turno(turno)
     libro = Workbook()
-    hoja = libro.active
-    hoja.title = 'IPV'
-    hoja.append(['Inventario Perpetuo de Ventas (IPV)'])
-    hoja.append([
-        'Turno',
-        datos['fecha'],
-        'Estado',
-        'Abierto' if turno.estado == 'abierto' else 'Cerrado',
-        'Actualizado',
-        datos['actualizado_en'],
-    ])
-    hoja.append([
-        'Fondo inicial CUP', Decimal(datos['fondo_inicial_cup']),
-        'Efectivo vendido CUP', Decimal(datos['ventas_efectivo_cup']),
-        'Efectivo esperado CUP', Decimal(datos['efectivo_final_cup']),
-        'Transferencias CUP', Decimal(datos['ventas_transferencia_cup']),
-        'Ventas USD', Decimal(datos['ventas_usd']),
-    ])
-    hoja.append([titulo for titulo, _ in IPV_COLUMNAS])
-    for celda in hoja[4]:
-        celda.font = Font(bold=True, color='FFFFFF')
-        celda.fill = PatternFill('solid', fgColor='1E293B')
-        celda.alignment = Alignment(horizontal='center', wrap_text=True)
+    libro.remove(libro.active)
+    libro.calculation.fullCalcOnLoad = True
+    libro.calculation.forceFullCalc = True
 
-    for fila in datos['filas']:
-        valores = []
-        for _, clave in IPV_COLUMNAS:
-            valor = fila[clave]
-            if valor is None:
-                valores.append(None)
-            elif clave in {
-                'cantidad_vendida',
-                'cantidad_rechazada',
-                'precio_venta',
-                'importe_venta',
-                'merma_rotura',
-            }:
-                valores.append(Decimal(valor))
-            else:
-                valores.append(str(valor))
-        hoja.append(valores)
+    verde = 'FF1E5631'
+    verde_medio = 'FF2E7D45'
+    verde_claro = 'FFE8F3EA'
+    total_fill = 'FFCFE8D5'
+    borde_color = 'FFD0D7D2'
+    texto_color = 'FF1F2933'
+    gris_color = 'FF6B7280'
+    formato_cup = '#,##0.00" CUP"'
+    borde_fino = Side(style='thin', color=borde_color)
+    bordes = Border(left=borde_fino, right=borde_fino, top=borde_fino, bottom=borde_fino)
 
-    fila_total = hoja.max_row + 1
-    hoja.cell(row=fila_total, column=1, value='Total importe de ventas')
-    hoja.cell(row=fila_total, column=6, value=Decimal(datos['total_importe']))
-    for celda in hoja[fila_total]:
-        celda.font = Font(bold=True)
-        celda.fill = PatternFill('solid', fgColor='E2E8F0')
+    def escribir(celda, valor, *, negrita=False, color=texto_color, fondo=None,
+                 alineacion='center', envolver=False, formato=None, sangria=0,
+                 borde=True, tamano=10, formula=False):
+        celda.value = valor
+        if isinstance(valor, str):
+            celda.data_type = 'f' if formula else 's'
+        celda.font = Font(name='Calibri', size=tamano, bold=negrita, color=color)
+        if fondo:
+            celda.fill = PatternFill('solid', fgColor=fondo)
+        celda.alignment = Alignment(
+            horizontal=alineacion,
+            vertical='center',
+            wrap_text=envolver,
+            indent=sangria,
+        )
+        if formato:
+            celda.number_format = formato
+        if borde:
+            celda.border = bordes
+        return celda
 
-    hoja.freeze_panes = 'A5'
-    hoja.auto_filter.ref = f'A4:G{fila_total - 1}'
-    anchos = (32, 22, 16, 18, 16, 18, 18)
-    for indice, ancho in enumerate(anchos, start=1):
-        hoja.column_dimensions[chr(64 + indice)].width = ancho
-    for fila in hoja.iter_rows(min_row=5, max_row=fila_total):
-        for indice in range(3, 8):
-            celda = fila[indice - 1]
-            if celda.value is not None:
-                celda.number_format = '#,##0.00'
-        for indice in (1, 2):
-            celda = fila[indice - 1]
-            if celda.value is not None:
-                celda.data_type = 's'
+    def banda(hoja, fila, desde, hasta, titulo, *, fondo=verde, color='FFFFFFFF', tamano=12):
+        hoja.merge_cells(start_row=fila, start_column=desde, end_row=fila, end_column=hasta)
+        for columna in range(desde, hasta + 1):
+            hoja.cell(fila, columna).fill = PatternFill('solid', fgColor=fondo)
+        escribir(
+            hoja.cell(fila, desde), titulo, negrita=True, color=color,
+            fondo=fondo, borde=False, tamano=tamano,
+        )
 
-    hoja_rechazos = libro.create_sheet('Rechazos')
-    encabezados_rechazos = ['Fecha', 'Mesa', 'Plato', 'Cantidad', 'Motivo', 'Reportado por']
-    hoja_rechazos.append(encabezados_rechazos)
-    for celda in hoja_rechazos[1]:
-        celda.font = Font(bold=True, color='FFFFFF')
-        celda.fill = PatternFill('solid', fgColor='1E293B')
-        celda.alignment = Alignment(horizontal='center', wrap_text=True)
-    for rechazo in datos['rechazos']:
-        hoja_rechazos.append([
-            rechazo['creado_en'],
-            rechazo['mesa'],
-            rechazo['plato'],
-            rechazo['cantidad'],
-            rechazo['motivo'],
-            rechazo['reportado_por'],
-        ])
-    for fila in hoja_rechazos.iter_rows(min_row=2):
-        for celda in fila:
-            if celda.column != 4 and celda.value is not None:
-                celda.data_type = 's'
-    hoja_rechazos.freeze_panes = 'A2'
-    hoja_rechazos.auto_filter.ref = f'A1:F{max(1, hoja_rechazos.max_row)}'
-    for columna, ancho in zip(('A', 'B', 'C', 'D', 'E', 'F'), (20, 20, 28, 12, 48, 24)):
-        hoja_rechazos.column_dimensions[columna].width = ancho
+    def encabezado(hoja, fila, titulos):
+        borde_encabezado = Border(
+            left=Side(style='thin', color='FF3B7A52'),
+            right=Side(style='thin', color='FF3B7A52'),
+            top=Side(style='thin', color=verde),
+            bottom=Side(style='medium', color=verde_medio),
+        )
+        for columna, titulo in enumerate(titulos, start=1):
+            escribir(
+                hoja.cell(fila, columna), titulo, negrita=True,
+                color='FFFFFFFF', fondo=verde, envolver=True,
+            ).border = borde_encabezado
+        hoja.row_dimensions[fila].height = 26
+
+    def preparar_hoja(hoja, anchos, *, congelar='A5', color=verde_medio):
+        hoja.sheet_properties.tabColor = color
+        hoja.sheet_view.showGridLines = False
+        hoja.freeze_panes = congelar
+        hoja.page_setup.orientation = 'landscape'
+        hoja.page_setup.fitToWidth = 1
+        hoja.page_setup.fitToHeight = 0
+        hoja.sheet_properties.pageSetUpPr.fitToPage = True
+        hoja.page_margins.left = .4
+        hoja.page_margins.right = .4
+        hoja.page_margins.top = .5
+        hoja.page_margins.bottom = .5
+        for columna, ancho in enumerate(anchos, start=1):
+            hoja.column_dimensions[get_column_letter(columna)].width = ancho
+
+    def metadato(hoja, fila, desde, hasta, valor):
+        hoja.merge_cells(start_row=fila, start_column=desde, end_row=fila, end_column=hasta)
+        for columna in range(desde, hasta + 1):
+            hoja.cell(fila, columna).fill = PatternFill('solid', fgColor=verde_claro)
+        escribir(
+            hoja.cell(fila, desde), valor, negrita=True, color=verde,
+            fondo=verde_claro, alineacion='left', sangria=1, borde=False,
+        )
+
+    def kpi(hoja, fila, columna, etiqueta, valor, pie, color, formato=None):
+        hasta = columna + 2
+        for desplazamiento, contenido in enumerate((etiqueta, valor, pie)):
+            actual = fila + desplazamiento
+            hoja.merge_cells(start_row=actual, start_column=columna, end_row=actual, end_column=hasta)
+            for col in range(columna, hasta + 1):
+                hoja.cell(actual, col).fill = PatternFill('solid', fgColor='FFFFFFFF')
+            escribir(
+                hoja.cell(actual, columna), contenido,
+                negrita=desplazamiento < 2,
+                tamano=(9, 18, 9)[desplazamiento],
+                color=color if desplazamiento < 2 else gris_color,
+                fondo='FFFFFFFF',
+                alineacion='center',
+                formato=formato if desplazamiento == 1 else None,
+            )
+            for col in range(columna, hasta + 1):
+                hoja.cell(actual, col).border = Border(
+                    left=borde_fino if col == columna else Side(),
+                    right=borde_fino if col == hasta else Side(),
+                    top=borde_fino if desplazamiento == 0 else Side(),
+                    bottom=borde_fino if desplazamiento == 2 else Side(),
+                )
+
+    filas_ipv = datos['filas']
+    facturas = list(Factura.objects.filter(
+        creado_en__gte=turno.apertura,
+        creado_en__lte=turno.cierre or timezone.now(),
+    ).select_related('pedido__mesa').order_by('creado_en', 'pk'))
+    filas_facturas = []
+    for factura in facturas:
+        moneda = 'USD' if factura.monto_usd > 0 else 'CUP'
+        filas_facturas.append({
+            'numero': factura.pk,
+            'hora': timezone.localtime(factura.creado_en).strftime('%H:%M'),
+            'mesa': factura.pedido.mesa.etiqueta if factura.pedido.mesa_id else 'Para llevar',
+            'pago': factura.get_forma_pago_display(),
+            'moneda': moneda,
+            'total': factura.monto_usd if moneda == 'USD' else factura.total_cup,
+        })
+
+    total_cup = sum(
+        (factura.total_cup for factura in facturas),
+        Decimal('0'),
+    )
+    efectivo = Decimal(datos['ventas_efectivo_cup'])
+    transferencia = Decimal(datos['ventas_transferencia_cup'])
+    fondo = Decimal(datos['fondo_inicial_cup'])
+    ventas_usd = Decimal(datos['ventas_usd'])
+    total_roturas = sum((Decimal(fila['merma_rotura']) for fila in filas_ipv), Decimal('0'))
+    total_rechazados = sum((Decimal(rechazo['cantidad']) for rechazo in datos['rechazos']), Decimal('0'))
+
+    categorias = {}
+    for fila in filas_ipv:
+        cantidad = Decimal(fila['cantidad_vendida'])
+        if cantidad <= 0:
+            continue
+        nombre = fila['categoria']
+        categoria = categorias.setdefault(nombre, {'unidades': Decimal('0'), 'importe': Decimal('0')})
+        categoria['unidades'] += cantidad
+        categoria['importe'] += Decimal(fila['importe_venta'])
+    categorias_ordenadas = sorted(
+        categorias.items(), key=lambda item: (-item[1]['importe'], item[0].casefold()),
+    )
+    pagos = {}
+    for factura in facturas:
+        if factura.monto_usd > 0:
+            continue
+        pago = factura.get_forma_pago_display()
+        resumen_pago = pagos.setdefault(pago, {'facturas': 0, 'total': Decimal('0')})
+        resumen_pago['facturas'] += 1
+        resumen_pago['total'] += factura.total_cup
+    pagos_ordenados = sorted(pagos.items(), key=lambda item: (-item[1]['total'], item[0]))
+
+    resumen = libro.create_sheet('Resumen')
+    preparar_hoja(resumen, [12, 12, 12, 2, 12, 12, 12, 2, 12, 12, 12, 2, 12, 12, 12], color=verde)
+    resumen.row_dimensions[1].height = 8
+    banda(resumen, 2, 1, 15, 'RESUMEN DEL TURNO · GOURMETCONTROL', tamano=16)
+    resumen.row_dimensions[2].height = 34
+    cierre_texto = (
+        timezone.localtime(turno.cierre).strftime('%d/%m/%Y %H:%M')
+        if turno.cierre else 'Pendiente'
+    )
+    banda(
+        resumen, 3, 1, 15,
+        f'Fecha: {turno.fecha:%d/%m/%Y}   ·   Apertura: '
+        f'{timezone.localtime(turno.apertura):%d/%m/%Y %H:%M}   ·   '
+        f'Cierre: {cierre_texto}   ·   Estado: {turno.get_estado_display()}',
+        fondo=verde_claro, color=verde, tamano=10,
+    )
+    resumen.row_dimensions[3].height = 22
+    resumen.row_dimensions[4].height = 10
+    kpis = (
+        ('VENTAS TOTALES', total_cup, 'Ingresos registrados', verde, formato_cup),
+        ('FACTURAS', len(facturas), 'Órdenes procesadas', 'FF1F3A8A', '0'),
+        ('EFECTIVO', efectivo, 'Caja física', 'FFB7791F', formato_cup),
+        ('TRANSFERENCIA', transferencia, 'Pagos digitales', 'FF6B21A8', formato_cup),
+        ('FONDO INICIAL', fondo, 'Caja al abrir el turno', verde, formato_cup),
+        ('EFECTIVO ESPERADO', fondo + efectivo, 'Fondo + ventas en efectivo', 'FF1F3A8A', formato_cup),
+        ('VENTAS USD', ventas_usd, 'Facturas en dólares', 'FFB7791F', '#,##0.00" USD"'),
+        ('ROTURAS / RECHAZOS', f'{total_roturas} / {total_rechazados}', 'Roturas y platos rechazados', 'FF9C1C1C', '@'),
+    )
+    for fila, grupo in ((5, kpis[:4]), (9, kpis[4:])):
+        for indice, valores in enumerate(grupo):
+            columna = 1 + indice * 4
+            kpi(resumen, fila, columna, *valores)
+            resumen.row_dimensions[fila].height = 20
+            resumen.row_dimensions[fila + 1].height = 34
+            resumen.row_dimensions[fila + 2].height = 18
+    resumen.row_dimensions[8].height = 10
+    resumen.row_dimensions[12].height = 10
+    banda(resumen, 13, 1, 7, 'VENTAS POR CATEGORÍA')
+    banda(resumen, 13, 9, 15, 'VENTAS POR FORMA DE PAGO (CUP)')
+    resumen.row_dimensions[13].height = 22
+
+    for fila in range(14, 29):
+        resumen.row_dimensions[fila].height = 15
+    cantidad_categorias = max(len(categorias_ordenadas), 1)
+    cantidad_pagos = max(len(pagos_ordenados), 1)
+    chart_barras = BarChart()
+    chart_barras.type = 'col'
+    chart_barras.style = 10
+    chart_barras.title = 'Importe de ventas por categoría (CUP)'
+    chart_barras.y_axis.title = 'CUP'
+    chart_barras.height = 7.5
+    chart_barras.width = 15
+    chart_barras.legend = None
+    chart_barras.add_data(
+        Reference(resumen, min_col=6, min_row=30, max_row=30 + cantidad_categorias),
+        titles_from_data=True,
+    )
+    chart_barras.set_categories(
+        Reference(resumen, min_col=1, min_row=31, max_row=30 + cantidad_categorias),
+    )
+    colores_graficos = ('FF2E8B57', 'FFF2B01E', 'FFC0392B', 'FF1F4E9C', 'FF7B3FA0', 'FF16A2A8')
+    if chart_barras.series:
+        chart_barras.series[0].data_points = [
+            DataPoint(
+                idx=indice,
+                spPr=GraphicalProperties(solidFill=colores_graficos[indice % len(colores_graficos)]),
+            )
+            for indice in range(cantidad_categorias)
+        ]
+    resumen.add_chart(chart_barras, 'A14')
+
+    chart_pagos = DoughnutChart()
+    chart_pagos.style = 10
+    chart_pagos.title = 'Ventas por forma de pago'
+    chart_pagos.holeSize = 55
+    chart_pagos.height = 7.5
+    chart_pagos.width = 15
+    chart_pagos.varyColors = True
+    chart_pagos.add_data(
+        Reference(resumen, min_col=14, min_row=30, max_row=30 + cantidad_pagos),
+        titles_from_data=True,
+    )
+    chart_pagos.set_categories(
+        Reference(resumen, min_col=9, min_row=31, max_row=30 + cantidad_pagos),
+    )
+    if chart_pagos.series:
+        chart_pagos.series[0].data_points = [
+            DataPoint(
+                idx=indice,
+                spPr=GraphicalProperties(solidFill=colores_graficos[indice % len(colores_graficos)]),
+            )
+            for indice in range(cantidad_pagos)
+        ]
+        chart_pagos.dataLabels = DataLabelList(showCatName=True, showVal=True, showPercent=True)
+    resumen.add_chart(chart_pagos, 'I14')
+
+    for desde, hasta, titulo in ((1, 3, 'Categoría'), (4, 5, 'Unidades'), (6, 7, 'Importe'),
+                                 (9, 11, 'Forma de pago'), (12, 13, 'Facturas'), (14, 15, 'Total')):
+        resumen.merge_cells(start_row=30, start_column=desde, end_row=30, end_column=hasta)
+        for columna in range(desde, hasta + 1):
+            resumen.cell(30, columna).fill = PatternFill('solid', fgColor=verde)
+            resumen.cell(30, columna).border = bordes
+        escribir(
+            resumen.cell(30, desde), titulo, negrita=True, color='FFFFFFFF',
+            fondo=verde, alineacion='left' if desde in (1, 9) else 'center',
+        )
+    filas_resumen = max(len(categorias_ordenadas), len(pagos_ordenados), 1)
+    for indice in range(filas_resumen):
+        fila = 31 + indice
+        categoria = categorias_ordenadas[indice] if indice < len(categorias_ordenadas) else None
+        pago = pagos_ordenados[indice] if indice < len(pagos_ordenados) else None
+        valores = (
+            (1, 3, categoria[0] if categoria else '', 'left', None),
+            (4, 5, categoria[1]['unidades'] if categoria else '', 'right', '#,##0.###'),
+            (6, 7, categoria[1]['importe'] if categoria else '', 'right', formato_cup),
+            (9, 11, pago[0] if pago else ('Sin facturas' if indice == 0 else ''), 'left', None),
+            (12, 13, pago[1]['facturas'] if pago else '', 'right', '0'),
+            (14, 15, pago[1]['total'] if pago else '', 'right', formato_cup),
+        )
+        for desde, hasta, valor, alineacion, formato in valores:
+            resumen.merge_cells(start_row=fila, start_column=desde, end_row=fila, end_column=hasta)
+            for columna in range(desde, hasta + 1):
+                resumen.cell(fila, columna).border = bordes
+            escribir(
+                resumen.cell(fila, desde), valor, alineacion=alineacion,
+                sangria=1 if alineacion == 'left' else 0, formato=formato,
+            )
+    fila_total = 31 + filas_resumen
+    for desde, hasta, valor, formato, alineacion in (
+        (1, 3, 'TOTAL', None, 'left'),
+        (4, 5, f'=SUM(D31:D{fila_total - 1})', '#,##0.###', 'right'),
+        (6, 7, f'=SUM(F31:F{fila_total - 1})', formato_cup, 'right'),
+        (9, 11, 'TOTAL', None, 'left'),
+        (12, 13, f'=SUM(L31:L{fila_total - 1})', '0', 'right'),
+        (14, 15, f'=SUM(N31:N{fila_total - 1})', formato_cup, 'right'),
+    ):
+        resumen.merge_cells(start_row=fila_total, start_column=desde, end_row=fila_total, end_column=hasta)
+        for columna in range(desde, hasta + 1):
+            resumen.cell(fila_total, columna).fill = PatternFill('solid', fgColor=total_fill)
+            resumen.cell(fila_total, columna).border = bordes
+        escribir(
+            resumen.cell(fila_total, desde), valor, negrita=True, color=verde,
+            fondo=total_fill, alineacion=alineacion, formato=formato,
+            sangria=1 if alineacion == 'left' else 0, formula=valor.startswith('='),
+        )
+    if turno.observaciones:
+        resumen.row_dimensions[fila_total + 1].height = 10
+        banda(resumen, fila_total + 2, 1, 15, 'OBSERVACIONES DEL CIERRE')
+        resumen.merge_cells(start_row=fila_total + 3, start_column=1, end_row=fila_total + 3, end_column=15)
+        escribir(
+            resumen.cell(fila_total + 3, 1), turno.observaciones,
+            alineacion='left', envolver=True, sangria=1,
+        )
+        resumen.row_dimensions[fila_total + 3].height = 40
+
+    vendidos = [
+        fila for fila in filas_ipv
+        if Decimal(fila['cantidad_vendida']) > 0
+    ]
+    vendidos.sort(
+        key=lambda fila: (-Decimal(fila['importe_venta']), fila['nombre'].casefold()),
+    )
+    productos = libro.create_sheet('Productos vendidos')
+    preparar_hoja(productos, [7, 34, 20, 16, 16, 18, 14], color='FFB7791F')
+    banda(productos, 1, 1, 7, 'PRODUCTOS VENDIDOS DEL DÍA', tamano=16)
+    productos.row_dimensions[1].height = 34
+    productos.merge_cells('A2:G2')
+    escribir(
+        productos['A2'],
+        f'Fecha: {turno.fecha:%d/%m/%Y}   ·   {len(vendidos)} productos vendidos   ·   '
+        f'{sum((Decimal(fila["cantidad_vendida"]) for fila in vendidos), Decimal("0"))} unidades',
+        negrita=True, color=verde, fondo=verde_claro, alineacion='left', sangria=1, borde=False,
+    )
+    productos.row_dimensions[2].height = 22
+    productos.row_dimensions[3].height = 8
+    encabezado(productos, 4, ['N.º', 'Producto', 'Categoría', 'Cantidad vendida', 'Precio venta', 'Importe ventas', '% del total'])
+    total_vendidos = sum((Decimal(fila['importe_venta']) for fila in vendidos), Decimal('0'))
+    fila_total_vendidos = 5 + len(vendidos)
+    for indice, fila in enumerate(vendidos, start=1):
+        actual = 4 + indice
+        escribir(productos.cell(actual, 1), indice, color=gris_color, formato='0')
+        escribir(productos.cell(actual, 2), fila['nombre'], negrita=True, alineacion='left', sangria=1)
+        escribir(productos.cell(actual, 3), fila['categoria'], color=gris_color, alineacion='left', sangria=1)
+        escribir(productos.cell(actual, 4), Decimal(fila['cantidad_vendida']), negrita=True, formato='#,##0.###')
+        escribir(productos.cell(actual, 5), Decimal(fila['precio_venta']), alineacion='right', formato=formato_cup)
+        escribir(
+            productos.cell(actual, 6), f'=D{actual}*E{actual}',
+            negrita=True, color=verde, alineacion='right', formato=formato_cup, formula=True,
+        )
+        escribir(
+            productos.cell(actual, 7), f'=F{actual}/F${fila_total_vendidos}',
+            formato='0.0%', formula=True,
+        )
+        productos.row_dimensions[actual].height = 20
+    if not vendidos:
+        productos.merge_cells('A5:G5')
+        escribir(productos['A5'], 'Aún no hay productos vendidos en este turno.', color=gris_color)
+        productos.row_dimensions[5].height = 22
+    else:
+        for columna in range(1, 8):
+            productos.cell(fila_total_vendidos, columna).fill = PatternFill('solid', fgColor=total_fill)
+            productos.cell(fila_total_vendidos, columna).border = bordes
+        escribir(productos.cell(fila_total_vendidos, 2), 'TOTAL', negrita=True, color=verde, fondo=total_fill, alineacion='left', sangria=1)
+        escribir(productos.cell(fila_total_vendidos, 4), f'=SUM(D5:D{fila_total_vendidos - 1})', negrita=True, color=verde, fondo=total_fill, formato='#,##0.###', formula=True)
+        escribir(productos.cell(fila_total_vendidos, 6), f'=SUM(F5:F{fila_total_vendidos - 1})', negrita=True, color=verde, fondo=total_fill, alineacion='right', formato=formato_cup, formula=True)
+        escribir(productos.cell(fila_total_vendidos, 7), f'=SUM(G5:G{fila_total_vendidos - 1})', negrita=True, color=verde, fondo=total_fill, formato='0.0%', formula=True)
+        productos.row_dimensions[fila_total_vendidos].height = 24
+        productos.auto_filter.ref = f'A4:G{fila_total_vendidos - 1}'
+
+    ipv = libro.create_sheet('IPV turno actual')
+    preparar_hoja(ipv, [34, 20, 12, 16, 18, 12, 16])
+    banda(ipv, 1, 1, 7, 'INVENTARIO PERPETUO DE VENTAS', tamano=16)
+    ipv.row_dimensions[1].height = 34
+    metadato(ipv, 2, 1, 2, 'RESTAURANT: ________')
+    metadato(ipv, 2, 3, 4, f'FECHA: {turno.fecha:%d/%m/%Y}')
+    metadato(ipv, 2, 5, 7, f'TOTAL: {Decimal(datos["total_importe"]):,.2f} CUP')
+    ipv.row_dimensions[2].height = 22
+    ipv.row_dimensions[3].height = 8
+    encabezado(ipv, 4, ['Producto', 'Categoría', 'Vendido', 'Precio venta', 'Importe ventas', 'Roturas', 'Estado'])
+    for indice, fila in enumerate(filas_ipv):
+        actual = 5 + indice
+        vendido = Decimal(fila['cantidad_vendida'])
+        roturas = Decimal(fila['merma_rotura'])
+        if roturas > 0:
+            estado, fondo, color = 'Con roturas', 'FFF8D0D0', 'FF9C1C1C'
+        elif vendido > 0:
+            estado, fondo, color = 'Con ventas', total_fill, 'FF1E6B34'
+        else:
+            estado, fondo, color = 'Sin ventas', 'FFEDEFF1', gris_color
+        escribir(ipv.cell(actual, 1), fila['nombre'], negrita=vendido > 0, alineacion='left', sangria=1)
+        escribir(ipv.cell(actual, 2), fila['categoria'], color=gris_color, alineacion='left', sangria=1)
+        escribir(ipv.cell(actual, 3), vendido, negrita=vendido > 0, formato='#,##0.###')
+        escribir(ipv.cell(actual, 4), Decimal(fila['precio_venta']), alineacion='right', formato=formato_cup)
+        escribir(
+            ipv.cell(actual, 5), f'=C{actual}*D{actual}',
+            negrita=vendido > 0, color=verde if vendido > 0 else texto_color,
+            alineacion='right', formato=formato_cup, formula=True,
+        )
+        escribir(
+            ipv.cell(actual, 6), roturas, negrita=roturas > 0,
+            color='FF9C1C1C' if roturas > 0 else texto_color, formato='#,##0.###',
+        )
+        escribir(ipv.cell(actual, 7), estado, negrita=True, color=color, fondo=fondo, tamano=9)
+        ipv.row_dimensions[actual].height = 20
+    fila_total_ipv = 5 + len(filas_ipv)
+    for columna in range(1, 8):
+        ipv.cell(fila_total_ipv, columna).fill = PatternFill('solid', fgColor=total_fill)
+        ipv.cell(fila_total_ipv, columna).border = bordes
+    escribir(ipv.cell(fila_total_ipv, 1), 'TOTAL', negrita=True, color=verde, fondo=total_fill, alineacion='left', sangria=1)
+    escribir(ipv.cell(fila_total_ipv, 2), '', negrita=True, color=verde, fondo=total_fill)
+    escribir(
+        ipv.cell(fila_total_ipv, 3),
+        f'=SUM(C5:C{fila_total_ipv - 1})' if filas_ipv else 0,
+        negrita=True, color=verde, fondo=total_fill, formato='#,##0.###', formula=bool(filas_ipv),
+    )
+    escribir(ipv.cell(fila_total_ipv, 4), '', negrita=True, color=verde, fondo=total_fill)
+    escribir(
+        ipv.cell(fila_total_ipv, 5),
+        f'=SUM(E5:E{fila_total_ipv - 1})' if filas_ipv else 0,
+        negrita=True, color=verde, fondo=total_fill, alineacion='right', formato=formato_cup, formula=bool(filas_ipv),
+    )
+    escribir(
+        ipv.cell(fila_total_ipv, 6),
+        f'=SUM(F5:F{fila_total_ipv - 1})' if filas_ipv else 0,
+        negrita=True, color=verde, fondo=total_fill, formato='#,##0.###', formula=bool(filas_ipv),
+    )
+    escribir(ipv.cell(fila_total_ipv, 7), '', negrita=True, color=verde, fondo=total_fill)
+    ipv.row_dimensions[fila_total_ipv].height = 24
+    if filas_ipv:
+        ipv.auto_filter.ref = f'A4:G{fila_total_ipv - 1}'
+
+    hoja_facturas = libro.create_sheet('Facturas')
+    preparar_hoja(hoja_facturas, [10, 10, 18, 24, 10, 18])
+    banda(hoja_facturas, 1, 1, 6, 'FACTURAS DEL TURNO', tamano=16)
+    hoja_facturas.row_dimensions[1].height = 34
+    metadato(hoja_facturas, 2, 1, 6, f'Fecha: {turno.fecha:%d/%m/%Y}   ·   {len(filas_facturas)} facturas')
+    hoja_facturas.row_dimensions[2].height = 22
+    hoja_facturas.row_dimensions[3].height = 8
+    encabezado(hoja_facturas, 4, ['N.º', 'Hora', 'Mesa', 'Forma de pago', 'Moneda', 'Total'])
+    for indice, factura in enumerate(filas_facturas):
+        actual = 5 + indice
+        escribir(hoja_facturas.cell(actual, 1), factura['numero'], formato='0')
+        escribir(hoja_facturas.cell(actual, 2), factura['hora'])
+        escribir(hoja_facturas.cell(actual, 3), factura['mesa'], alineacion='left', sangria=1)
+        escribir(hoja_facturas.cell(actual, 4), factura['pago'], alineacion='left', sangria=1)
+        escribir(
+            hoja_facturas.cell(actual, 5), factura['moneda'], negrita=True,
+            color='FFB7791F' if factura['moneda'] == 'USD' else verde,
+        )
+        escribir(
+            hoja_facturas.cell(actual, 6), Decimal(factura['total']),
+            alineacion='right',
+            formato='#,##0.00" USD"' if factura['moneda'] == 'USD' else formato_cup,
+        )
+        hoja_facturas.row_dimensions[actual].height = 20
+    if not filas_facturas:
+        hoja_facturas.merge_cells('A5:F5')
+        escribir(hoja_facturas['A5'], 'Aún no hay facturas en este turno.', color=gris_color)
+    else:
+        fila_total_facturas = 5 + len(filas_facturas)
+        for columna in range(1, 7):
+            hoja_facturas.cell(fila_total_facturas, columna).fill = PatternFill('solid', fgColor=total_fill)
+            hoja_facturas.cell(fila_total_facturas, columna).border = bordes
+        for columna in range(1, 6):
+            escribir(
+                hoja_facturas.cell(fila_total_facturas, columna),
+                'TOTAL CUP' if columna == 4 else '',
+                negrita=True, color=verde, fondo=total_fill,
+                alineacion='right' if columna == 4 else 'center',
+                sangria=1 if columna == 4 else 0,
+            )
+        escribir(
+            hoja_facturas.cell(fila_total_facturas, 6),
+            f'=SUMIF(E5:E{fila_total_facturas - 1},"CUP",F5:F{fila_total_facturas - 1})',
+            negrita=True, color=verde, fondo=total_fill, alineacion='right', formato=formato_cup, formula=True,
+        )
+        hoja_facturas.row_dimensions[fila_total_facturas].height = 24
+        hoja_facturas.auto_filter.ref = f'A4:F{fila_total_facturas - 1}'
+
+    rechazados = libro.create_sheet('Rechazados')
+    preparar_hoja(rechazados, [20, 14, 28, 10, 26, 22], color='FF9C1C1C')
+    banda(rechazados, 1, 1, 6, 'DETALLE DE PLATOS RECHAZADOS', tamano=16)
+    rechazados.row_dimensions[1].height = 34
+    metadato(rechazados, 2, 1, 6, f'Fecha: {turno.fecha:%d/%m/%Y}   ·   {len(datos["rechazos"])} registros')
+    rechazados.row_dimensions[2].height = 22
+    rechazados.row_dimensions[3].height = 8
+    encabezado(rechazados, 4, ['Fecha', 'Mesa', 'Plato', 'Cantidad', 'Motivo', 'Reportado por'])
+    for indice, rechazo in enumerate(datos['rechazos']):
+        actual = 5 + indice
+        escribir(rechazados.cell(actual, 1), rechazo['creado_en'])
+        escribir(rechazados.cell(actual, 2), rechazo['mesa'], alineacion='left', sangria=1)
+        escribir(rechazados.cell(actual, 3), rechazo['plato'], negrita=True, alineacion='left', sangria=1)
+        escribir(rechazados.cell(actual, 4), Decimal(rechazo['cantidad']), negrita=True, color='FFB7791F', formato='#,##0.###')
+        escribir(rechazados.cell(actual, 5), rechazo['motivo'], alineacion='left', sangria=1, envolver=True)
+        escribir(rechazados.cell(actual, 6), rechazo['reportado_por'], alineacion='left', sangria=1)
+        rechazados.row_dimensions[actual].height = 20
+    if not datos['rechazos']:
+        rechazados.merge_cells('A5:F5')
+        escribir(rechazados['A5'], 'No se reportaron platos rechazados en este turno.', color=gris_color)
+    else:
+        fila_total_rechazados = 5 + len(datos['rechazos'])
+        for columna in range(1, 7):
+            rechazados.cell(fila_total_rechazados, columna).fill = PatternFill('solid', fgColor=total_fill)
+            rechazados.cell(fila_total_rechazados, columna).border = bordes
+        for columna in (1, 2, 3, 5, 6):
+            escribir(
+                rechazados.cell(fila_total_rechazados, columna),
+                'TOTAL' if columna == 1 else '',
+                negrita=True, color=verde, fondo=total_fill, alineacion='left',
+                sangria=1 if columna == 1 else 0,
+            )
+        escribir(
+            rechazados.cell(fila_total_rechazados, 4),
+            f'=SUM(D5:D{fila_total_rechazados - 1})',
+            negrita=True, color=verde, fondo=total_fill, formato='#,##0.###', formula=True,
+        )
+        rechazados.row_dimensions[fila_total_rechazados].height = 24
+        rechazados.auto_filter.ref = f'A4:F{fila_total_rechazados - 1}'
 
     buffer = BytesIO()
     libro.save(buffer)

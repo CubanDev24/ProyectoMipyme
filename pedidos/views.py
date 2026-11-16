@@ -460,6 +460,9 @@ def factura_imprimir(request, pk):
     elif factura.forma_pago == 'mixto':
         agregar_dato('Efectivo CUP', factura.monto_efectivo_cup)
         agregar_dato('Transferencia', factura.monto_transferencia_cup)
+        if factura.monto_recibido_cup:
+            agregar_dato('Recibido', f'{factura.monto_recibido_cup} CUP')
+            agregar_dato('Cambio', f'{factura.cambio_cup} CUP')
     elif factura.forma_pago == 'usd':
         agregar_dato('Monto USD', f'{factura.monto_usd} USD')
         agregar_dato('Tasa', f'1 USD = {factura.tasa_cambio} CUP')

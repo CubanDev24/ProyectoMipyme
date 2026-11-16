@@ -1,0 +1,686 @@
+{% load static l10n %}
+<div class="flex-1 overflow-y-auto">
+<div class="admin-body">
+
+  {% if messages %}
+  <div class="admin-flash-list">
+    {% for m in messages %}
+    <div class="admin-flash {% if m.tags == 'error' %}admin-flash-error{% else %}admin-flash-ok{% endif %}"><i class="fa-solid {% if m.tags == 'error' %}fa-circle-xmark{% else %}fa-circle-check{% endif %} admin-flash-icon" aria-hidden="true"></i><span>{{ m }}</span></div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <h1 class="admin-h1">{% if vista_cajera %}Gestión de Carta{% elif admin_pagina == 'configuracion' %}Configuración{% elif admin_pagina == 'restaurante' %}Inventario de Restaurante{% elif admin_pagina == 'cocina' %}Inventario de Cocina{% elif admin_pagina == 'carta' %}Carta del restaurante{% else %}Panel de Administrador{% endif %}</h1>
+
+  <div class="admin-grid">
+
+    {% if not admin_pagina or vista_cajera or admin_pagina == 'carta' %}
+    <div id="admin-view-carta" class="admin-view {% if admin_pagina and admin_pagina != 'carta' %}admin-view-hidden{% endif %}" {% if admin_pagina and admin_pagina != 'carta' %}hidden{% endif %}>
+
+    <section class="admin-card carta-admin-card carta-tab-panel" id="carta-platos" role="tabpanel" aria-labelledby="tab-carta-platos">
+      <div class="turn-card-heading"><div class="turn-section-icon"><i class="fa-solid fa-book-open"></i></div><div><p class="panel-kicker">Carta</p><h2>Gestionar platos</h2></div><span class="admin-section-count">{{ platos|length }} platos</span></div>
+      <p class="admin-hint">{% if vista_cajera %}Los platos de Cocina permiten cambiar solo el precio. Los platos de Restaurante se pueden agregar y modificar, pero no eliminar.{% else %}Crea los platos de la carta de forma independiente y define qué productos del inventario consume cada uno.{% endif %}</p>
+
+      {% if not vista_cajera %}
+      <form method="post" action="{% url 'inventario:plato_crear' %}" enctype="multipart/form-data" class="admin-card plato-create-form" id="form-crear-plato">
+        {% csrf_token %}
+        <div class="turn-card-heading"><div class="turn-section-icon"><i class="fa-solid fa-circle-plus"></i></div><div><p class="panel-kicker">Nuevo elemento</p><h3>Agregar plato a la carta</h3></div></div>
+        <div class="plato-edit-fields">
+          <div class="carta-form-field"><label for="nuevo-plato-nombre">Nombre</label><input id="nuevo-plato-nombre" type="text" name="nombre" required maxlength="200" class="admin-input"></div>
+          <div class="carta-form-field"><label for="nuevo-plato-categoria">Categoría</label><select id="nuevo-plato-categoria" name="categoria" required class="admin-input"><option value="">Seleccionar categoría</option>{% for c in categorias %}<option value="{{ c.id }}">{{ c.nombre }}</option>{% endfor %}</select></div>
+          <div class="carta-form-field"><label for="nuevo-plato-destino">Área de preparación</label><select id="nuevo-plato-destino" name="destino" required class="admin-input"><option value="cocina">Cocina</option><option value="barra">Barra</option></select><small class="admin-hint">Se elige por separado de los productos de inventario de la receta.</small></div>
+          <div class="carta-form-field"><label for="nuevo-plato-precio">Precio CUP</label><input id="nuevo-plato-precio" type="number" step="0.01" min="0.01" name="precio" required class="admin-input"></div>
+          <div class="carta-form-field"><label for="nuevo-plato-imagen">Imagen</label><input id="nuevo-plato-imagen" type="file" name="imagen" accept="image/*" class="admin-input"></div>
+          <div class="carta-form-field"><label for="nuevo-plato-descripcion">Descripción</label><textarea id="nuevo-plato-descripcion" name="descripcion" rows="3" class="admin-input"></textarea></div>
+          <label class="carta-availability"><input type="checkbox" name="disponible" checked> Disponible en la carta</label>
+          <label class="carta-availability"><input type="checkbox" name="trae_guarniciones_incluidas" data-guarniciones-toggle> Trae guarniciones incluidas</label>
+          <div class="carta-form-field" data-guarniciones-field hidden><span class="admin-input-label">Guarniciones permitidas</span><div class="guarnicion-options" data-guarniciones-select>{% for guarnicion in guarniciones_activas %}<label><input type="checkbox" name="guarnicion_ids" value="{{ guarnicion.pk }}">{{ guarnicion.nombre }}</label>{% empty %}<small>No hay guarniciones activas con stock y receta.</small>{% endfor %}</div><small class="admin-hint">Selecciona una o varias; la mesera o el cliente elegirá una al pedir.</small><small class="admin-hint">Si el plato ya tiene arroz en su receta fija, retíralo para evitar descontarlo dos veces.</small></div>
+        </div>
+        <div class="plato-recipe-editor">
+          <div class="turn-card-heading"><div><p class="panel-kicker">Descuento de inventario</p><h4>Productos y cantidades por plato</h4></div><button type="button" class="btn btn-outline btn-sm" data-add-recipe-row="crear"><i class="fa-solid fa-plus"></i> Agregar producto</button></div>
+          <p class="admin-hint">La cantidad indicada se descuenta por cada unidad vendida, al marcar el pedido como servido. Usa productos activos de Cocina o Restaurante.</p>
+          <div id="crear-plato-receta-rows" class="plato-recipe-rows"></div>
+        </div>
+        <button type="submit" class="btn btn-primary"><i class="fa-solid fa-plus"></i> Crear plato</button>
+      </form>
+      {% else %}
+      <form method="post" action="{% url 'inventario:plato_crear' %}" enctype="multipart/form-data" class="admin-card plato-create-form" id="form-crear-plato" data-recipe-optional="true">
+        {% csrf_token %}
+        <div class="turn-card-heading"><div class="turn-section-icon"><i class="fa-solid fa-circle-plus"></i></div><div><p class="panel-kicker">Nuevo elemento</p><h3>Agregar plato de Restaurante</h3></div></div>
+        <input type="hidden" name="destino" value="barra">
+        <div class="plato-edit-fields">
+          <div class="carta-form-field"><label for="nuevo-plato-nombre">Nombre</label><input id="nuevo-plato-nombre" type="text" name="nombre" required maxlength="200" class="admin-input"></div>
+          <div class="carta-form-field"><label for="nuevo-plato-categoria">Categoría</label><select id="nuevo-plato-categoria" name="categoria" required class="admin-input"><option value="">Seleccionar categoría</option>{% for c in categorias %}<option value="{{ c.id }}">{{ c.nombre }}</option>{% endfor %}</select></div>
+          <div class="carta-form-field"><label for="nuevo-plato-precio">Precio CUP</label><input id="nuevo-plato-precio" type="number" step="0.01" min="0.01" name="precio" required class="admin-input"></div>
+          <div class="carta-form-field"><label for="nuevo-plato-imagen">Imagen</label><input id="nuevo-plato-imagen" type="file" name="imagen" accept="image/*" class="admin-input"></div>
+          <div class="carta-form-field"><label for="nuevo-plato-descripcion">Descripción</label><textarea id="nuevo-plato-descripcion" name="descripcion" rows="3" class="admin-input"></textarea></div>
+          <label class="carta-availability"><input type="checkbox" name="disponible" checked> Disponible en la carta</label>
+        </div>
+        <div class="plato-recipe-editor">
+          <div class="turn-card-heading"><div><p class="panel-kicker">Descuento de inventario</p><h4>Productos y cantidades por plato</h4></div><button type="button" class="btn btn-outline btn-sm" data-add-recipe-row="crear"><i class="fa-solid fa-plus"></i> Agregar producto</button></div>
+          <p class="admin-hint">La cantidad indicada se descuenta por cada unidad vendida, al marcar el pedido como servido. Déjala vacía si el producto no lleva receta.</p>
+          <div id="crear-plato-receta-rows" class="plato-recipe-rows"></div>
+        </div>
+        <button type="submit" class="btn btn-primary"><i class="fa-solid fa-plus"></i> Crear plato</button>
+      </form>
+      {% endif %}
+
+      <div class="carta-admin-filters" aria-label="Filtros de platos">
+        <label class="inventario-search" for="carta-buscar-plato"><i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i><input id="carta-buscar-plato" type="search" placeholder="Buscar platos o ingredientes" autocomplete="off"></label>
+        <label class="sr-only" for="carta-filtrar-categoria">Filtrar por categoría</label>
+        <select id="carta-filtrar-categoria" class="admin-input">
+          <option value="">Todas las categorías</option>
+          {% for categoria in categorias %}<option value="{{ categoria.pk }}">{{ categoria.nombre }}</option>{% endfor %}
+        </select>
+        <label class="sr-only" for="carta-filtrar-tipo">Filtrar por tipo</label>
+        <select id="carta-filtrar-tipo" class="admin-input">
+          <option value="">Todas las áreas</option>
+          <option value="cocina">Cocina</option>
+          <option value="barra">Barra</option>
+        </select>
+        <label class="carta-low-stock-filter"><input id="carta-solo-stock-bajo" type="checkbox"> Solo platos con productos de stock bajo</label>
+      </div>
+      <p class="admin-hint" id="carta-filtro-resultado" role="status" aria-live="polite"></p>
+      <div class="admin-empty carta-no-filter-results" id="carta-sin-resultados" hidden>No hay platos que coincidan con los filtros.</div>
+      <div class="carta-admin-list" id="carta-lista-platos">
+        {% for grupo in platos_por_categoria %}
+        <section class="carta-admin-category-group" data-carta-category-group>
+          <div class="carta-admin-category-heading">
+            <h3>{{ grupo.nombre }}</h3>
+            <span data-carta-category-count>{{ grupo.platos|length }} platos</span>
+          </div>
+          <div class="carta-admin-category-items">
+        {% for plato in grupo.platos %}
+        <article class="carta-admin-item" data-nombre="{{ plato.nombre|lower }}" data-categoria="{{ plato.categoria_id|default:'' }}" data-tipo="{{ plato.destino }}" data-stock-bajo="{% if plato.receta_con_stock_bajo %}true{% else %}false{% endif %}" tabindex="0" role="group" aria-label="Editar {{ plato.nombre }}">
+          <div class="carta-admin-image">{% if plato.imagen %}<img src="{{ plato.imagen.url }}" alt="{{ plato.nombre }}">{% else %}<i class="fa-solid fa-utensils"></i>{% endif %}</div>
+          <div class="carta-admin-content"><div class="carta-admin-topline"><div><p class="carta-admin-category">{{ plato.categoria.nombre|default:'Sin categoría' }} · {{ plato.get_destino_display }}</p><h3>{{ plato.nombre }}</h3></div><span class="carta-admin-price">{{ plato.precio|floatformat:2 }} <small>CUP</small></span></div><p class="carta-admin-description">{{ plato.descripcion|default:'Sin descripción registrada.' }}</p><p class="admin-hint">Receta: {% for item in plato.receta_admin %}{{ item.insumo.nombre }} ({{ item.cantidad }} {{ item.insumo.get_unidad_display }}){% if not forloop.last %}, {% endif %}{% empty %}Sin productos asociados{% endfor %}</p>{% if plato.trae_guarniciones_incluidas %}<p class="admin-hint">Guarniciones incluidas: {% for guarnicion in plato.guarniciones_incluidas.all %}{{ guarnicion.nombre }}{% if not forloop.last %}, {% endif %}{% empty %}Sin opciones asignadas{% endfor %}</p>{% endif %}<div class="carta-admin-footer"><span class="carta-availability {% if not plato.disponible %}carta-unavailable{% endif %}"><span></span>{% if plato.disponible %}Disponible{% else %}No disponible{% endif %}</span><button type="button" class="btn btn-outline btn-sm" data-edit-plato data-id="{{ plato.pk }}" data-name="{{ plato.nombre|escapejs }}" data-category="{{ plato.categoria_id|default:'' }}" data-destination="{{ plato.destino }}" data-price="{{ plato.precio|floatformat:2|unlocalize }}" data-description="{{ plato.descripcion|escapejs }}" data-available="{% if plato.disponible %}true{% else %}false{% endif %}" data-image="{% if plato.imagen %}{{ plato.imagen.url }}{% endif %}" data-recipe="{{ plato.receta_json|escape }}" data-guarniciones="{{ plato.guarniciones_json|escape }}" data-guarniciones-required="{% if plato.trae_guarniciones_incluidas %}true{% else %}false{% endif %}"><i class="fa-solid fa-pen"></i> {% if vista_cajera and plato.destino == 'cocina' %}Cambiar precio{% elif vista_cajera %}Modificar plato{% else %}Editar plato y receta{% endif %}</button></div></div>
+        </article>
+        {% endfor %}
+          </div>
+        </section>
+        {% empty %}<div class="admin-empty">Todavía no hay platos registrados.</div>{% endfor %}
+      </div>
+    </section>
+
+    <section class="admin-card carta-preview-card carta-tab-panel" id="carta-publicada" role="tabpanel" aria-labelledby="tab-carta-publicada" hidden>
+      <div class="turn-card-heading"><div class="turn-section-icon"><i class="fa-solid fa-eye"></i></div><div><p class="panel-kicker">Vista del cliente</p><h2>Carta publicada</h2></div><span class="admin-section-count">Así la ve el cliente</span></div>
+      <p class="admin-hint">Esta vista refleja los platos disponibles que aparecen actualmente en la carta del cliente.</p>
+      <div class="carta-preview-filters" role="group" aria-label="Filtrar carta publicada por tipo">
+        <button type="button" class="active" data-carta-publicada-filter="todos" aria-pressed="true">Todos</button>
+        <button type="button" data-carta-publicada-filter="platos" aria-pressed="false">Platos</button>
+        <button type="button" data-carta-publicada-filter="guarniciones" aria-pressed="false">Guarniciones</button>
+      </div>
+      <div class="carta-preview-grid">
+        {% for categoria in categorias %}
+          {% with platos_disponibles=categoria.platos_publicados %}
+          <div class="carta-preview-category" data-carta-publicada-section="platos">
+            <div class="carta-preview-category-heading"><h3>{{ categoria.nombre }}</h3><span>{{ platos_disponibles|length }} opciones</span></div>
+            <div class="carta-preview-items">
+              {% for plato in platos_disponibles %}
+                <article class="carta-preview-item">
+                  <div class="carta-preview-image">{% if plato.imagen %}<img src="{{ plato.imagen.url }}" alt="{{ plato.nombre }}">{% else %}<i class="fa-solid fa-utensils"></i>{% endif %}</div>
+                  <div class="carta-preview-info"><h4>{{ plato.nombre }}</h4><p>{{ plato.descripcion|default:'Sin descripción' }}</p></div>
+                  <strong class="carta-preview-price">{{ plato.precio }} <small>CUP</small></strong>
+                </article>
+              {% empty %}<div class="admin-empty">No hay platos en esta categoría.</div>{% endfor %}
+            </div>
+          </div>
+          {% endwith %}
+        {% empty %}<div class="turn-empty"><i class="fa-solid fa-book-open"></i><span>No hay categorías creadas.</span></div>{% endfor %}
+        {% if platos_sin_categoria %}
+        <div class="carta-preview-category" data-carta-publicada-section="platos">
+          <div class="carta-preview-category-heading"><h3>Sin categoría</h3><span>{{ platos_sin_categoria|length }} opciones</span></div>
+          <div class="carta-preview-items">
+            {% for plato in platos_sin_categoria %}
+            <article class="carta-preview-item">
+              <div class="carta-preview-image">{% if plato.imagen %}<img src="{{ plato.imagen.url }}" alt="{{ plato.nombre }}">{% else %}<i class="fa-solid fa-utensils"></i>{% endif %}</div>
+              <div class="carta-preview-info"><h4>{{ plato.nombre }}</h4><p>{{ plato.descripcion|default:'Sin descripción' }}</p></div>
+              <strong class="carta-preview-price">{{ plato.precio }} <small>CUP</small></strong>
+            </article>
+            {% endfor %}
+          </div>
+        </div>
+        {% endif %}
+        <div class="carta-preview-category" data-carta-publicada-section="guarniciones">
+          <div class="carta-preview-category-heading"><h3>Guarniciones</h3><span>{{ guarniciones_activas|length }} opciones</span></div>
+          <div class="carta-preview-items">
+            {% for guarnicion in guarniciones_activas %}
+            <article class="carta-preview-item carta-preview-guarnicion">
+              <div class="carta-preview-image"><i class="fa-solid fa-bowl-food" aria-hidden="true"></i></div>
+              <div class="carta-preview-info"><h4>{{ guarnicion.nombre }}</h4><p>{{ guarnicion.descripcion|default:'Guarnición disponible para acompañar un plato.' }}</p></div>
+              <span class="carta-preview-price">Guarnición</span>
+            </article>
+            {% empty %}<div class="admin-empty">No hay guarniciones disponibles.</div>{% endfor %}
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="admin-card carta-admin-card guarnicion-admin-panel carta-tab-panel" id="carta-guarniciones" role="tabpanel" aria-labelledby="tab-carta-guarniciones" hidden>
+      <div class="turn-card-heading"><div class="turn-section-icon"><i class="fa-solid fa-utensils"></i></div><div><p class="panel-kicker">Inventario de Cocina</p><h2 id="guarniciones-title">Guarniciones incluidas</h2></div><span class="admin-section-count">{{ guarniciones|length }} opciones</span></div>
+      <p class="admin-hint">Cada guarnición tiene su receta de inventario. No se publica como plato ni modifica el precio; el inventario se descuenta al servir.</p>
+      <form method="post" action="{% url 'inventario:guarnicion_crear' %}" class="admin-card plato-create-form guarnicion-form" id="form-crear-guarnicion">
+        {% csrf_token %}
+        <div class="plato-edit-fields"><div class="carta-form-field"><label for="nueva-guarnicion-nombre">Nombre</label><input id="nueva-guarnicion-nombre" name="nombre" class="admin-input" maxlength="120" required placeholder="Ej. Arroz blanco"></div><div class="carta-form-field"><label for="nueva-guarnicion-descripcion">Descripción</label><input id="nueva-guarnicion-descripcion" name="descripcion" class="admin-input" maxlength="300" placeholder="Opcional"></div></div>
+        <div class="plato-recipe-editor"><div class="turn-card-heading"><div><p class="panel-kicker">Descuento de inventario</p><h3>Productos y cantidades por porción</h3></div><button type="button" class="btn btn-outline btn-sm" data-add-guarnicion-row="crear"><i class="fa-solid fa-plus"></i> Agregar producto</button></div><div class="plato-recipe-rows" id="crear-guarnicion-receta-rows"></div></div>
+        <button type="submit" class="btn btn-primary"><i class="fa-solid fa-plus"></i> Crear guarnición</button>
+      </form>
+      <div class="guarnicion-admin-list">
+        {% for guarnicion in guarniciones %}
+        <form method="post" action="{% url 'inventario:guarnicion_editar' guarnicion.pk %}" class="admin-card guarnicion-form" data-guarnicion-edit data-recipe="{{ guarnicion.receta_json|escape }}" data-active="{% if guarnicion.activa %}true{% else %}false{% endif %}">
+          {% csrf_token %}
+          <div class="turn-card-heading"><div><p class="panel-kicker">Guarnición incluida</p><h3>{{ guarnicion.nombre }}</h3></div><span class="carta-availability {% if not guarnicion.activa %}carta-unavailable{% endif %}"><span></span>{% if guarnicion.activa %}Activa{% else %}Inactiva{% endif %}</span></div>
+          <div class="plato-edit-fields"><div class="carta-form-field"><label>Nombre</label><input name="nombre" value="{{ guarnicion.nombre }}" class="admin-input" maxlength="120" required></div><div class="carta-form-field"><label>Descripción</label><input name="descripcion" value="{{ guarnicion.descripcion }}" class="admin-input" maxlength="300"></div><label class="carta-availability"><input type="checkbox" name="activa" {% if guarnicion.activa %}checked{% endif %}> Disponible para elegir</label></div>
+          <div class="plato-recipe-editor"><div class="turn-card-heading"><div><p class="panel-kicker">Receta</p><h4>Inventario por porción</h4></div><button type="button" class="btn btn-outline btn-sm" data-add-guarnicion-row="editar"><i class="fa-solid fa-plus"></i> Agregar producto</button></div><div class="plato-recipe-rows"></div></div>
+          <button type="submit" class="btn btn-outline btn-sm"><i class="fa-solid fa-floppy-disk"></i> Guardar guarnición</button>
+        </form>
+        {% empty %}<div class="admin-empty">Todavía no hay guarniciones creadas.</div>{% endfor %}
+      </div>
+    </section>
+
+    <div id="modal-editar-plato" class="admin-modal" aria-hidden="true">
+      <div class="admin-modal-panel" role="dialog" aria-modal="true" aria-labelledby="modal-plato-title">
+        <div class="admin-modal-header"><div><p class="panel-kicker">Carta</p><h2 id="modal-plato-title">Editar producto</h2></div><button type="button" class="admin-modal-close" data-close-plato aria-label="Cerrar"><i class="fa-solid fa-xmark"></i></button></div>
+        <form id="form-editar-plato" method="post" enctype="multipart/form-data" class="plato-edit-form" data-recipe-optional="{% if vista_cajera %}true{% else %}false{% endif %}">
+          {% csrf_token %}
+          <div class="plato-edit-preview" data-plato-edit-field="imagen"><div id="plato-edit-image" class="carta-admin-image"><i class="fa-solid fa-utensils"></i></div><label class="carta-file-label"><i class="fa-solid fa-image"></i> Cambiar foto<input type="file" name="imagen" accept="image/*"></label></div>
+          <div class="plato-edit-fields">
+            <div class="carta-form-field" data-plato-edit-field="nombre"><label for="edit-plato-nombre">Nombre</label><input id="edit-plato-nombre" type="text" name="nombre" required class="admin-input"></div>
+            <div class="carta-form-field" data-plato-edit-field="categoria"><label for="edit-plato-categoria">Categoría</label><select id="edit-plato-categoria" name="categoria" class="admin-input"><option value="">Sin categoría</option>{% for c in categorias %}<option value="{{ c.id }}">{{ c.nombre }}</option>{% endfor %}</select></div>
+            <div class="carta-form-field" data-plato-edit-field="destino"><label for="edit-plato-destino">Área de preparación</label><select id="edit-plato-destino" name="destino" required class="admin-input"><option value="cocina">Cocina</option><option value="barra">Barra</option></select></div>
+            <div class="carta-form-field" data-plato-edit-field="precio"><label for="edit-plato-precio">Precio CUP</label><input id="edit-plato-precio" type="number" step="0.01" min="0.01" name="precio" required class="admin-input"></div>
+            <div class="carta-form-field" data-plato-edit-field="descripcion"><label for="edit-plato-descripcion">Descripción</label><textarea id="edit-plato-descripcion" name="descripcion" rows="4" class="admin-input"></textarea></div>
+            <label class="carta-availability" data-plato-edit-field="disponible"><input id="edit-plato-disponible" type="checkbox" name="disponible"> Disponible en la carta</label>
+          </div>
+          {% if not vista_cajera %}
+          <label class="carta-availability"><input id="edit-plato-trae-guarniciones" type="checkbox" name="trae_guarniciones_incluidas" data-guarniciones-toggle> Trae guarniciones incluidas</label>
+          <div class="carta-form-field" data-guarniciones-field hidden><span class="admin-input-label">Guarniciones permitidas</span><div class="guarnicion-options" data-guarniciones-select>{% for guarnicion in guarniciones_activas %}<label><input type="checkbox" name="guarnicion_ids" value="{{ guarnicion.pk }}">{{ guarnicion.nombre }}</label>{% empty %}<small>No hay guarniciones activas con stock y receta.</small>{% endfor %}</div><small class="admin-hint">Selecciona las opciones que podrán elegirse al pedir.</small><small class="admin-hint">Si el plato ya tiene arroz en su receta fija, retíralo para evitar descontarlo dos veces.</small></div>
+          {% endif %}
+          {% if not vista_cajera %}<input type="hidden" name="receta_enviada" value="1">{% endif %}
+          <div class="plato-recipe-editor" id="editar-plato-receta">
+            <div class="turn-card-heading"><div><p class="panel-kicker">Descuento de inventario</p><h3>Productos y cantidades por plato</h3></div><button type="button" class="btn btn-outline btn-sm" data-add-recipe-row="editar"><i class="fa-solid fa-plus"></i> Agregar producto</button></div>
+            <div id="editar-plato-receta-rows" class="plato-recipe-rows"></div>
+          </div>
+          <p id="aviso-permisos-plato" class="admin-hint" role="status" aria-live="polite"></p>
+          <div class="admin-modal-actions">{% if vista_cajera %}<button type="button" class="btn btn-danger btn-sm" disabled title="La cajera no puede eliminar platos" aria-describedby="aviso-permisos-plato"><i class="fa-solid fa-trash"></i> Eliminar (sin permiso)</button>{% else %}<button type="button" class="btn btn-danger btn-sm" id="btn-eliminar-plato"><i class="fa-solid fa-trash"></i> Eliminar</button>{% endif %}<span></span><button type="button" class="btn btn-outline btn-sm" data-close-plato>Cancelar</button><button type="submit" class="btn btn-primary btn-sm"><i class="fa-solid fa-floppy-disk"></i> Guardar cambios</button></div>
+        </form>
+        {% if not vista_cajera %}<form id="form-eliminar-plato" method="post" class="hidden">{% csrf_token %}</form>{% endif %}
+      </div>
+    </div>
+    <template id="recipe-row-template">
+      <div class="plato-recipe-row">
+        <select name="insumo_id[]" class="admin-input" aria-label="Producto de inventario">
+          <option value="">Seleccionar producto</option>
+          {% for i in insumos_disponibles %}<option value="{{ i.pk }}">{{ i.get_tipo_inventario_display }} · {{ i.nombre }} ({{ i.get_unidad_display }})</option>{% endfor %}
+        </select>
+        <input type="number" name="cantidad[]" step="0.001" min="0.001" class="admin-input" placeholder="Cantidad por plato" aria-label="Cantidad por plato">
+        <button type="button" class="btn btn-danger btn-sm" data-remove-recipe-row aria-label="Quitar producto"><i class="fa-solid fa-trash"></i></button>
+      </div>
+    </template>
+    <template id="guarnicion-recipe-row-template">
+      <div class="plato-recipe-row">
+        <select name="guarnicion_insumo_id[]" class="admin-input" aria-label="Producto de inventario"><option value="">Seleccionar producto</option>{% for i in insumos_disponibles %}<option value="{{ i.pk }}">{{ i.get_tipo_inventario_display }} · {{ i.nombre }} ({{ i.get_unidad_display }})</option>{% endfor %}</select>
+        <input type="number" name="guarnicion_cantidad[]" step="0.001" min="0.001" class="admin-input" placeholder="Cantidad por porción" aria-label="Cantidad por porción">
+        <button type="button" class="btn btn-danger btn-sm" data-remove-guarnicion-row aria-label="Quitar producto"><i class="fa-solid fa-trash"></i></button>
+      </div>
+    </template>
+
+    </div>
+    {% endif %}
+
+    {% if not vista_cajera and not admin_pagina or not vista_cajera and admin_pagina == 'configuracion' %}
+    <div id="admin-view-configuracion" class="admin-view {% if not admin_pagina %}admin-view-hidden{% endif %}" {% if not admin_pagina %}hidden{% endif %}>
+    <section class="admin-card categoria-panel" id="categorias">
+      <div class="turn-card-heading"><div class="turn-section-icon"><i class="fa-solid fa-tags"></i></div><div><p class="panel-kicker">Carta</p><h2>Categorías de la carta</h2></div><span class="admin-section-count">{{ categorias|length }} categorías</span></div>
+      <form method="post" action="{% url 'inventario:categoria_crear' %}" class="categoria-create-form">
+        {% csrf_token %}
+        <label for="nueva-categoria" class="sr-only">Nombre de la categoría</label>
+        <input id="nueva-categoria" type="text" name="nombre" placeholder="Ej. Bebidas, Carnes, Postres" class="admin-input" required maxlength="100">
+        <button type="submit" class="btn btn-primary"><i class="fa-solid fa-plus"></i> Agregar categoría</button>
+      </form>
+      <div class="categoria-admin-list">
+        {% for categoria in categorias %}
+        <div class="categoria-admin-row">
+        <form method="post" action="{% url 'inventario:categoria_editar' categoria.pk %}" class="categoria-edit-form">
+          {% csrf_token %}
+          <label class="sr-only" for="categoria-{{ categoria.pk }}">Nombre de {{ categoria.nombre }}</label>
+          <input id="categoria-{{ categoria.pk }}" type="text" name="nombre" value="{{ categoria.nombre }}" class="admin-input" required maxlength="100">
+          <button type="submit" class="btn btn-outline btn-sm" title="Guardar categoría"><i class="fa-solid fa-floppy-disk"></i> Guardar</button>
+        </form>
+        <form method="post" action="{% url 'inventario:categoria_eliminar' categoria.pk %}" onsubmit="return confirm('¿Eliminar la categoría {{ categoria.nombre|escapejs }}? Los platos se conservarán sin categoría.');">
+          {% csrf_token %}
+          <button type="submit" class="btn btn-danger btn-sm" title="Eliminar categoría"><i class="fa-solid fa-trash"></i> Eliminar</button>
+        </form>
+        </div>
+        {% empty %}<p class="admin-empty">Todavía no hay categorías creadas.</p>{% endfor %}
+      </div>
+    </section>
+
+    {% if insumos_por_clasificar %}
+    <section class="admin-card inventario-panel" id="inventario-por-clasificar">
+      <div class="turn-card-heading"><div class="turn-section-icon"><i class="fa-solid fa-circle-question"></i></div><div><p class="panel-kicker">Revisión inicial</p><h2>Productos por clasificar</h2></div><span class="admin-section-count">{{ insumos_por_clasificar.paginator.count }} productos</span></div>
+      <p class="admin-hint">Estos productos ya existían antes de separar los inventarios. Asígnalos a Cocina o Restaurante. Se conservan sus existencias, recetas y registros históricos.</p>
+      <div class="admin-table-wrap">
+        <table class="admin-table inventario-table"><thead><tr><th>Producto</th><th>Inventario</th><th>Categoría de inventario</th><th>Unidad</th><th>Existencia</th><th>Mínimo</th><th>Máximo</th><th>Acciones</th></tr></thead><tbody>
+          {% for i in insumos_por_clasificar %}
+          <tr>
+              <td><form id="clasificar-insumo-{{ i.pk }}" method="post" action="{% url 'inventario:insumo_editar' i.pk %}">{% csrf_token %}<input type="hidden" name="precio" value="{{ i.precio|unlocalize }}"><input type="hidden" name="costo" value="{{ i.costo|unlocalize }}"><input type="hidden" name="unidad" value="{{ i.unidad }}"></form><input form="clasificar-insumo-{{ i.pk }}" type="text" name="nombre" value="{{ i.nombre }}" maxlength="150" required class="admin-input-inline"></td>
+              <td><select form="clasificar-insumo-{{ i.pk }}" name="tipo_inventario" class="admin-input-inline" required><option value="">Selecciona</option><option value="cocina">Cocina</option><option value="restaurante">Restaurante</option></select></td>
+              <td><select form="clasificar-insumo-{{ i.pk }}" name="categoria_inventario" class="admin-input-inline"><option value="">Sin categoría</option>{% for categoria in categorias_inventario %}<option value="{{ categoria.pk }}">{{ categoria.get_tipo_display }} · {{ categoria.nombre }}</option>{% endfor %}</select></td>
+              <td>{{ i.get_unidad_display }}</td>
+              <td><input form="clasificar-insumo-{{ i.pk }}" type="number" name="stock_actual" step="0.001" max="99999999.999" value="{{ i.stock_actual|unlocalize }}" class="admin-input-inline"> <small>{{ i.get_unidad_display }}</small></td>
+              <td><input form="clasificar-insumo-{{ i.pk }}" type="number" name="stock_minimo" step="0.001" min="0" max="99999999.999" value="{{ i.stock_minimo|unlocalize }}" class="admin-input-inline"> <small>{{ i.get_unidad_display }}</small></td>
+              <td><input form="clasificar-insumo-{{ i.pk }}" type="number" name="stock_maximo" step="0.001" min="0" max="999999999.999" value="{{ i.stock_maximo|unlocalize }}" class="admin-input-inline"> <small>{{ i.get_unidad_display }}</small></td>
+              <td class="admin-actions"><button form="clasificar-insumo-{{ i.pk }}" type="submit" class="btn btn-outline btn-sm" title="Guardar clasificación"><i class="fa-solid fa-floppy-disk"></i></button></td>
+          </tr>
+          {% endfor %}
+        </tbody></table>
+      </div>
+      {% include 'includes/pagination.html' with page_obj=insumos_por_clasificar page_parameter='sin_clasificar_page' pagination_query=sin_clasificar_pagination_query pagination_anchor=sin_clasificar_pagination_anchor %}
+    </section>
+    {% endif %}
+
+    <section class="admin-card inventario-panel" id="movimientos-inventario">
+      <div class="turn-card-heading"><div class="turn-section-icon"><i class="fa-solid fa-arrow-right-arrow-left"></i></div><div><p class="panel-kicker">Trazabilidad</p><h2>Historial de movimientos</h2></div><span class="admin-section-count">{{ movimientos.paginator.count }} movimientos</span></div>
+      <form method="post" action="{% url 'inventario:movimiento_crear' %}" class="movimiento-form">
+        {% csrf_token %}
+        <select id="movimiento-insumo" name="insumo_id" class="admin-input" required><option value="">Producto</option>{% for i in insumos %}<option value="{{ i.id }}" data-unidad="{{ i.unidad }}" data-unidad-label="{{ i.get_unidad_display }}">{% if i.tipo_inventario %}{{ i.get_tipo_inventario_display }}{% else %}Por clasificar{% endif %} · {{ i.nombre }} ({{ i.get_unidad_display }})</option>{% endfor %}</select>
+        <select name="tipo" class="admin-input" required><option value="entrada">Entrada</option><option value="salida">Salida</option><option value="merma">Merma por rotura</option></select>
+        <input id="movimiento-cantidad" type="number" name="cantidad" step="0.001" min="0.001" placeholder="Cantidad" aria-label="Cantidad" class="admin-input" required>
+        <input type="text" name="motivo" placeholder="Motivo (opcional)" class="admin-input">
+        <button type="submit" class="btn btn-primary"><i class="fa-solid fa-plus-minus"></i> Registrar movimiento</button>
+      </form>
+      <div class="inventario-toolbar"><label class="inventario-search"><i class="fa-solid fa-magnifying-glass"></i><input id="movimientos-search" type="search" placeholder="Buscar en historial"></label><select id="movimientos-type-filter" class="admin-input"><option value="todos">Entradas, salidas y mermas</option><option value="entrada">Entradas</option><option value="salida">Salidas</option><option value="merma">Mermas por rotura</option></select></div>
+      <div class="admin-table-wrap"><table class="admin-table inventario-table movimientos-table" id="movimientos-table"><thead><tr><th>Fecha y hora</th><th>Inventario</th><th>Producto</th><th>Categoría</th><th>Tipo</th><th>Cantidad</th><th>Antes</th><th>Después</th><th>Responsable</th><th>Motivo</th></tr></thead><tbody>{% for movimiento in movimientos %}<tr data-movimiento-row data-type="{{ movimiento.tipo }}" data-search="{{ movimiento.producto_nombre|lower }} {{ movimiento.categoria_nombre|lower }} {{ movimiento.responsable_nombre|lower }}"><td>{{ movimiento.creado_en|date:'d/m/Y H:i' }}</td><td>{% if movimiento.tipo_inventario %}{{ movimiento.get_tipo_inventario_display }}{% else %}Histórico{% endif %}</td><td><strong>{{ movimiento.producto_nombre }}</strong><small>{{ movimiento.unidad }}</small></td><td>{{ movimiento.categoria_nombre }}</td><td><span class="movimiento-badge movimiento-{{ movimiento.tipo }}">{{ movimiento.get_tipo_display }}</span></td><td>{{ movimiento.cantidad }} {{ movimiento.unidad }}</td><td>{{ movimiento.stock_anterior }} {{ movimiento.unidad }}</td><td><strong>{{ movimiento.stock_posterior }} {{ movimiento.unidad }}</strong></td><td>{{ movimiento.responsable_nombre }}</td><td>{{ movimiento.motivo|default:'—' }}</td></tr>{% empty %}<tr><td colspan="10" class="admin-empty">Todavía no hay movimientos registrados.</td></tr>{% endfor %}</tbody></table></div>
+      {% include 'includes/pagination.html' with page_obj=movimientos page_parameter='movimientos_page' pagination_query=movimientos_pagination_query pagination_anchor=movimientos_pagination_anchor %}
+    </section>
+    {% endif %}
+
+    <!-- ── TASA DE CAMBIO ───────────────────────────────────── -->
+    </div>
+    {% for area in inventarios %}
+    {% if not admin_pagina or admin_pagina == area.tipo %}
+    <div id="admin-view-{{ area.tipo }}" class="admin-view {% if not admin_pagina %}admin-view-hidden{% endif %}" {% if not admin_pagina %}hidden{% endif %}>
+      <section class="admin-card categoria-panel" id="categorias-{{ area.tipo }}">
+        <div class="turn-card-heading"><div class="turn-section-icon"><i class="fa-solid fa-tags"></i></div><div><p class="panel-kicker">Inventario de {{ area.nombre }}</p><h2>Categorías de {{ area.nombre }}</h2></div><span class="admin-section-count">{{ area.categorias|length }} categorías</span></div>
+        <form method="post" action="{% url 'inventario:categoria_inventario_crear' area.tipo %}" class="categoria-create-form">
+          {% csrf_token %}
+          <label class="sr-only" for="nueva-categoria-{{ area.tipo }}">Nombre de categoría</label>
+          <input id="nueva-categoria-{{ area.tipo }}" type="text" name="nombre" placeholder="Nueva categoría de {{ area.nombre|lower }}" class="admin-input" required maxlength="100">
+          <button type="submit" class="btn btn-primary"><i class="fa-solid fa-plus"></i> Agregar categoría</button>
+        </form>
+        <div class="categoria-admin-list">
+          {% for categoria in area.categorias %}
+          <div class="categoria-admin-row">
+          <form method="post" action="{% url 'inventario:categoria_inventario_editar' area.tipo categoria.pk %}" class="categoria-edit-form">
+            {% csrf_token %}
+            <label class="sr-only" for="categoria-inventario-{{ categoria.pk }}">Nombre de {{ categoria.nombre }}</label>
+            <input id="categoria-inventario-{{ categoria.pk }}" type="text" name="nombre" value="{{ categoria.nombre }}" class="admin-input" required maxlength="100">
+            <button type="submit" class="btn btn-outline btn-sm" title="Guardar categoría"><i class="fa-solid fa-floppy-disk"></i> Guardar</button>
+          </form>
+          <form method="post" action="{% url 'inventario:categoria_inventario_eliminar' area.tipo categoria.pk %}" onsubmit="return confirm('¿Eliminar la categoría {{ categoria.nombre|escapejs }}? Los productos se conservarán sin categoría.');">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-danger btn-sm" title="Eliminar categoría"><i class="fa-solid fa-trash"></i> Eliminar</button>
+          </form>
+          </div>
+          {% empty %}<p class="admin-empty">Todavía no hay categorías para este inventario.</p>{% endfor %}
+        </div>
+      </section>
+      {% include 'administrador/_inventario_area.html' with area=area %}
+    </div>
+    {% endif %}
+    {% endfor %}
+
+  </div>
+</div>
+    </div>
+<div id="toast-container" class="toast-container"></div>
+  {% if not vista_cajera %}
+  <script>
+    function filtrarFilas(selector, searchId, filterId, textAttribute, typeAttribute) {
+      const search = document.getElementById(searchId);
+      const filter = document.getElementById(filterId);
+      if (!search || !filter) return;
+      const aplicar = () => {
+        const query = search.value.trim().toLowerCase();
+        const tipo = filter.value;
+        document.querySelectorAll(selector).forEach(row => {
+          const coincideTexto = !query || (row.dataset[textAttribute] || '').includes(query);
+          const coincideTipo = tipo === 'todos' || row.dataset[typeAttribute] === tipo;
+          row.hidden = !(coincideTexto && coincideTipo);
+        });
+      };
+      search.addEventListener('input', aplicar);
+      filter.addEventListener('change', aplicar);
+    }
+    document.querySelectorAll('[id^="inventario-search-"]').forEach(search => {
+      const tipo = search.id.replace('inventario-search-', '');
+      const filter = document.getElementById(`inventario-stock-filter-${tipo}`);
+      if (!filter) return;
+      const aplicar = () => {
+        const query = search.value.trim().toLowerCase();
+        document.querySelectorAll(`#inventario-${tipo} [data-inventario-row]`).forEach(row => {
+          const coincideTexto = !query || (row.dataset.search || '').includes(query);
+          const coincideStock = filter.value === 'todos' || row.dataset.stockState === filter.value;
+          row.hidden = !(coincideTexto && coincideStock);
+        });
+      };
+      search.addEventListener('input', aplicar);
+      filter.addEventListener('change', aplicar);
+    });
+    filtrarFilas('[data-movimiento-row]', 'movimientos-search', 'movimientos-type-filter', 'search', 'type');
+    const movimientoInsumo = document.getElementById('movimiento-insumo');
+    const movimientoCantidad = document.getElementById('movimiento-cantidad');
+    movimientoInsumo?.addEventListener('change', () => {
+      const unidad = movimientoInsumo.selectedOptions[0].dataset.unidadLabel;
+      movimientoCantidad.placeholder = unidad ? `Cantidad (${unidad})` : 'Cantidad';
+      movimientoCantidad.setAttribute('aria-label', movimientoCantidad.placeholder);
+    });
+  </script>
+  {% endif %}
+  <script>
+    const vistaCajera = {{ vista_cajera|yesno:"true,false" }};
+    const adminPagina = '{{ admin_pagina|default:"" }}';
+    function mostrarVistaAdmin(vista, desplazar = true) {
+      const vistas = vistaCajera ? ['carta'] : adminPagina ? [adminPagina] : ['configuracion', 'restaurante', 'cocina', 'carta'];
+      const vistaValida = vistas.includes(vista) ? vista : (vistaCajera ? 'carta' : 'configuracion');
+      vistas.forEach(nombre => {
+        const panel = document.getElementById(`admin-view-${nombre}`);
+        const oculto = nombre !== vistaValida;
+        panel.hidden = oculto;
+        panel.classList.toggle('admin-view-hidden', oculto);
+      });
+      const activa = 'admin-nav-btn w-full flex items-center gap-3 px-3 py-3 rounded-xl font-medium text-sm transition-all bg-emerald-500/10 text-emerald-400 border border-emerald-500/20';
+      const inactiva = 'admin-nav-btn w-full flex items-center gap-3 px-3 py-3 rounded-xl font-medium text-sm text-slate-400 hover:text-white hover:bg-slate-800/50 transition-all';
+      vistas.forEach(nombre => {
+        const navItem = document.getElementById(`nav-${nombre}`);
+        if (navItem) navItem.className = nombre === vistaValida ? activa : inactiva;
+      });
+      const titulos = {
+        configuracion: 'Configuración del administrador',
+        restaurante: 'Inventario de Restaurante',
+        cocina: 'Inventario de Cocina',
+        carta: 'Carta del restaurante',
+      };
+      const pageTitle = document.getElementById('page-view-title');
+      if (pageTitle) pageTitle.textContent = vistaCajera ? 'Gestión de Carta' : titulos[vistaValida];
+      const cartaHeaderNav = document.getElementById('carta-header-nav');
+      if (cartaHeaderNav) cartaHeaderNav.hidden = vistaValida !== 'carta';
+      if (desplazar) {
+        document.getElementById(`admin-view-${vistaValida}`).scrollIntoView({ behavior: 'smooth', block: 'start' });
+        if (location.hash !== `#${vistaValida}`) {
+          const hashVista = vistaValida === 'carta' ? '#carta-platos' : `#${vistaValida}`;
+          history.replaceState(null, '', hashVista);
+        }
+        if (vistaValida === 'carta') mostrarSeccionCarta('platos');
+      }
+    }
+
+    function mostrarSeccionCarta(seccion) {
+      const seccionValida = ['guarniciones', 'publicada'].includes(seccion) ? seccion : 'platos';
+      document.querySelectorAll('.carta-tab-panel').forEach(panel => {
+        panel.hidden = panel.id !== `carta-${seccionValida}`;
+      });
+      document.querySelectorAll('[data-carta-tab]').forEach(tab => {
+        const activa = tab.dataset.cartaTab === seccionValida;
+        tab.setAttribute('aria-selected', String(activa));
+        tab.tabIndex = activa ? 0 : -1;
+      });
+      const hashSeccion = `#carta-${seccionValida}`;
+      if (location.hash !== hashSeccion) history.replaceState(null, '', hashSeccion);
+    }
+
+    document.querySelectorAll('[data-carta-publicada-filter]').forEach(button => {
+      button.addEventListener('click', () => {
+        const tipo = button.dataset.cartaPublicadaFilter;
+        document.querySelectorAll('[data-carta-publicada-filter]').forEach(filtro => {
+          const activo = filtro === button;
+          filtro.classList.toggle('active', activo);
+          filtro.setAttribute('aria-pressed', String(activo));
+        });
+        document.querySelectorAll('[data-carta-publicada-section]').forEach(seccion => {
+          seccion.hidden = tipo !== 'todos' && seccion.dataset.cartaPublicadaSection !== tipo;
+        });
+      });
+    });
+
+    const hashInicial = location.hash.slice(1);
+    const vistaInicial = adminPagina || (vistaCajera ? 'carta' : hashInicial.includes('restaurante') ? 'restaurante'
+      : hashInicial.includes('cocina') ? 'cocina'
+      : hashInicial.includes('carta') ? 'carta'
+      : 'configuracion');
+    mostrarVistaAdmin(vistaInicial, false);
+    if (!adminPagina || adminPagina === 'carta' || vistaCajera) {
+      mostrarSeccionCarta(location.hash === '#carta-publicada' ? 'publicada'
+        : location.hash === '#carta-guarniciones' ? 'guarniciones' : 'platos');
+    }
+  </script>
+  {% if vista_cajera or not admin_pagina or admin_pagina == 'carta' %}
+  <script>
+    const modalPlato = document.getElementById('modal-editar-plato');
+    const formEditarPlato = document.getElementById('form-editar-plato');
+    const formEliminarPlato = document.getElementById('form-eliminar-plato');
+    const previewPlato = document.getElementById('plato-edit-image');
+    const recipeRowTemplate = document.getElementById('recipe-row-template');
+    const guarnicionRecipeRowTemplate = document.getElementById('guarnicion-recipe-row-template');
+    const buscarPlato = document.getElementById('carta-buscar-plato');
+    const filtrarCategoriaPlato = document.getElementById('carta-filtrar-categoria');
+    const filtrarTipoPlato = document.getElementById('carta-filtrar-tipo');
+    const filtrarStockBajo = document.getElementById('carta-solo-stock-bajo');
+    const tarjetasPlato = Array.from(document.querySelectorAll('#carta-lista-platos .carta-admin-item'));
+    const sinResultadosPlato = document.getElementById('carta-sin-resultados');
+    const resultadoFiltroPlato = document.getElementById('carta-filtro-resultado');
+    const normalizarTexto = texto => texto.toLocaleLowerCase('es').normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    function filtrarPlatosCarta() {
+      const texto = normalizarTexto(buscarPlato.value.trim());
+      const categoria = filtrarCategoriaPlato.value;
+      const tipo = filtrarTipoPlato.value;
+      const soloStockBajo = filtrarStockBajo.checked;
+      let visibles = 0;
+      let gruposVisibles = 0;
+
+      tarjetasPlato.forEach(plato => {
+        const coincideTexto = !texto || normalizarTexto(plato.dataset.nombre || '').includes(texto);
+        const coincideCategoria = !categoria || plato.dataset.categoria === categoria;
+        const coincideTipo = !tipo || plato.dataset.tipo === tipo;
+        const coincideStock = !soloStockBajo || plato.dataset.stockBajo === 'true';
+        const visible = coincideTexto && coincideCategoria && coincideTipo && coincideStock;
+        plato.hidden = !visible;
+        if (visible) visibles += 1;
+      });
+      document.querySelectorAll('[data-carta-category-group]').forEach(grupo => {
+        const tarjetas = grupo.querySelectorAll('.carta-admin-item');
+        const visiblesGrupo = Array.from(tarjetas).filter(plato => !plato.hidden).length;
+        grupo.hidden = visiblesGrupo === 0;
+        grupo.querySelector('[data-carta-category-count]').textContent = `${visiblesGrupo} de ${tarjetas.length} platos`;
+        if (visiblesGrupo) gruposVisibles += 1;
+      });
+
+      sinResultadosPlato.hidden = visibles > 0 || tarjetasPlato.length === 0;
+      resultadoFiltroPlato.textContent = tarjetasPlato.length
+        ? `Mostrando ${visibles} de ${tarjetasPlato.length} platos en ${gruposVisibles} categorías`
+        : '';
+    }
+    buscarPlato.addEventListener('input', filtrarPlatosCarta);
+    filtrarCategoriaPlato.addEventListener('change', filtrarPlatosCarta);
+    filtrarTipoPlato.addEventListener('change', filtrarPlatosCarta);
+    filtrarStockBajo.addEventListener('change', filtrarPlatosCarta);
+    filtrarPlatosCarta();
+
+    function agregarFilaReceta(container, recetaItem = null) {
+      const row = recipeRowTemplate.content.firstElementChild.cloneNode(true);
+      if (recetaItem) {
+        row.querySelector('select[name="insumo_id[]"]').value = recetaItem.insumo_id;
+        row.querySelector('input[name="cantidad[]"]').value = recetaItem.cantidad;
+      }
+      container.appendChild(row);
+      const form = container.closest('form');
+      const disponible = form.querySelector('input[name="disponible"]');
+      row.querySelectorAll('select, input').forEach(input => {
+        input.required = disponible.checked && form.dataset.recipeOptional !== 'true';
+      });
+    }
+    function configurarFormularioReceta(form, rows) {
+      const disponibilidad = form.querySelector('input[name="disponible"]');
+      const actualizarRequeridos = () => {
+        rows.querySelectorAll('select[name="insumo_id[]"], input[name="cantidad[]"]').forEach(input => {
+          input.required = disponibilidad.checked && form.dataset.recipeOptional !== 'true';
+        });
+      };
+      disponibilidad.addEventListener('change', actualizarRequeridos);
+      rows.addEventListener('click', event => {
+        const removeButton = event.target.closest('[data-remove-recipe-row]');
+        if (removeButton) {
+          removeButton.closest('.plato-recipe-row').remove();
+          actualizarRequeridos();
+        }
+      });
+      form.addEventListener('submit', event => {
+        if (disponibilidad.checked && form.dataset.recipeOptional !== 'true' && !rows.querySelector('.plato-recipe-row')) {
+          event.preventDefault();
+          alert('Agrega al menos un producto de inventario para publicar este plato.');
+        }
+      });
+      actualizarRequeridos();
+    }
+    const formCrearPlato = document.getElementById('form-crear-plato');
+    const rowsCrearPlato = document.getElementById('crear-plato-receta-rows');
+    agregarFilaReceta(rowsCrearPlato);
+    configurarFormularioReceta(formCrearPlato, rowsCrearPlato);
+    document.querySelector('[data-add-recipe-row="crear"]').addEventListener('click', () => agregarFilaReceta(rowsCrearPlato));
+    const rowsEditarPlato = document.getElementById('editar-plato-receta-rows');
+    configurarFormularioReceta(formEditarPlato, rowsEditarPlato);
+    document.querySelector('[data-add-recipe-row="editar"]').addEventListener('click', () => agregarFilaReceta(rowsEditarPlato));
+    function configurarSelectorGuarniciones(form, selectedIds = []) {
+      const toggle = form.querySelector('[data-guarniciones-toggle]');
+      const field = form.querySelector('[data-guarniciones-field]');
+      const selector = form.querySelector('[data-guarniciones-select]');
+      if (!toggle || !field || !selector) return;
+      selector.querySelectorAll('input[type="checkbox"]').forEach(option => {
+        option.checked = selectedIds.map(String).includes(option.value);
+      });
+      const actualizar = () => {
+        field.hidden = !toggle.checked;
+      };
+      toggle.onchange = actualizar;
+      actualizar();
+    }
+    configurarSelectorGuarniciones(formCrearPlato);
+    configurarSelectorGuarniciones(formEditarPlato);
+    [formCrearPlato, formEditarPlato].forEach(form => form.addEventListener('submit', event => {
+      const toggle = form.querySelector('[data-guarniciones-toggle]');
+      const selector = form.querySelector('[data-guarniciones-select]');
+      if (toggle && selector && toggle.checked && !selector.querySelector('input[type="checkbox"]:checked')) {
+        event.preventDefault();
+        alert('Selecciona al menos una guarnición incluida para este plato.');
+      }
+    }));
+    function agregarFilaRecetaGuarnicion(container, recetaItem = null) {
+      const row = guarnicionRecipeRowTemplate.content.firstElementChild.cloneNode(true);
+      row.querySelector('select[name="guarnicion_insumo_id[]"]').required = true;
+      row.querySelector('input[name="guarnicion_cantidad[]"]').required = true;
+      if (recetaItem) {
+        row.querySelector('select[name="guarnicion_insumo_id[]"]').value = recetaItem.insumo_id;
+        row.querySelector('input[name="guarnicion_cantidad[]"]').value = recetaItem.cantidad;
+      }
+      container.appendChild(row);
+    }
+    const formCrearGuarnicion = document.getElementById('form-crear-guarnicion');
+    const rowsCrearGuarnicion = document.getElementById('crear-guarnicion-receta-rows');
+    agregarFilaRecetaGuarnicion(rowsCrearGuarnicion);
+    document.querySelector('[data-add-guarnicion-row="crear"]').addEventListener('click', () => agregarFilaRecetaGuarnicion(rowsCrearGuarnicion));
+    document.querySelectorAll('[data-guarnicion-edit]').forEach(form => {
+      const rows = form.querySelector('.plato-recipe-rows');
+      JSON.parse(form.dataset.recipe || '[]').forEach(item => agregarFilaRecetaGuarnicion(rows, item));
+      form.querySelector('[data-add-guarnicion-row="editar"]').addEventListener('click', () => agregarFilaRecetaGuarnicion(rows));
+      form.addEventListener('click', event => {
+        const removeButton = event.target.closest('[data-remove-guarnicion-row]');
+        if (removeButton) removeButton.closest('.plato-recipe-row').remove();
+      });
+    });
+    [formCrearGuarnicion, ...document.querySelectorAll('[data-guarnicion-edit]')].forEach(form => form.addEventListener('click', event => {
+      const removeButton = event.target.closest('[data-remove-guarnicion-row]');
+      if (removeButton) removeButton.closest('.plato-recipe-row').remove();
+    }));
+    function abrirEdicionPlato(button) {
+      formEditarPlato.action = `/administrador/plato/${button.dataset.id}/editar/`;
+      if (formEliminarPlato) formEliminarPlato.action = `/administrador/plato/${button.dataset.id}/eliminar/`;
+      const esPlatoCocina = vistaCajera && button.dataset.destination === 'cocina';
+      document.querySelectorAll('[data-plato-edit-field]').forEach(field => {
+        const campo = field.dataset.platoEditField;
+        const bloqueado = vistaCajera && (campo === 'destino' || (esPlatoCocina && campo !== 'precio'));
+        field.querySelectorAll('input, select, textarea, button').forEach(control => {
+          control.disabled = bloqueado;
+          if (bloqueado) {
+            control.title = esPlatoCocina
+              ? 'Solo tienes permiso para modificar el precio de los platos de Cocina.'
+              : 'No tienes permiso para cambiar el área de preparación.';
+          } else {
+            control.removeAttribute('title');
+          }
+        });
+      });
+      document.getElementById('editar-plato-receta').querySelectorAll('input, select, button').forEach(control => {
+        control.disabled = esPlatoCocina;
+        if (esPlatoCocina) {
+          control.title = 'Solo tienes permiso para modificar el precio de los platos de Cocina.';
+        } else {
+          control.removeAttribute('title');
+        }
+      });
+      document.getElementById('aviso-permisos-plato').textContent = vistaCajera
+        ? esPlatoCocina
+          ? 'Permiso limitado: solo puedes cambiar el precio de los platos de Cocina. Los demás campos están deshabilitados.'
+          : 'Puedes modificar este plato de Restaurante, pero no eliminarlo ni cambiar su área de preparación.'
+        : '';
+      document.getElementById('edit-plato-nombre').value = button.dataset.name;
+      document.getElementById('edit-plato-categoria').value = button.dataset.category || '';
+      const selectorDestino = document.getElementById('edit-plato-destino');
+      if (selectorDestino) selectorDestino.value = button.dataset.destination || 'cocina';
+      const precioAtributo = (button.getAttribute('data-price') || '').trim();
+      const precioVisible = precioAtributo || button.closest('.carta-admin-item').querySelector('.carta-admin-price').textContent.replace(/[^0-9,.-]/g, '').trim();
+      const precioNormalizado = precioVisible.replace(',', '.');
+      document.getElementById('edit-plato-precio').value = Number(precioNormalizado || 0).toFixed(2);
+      document.getElementById('edit-plato-descripcion').value = button.dataset.description;
+      document.getElementById('edit-plato-disponible').checked = button.dataset.available === 'true';
+      const guarnicionesToggle = document.getElementById('edit-plato-trae-guarniciones');
+      if (guarnicionesToggle) {
+        guarnicionesToggle.checked = button.dataset.guarnicionesRequired === 'true';
+      }
+      configurarSelectorGuarniciones(formEditarPlato, JSON.parse(button.dataset.guarniciones || '[]'));
+      previewPlato.innerHTML = button.dataset.image ? `<img src="${button.dataset.image}" alt="${button.dataset.name}">` : '<i class="fa-solid fa-utensils"></i>';
+      rowsEditarPlato.replaceChildren();
+      JSON.parse(button.dataset.recipe || '[]').forEach(item => agregarFilaReceta(rowsEditarPlato, item));
+      rowsEditarPlato.querySelectorAll('select[name="insumo_id[]"], input[name="cantidad[]"]').forEach(input => {
+        input.required = document.getElementById('edit-plato-disponible').checked && formEditarPlato.dataset.recipeOptional !== 'true';
+      });
+      modalPlato.classList.add('visible');
+      modalPlato.setAttribute('aria-hidden', 'false');
+      document.getElementById(esPlatoCocina ? 'edit-plato-precio' : 'edit-plato-nombre').focus();
+    }
+    function cerrarEdicionPlato() { modalPlato.classList.remove('visible'); modalPlato.setAttribute('aria-hidden', 'true'); }
+    document.querySelectorAll('[data-edit-plato]').forEach(button => button.addEventListener('click', () => abrirEdicionPlato(button)));
+    tarjetasPlato.forEach(tarjeta => {
+      tarjeta.addEventListener('click', event => {
+        if (event.target.closest('button, a, input, select, textarea, label')) return;
+        tarjeta.querySelector('[data-edit-plato]').click();
+      });
+      tarjeta.addEventListener('keydown', event => {
+        if (event.target !== tarjeta || !['Enter', ' '].includes(event.key)) return;
+        event.preventDefault();
+        tarjeta.querySelector('[data-edit-plato]').click();
+      });
+    });
+    document.querySelectorAll('[data-close-plato]').forEach(button => button.addEventListener('click', cerrarEdicionPlato));
+    const botonEliminarPlato = document.getElementById('btn-eliminar-plato');
+    if (botonEliminarPlato) botonEliminarPlato.addEventListener('click', () => { if (confirm('¿Eliminar este producto de la carta?')) formEliminarPlato.submit(); });
+    formEditarPlato.querySelector('input[name="imagen"]').addEventListener('change', event => { const file = event.target.files[0]; if (file) previewPlato.innerHTML = `<img src="${URL.createObjectURL(file)}" alt="Vista previa">`; });
+    modalPlato.addEventListener('click', event => { if (event.target === modalPlato) cerrarEdicionPlato(); });
+    document.addEventListener('keydown', event => { if (event.key === 'Escape' && modalPlato.classList.contains('visible')) cerrarEdicionPlato(); });
+  </script>
+  {% endif %}
+  <script>
+    function actualizarReloj() { document.getElementById('clock-display').textContent = new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}); }
+    actualizarReloj();
+    setInterval(actualizarReloj, 30000);
+  </script>

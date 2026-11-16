@@ -32,7 +32,68 @@ class InventarioFlowTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, f'href="{reverse("usuarios:reportes")}"')
         self.assertContains(response, 'Reportes')
-        self.assertContains(response, 'id="nav-wifi"')
+        self.assertContains(response, f'id="nav-wifi" href="{reverse("inventario:wifi_qr")}"')
+
+    def test_admin_has_separate_pages_for_configuration_inventory_and_menu(self):
+        pages = (
+            ('configuracion_admin', 'configuracion', 'admin-view-configuracion', 'Categorías de la carta'),
+            ('restaurante_admin', 'restaurante', 'admin-view-restaurante', 'Inventario del Restaurante'),
+            ('cocina_admin', 'cocina', 'admin-view-cocina', 'Inventario de Cocina'),
+            ('carta_admin', 'carta', 'admin-view-carta', 'Platos y productos'),
+        )
+        for route_name, page, panel_id, content in pages:
+            with self.subTest(section=page):
+                response = self.client.get(reverse(f'inventario:{route_name}'))
+
+                self.assertEqual(response.status_code, 200)
+                self.assertTemplateUsed(response, 'administrador/base_admin.html')
+                content_template = (
+                    'administrador/_admin_content_carta.html'
+                    if page == 'carta'
+                    else 'administrador/_admin_content_configuracion.html'
+                    if page == 'configuracion'
+                    else 'administrador/_admin_content_cocina.html'
+                    if page in {'cocina', 'restaurante'}
+                    else 'administrador/_admin_content_management.html'
+                )
+                self.assertTemplateUsed(response, content_template)
+                self.assertContains(response, content)
+                self.assertContains(response, f'id="{panel_id}"')
+                self.assertContains(response, 'aria-current="page"')
+                if page == 'carta':
+                    self.assertContains(response, f'action="{reverse("inventario:plato_crear")}"')
+                    self.assertContains(response, f'action="{reverse("inventario:guarnicion_crear")}"')
+                    self.assertContains(response, 'id="panel-publicada"')
+                    self.assertContains(response, 'id="admin-sidebar"')
+                    self.assertContains(response, 'id="admin-menu"')
+                    self.assertContains(response, 'id="nav-carta"')
+                    self.assertContains(response, f'href="{reverse("inventario:wifi_qr")}"')
+                    self.assertNotContains(response, 'Ropa vieja')
+                if page == 'configuracion':
+                    self.assertContains(response, f'action="{reverse("inventario:categoria_crear")}"')
+                    self.assertContains(response, f'action="{reverse("inventario:movimiento_crear")}"')
+                    self.assertContains(response, f'data-url="{reverse("inventario:categoria_editar", args=[self.categoria.pk])}"')
+                    self.assertContains(response, f'action="{reverse("inventario:categoria_eliminar", args=[self.categoria.pk])}"')
+                    self.assertContains(response, f'action="{reverse("inventario:categoria_alternar_visibilidad", args=[self.categoria.pk])}"')
+                    self.assertContains(response, f'action="{reverse("inventario:categoria_mover", args=[self.categoria.pk])}"')
+                    self.assertContains(response, 'Pollo')
+                    self.assertContains(response, 'Arroz')
+                if page in {'cocina', 'restaurante'}:
+                    self.assertContains(response, f'action="{reverse("inventario:categoria_inventario_crear", args=[page])}"')
+                    self.assertContains(response, f'action="{reverse("inventario:insumo_crear")}"')
+                    self.assertContains(response, 'id="dProd"')
+                    self.assertContains(response, f'name="tipo_inventario" value="{page}"')
+                    if page == 'restaurante':
+                        self.assertContains(response, 'name="precio"')
+                        self.assertContains(response, 'Precio de venta (CUP por unidad)')
+                for other_panel in (
+                    'admin-view-configuracion',
+                    'admin-view-restaurante',
+                    'admin-view-cocina',
+                    'admin-view-carta',
+                ):
+                    if other_panel != panel_id:
+                        self.assertNotContains(response, f'id="{other_panel}"')
 
     def test_cashier_can_open_menu_and_inventory_entry(self):
         cajera = get_user_model().objects.create_user(
@@ -131,7 +192,7 @@ class InventarioFlowTests(TestCase):
         })
 
         self.assertEqual(response_guarnicion.status_code, 302)
-        self.assertEqual(response_guarnicion.url, '/administrador/#carta-guarniciones')
+        self.assertEqual(response_guarnicion.url, '/administrador/carta/#carta-guarniciones')
         guarnicion = Guarnicion.objects.get(nombre='Arroz blanco')
         response_plato = self.client.post(reverse('inventario:plato_crear'), {
             'categoria': self.categoria.pk,
@@ -173,7 +234,121 @@ class InventarioFlowTests(TestCase):
         )
 
         self.assertEqual(response.status_code, 302)
-        self.assertEqual(response.url, '/administrador/#carta-guarniciones')
+        self.assertEqual(response.url, '/administrador/carta/#carta-guarniciones')
+
+    def test_admin_can_delete_guarnicion(self):
+        guarnicion = Guarnicion.objects.create(nombre='Papas fritas')
+
+        response = self.client.post(
+            reverse('inventario:guarnicion_eliminar', args=[guarnicion.pk]),
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.url, '/administrador/carta/#carta-guarniciones')
+        self.assertFalse(Guarnicion.objects.filter(pk=guarnicion.pk).exists())
+
+    def test_admin_can_toggle_guarnicion_state(self):
+        guarnicion = Guarnicion.objects.create(nombre='Papas fritas', activa=True)
+
+        response = self.client.post(
+            reverse('inventario:guarnicion_alternar_estado', args=[guarnicion.pk]),
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.url, '/administrador/carta/#carta-guarniciones')
+        guarnicion.refresh_from_db()
+        self.assertFalse(guarnicion.activa)
+
+    def test_admin_can_toggle_dish_availability_with_a_valid_recipe(self):
+        plato = Plato.objects.create(
+            categoria=self.categoria,
+            nombre='Pollo con arroz',
+            precio='25.00',
+            destino='cocina',
+            disponible=False,
+        )
+        RecetaItem.objects.create(
+            plato=plato,
+            insumo=self.insumo_1,
+            cantidad='0.250',
+        )
+
+        response = self.client.post(
+            reverse('inventario:plato_alternar_disponibilidad', args=[plato.pk]),
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.url, '/administrador/carta/#carta-platos')
+        plato.refresh_from_db()
+        self.assertTrue(plato.disponible)
+
+    def test_admin_cannot_toggle_dish_available_without_a_recipe(self):
+        plato = Plato.objects.create(
+            categoria=self.categoria,
+            nombre='Pollo sin receta',
+            precio='25.00',
+            destino='cocina',
+            disponible=False,
+        )
+
+        response = self.client.post(
+            reverse('inventario:plato_alternar_disponibilidad', args=[plato.pk]),
+        )
+
+        self.assertEqual(response.status_code, 302)
+        plato.refresh_from_db()
+        self.assertFalse(plato.disponible)
+
+    def test_carta_uses_dialogs_for_creating_and_editing(self):
+        guarnicion = Guarnicion.objects.create(nombre='Papas fritas')
+        GuarnicionRecetaItem.objects.create(
+            guarnicion=guarnicion,
+            insumo=self.insumo_1,
+            cantidad='0.150',
+        )
+        plato = Plato.objects.create(
+            categoria=self.categoria,
+            nombre='Pollo con papas',
+            precio='25.00',
+            destino='cocina',
+            trae_guarniciones_incluidas=True,
+        )
+        plato.guarniciones_incluidas.add(guarnicion)
+        RecetaItem.objects.create(
+            plato=plato,
+            insumo=self.insumo_2,
+            cantidad='0.250',
+        )
+
+        response = self.client.get(reverse('inventario:carta_admin'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, '<dialog id="createG"')
+        self.assertContains(response, '<dialog id="editG"')
+        self.assertContains(response, '<dialog id="createI"')
+        self.assertContains(response, '<dialog id="editI"')
+        self.assertContains(response, 'data-edit-garnish')
+        self.assertContains(response, 'data-edit-item')
+        self.assertContains(response, 'dialog{position:fixed;top:50%;left:50%;')
+        self.assertContains(response, 'class="carta-items-table w-full text-left text-sm"')
+        self.assertContains(response, 'Tipo y categoría')
+        self.assertContains(response, 'Disponible en carta')
+        self.assertNotContains(response, '<th scope="col">Disponible</th>')
+        self.assertContains(response, 'role="switch"')
+        self.assertContains(
+            response,
+            f'action="{reverse("inventario:plato_alternar_disponibilidad", args=[plato.pk])}"',
+        )
+        self.assertContains(
+            response,
+            f'data-url="{reverse("inventario:guarnicion_editar", args=[guarnicion.pk])}"',
+        )
+        self.assertContains(
+            response,
+            f'data-url="{reverse("inventario:plato_editar", args=[plato.pk])}"',
+        )
+        self.assertContains(response, 'data-recipe="[{&quot;insumo_id&quot;:')
+        self.assertNotContains(response, 'data-item-edit-row')
 
     def test_django_admin_inventory_form_validates_field_limits(self):
         form = InsumoAdminForm()
@@ -219,25 +394,82 @@ class InventarioFlowTests(TestCase):
         self.assertEqual(response.status_code, 302)
         self.assertTrue(Categoria.objects.filter(nombre='Bebidas').exists())
 
+    def test_admin_can_toggle_category_visibility_from_configuration(self):
+        response = self.client.post(
+            reverse('inventario:categoria_alternar_visibilidad', args=[self.categoria.pk]),
+        )
+
+        self.assertEqual(response.url, f'{reverse("inventario:configuracion_admin")}#categorias')
+        self.categoria.refresh_from_db()
+        self.assertFalse(self.categoria.visible)
+
+    def test_admin_can_reorder_categories_from_configuration(self):
+        otra_categoria = Categoria.objects.create(nombre='Bebidas', orden=2)
+
+        response = self.client.post(
+            reverse('inventario:categoria_mover', args=[otra_categoria.pk]),
+            {'direccion': 'up'},
+        )
+
+        self.assertEqual(response.url, f'{reverse("inventario:configuracion_admin")}#categorias')
+        self.categoria.refresh_from_db()
+        otra_categoria.refresh_from_db()
+        self.assertEqual(otra_categoria.orden, 1)
+        self.assertEqual(self.categoria.orden, 2)
+
+    def test_configuration_shows_real_inventory_movement_data(self):
+        MovimientoInventario.objects.create(
+            insumo=self.insumo_1,
+            producto_nombre='Pollo',
+            categoria_nombre='Carnes',
+            tipo='entrada',
+            cantidad=Decimal('2.500'),
+            stock_anterior=Decimal('10.000'),
+            stock_posterior=Decimal('12.500'),
+            unidad='kg',
+            usuario=self.admin,
+            motivo='Recepción de proveedor',
+        )
+
+        response = self.client.get(reverse('inventario:configuracion_admin'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'data-type="entrada"')
+        self.assertContains(response, 'Pollo')
+        self.assertContains(response, 'Carnes')
+        self.assertContains(response, 'Recepción de proveedor')
+        self.assertContains(response, '12,500')
+
     def test_admin_can_configure_wifi_and_view_its_qr(self):
         response = self.client.post(
             reverse('inventario:configurar_wifi'),
             {'ssid': 'WiFi del local', 'password': 'clave-segura'},
         )
 
-        self.assertRedirects(response, f'{reverse("inventario:administrador")}#wifi')
+        self.assertRedirects(response, reverse('inventario:wifi_qr'))
         configuracion = ConfiguracionWifi.objects.get(pk=1)
         self.assertEqual(configuracion.ssid, 'WiFi del local')
         self.assertEqual(configuracion.password, 'clave-segura')
 
-        response = self.client.get(
-            reverse('inventario:administrador'),
-            HTTP_HOST='192.168.1.25:8765',
-        )
+        response = self.client.get(reverse('inventario:wifi_qr'), HTTP_HOST='192.168.1.25:8765')
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'id="nav-wifi"')
-        self.assertContains(response, 'id="admin-view-wifi"')
+        self.assertTemplateUsed(response, 'administrador/base_admin.html')
+        self.assertTemplateUsed(response, 'administrador/_admin_head_wifi.html')
+        self.assertTemplateUsed(response, 'administrador/_admin_content_wifi.html')
+        self.assertContains(response, '#admin-sidebar nav a{')
+        self.assertContains(response, '#admin-sidebar nav a i{width:1rem;text-align:center;flex-shrink:0;line-height:1.25rem}')
+        self.assertNotContains(response, '#reports-sidebar nav a{')
+        self.assertNotContains(response, '.reports-sidebar{position:')
+        self.assertContains(response, '.wifi-print-content::-webkit-scrollbar')
+        self.assertNotContains(response, '\n    ::-webkit-scrollbar{')
+        self.assertContains(response, 'class="wifi-page-intro"')
+        self.assertContains(response, 'data-qr-card="wifi"')
+        self.assertContains(response, 'data-qr-card="sistema"')
+        self.assertContains(response, 'id="eye"')
+        self.assertContains(response, 'id="copyUrl"')
+        self.assertContains(response, 'id="wifi-copy-status"')
         self.assertContains(response, 'alt="Código QR para conectarse a la red Wi-Fi WiFi del local"')
         self.assertContains(response, 'alt="Código QR para abrir el sistema en http://192.168.1.25:8765/"')
         self.assertContains(response, 'http://192.168.1.25:8765/')
@@ -256,7 +488,7 @@ class InventarioFlowTests(TestCase):
             {'ssid': 'WiFi del local', 'password': 'corta'},
         )
 
-        self.assertRedirects(response, f'{reverse("inventario:administrador")}#wifi')
+        self.assertRedirects(response, reverse('inventario:wifi_qr'))
         self.assertFalse(ConfiguracionWifi.objects.exists())
 
     def test_admin_can_rename_a_category(self):
@@ -330,6 +562,77 @@ class InventarioFlowTests(TestCase):
         categoria.refresh_from_db()
         self.assertEqual(categoria.nombre, 'Vegetales frescos')
 
+    def test_cocina_page_shows_real_inventory_metrics_and_product_state(self):
+        categoria = CategoriaInventario.objects.create(tipo='cocina', nombre='Proteínas')
+        self.insumo_1.tipo_inventario = 'cocina'
+        self.insumo_1.categoria_inventario = categoria
+        self.insumo_1.stock_actual = Decimal('1.000')
+        self.insumo_1.stock_minimo = Decimal('2.000')
+        self.insumo_1.stock_maximo = Decimal('5.000')
+        self.insumo_1.costo = Decimal('4.00')
+        self.insumo_1.save()
+
+        response = self.client.get(reverse('inventario:cocina_admin'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context['inventario_kpis']['productos'], 1)
+        self.assertEqual(response.context['inventario_kpis']['valor'], Decimal('4'))
+        self.assertEqual(response.context['inventario_kpis']['bajos'], 1)
+        self.assertContains(response, 'data-state="low"')
+        self.assertContains(response, 'Proteínas')
+        self.assertContains(response, 'Pollo')
+
+    def test_restaurante_page_shows_real_inventory_and_keeps_sale_price_editable(self):
+        categoria = CategoriaInventario.objects.create(tipo='restaurante', nombre='Cervezas')
+        self.insumo_2.tipo_inventario = 'restaurante'
+        self.insumo_2.categoria_inventario = categoria
+        self.insumo_2.unidad = 'unidad'
+        self.insumo_2.stock_actual = Decimal('2.000')
+        self.insumo_2.stock_minimo = Decimal('3.000')
+        self.insumo_2.stock_maximo = Decimal('8.000')
+        self.insumo_2.costo = Decimal('3.00')
+        self.insumo_2.precio = Decimal('12.50')
+        self.insumo_2.save()
+
+        response = self.client.get(reverse('inventario:restaurante_admin'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context['inventario_kpis']['productos'], 1)
+        self.assertEqual(response.context['inventario_kpis']['valor'], Decimal('6'))
+        self.assertEqual(response.context['inventario_kpis']['bajos'], 1)
+        self.assertContains(response, 'Almacén del restaurante')
+        self.assertContains(response, 'Categorías del Restaurante')
+        self.assertContains(response, 'fa-beer-mug-empty')
+        self.assertContains(response, 'data-price="12.50"')
+        self.assertContains(response, 'name="precio"')
+        self.assertContains(
+            response,
+            f'action="{reverse("inventario:categoria_inventario_crear", args=["restaurante"])}"',
+        )
+
+    def test_inventory_product_create_respects_active_switch_and_legacy_default(self):
+        for nombre, datos, activo_esperado in (
+            ('Producto activo por defecto', {}, True),
+            ('Producto inactivo', {'activo': 'off'}, False),
+        ):
+            payload = {
+                'tipo_inventario': 'cocina',
+                'nombre': nombre,
+                'unidad': 'kg',
+                'costo': '2.50',
+                'stock_actual': '0',
+                'stock_minimo': '1',
+                'stock_maximo': '10',
+                'precio': '0',
+                **datos,
+            }
+            response = self.client.post(reverse('inventario:insumo_crear'), payload)
+
+            self.assertEqual(response.status_code, 302)
+            insumo = Insumo.objects.get(nombre=nombre)
+            self.assertEqual(insumo.activo, activo_esperado)
+            self.assertEqual(insumo.disponible, activo_esperado)
+
     def test_admin_can_delete_inventory_categories_without_deleting_products(self):
         for tipo, insumo in (
             ('cocina', self.insumo_1),
@@ -378,22 +681,16 @@ class InventarioFlowTests(TestCase):
         self.assertContains(response, 'id="admin-view-restaurante"')
         self.assertContains(response, 'id="nav-configuracion"')
         self.assertContains(response, 'id="nav-carta"')
-        self.assertContains(response, 'id="carta-header-nav"')
-        self.assertContains(response, 'data-carta-tab="guarniciones"')
-        self.assertContains(response, 'data-carta-tab="platos"')
-        self.assertContains(response, 'Platos y productos')
-        self.assertContains(response, 'data-carta-tab="publicada"')
+        self.assertContains(response, 'id="admin-sidebar"')
+        self.assertContains(response, 'id="admin-menu"')
+        self.assertContains(response, 'Gestionar platos')
         self.assertContains(response, 'Carta publicada')
         self.assertContains(response, 'id="carta-guarniciones"')
         self.assertContains(response, 'data-carta-publicada-filter="guarniciones"')
         self.assertContains(response, 'data-carta-publicada-section="guarniciones"')
         self.assertContains(response, 'id="carta-lista-platos"')
-        self.assertContains(response, 'function mostrarSeccionCarta(seccion)')
-        self.assertContains(response, 'panel.hidden = panel.id !== `carta-${seccionValida}`')
-        self.assertContains(response, 'history.replaceState(null, \'\', hashSeccion)')
-        self.assertContains(response, "hashInicial.includes('carta')")
-        self.assertContains(response, 'id="admin-view-cocina" class="admin-view admin-view-hidden"')
-        self.assertContains(response, 'id="admin-view-restaurante" class="admin-view admin-view-hidden"')
+        self.assertContains(response, 'id="admin-view-cocina"')
+        self.assertContains(response, 'id="admin-view-restaurante"')
         self.assertContains(response, 'Productos por clasificar')
         self.assertContains(
             response,
@@ -855,7 +1152,7 @@ class InventarioFlowTests(TestCase):
         })
 
         self.assertEqual(response.status_code, 302)
-        self.assertEqual(response.url, '/administrador/#inventario-cocina')
+        self.assertEqual(response.url, '/administrador/cocina/')
         self.insumo_1.refresh_from_db()
         self.assertEqual(self.insumo_1.stock_actual, 14.50)
         movimiento = MovimientoInventario.objects.get(insumo=self.insumo_1)
@@ -873,7 +1170,7 @@ class InventarioFlowTests(TestCase):
         })
 
         self.assertEqual(response.status_code, 302)
-        self.assertEqual(response.url, '/administrador/#movimientos-inventario')
+        self.assertEqual(response.url, '/administrador/configuracion/#movimientos-inventario')
         self.insumo_1.refresh_from_db()
         self.assertEqual(self.insumo_1.stock_actual, Decimal('8.75'))
         movimiento = MovimientoInventario.objects.get(insumo=self.insumo_1)

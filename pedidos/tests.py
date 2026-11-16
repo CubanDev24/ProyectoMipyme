@@ -1563,6 +1563,14 @@ class FacturaWorkflowTests(TestCase):
             call.args[0] == 'caja' and call.args[1]['type'] == 'factura_solicitada'
             for call in mesera.channel_layer.group_send.await_args_list
         ))
+        actualizacion_cliente = next(
+            call.args[1]['pedido']
+            for call in mesera.channel_layer.group_send.await_args_list
+            if call.args[0] == f'cliente_{self.mesa.numero}'
+            and call.args[1]['type'] == 'pedido_actualizado'
+        )
+        self.assertTrue(actualizacion_cliente['cuenta_solicitada'])
+        self.assertIn(self.pedido.pk, actualizacion_cliente['pedido_ids'])
 
     def test_websocket_mesera_exige_comprobante_para_transferencia_y_pago_mixto(self):
         self.pedido.estado = 'servido'
@@ -2212,6 +2220,68 @@ class FacturaWorkflowTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, '60.00')
         self.assertContains(response, '10.00')
+
+    def test_factura_mixta_impresa_muestra_efectivo_recibido_y_cambio(self):
+        factura = Factura.objects.create(
+            pedido=self.pedido,
+            mesa_numero=self.mesa.numero,
+            forma_pago='mixto',
+            total_cup='50.00',
+            monto_efectivo_cup='25.00',
+            monto_transferencia_cup='25.00',
+            monto_recibido_cup='40.00',
+            cambio_cup='15.00',
+            items_snapshot=[],
+        )
+
+        response = self.client.get(reverse('pedidos:factura_imprimir_web', args=[factura.pk]))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, '25.00')
+        self.assertContains(response, '40.00')
+        self.assertContains(response, '15.00')
+
+    def test_caja_registra_pago_mixto_con_montos_variables_y_calcula_cambio(self):
+        self.pedido.estado = 'servido'
+        self.pedido.cuenta_solicitada = True
+        self.pedido.save(update_fields=['estado', 'cuenta_solicitada'])
+
+        caja = CajaConsumer()
+        caja.scope = {'user': None}
+        caja.channel_layer = AsyncMock()
+        caja.send = AsyncMock()
+        for transferencia, recibido, mensaje in (
+            (None, '40.00', 'transferencia'),
+            ('50.00', '40.00', 'mayor que cero y menor'),
+            ('25.00', '24.99', 'parte de efectivo'),
+        ):
+            with self.subTest(transferencia=transferencia, recibido=recibido):
+                factura, error = async_to_sync(caja.cerrar_pedido_con_pago)(
+                    self.pedido.pk,
+                    'mixto',
+                    None,
+                    recibido,
+                    monto_transferencia_cup_raw=transferencia,
+                )
+                self.assertIsNone(factura)
+                self.assertIn(mensaje, error)
+
+        async_to_sync(caja.receive)(json.dumps({
+            'accion': 'cerrar_pedido',
+            'pedido_id': self.pedido.pk,
+            'forma_pago': 'mixto',
+            'monto_transferencia_cup': '25.00',
+            'monto_recibido_cup': '40.00',
+        }))
+
+        factura = Factura.objects.get(pedido=self.pedido)
+        self.assertEqual(factura.monto_transferencia_cup, Decimal('25.00'))
+        self.assertEqual(factura.monto_efectivo_cup, Decimal('25.00'))
+        self.assertEqual(factura.monto_recibido_cup, Decimal('40.00'))
+        self.assertEqual(factura.cambio_cup, Decimal('15.00'))
+        respuesta = json.loads(caja.send.await_args.kwargs['text_data'])
+        self.assertEqual(respuesta['tipo'], 'factura_registrada')
+        self.assertEqual(respuesta['factura']['cambio_cup'], '15.00')
 
     def test_caja_exige_importe_recibido_y_no_cierra_con_pago_insuficiente(self):
         self.pedido.estado = 'servido'

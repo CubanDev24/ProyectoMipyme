@@ -79,7 +79,8 @@ con el botón **Imprimir QR**.
 6. **Caja** en `/pedidos/caja/` ve la cuenta agrupada, la selecciona, revisa el total y
    elige la forma de pago:
    - **Efectivo CUP** o **Transferencia**: se cobra el total completo en esa modalidad.
-   - **Mixto**: la mitad del total en efectivo CUP y la otra mitad por transferencia.
+   - **Mixto**: Caja indica el importe aceptado por transferencia y el efectivo
+     recibido; el sistema calcula cuánto cobrar en efectivo y el cambio.
    - **USD**: se indica la tasa de cambio (precargada desde Administrador, editable)
      y el sistema calcula el monto a cobrar en dólares a partir del total en CUP.
 
@@ -210,3 +211,6 @@ con el botón **Imprimir QR**.
 - La eliminación de guarniciones no está implementada; en su lugar, el administrador puede activar o desactivar si están disponibles para elegir.
 - El IPV incluye automáticamente todos los productos disponibles en la carta y actualiza las ventas y el importe acumulado durante el turno. Se quitaron las columnas de saldo inicial, entradas, disponible y saldo final; los rechazos se muestran en una tabla separada debajo del IPV.
 - En Estadísticas de Caja, la lista de salidas y existencias se puede filtrar automáticamente por nombre de producto mientras se escribe, ignorando mayúsculas y tildes.
+
+**16-11-2026 hecho por CubanDev24**
+- Se actualizaron las vistas administrativas, el inventario y los reportes, y se flexibilizó el pago mixto para registrar importes variables de transferencia y calcular el cambio en Caja y en la factura.

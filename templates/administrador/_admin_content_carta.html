@@ -1,0 +1,620 @@
+{% load static l10n %}
+<div id="admin-view-carta" class="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8 space-y-6">
+
+  <!-- TÍTULO -->
+  <div class="no-print">
+    <h1 class="text-2xl font-bold text-white tracking-tight">Carta</h1>
+    <p class="text-slate-400 mt-1">Gestiona las guarniciones y los platos y consulta la vista de la carta para tus clientes.</p>
+  </div>
+  {% if messages %}
+  <div class="space-y-2" role="status" aria-live="polite">
+    {% for message in messages %}
+    <div class="flex items-center gap-2 rounded-lg border px-4 py-3 text-xs {% if message.tags == 'error' %}border-red-500/30 bg-red-500/10 text-red-200{% else %}border-emerald-500/30 bg-emerald-500/10 text-emerald-200{% endif %}"><i class="fa-solid {% if message.tags == 'error' %}fa-circle-exclamation{% else %}fa-circle-check{% endif %}"></i>{{ message }}</div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <!-- RESUMEN -->
+  <section aria-label="Resumen de la carta" class="no-print">
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-3" id="kpis">
+      <article class="kpi"><div class="flex items-center gap-2.5"><span class="kic"><i class="fa-solid fa-utensils"></i></span><span class="text-xs text-slate-400">Platos y productos</span></div><p class="num mt-3 text-2xl font-bold tracking-tight text-white">{{ platos|length }}</p><p class="text-xs text-slate-500 mt-1">elementos registrados</p></article>
+      <article class="kpi hi"><div class="flex items-center gap-2.5"><span class="kic"><i class="fa-solid fa-book-open"></i></span><span class="text-xs text-slate-400">Disponibles</span></div><p class="num mt-3 text-2xl font-bold tracking-tight text-emerald-300">{{ platos_disponibles_count }}</p><p class="text-xs text-slate-500 mt-1">{{ platos_no_disponibles_count }} no disponibles</p></article>
+      <article class="kpi"><div class="flex items-center gap-2.5"><span class="kic"><i class="fa-solid fa-bowl-rice"></i></span><span class="text-xs text-slate-400">Guarniciones activas</span></div><p class="num mt-3 text-2xl font-bold tracking-tight text-white">{{ guarniciones_activas|length }}</p><p class="text-xs text-slate-500 mt-1">de {{ guarniciones|length }} registradas</p></article>
+      <article class="kpi hi"><div class="flex items-center gap-2.5"><span class="kic"><i class="fa-solid fa-cloud-arrow-up"></i></span><span class="text-xs text-slate-400">Vista para clientes</span></div><p class="num mt-3 text-2xl font-bold tracking-tight text-emerald-300">{{ carta_publicada_count }}</p><p class="text-xs text-slate-500 mt-1">opciones disponibles</p></article>
+    </div>
+  </section>
+
+  <!-- SUBSECCIONES -->
+  <div role="tablist" aria-label="Subsecciones de la carta" id="tabs" class="no-print tabs-wrap flex gap-1 overflow-x-auto">
+    <button type="button" role="tab" id="tab-guarniciones" aria-controls="panel-guarniciones" aria-selected="true" class="tab"><i class="fa-solid fa-bowl-rice"></i>Guarniciones<span class="cnt num" id="c-guarniciones">{{ guarniciones|length }}</span></button>
+    <button type="button" role="tab" id="tab-platos" aria-controls="panel-platos" aria-selected="false" tabindex="-1" class="tab"><i class="fa-solid fa-utensils"></i>Platos y productos<span class="cnt num" id="c-platos">{{ platos|length }}</span></button>
+    <button type="button" role="tab" id="tab-publicada" aria-controls="panel-publicada" aria-selected="false" tabindex="-1" class="tab"><i class="fa-solid fa-cloud-arrow-up"></i>Carta publicada<span class="cnt num" id="c-publicada">{{ carta_publicada_count }}</span></button>
+  </div>
+
+  <!-- ================= GUARNICIONES ================= -->
+  <div role="tabpanel" id="panel-guarniciones" aria-labelledby="tab-guarniciones" class="space-y-4">
+    <section class="card no-print" aria-labelledby="t-guarn">
+      <div class="flex flex-wrap items-start justify-between gap-3">
+        <div class="min-w-0">
+          <h2 id="t-guarn" class="card-t !mb-1"><i class="fa-solid fa-bowl-rice"></i>Guarniciones</h2>
+          <p class="text-xs text-slate-400">Se asignan a los platos y su receta se descuenta del inventario cuando el pedido se sirve.</p>
+        </div>
+        <button type="button" id="newG" class="btn-p"><i class="fa-solid fa-plus"></i>Nueva guarnición</button>
+      </div>
+      <div class="flex flex-wrap items-center justify-between gap-3 mt-4 pt-4 border-t border-line">
+        <div class="relative w-full sm:max-w-xs">
+          <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-xs"></i>
+          <label for="qg" class="sr-only">Buscar guarnición</label>
+          <input id="qg" type="search" placeholder="Buscar guarnición" class="fld !pl-8" autocomplete="off">
+        </div>
+        <p id="countG" class="num text-xs text-slate-400" aria-live="polite"></p>
+      </div>
+    </section>
+
+    <div id="listG" class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+      {% for guarnicion in guarniciones %}
+      <article class="card !p-4 flex flex-col gap-3" data-garnish data-search="{{ guarnicion.nombre|lower }}">
+        <div class="flex items-start justify-between gap-3">
+          <div class="flex items-center gap-3 min-w-0">
+            <span class="kic !w-10 !h-10 !bg-emerald-500/15 !text-emerald-300"><i class="fa-solid fa-bowl-rice"></i></span>
+            <div class="min-w-0"><h3 class="font-semibold text-white truncate" title="{{ guarnicion.nombre }}">{{ guarnicion.nombre }}</h3><p class="num text-xs text-slate-400">{{ guarnicion.descripcion|default:'Guarnición para acompañar platos' }}</p></div>
+          </div>
+          <span class="badge {% if guarnicion.activa %}ok{% else %}off{% endif %}">{% if guarnicion.activa %}Activa{% else %}Inactiva{% endif %}</span>
+        </div>
+        <div class="flex flex-wrap gap-2">
+          <span class="meta"><i class="fa-solid fa-boxes-stacked"></i>{{ guarnicion.receta_admin|length }} productos en receta</span>
+          <span class="meta"><i class="fa-solid fa-utensils"></i>Usada en <span class="num">{{ guarnicion.platos_count }}</span> {{ guarnicion.platos_count|pluralize:'plato,platos' }}</span>
+        </div>
+        <div class="flex items-center justify-between gap-2 border-t border-line pt-3 no-print">
+          <form method="post" action="{% url 'inventario:guarnicion_alternar_estado' guarnicion.pk %}" class="flex items-center gap-2">
+            {% csrf_token %}<button type="submit" role="switch" class="sw" aria-checked="{{ guarnicion.activa|yesno:'true,false' }}" aria-label="Guarnición {{ guarnicion.nombre }} activa"></button><span class="text-xs text-slate-400">Activa</span>
+          </form>
+          <div class="flex items-center gap-2">
+            <button type="button" class="ib" data-edit-garnish data-name="{{ guarnicion.nombre }}" data-description="{{ guarnicion.descripcion }}" data-active="{{ guarnicion.activa|yesno:'true,false' }}" data-recipe="{{ guarnicion.receta_json|escape }}" data-url="{% url 'inventario:guarnicion_editar' guarnicion.pk %}" aria-label="Editar {{ guarnicion.nombre }}" title="Editar"><i class="fa-solid fa-pen"></i></button>
+            <form method="post" action="{% url 'inventario:guarnicion_eliminar' guarnicion.pk %}" data-delete-garnish data-name="{{ guarnicion.nombre }}" data-usage="{{ guarnicion.platos_count }}">
+              {% csrf_token %}<button type="submit" class="ib del" aria-label="Eliminar {{ guarnicion.nombre }}" title="Eliminar"><i class="fa-solid fa-trash"></i></button>
+            </form>
+          </div>
+        </div>
+      </article>
+      {% endfor %}
+    </div>
+    <div id="emptyG" class="hidden card text-center py-10">
+      <span class="kic mx-auto !w-11 !h-11 text-base"><i class="fa-solid fa-bowl-rice"></i></span>
+      <p id="emptyGt" class="font-semibold text-white mt-3"></p>
+      <p class="text-slate-400 mt-1">Crea una nueva guarnición para asignarla a tus platos.</p>
+    </div>
+  </div>
+
+  <dialog id="createG" aria-labelledby="createGTitle">
+    <form method="post" action="{% url 'inventario:guarnicion_crear' %}" class="space-y-0" data-recipe-form>
+      {% csrf_token %}
+      <div class="flex items-center justify-between gap-3 px-5 py-4 border-b border-line">
+        <h2 id="createGTitle" class="flex items-center gap-2.5 font-bold text-white"><i class="fa-solid fa-bowl-rice text-emerald-400 text-sm"></i>Nueva guarnición</h2>
+        <button type="button" class="ib" data-close-dialog aria-label="Cerrar"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="px-5 py-4 max-h-[65vh] overflow-y-auto space-y-3">
+        <label class="lbl-f">Nombre<input class="fld mt-1" name="nombre" maxlength="120" required></label>
+        <label class="lbl-f">Descripción<input class="fld mt-1" name="descripcion" maxlength="300"></label>
+        <div class="stat">
+          <div class="flex items-center justify-between gap-2 mb-2"><span class="lbl-f !mb-0">Productos y cantidades por porción</span><button type="button" class="btn" data-add-row="garnish"><i class="fa-solid fa-plus"></i>Agregar producto</button></div>
+          <div class="space-y-2" data-recipe-rows="garnish"><div class="grid grid-cols-1 sm:grid-cols-[1fr_150px_36px] gap-2">
+            <select class="fld" name="guarnicion_insumo_id[]" aria-label="Producto de inventario"><option value="">Seleccionar producto</option>{% for insumo in insumos_disponibles %}<option value="{{ insumo.pk }}">{{ insumo.get_tipo_inventario_display }} · {{ insumo.nombre }} ({{ insumo.get_unidad_display }})</option>{% endfor %}</select>
+            <input class="fld" type="number" name="guarnicion_cantidad[]" step="0.001" min="0.001" placeholder="Cantidad" aria-label="Cantidad por porción">
+            <button type="button" class="ib del" data-remove-row aria-label="Quitar producto"><i class="fa-solid fa-trash"></i></button>
+          </div></div>
+        </div>
+      </div>
+      <div class="flex items-center justify-end gap-2 px-5 py-4 border-t border-line">
+        <button type="button" class="btn" data-close-dialog>Cancelar</button>
+        <button type="submit" class="btn-p"><i class="fa-solid fa-floppy-disk"></i>Guardar guarnición</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="editG" aria-labelledby="editGTitle">
+    <form id="editGForm" method="post" class="space-y-0" data-recipe-form>
+      {% csrf_token %}
+      <div class="flex items-center justify-between gap-3 px-5 py-4 border-b border-line">
+        <h2 id="editGTitle" class="flex items-center gap-2.5 font-bold text-white"><i class="fa-solid fa-pen text-emerald-400 text-sm"></i>Editar guarnición</h2>
+        <button type="button" class="ib" data-close-dialog aria-label="Cerrar"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="px-5 py-4 max-h-[65vh] overflow-y-auto space-y-3">
+        <label class="lbl-f">Nombre<input class="fld mt-1" name="nombre" maxlength="120" required></label>
+        <label class="lbl-f">Descripción<input class="fld mt-1" name="descripcion" maxlength="300"></label>
+        <label class="flex items-center gap-2 text-xs text-slate-300"><input class="accent-emerald-500" type="checkbox" name="activa">Activa y disponible para asignar</label>
+        <div class="stat">
+          <div class="flex items-center justify-between gap-2 mb-2"><span class="lbl-f !mb-0">Productos y cantidades por porción</span><button type="button" class="btn" data-add-row="garnish"><i class="fa-solid fa-plus"></i>Agregar producto</button></div>
+          <div class="space-y-2" data-recipe-rows="garnish"></div>
+        </div>
+      </div>
+      <div class="flex items-center justify-end gap-2 px-5 py-4 border-t border-line">
+        <button type="button" class="btn" data-close-dialog>Cancelar</button>
+        <button type="submit" class="btn-p"><i class="fa-solid fa-floppy-disk"></i>Guardar cambios</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- ================= PLATOS Y PRODUCTOS ================= -->
+  <div role="tabpanel" id="panel-platos" aria-labelledby="tab-platos" class="space-y-4 hidden">
+    <section class="card no-print" aria-labelledby="t-platos">
+      <div class="flex flex-wrap items-start justify-between gap-3">
+        <div class="min-w-0">
+          <h2 id="t-platos" class="card-t !mb-1"><i class="fa-solid fa-utensils"></i>Platos y productos</h2>
+          <p class="text-xs text-slate-400">Administra tus platos, recetas, disponibilidad, precios e imágenes.</p>
+        </div>
+        <button type="button" id="newI" class="btn-p"><i class="fa-solid fa-plus"></i>Nuevo plato o producto</button>
+      </div>
+      <dialog id="createI" aria-labelledby="createITitle">
+      <form method="post" action="{% url 'inventario:plato_crear' %}" enctype="multipart/form-data" class="space-y-0" data-recipe-form>
+        {% csrf_token %}
+        <div class="flex items-center justify-between gap-3 px-5 py-4 border-b border-line">
+          <h2 id="createITitle" class="flex items-center gap-2.5 font-bold text-white"><i class="fa-solid fa-utensils text-emerald-400 text-sm"></i>Nuevo plato o producto</h2>
+          <button type="button" class="ib" data-close-dialog aria-label="Cerrar"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="px-5 py-4 max-h-[65vh] overflow-y-auto">
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          <label class="lbl-f">Nombre<input class="fld mt-1" name="nombre" maxlength="200" required></label>
+          <label class="lbl-f">Categoría<select class="fld mt-1" name="categoria" required><option value="">Seleccionar categoría</option>{% for categoria in categorias %}<option value="{{ categoria.pk }}">{{ categoria.nombre }}</option>{% endfor %}</select></label>
+          <label class="lbl-f">Área de preparación<select class="fld mt-1" name="destino" required><option value="cocina">Cocina</option><option value="barra">Barra</option></select></label>
+          <label class="lbl-f">Precio (CUP)<input class="fld mt-1" type="number" step="0.01" min="0.01" name="precio" required></label>
+          <label class="lbl-f">Imagen<input class="fld mt-1" type="file" name="imagen" accept="image/*"></label>
+          <label class="lbl-f">Descripción<textarea class="fld mt-1" name="descripcion" rows="2"></textarea></label>
+          <label class="flex items-center gap-2 text-xs text-slate-300"><input class="accent-emerald-500" type="checkbox" name="disponible" checked>Disponible</label>
+          <label class="flex items-center gap-2 text-xs text-slate-300"><input class="accent-emerald-500" type="checkbox" name="trae_guarniciones_incluidas" data-garnish-toggle>Trae guarniciones incluidas</label>
+          <div class="sm:col-span-2 lg:col-span-3 hidden" data-garnish-field>
+            <span class="lbl-f">Guarniciones permitidas</span>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">{% for guarnicion in guarniciones_activas %}<label class="flex items-center gap-2 text-xs text-slate-300"><input class="accent-emerald-500" type="checkbox" name="guarnicion_ids" value="{{ guarnicion.pk }}">{{ guarnicion.nombre }}</label>{% empty %}<p class="text-xs text-slate-500">No hay guarniciones activas con stock y receta.</p>{% endfor %}</div>
+          </div>
+          <div class="sm:col-span-2 lg:col-span-3 stat">
+            <div class="flex items-center justify-between gap-2 mb-2"><span class="lbl-f !mb-0">Productos y cantidades por plato</span><button type="button" class="btn" data-add-row="dish"><i class="fa-solid fa-plus"></i>Agregar producto</button></div>
+            <div class="space-y-2" data-recipe-rows="dish"><div class="grid grid-cols-1 sm:grid-cols-[1fr_150px_36px] gap-2">
+              <select class="fld" name="insumo_id[]" aria-label="Producto de inventario"><option value="">Seleccionar producto</option>{% for insumo in insumos_disponibles %}<option value="{{ insumo.pk }}">{{ insumo.get_tipo_inventario_display }} · {{ insumo.nombre }} ({{ insumo.get_unidad_display }})</option>{% endfor %}</select>
+              <input class="fld" type="number" name="cantidad[]" step="0.001" min="0.001" placeholder="Cantidad por plato" aria-label="Cantidad">
+              <button type="button" class="ib del" data-remove-row aria-label="Quitar producto"><i class="fa-solid fa-trash"></i></button>
+            </div></div>
+          </div>
+        </div>
+        </div>
+        <div class="flex items-center justify-end gap-2 px-5 py-4 border-t border-line"><button type="button" class="btn" data-close-dialog>Cancelar</button><button type="submit" class="btn-p"><i class="fa-solid fa-plus"></i>Crear plato</button></div>
+      </form>
+      </dialog>
+      <form id="filtrosI" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-x-4 gap-y-3 items-end mt-4 pt-4 border-t border-line" autocomplete="off">
+        <div class="lg:col-span-4">
+          <label for="qi" class="lbl-f">Buscar</label>
+          <div class="relative">
+            <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-xs"></i>
+            <input id="qi" type="search" placeholder="Nombre o descripción" class="fld !pl-8">
+          </div>
+        </div>
+        <div class="lg:col-span-2"><label for="ti" class="lbl-f">Área</label>
+          <select id="ti" class="fld"><option value="">Todas las áreas</option><option value="cocina">Cocina</option><option value="barra">Barra</option></select></div>
+        <div class="lg:col-span-2"><label for="ci" class="lbl-f">Categoría</label><select id="ci" class="fld"><option value="">Todas</option>{% for categoria in categorias %}<option value="{{ categoria.pk }}">{{ categoria.nombre }}</option>{% endfor %}<option value="sin-categoria">Sin categoría</option></select></div>
+        <div class="lg:col-span-2"><label for="si" class="lbl-f">Estado</label>
+          <select id="si" class="fld"><option value="">Todos</option><option value="disponible">Disponibles</option><option value="agotado">No disponibles</option></select></div>
+        <div class="lg:col-span-2 flex items-center justify-between gap-3">
+          <p id="countI" class="num text-xs text-slate-400" aria-live="polite"></p>
+          <button type="button" id="clearI" class="btn"><i class="fa-solid fa-eraser"></i>Limpiar</button>
+        </div>
+      </form>
+    </section>
+
+    <div id="tableI" class="card !p-0 overflow-hidden">
+      <div class="overflow-x-auto">
+        <table class="carta-items-table w-full text-left text-sm">
+          <thead class="bg-inner/60">
+            <tr>
+              <th scope="col">Nombre</th>
+              <th scope="col">Tipo y categoría</th>
+              <th scope="col" class="text-right">Precio</th>
+              <th scope="col">Guarniciones</th>
+              <th scope="col">Disponible en carta</th>
+              <th scope="col" class="no-print item-actions"><span class="sr-only">Acciones</span></th>
+            </tr>
+          </thead>
+          <tbody id="bodyI">
+            {% for plato in platos %}
+            <tr class="border-t border-line align-middle" data-item data-search="{{ plato.nombre|lower }} {{ plato.descripcion|lower }}" data-category="{{ plato.categoria_id|default:'sin-categoria' }}" data-type="{{ plato.destino }}" data-status="{% if plato.disponible %}disponible{% else %}agotado{% endif %}">
+              <td class="min-w-[18rem]"><div class="flex items-center gap-4"><div class="ph item-photo">{% if plato.imagen %}<img src="{{ plato.imagen.url }}" alt="{{ plato.nombre }}" loading="lazy">{% else %}<i class="fa-solid fa-utensils"></i>{% endif %}</div><div class="min-w-0"><p class="font-medium text-white">{{ plato.nombre }}</p><p class="text-sm text-slate-400 line-clamp-1">{{ plato.descripcion|default:'Sin descripción' }}</p></div></div></td>
+              <td class="whitespace-nowrap"><span class="chip">Plato</span><p class="text-sm text-slate-400 mt-1">{{ plato.categoria.nombre|default:'Sin categoría' }}</p></td>
+              <td class="text-right whitespace-nowrap"><span class="num font-bold text-white">{{ plato.precio|floatformat:"-2" }} CUP</span></td>
+              <td class="min-w-[12rem]">{% if plato.trae_guarniciones_incluidas %}<div class="flex flex-wrap gap-1">{% for guarnicion in plato.guarniciones_incluidas.all %}<span class="chip">{{ guarnicion.nombre }}</span>{% empty %}<span class="text-sm text-slate-500">Sin guarniciones</span>{% endfor %}</div>{% else %}<span class="text-sm text-slate-500">Sin guarniciones</span>{% endif %}</td>
+              <td><form method="post" action="{% url 'inventario:plato_alternar_disponibilidad' plato.pk %}" class="flex items-center gap-2 whitespace-nowrap">{% csrf_token %}<button type="submit" role="switch" class="sw" aria-checked="{{ plato.disponible|yesno:'true,false' }}" aria-label="Disponible en carta: {{ plato.nombre }}"></button><span class="text-sm text-slate-300">{% if plato.disponible and plato.receta_admin %}Sí{% else %}No{% endif %}</span></form></td>
+              <td class="no-print"><div class="flex items-center justify-end gap-2">
+                <button type="button" class="ib" data-edit-item data-name="{{ plato.nombre }}" data-description="{{ plato.descripcion }}" data-category="{{ plato.categoria_id|default:'' }}" data-destination="{{ plato.destino }}" data-price="{{ plato.precio|unlocalize }}" data-available="{{ plato.disponible|yesno:'true,false' }}" data-has-garnish="{{ plato.trae_guarniciones_incluidas|yesno:'true,false' }}" data-recipe="{{ plato.receta_json|escape }}" data-garnishes="{{ plato.guarniciones_json|escape }}" data-url="{% url 'inventario:plato_editar' plato.pk %}" data-delete-url="{% url 'inventario:plato_eliminar' plato.pk %}" aria-label="Editar {{ plato.nombre }}" title="Editar"><i class="fa-solid fa-pen"></i></button>
+                <form method="post" action="{% url 'inventario:plato_eliminar' plato.pk %}" data-delete-item data-name="{{ plato.nombre }}">{% csrf_token %}<button type="submit" class="ib del" aria-label="Eliminar {{ plato.nombre }}" title="Eliminar"><i class="fa-solid fa-trash"></i></button></form>
+              </div></td>
+            </tr>
+            {% empty %}<tr><td class="text-center text-slate-400 p-8" colspan="7">Todavía no hay platos ni productos.</td></tr>{% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <dialog id="editI" aria-labelledby="editITitle">
+      <form id="editIForm" method="post" enctype="multipart/form-data" class="space-y-0" data-recipe-form>
+        {% csrf_token %}<input type="hidden" name="receta_enviada" value="1">
+        <div class="flex items-center justify-between gap-3 px-5 py-4 border-b border-line">
+          <h2 id="editITitle" class="flex items-center gap-2.5 font-bold text-white"><i class="fa-solid fa-pen text-emerald-400 text-sm"></i>Editar plato o producto</h2>
+          <button type="button" class="ib" data-close-dialog aria-label="Cerrar"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="px-5 py-4 max-h-[65vh] overflow-y-auto">
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <label class="lbl-f">Nombre<input class="fld mt-1" name="nombre" maxlength="200" required></label>
+            <label class="lbl-f">Categoría<select class="fld mt-1" name="categoria"><option value="">Sin categoría</option>{% for categoria in categorias %}<option value="{{ categoria.pk }}">{{ categoria.nombre }}</option>{% endfor %}</select></label>
+            <label class="lbl-f">Área de preparación<select class="fld mt-1" name="destino" required><option value="cocina">Cocina</option><option value="barra">Barra</option></select></label>
+            <label class="lbl-f">Precio (CUP)<input class="fld mt-1" type="number" step="0.01" min="0.01" name="precio" required></label>
+            <label class="lbl-f">Imagen<input class="fld mt-1" type="file" name="imagen" accept="image/*"></label>
+            <label class="lbl-f">Descripción<textarea class="fld mt-1" name="descripcion" rows="2"></textarea></label>
+            <label class="flex items-center gap-2 text-xs text-slate-300"><input class="accent-emerald-500" type="checkbox" name="disponible">Disponible</label>
+            <label class="flex items-center gap-2 text-xs text-slate-300"><input class="accent-emerald-500" type="checkbox" name="trae_guarniciones_incluidas" data-garnish-toggle>Trae guarniciones incluidas</label>
+            <div class="sm:col-span-2 hidden" data-garnish-field>
+              <span class="lbl-f">Guarniciones permitidas</span>
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">{% for guarnicion in guarniciones_activas %}<label class="flex items-center gap-2 text-xs text-slate-300"><input class="accent-emerald-500" type="checkbox" name="guarnicion_ids" value="{{ guarnicion.pk }}">{{ guarnicion.nombre }}</label>{% empty %}<p class="text-xs text-slate-500">No hay guarniciones activas con stock y receta.</p>{% endfor %}</div>
+            </div>
+            <div class="sm:col-span-2 stat">
+              <div class="flex items-center justify-between gap-2 mb-2"><span class="lbl-f !mb-0">Productos y cantidades por plato</span><button type="button" class="btn" data-add-row="dish"><i class="fa-solid fa-plus"></i>Agregar producto</button></div>
+              <div class="space-y-2" data-recipe-rows="dish"></div>
+            </div>
+          </div>
+        </div>
+        <div class="flex items-center justify-between gap-2 px-5 py-4 border-t border-line">
+          <button type="submit" class="btn-d" id="deleteI" formnovalidate><i class="fa-solid fa-trash"></i>Eliminar</button>
+          <div class="flex items-center gap-2"><button type="button" class="btn" data-close-dialog>Cancelar</button><button type="submit" class="btn-p"><i class="fa-solid fa-floppy-disk"></i>Guardar cambios</button></div>
+        </div>
+      </form>
+    </dialog>
+
+    <div id="emptyI" class="hidden card text-center py-10">
+      <span class="kic mx-auto !w-11 !h-11 text-base"><i class="fa-solid fa-magnifying-glass"></i></span>
+      <p id="emptyIt" class="font-semibold text-white mt-3">No hay elementos que coincidan con los filtros.</p>
+      <p class="text-slate-400 mt-1">Prueba con otro texto o cambia los filtros.</p>
+    </div>
+  </div>
+
+  <!-- ================= CARTA PUBLICADA ================= -->
+  <div role="tabpanel" id="panel-publicada" aria-labelledby="tab-publicada" class="hidden">
+    <section class="card !p-0 overflow-clip" aria-labelledby="t-prev">
+      <div class="flex flex-wrap items-center justify-between gap-3 px-5 py-4 border-b border-line no-print">
+        <div class="flex flex-wrap items-center gap-x-3 gap-y-1"><h2 id="t-prev" class="card-t !mb-0"><i class="fa-solid fa-mobile-screen"></i>Así la ven tus clientes</h2><span id="prevMeta" class="num text-xs text-slate-400"></span></div>
+        <div class="flex items-center gap-2"><button type="button" id="printBtn" class="btn"><i class="fa-solid fa-print"></i>Imprimir</button></div>
+      </div>
+      <div id="prev" class="menu">
+        <div class="mn-top">
+          <h3 class="mn-title">Nuestra Carta</h3>
+          <div class="mn-tools no-print">
+            <label class="sr-only" for="menu-category">Filtrar por categoría</label>
+            <select id="menu-category" class="mn-sel"><option value="">Todas las categorías</option>{% for categoria in categorias %}{% if categoria.platos_publicados %}<option value="menu-category-{{ categoria.pk }}">{{ categoria.nombre }}</option>{% endif %}{% endfor %}</select>
+            <label class="mn-search"><i class="fa-solid fa-magnifying-glass"></i><input id="menu-search" type="search" class="mn-q" placeholder="Buscar plato..." autocomplete="off" aria-label="Buscar plato"></label>
+          </div>
+        </div>
+        <div class="mn-layout">
+          <aside class="mn-side" aria-label="Categorías de la carta"><nav class="mn-panel"><h4 class="mn-ph"><span>Índice</span><span class="num">{{ categorias|length }} categorías</span></h4><div class="mn-list"><a class="mn-ci" href="#menu-all" aria-pressed="true"><span class="ico"><i class="fa-solid fa-book-open"></i></span><span class="lb">Toda la carta</span><span class="n">{{ carta_publicada_count }}</span></a>{% for categoria in categorias %}{% if categoria.platos_publicados %}<a class="mn-ci" href="#menu-category-{{ categoria.pk }}" aria-pressed="false"><span class="ico"><i class="fa-solid fa-utensils"></i></span><span class="lb">{{ categoria.nombre }}</span><span class="n">{{ categoria.platos_publicados|length }}</span></a>{% endif %}{% endfor %}</div></nav></aside>
+          <div class="mn-groups" id="mnGrid">
+            {% for categoria in categorias %}
+            {% if categoria.platos_publicados %}
+            <section class="mn-group" id="menu-category-{{ categoria.pk }}" data-menu-category="{{ categoria.pk }}" aria-label="{{ categoria.nombre }}">
+              <div class="mn-gh"><span class="ico"><i class="fa-solid fa-utensils"></i></span><h4>{{ categoria.nombre }}</h4><span class="mn-gc">{{ categoria.platos_publicados|length }} opciones</span></div>
+              <div class="mn-grid">
+                {% for plato in categoria.platos_publicados %}
+                <article class="mn-card" data-menu-item data-search="{{ plato.nombre|lower }} {{ plato.descripcion|lower }}">
+                  <div class="mn-img"><div class="ph">{% if plato.imagen %}<img src="{{ plato.imagen.url }}" alt="{{ plato.nombre }}" loading="lazy">{% else %}<i class="fa-solid fa-utensils"></i>{% endif %}</div><span class="mn-tag">{{ categoria.nombre }}</span></div>
+                  <div class="mn-cb"><h5 class="mn-name">{{ plato.nombre }}</h5><p class="mn-desc">{{ plato.descripcion|default:'Sin descripción' }}</p>
+                    {% if plato.trae_guarniciones_incluidas %}<div class="mn-side2"><span>Acompañantes</span>{% for guarnicion in plato.guarniciones_incluidas.all %}<span class="mn-chip">{{ guarnicion.nombre }}</span>{% endfor %}</div>{% endif %}
+                  </div>
+                  <div class="mn-foot"><span class="mn-price num">{{ plato.precio|floatformat:2 }}<small>CUP</small></span><span class="mn-st">Disponible</span></div>
+                </article>
+                {% endfor %}
+              </div>
+            </section>
+            {% endif %}
+            {% endfor %}
+            {% if platos_sin_categoria %}
+            <section class="mn-group" id="menu-no-category" data-menu-category="none" aria-label="Sin categoría">
+              <div class="mn-gh"><span class="ico"><i class="fa-solid fa-utensils"></i></span><h4>Sin categoría</h4><span class="mn-gc">{{ platos_sin_categoria|length }} opciones</span></div>
+              <div class="mn-grid">{% for plato in platos_sin_categoria %}<article class="mn-card" data-menu-item data-search="{{ plato.nombre|lower }} {{ plato.descripcion|lower }}"><div class="mn-img"><div class="ph">{% if plato.imagen %}<img src="{{ plato.imagen.url }}" alt="{{ plato.nombre }}" loading="lazy">{% else %}<i class="fa-solid fa-utensils"></i>{% endif %}</div></div><div class="mn-cb"><h5 class="mn-name">{{ plato.nombre }}</h5><p class="mn-desc">{{ plato.descripcion|default:'Sin descripción' }}</p></div><div class="mn-foot"><span class="mn-price num">{{ plato.precio|floatformat:2 }}<small>CUP</small></span><span class="mn-st">Disponible</span></div></article>{% endfor %}</div>
+            </section>
+            {% endif %}
+            {% if guarniciones_activas %}
+            <section class="mn-group" data-menu-category="guarniciones" aria-label="Guarniciones">
+              <div class="mn-gh"><span class="ico"><i class="fa-solid fa-bowl-rice"></i></span><h4>Guarniciones</h4><span class="mn-gc">{{ guarniciones_activas|length }} opciones</span></div>
+              <div class="mn-grid">{% for guarnicion in guarniciones_activas %}<article class="mn-card" data-menu-item data-search="{{ guarnicion.nombre|lower }}"><div class="mn-img"><div class="ph"><i class="fa-solid fa-bowl-rice"></i></div></div><div class="mn-cb"><h5 class="mn-name">{{ guarnicion.nombre }}</h5><p class="mn-desc">{{ guarnicion.descripcion|default:'Guarnición disponible para acompañar un plato.' }}</p></div><div class="mn-foot"><span class="mn-price">Incluida</span><span class="mn-st">Disponible</span></div></article>{% endfor %}</div>
+            </section>
+            {% endif %}
+            {% if not carta_publicada_count %}<p class="mn-empty">No hay platos ni productos disponibles para mostrar.</p>{% endif %}
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+</div>
+</div>
+</div>
+
+<!-- Diálogo de formulario (guarniciones y platos) -->
+<dialog id="dlg" aria-labelledby="dlgTitle">
+  <form id="dlgForm" novalidate autocomplete="off">
+    <div class="flex items-center justify-between gap-3 px-5 py-4 border-b border-line">
+      <h2 id="dlgTitle" class="flex items-center gap-2.5 font-bold text-white"><i id="dlgIcon" class="fa-solid fa-plus text-emerald-400 text-sm"></i><span></span></h2>
+      <button type="button" id="dlgX" class="ib" aria-label="Cerrar"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div id="dlgBody" class="px-5 py-4 max-h-[65vh] overflow-y-auto"></div>
+    <p id="dlgErr" role="alert" class="hidden px-5 pb-1 text-xs text-red-300 flex items-center gap-2"><i class="fa-solid fa-circle-exclamation"></i><span></span></p>
+    <div class="flex items-center justify-end gap-2 px-5 py-4 border-t border-line">
+      <button type="button" id="dlgCancel" class="btn">Cancelar</button>
+      <button type="submit" id="dlgOk" class="btn-p"><i class="fa-solid fa-check"></i><span>Guardar</span></button>
+    </div>
+  </form>
+</dialog>
+
+<!-- Diálogo de confirmación -->
+<dialog id="dlgC" aria-labelledby="cTitle" class="!max-w-md">
+  <div class="p-5">
+    <h2 id="cTitle" class="flex items-center gap-2.5 font-bold text-white"><i class="fa-solid fa-triangle-exclamation text-amber-300 text-sm"></i><span></span></h2>
+    <p id="cMsg" class="text-slate-300 mt-3"></p>
+    <div class="flex items-center justify-end gap-2 mt-5">
+      <button type="button" id="cNo" class="btn">Cancelar</button>
+      <button type="button" id="cOk" class="btn-d"></button>
+    </div>
+  </div>
+</dialog>
+
+<div id="toast" role="status" aria-live="polite" class="fixed bottom-5 left-1/2 -translate-x-1/2 bg-emerald-500 text-black font-medium px-4 py-2 rounded-lg shadow-lg opacity-0 pointer-events-none transition-opacity no-print"></div>
+
+
+<template id="dish-row-template">
+  <div class="grid grid-cols-1 sm:grid-cols-[1fr_150px_36px] gap-2">
+    <select class="fld" name="insumo_id[]" aria-label="Producto de inventario"><option value="">Seleccionar producto</option>{% for insumo in insumos_disponibles %}<option value="{{ insumo.pk }}">{{ insumo.get_tipo_inventario_display }} · {{ insumo.nombre }} ({{ insumo.get_unidad_display }})</option>{% endfor %}</select>
+    <input class="fld" type="number" name="cantidad[]" step="0.001" min="0.001" placeholder="Cantidad" aria-label="Cantidad">
+    <button type="button" class="ib del" data-remove-row aria-label="Quitar producto"><i class="fa-solid fa-trash"></i></button>
+  </div>
+</template>
+<template id="garnish-row-template">
+  <div class="grid grid-cols-1 sm:grid-cols-[1fr_150px_36px] gap-2">
+    <select class="fld" name="guarnicion_insumo_id[]" aria-label="Producto de inventario"><option value="">Seleccionar producto</option>{% for insumo in insumos_disponibles %}<option value="{{ insumo.pk }}">{{ insumo.get_tipo_inventario_display }} · {{ insumo.nombre }} ({{ insumo.get_unidad_display }})</option>{% endfor %}</select>
+    <input class="fld" type="number" name="guarnicion_cantidad[]" step="0.001" min="0.001" placeholder="Cantidad" aria-label="Cantidad por porción">
+    <button type="button" class="ib del" data-remove-row aria-label="Quitar producto"><i class="fa-solid fa-trash"></i></button>
+  </div>
+</template>
+<script>
+const $=selector=>document.querySelector(selector);
+const $$=selector=>Array.from(document.querySelectorAll(selector));
+
+function setTab(name, focus=false) {
+  const active = ['guarniciones', 'platos', 'publicada'].includes(name) ? name : 'guarniciones';
+  ['guarniciones', 'platos', 'publicada'].forEach(item => {
+    const selected = item === active;
+    const tab = $(`#tab-${item}`);
+    tab.setAttribute('aria-selected', String(selected));
+    tab.tabIndex = selected ? 0 : -1;
+    $(`#panel-${item}`).classList.toggle('hidden', !selected);
+    if (selected && focus) tab.focus();
+  });
+  if (location.hash !== `#carta-${active}`) history.replaceState(null, '', `#carta-${active}`);
+}
+
+$('#tabs').addEventListener('click', event => {
+  const tab = event.target.closest('[role="tab"]');
+  if (tab) setTab(tab.id.replace('tab-', ''));
+});
+$('#tabs').addEventListener('keydown', event => {
+  const tabs = ['guarniciones', 'platos', 'publicada'];
+  const index = tabs.indexOf(document.activeElement.id.replace('tab-', ''));
+  if (index < 0) return;
+  let next = null;
+  if (event.key === 'ArrowRight') next = (index + 1) % tabs.length;
+  if (event.key === 'ArrowLeft') next = (index + tabs.length - 1) % tabs.length;
+  if (event.key === 'Home') next = 0;
+  if (event.key === 'End') next = tabs.length - 1;
+  if (next !== null) {
+    event.preventDefault();
+    setTab(tabs[next], true);
+  }
+});
+setTab(location.hash === '#carta-platos' ? 'platos' : location.hash === '#carta-publicada' ? 'publicada' : 'guarniciones');
+
+$('#newG').addEventListener('click', () => {
+  setTab('guarniciones');
+  const form = $('#createG').querySelector('form');
+  form.reset();
+  fillRecipeRows(form.querySelector('[data-recipe-rows="garnish"]'), [], 'garnish');
+  $('#createG').showModal();
+});
+$('#newI').addEventListener('click', () => {
+  const form = $('#createI').querySelector('form');
+  form.reset();
+  fillRecipeRows(form.querySelector('[data-recipe-rows="dish"]'), [], 'dish');
+  form.querySelector('[data-garnish-field]').classList.add('hidden');
+  $('#createI').showModal();
+});
+$$('[data-close-dialog]').forEach(button => button.addEventListener('click', () => button.closest('dialog').close()));
+$$('dialog').forEach(dialog => dialog.addEventListener('click', event => {
+  if (event.target === dialog) dialog.close();
+}));
+
+function fillRecipeRows(container, entries, kind) {
+  container.replaceChildren();
+  const template = $(`#${kind}-row-template`);
+  const rows = entries.length ? entries : [{}];
+  rows.forEach(entry => {
+    const row = template.content.cloneNode(true);
+    const select = row.querySelector('select');
+    const quantity = row.querySelector('input[type="number"]');
+    if (entry.insumo_id) select.value = String(entry.insumo_id);
+    if (entry.cantidad) quantity.value = entry.cantidad;
+    container.append(row);
+  });
+}
+
+$$('[data-edit-garnish]').forEach(button => button.addEventListener('click', () => {
+  const form = $('#editGForm');
+  form.reset();
+  form.action = button.dataset.url;
+  form.elements.namedItem('nombre').value = button.dataset.name;
+  form.elements.namedItem('descripcion').value = button.dataset.description;
+  form.elements.namedItem('activa').checked = button.dataset.active === 'true';
+  fillRecipeRows(form.querySelector('[data-recipe-rows="garnish"]'), JSON.parse(button.dataset.recipe), 'garnish');
+  $('#editG').showModal();
+}));
+
+$$('[data-edit-item]').forEach(button => button.addEventListener('click', () => {
+  const form = $('#editIForm');
+  form.reset();
+  form.action = button.dataset.url;
+  $('#deleteI').setAttribute('formaction', button.dataset.deleteUrl);
+  form.elements.namedItem('nombre').value = button.dataset.name;
+  form.elements.namedItem('descripcion').value = button.dataset.description;
+  form.elements.namedItem('categoria').value = button.dataset.category;
+  form.elements.namedItem('destino').value = button.dataset.destination;
+  form.elements.namedItem('precio').value = button.dataset.price;
+  form.elements.namedItem('disponible').checked = button.dataset.available === 'true';
+  const includesGarnish = form.elements.namedItem('trae_guarniciones_incluidas');
+  includesGarnish.checked = button.dataset.hasGarnish === 'true';
+  form.querySelector('[data-garnish-field]').classList.toggle('hidden', !includesGarnish.checked);
+  const selectedGarnishes = new Set(JSON.parse(button.dataset.garnishes).map(String));
+  form.querySelectorAll('[name="guarnicion_ids"]').forEach(input => { input.checked = selectedGarnishes.has(input.value); });
+  fillRecipeRows(form.querySelector('[data-recipe-rows="dish"]'), JSON.parse(button.dataset.recipe), 'dish');
+  $('#editI').showModal();
+}));
+
+$$('[data-delete-garnish]').forEach(form => form.addEventListener('submit', event => {
+  const usage = Number(form.dataset.usage);
+  const affected = usage
+    ? ` Se quitará de ${usage} ${usage === 1 ? 'plato' : 'platos'}.`
+    : '';
+  if (!window.confirm(`¿Eliminar «${form.dataset.name}»?${affected} Esta acción no se puede deshacer.`)) {
+    event.preventDefault();
+  }
+}));
+$$('[data-delete-item]').forEach(form => form.addEventListener('submit', event => {
+  if (!window.confirm(`¿Eliminar «${form.dataset.name}»? Esta acción no se puede deshacer.`)) {
+    event.preventDefault();
+  }
+}));
+
+document.addEventListener('click', event => {
+  const addButton = event.target.closest('[data-add-row]');
+  if (addButton) {
+    const template = $(`#${addButton.dataset.addRow}-row-template`);
+    addButton.closest('.stat').querySelector('[data-recipe-rows]').append(template.content.cloneNode(true));
+    return;
+  }
+  const removeButton = event.target.closest('[data-remove-row]');
+  if (removeButton) {
+    const rows = removeButton.closest('[data-recipe-rows]');
+    if (rows.children.length > 1) removeButton.closest('div.grid').remove();
+    else {
+      rows.querySelectorAll('select').forEach(select => { select.selectedIndex = 0; });
+      rows.querySelectorAll('input').forEach(input => { input.value = ''; });
+    }
+  }
+});
+$$('[data-garnish-toggle]').forEach(toggle => toggle.addEventListener('change', () => {
+  const field = toggle.closest('form').querySelector('[data-garnish-field]');
+  if (field) field.classList.toggle('hidden', !toggle.checked);
+}));
+
+$$('[data-recipe-form]').forEach(form => form.addEventListener('submit', event => {
+  if (event.submitter === $('#deleteI')) {
+    if (!window.confirm('¿Eliminar este plato?')) event.preventDefault();
+    return;
+  }
+  const isGarnish = form.querySelector('[name="guarnicion_insumo_id[]"]');
+  const productField = isGarnish ? 'guarnicion_insumo_id[]' : 'insumo_id[]';
+  const quantityField = isGarnish ? 'guarnicion_cantidad[]' : 'cantidad[]';
+  const selects = Array.from(form.querySelectorAll(`[name="${productField}"]`));
+  if (!selects.length) return;
+  const entries = selects.map(select => ({
+    product: select.value,
+    quantity: select.closest('div.grid').querySelector(`[name="${quantityField}"]`).value,
+  }));
+  const incomplete = entries.some(entry => Boolean(entry.product) !== Boolean(entry.quantity));
+  const hasRecipe = entries.some(entry => entry.product && Number(entry.quantity) > 0);
+  const availability = form.querySelector('[name="disponible"]');
+  const recipeRequired = isGarnish || availability?.checked;
+  if (incomplete || (recipeRequired && !hasRecipe)) {
+    event.preventDefault();
+    window.alert(isGarnish
+      ? 'Agrega al menos un producto y su cantidad a la receta de la guarnición.'
+      : 'Agrega al menos un producto y su cantidad para publicar este plato.');
+    return;
+  }
+  const garnishToggle = form.querySelector('[data-garnish-toggle]');
+  if (garnishToggle?.checked && !form.querySelector('[name="guarnicion_ids"]:checked')) {
+    event.preventDefault();
+    window.alert('Selecciona al menos una guarnición incluida para este plato.');
+  }
+}));
+
+function applyGarnishFilter() {
+  const query = $('#qg').value.trim().toLocaleLowerCase('es');
+  const cards = $$('[data-garnish]');
+  let shown = 0;
+  cards.forEach(card => {
+    card.hidden = Boolean(query) && !card.dataset.search.includes(query);
+    if (!card.hidden) shown += 1;
+  });
+  $('#countG').textContent = query ? `${shown} de ${cards.length} guarniciones` : `${cards.length} guarniciones`;
+  $('#emptyG').classList.toggle('hidden', shown > 0);
+  $('#emptyGt').textContent = cards.length
+    ? 'Ninguna guarnición coincide con la búsqueda'
+    : 'Aún no hay guarniciones';
+}
+$('#qg').addEventListener('input', applyGarnishFilter);
+applyGarnishFilter();
+
+function applyItemFilters() {
+  const query = $('#qi').value.trim().toLocaleLowerCase('es');
+  const type = $('#ti').value;
+  const category = $('#ci').value;
+  const status = $('#si').value;
+  const rows = $$('[data-item]');
+  let shown = 0;
+  rows.forEach(row => {
+    const matches = (!query || row.dataset.search.includes(query))
+      && (!type || row.dataset.type === type)
+      && (!category || row.dataset.category === category)
+      && (!status || row.dataset.status === status);
+    row.hidden = !matches;
+    if (matches) shown += 1;
+  });
+  $('#countI').textContent = query || type || category || status ? `${shown} de ${rows.length}` : `${rows.length} en total`;
+  $('#tableI').classList.toggle('hidden', shown === 0);
+  $('#emptyI').classList.toggle('hidden', shown > 0);
+}
+$('#filtrosI').addEventListener('input', applyItemFilters);
+$('#filtrosI').addEventListener('change', applyItemFilters);
+$('#clearI').addEventListener('click', () => { $('#filtrosI').reset(); applyItemFilters(); });
+applyItemFilters();
+
+function applyMenuFilters() {
+  const query = $('#menu-search').value.trim().toLocaleLowerCase('es');
+  const category = $('#menu-category').value.replace('menu-category-', '');
+  $$('[data-menu-category]').forEach(group => {
+    const categoryMatches = !category || group.id === `menu-category-${category}`;
+    let visibleItems = 0;
+    group.querySelectorAll('[data-menu-item]').forEach(item => {
+      item.hidden = Boolean(query) && !item.dataset.search.includes(query);
+      if (!item.hidden) visibleItems += 1;
+    });
+    group.hidden = !categoryMatches || visibleItems === 0;
+  });
+  $$('.mn-ci').forEach(link => link.setAttribute('aria-pressed', String(!category ? link.getAttribute('href') === '#menu-all' : link.getAttribute('href') === `#menu-category-${category}`)));
+}
+$('#menu-category').addEventListener('change', applyMenuFilters);
+$('#menu-search').addEventListener('input', applyMenuFilters);
+$$('.mn-ci').forEach(link => link.addEventListener('click', event => {
+  event.preventDefault();
+  const target = link.getAttribute('href');
+  $('#menu-category').value = target === '#menu-all' ? '' : target.replace('#', '');
+  applyMenuFilters();
+}));
+applyMenuFilters();
+
+$('#printBtn').addEventListener('click', () => window.print());
+const tick = () => { $('#clock').textContent = new Date().toLocaleTimeString('es-ES', {hour:'2-digit', minute:'2-digit', hour12:true}); };
+tick();
+window.setInterval(tick, 30000);
+
+</script>

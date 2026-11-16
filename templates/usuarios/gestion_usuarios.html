@@ -4,107 +4,416 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Usuarios - GourmetControl</title>
-  <link rel="icon" type="image/svg+xml" href="{% static 'img/favicon.svg' %}?v=20261013">
+  <title>GourmetControl · Usuarios</title>
+  <link rel="icon" type="image/svg+xml" href="{% static 'img/favicon.svg' %}">
   <link rel="stylesheet" href="{% static 'css/tailwind.css' %}">
   <link rel="stylesheet" href="{% static 'vendor/fontawesome/css/all.min.css' %}">
-  <link rel="stylesheet" href="{% static 'css/main.css' %}?v=20261014-status-flash-icons">
-  <script src="{% static 'js/responsive-sidebar.js' %}?v=20261001-sidebar-logout" defer></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root{color-scheme:dark;--users-bg:#0b0f19;--users-side:#090d16;--users-card:#101625;--users-inner:#0a0d14;--users-line:#1e293b;--users-muted:#94a3b8;--users-green:#34d399}
+    *{box-sizing:border-box}
+    body.users-body{margin:0;min-height:100vh;background:radial-gradient(900px 380px at 70% -120px,rgba(16,185,129,.1),transparent 70%),var(--users-bg);background-attachment:fixed;color:#e2e8f0;font-family:Inter,system-ui,sans-serif;font-size:.875rem}
+    .users-shell{display:flex;height:100dvh;overflow:hidden}
+    .users-overlay{display:none;position:fixed;inset:0;z-index:30;background:rgba(0,0,0,.6)}
+    .users-sidebar{position:relative;z-index:40;display:flex;flex:0 0 16rem;flex-direction:column;overflow:hidden;background:var(--users-side);border-right:1px solid var(--users-line);transition:flex-basis .2s ease,width .2s ease,transform .2s ease}
+    .users-brand{height:3.5rem;display:flex;align-items:center;gap:.75rem;padding:0 1rem;border-bottom:1px solid var(--users-line);flex-shrink:0}
+    .users-brand-icon{width:2.25rem;height:2.25rem;display:grid;place-items:center;flex-shrink:0;border-radius:.55rem;background:rgba(16,185,129,.15);color:var(--users-green)}
+    .users-brand-name{min-width:0}
+    .users-brand-name strong,.users-brand-name span{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .users-brand-name strong{color:#fff;font-size:.875rem;line-height:1.1}
+    .users-brand-name span{margin-top:.2rem;color:var(--users-muted);font-size:.7rem}
+    .users-sidebar nav{flex:1;overflow:auto;padding:.75rem}
+    .users-sidebar nav a{display:flex;align-items:center;gap:.75rem;padding:.6rem .75rem;border:1px solid transparent;border-radius:.5rem;color:var(--users-muted);font-size:.8rem;text-decoration:none;transition:background .15s,color .15s}
+    .users-sidebar nav a:hover{background:rgba(30,41,59,.55);color:#fff}
+    .users-sidebar nav a[aria-current=page]{border-color:rgba(16,185,129,.25);background:rgba(16,185,129,.1);color:#6ee7b7}
+    .users-sidebar nav a i{width:1rem;flex-shrink:0;text-align:center}
+    .users-sidebar nav a span{display:inline!important;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .users-sidebar-foot{padding:.75rem;border-top:1px solid var(--users-line);flex-shrink:0}
+    .users-profile{display:flex;align-items:center;gap:.75rem;padding:.6rem .4rem}
+    .users-profile-icon{width:2.25rem;height:2.25rem;display:grid;place-items:center;flex-shrink:0;border:1px solid rgba(16,185,129,.3);border-radius:50%;background:rgba(5,150,105,.25);color:#6ee7b7}
+    .users-profile-info{min-width:0}
+    .users-profile-info p{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .users-profile-name{color:#fff;font-size:.75rem;font-weight:500}
+    .users-profile-role{margin-top:.15rem;color:var(--users-muted);font-size:.7rem}
+    .users-logout{display:flex;align-items:center;gap:.75rem;padding:.6rem .75rem;border-radius:.5rem;color:var(--users-muted);font-size:.8rem;text-decoration:none}
+    .users-logout:hover{background:rgba(239,68,68,.1);color:#fca5a5}
+    .users-content{display:flex;flex:1;flex-direction:column;min-width:0}
+    .users-header{height:3.5rem;display:flex;align-items:center;justify-content:space-between;gap:.75rem;padding:0 1rem;border-bottom:1px solid var(--users-line);background:rgba(11,15,25,.95);backdrop-filter:blur(12px);flex-shrink:0}
+    .users-header-left,.users-header-title,.users-header-badge{display:flex;align-items:center}
+    .users-header-left{gap:.65rem;min-width:0}
+    .users-menu{padding:.5rem;margin-left:-.5rem;border:0;border-radius:.5rem;background:transparent;color:#cbd5e1;cursor:pointer}
+    .users-menu:hover{background:rgba(30,41,59,.6);color:#fff}
+    .users-header-title{gap:.5rem;overflow:hidden;color:#fff;font-size:.9rem;font-weight:600;white-space:nowrap}
+    .users-header-title i{color:var(--users-green)}
+    .users-clock{display:none;color:#cbd5e1;background:rgba(30,41,59,.7);border:1px solid #334155;border-radius:999px;padding:.25rem .65rem;font-size:.7rem;white-space:nowrap}
+    .users-header-badge{gap:.45rem;padding:.35rem .7rem;border:1px solid rgba(16,185,129,.3);border-radius:999px;background:rgba(16,185,129,.1);color:#6ee7b7;font-size:.7rem;font-weight:500;white-space:nowrap}
+    .users-main{flex:1;overflow:auto}
+    .users-inner{max-width:80rem;margin:auto;padding:1.25rem;display:grid;gap:1.5rem}
+    .users-heading{display:flex;flex-direction:column;justify-content:space-between;gap:.85rem}
+    .users-kicker{color:var(--users-green);font-size:.68rem;font-weight:700;letter-spacing:.14em;text-transform:uppercase}
+    .users-title{margin-top:.2rem;color:#fff;font-size:1.5rem;font-weight:700;letter-spacing:-.03em}
+    .users-subtitle{margin-top:.35rem;color:var(--users-muted);font-size:.85rem}
+    .users-actions{display:flex;flex-wrap:wrap;gap:.5rem}
+    .users-btn{display:inline-flex;align-items:center;justify-content:center;gap:.5rem;min-height:2.25rem;padding:.48rem .8rem;border:1px solid #334155;border-radius:.5rem;background:var(--users-inner);color:#e2e8f0;font:inherit;font-size:.75rem;font-weight:500;text-decoration:none;cursor:pointer;transition:background .15s,border-color .15s,color .15s}
+    .users-btn:hover{border-color:#475569;background:#1e293b}
+    .users-btn-primary{min-height:2.5rem;padding:.55rem .95rem;border-color:transparent;background:#10b981;color:#04130d;font-weight:600}
+    .users-btn-primary:hover{background:var(--users-green)}
+    .users-btn-warning{border-color:rgba(245,158,11,.3);color:#fcd34d}
+    .users-btn-warning:hover{background:rgba(245,158,11,.08);border-color:rgba(245,158,11,.55)}
+    .users-btn-success{border-color:rgba(16,185,129,.35);background:rgba(16,185,129,.1);color:#6ee7b7}
+    .users-btn-success:hover{background:rgba(16,185,129,.2)}
+    .users-section-title{display:flex;align-items:center;gap:.6rem;margin:0 0 .75rem;color:#fff;font-size:1rem;font-weight:700}
+    .users-section-title i{color:var(--users-green);font-size:.9rem}
+    .users-kpis{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.75rem}
+    .users-kpi,.users-card{min-width:0;border:1px solid var(--users-line);border-radius:.9rem;background:var(--users-card);box-shadow:inset 0 1px rgba(255,255,255,.03),0 8px 24px -12px rgba(0,0,0,.6)}
+    .users-kpi{padding:1rem}
+    .users-kpi-highlight{border-color:rgba(16,185,129,.4);background:linear-gradient(160deg,rgba(16,185,129,.13),var(--users-card) 70%)}
+    .users-kpi-label{display:flex;align-items:center;gap:.6rem;color:var(--users-muted);font-size:.75rem}
+    .users-kpi-icon{width:2rem;height:2rem;display:grid;place-items:center;flex-shrink:0;border-radius:.55rem;background:#1e293b;color:var(--users-muted);font-size:.8rem}
+    .users-kpi-highlight .users-kpi-icon{background:rgba(16,185,129,.2);color:var(--users-green)}
+    .users-kpi-value{margin-top:.75rem;color:#fff;font-size:1.5rem;font-weight:700;letter-spacing:-.03em}
+    .users-kpi-highlight .users-kpi-value{color:#6ee7b7}
+    .users-card-grid{display:grid;grid-template-columns:minmax(0,1fr);gap:1rem}
+    .users-card{display:flex;flex-direction:column;gap:1rem;padding:1rem;transition:border-color .15s,transform .15s}
+    .users-card:hover{transform:translateY(-1px);border-color:#334155}
+    .users-card-inactive{opacity:.78}
+    .users-card-head{display:flex;align-items:flex-start;justify-content:space-between;gap:.75rem}
+    .users-card-identity{display:flex;align-items:center;gap:.75rem;min-width:0}
+    .users-card-copy{min-width:0}
+    .users-avatar{width:2.75rem;height:2.75rem;display:grid;place-items:center;flex-shrink:0;border-radius:.65rem;background:#1e293b;color:#94a3b8;font-size:.85rem;font-weight:700}
+    .users-avatar-active{background:rgba(16,185,129,.15);color:#6ee7b7}
+    .users-account-label{color:var(--users-muted);font-size:.7rem}
+    .users-full-name{margin-top:.1rem;overflow:hidden;color:#fff;font-size:1rem;font-weight:700;line-height:1.25;text-overflow:ellipsis}
+    .users-status{display:inline-flex;align-items:center;gap:.35rem;flex-shrink:0;padding:.25rem .6rem;border:1px solid #334155;border-radius:999px;background:#1e293b;color:#94a3b8;font-size:.68rem;font-weight:600;white-space:nowrap}
+    .users-status-active{border-color:rgba(16,185,129,.35);background:rgba(16,185,129,.1);color:#6ee7b7}
+    .users-meta-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.5rem}
+    .users-meta{min-width:0;padding:.6rem .7rem;border:1px solid var(--users-line);border-radius:.6rem;background:var(--users-inner)}
+    .users-meta-label{color:var(--users-muted);font-size:.7rem}
+    .users-meta-value{margin-top:.15rem;overflow:hidden;color:#fff;font-size:.78rem;font-weight:600;text-overflow:ellipsis;white-space:nowrap}
+    .users-card-actions{display:flex;align-items:center;justify-content:space-between;gap:.5rem;margin-top:auto;padding-top:.75rem;border-top:1px solid var(--users-line)}
+    .users-protected{display:inline-flex;align-items:center;gap:.4rem;color:#cbd5e1;font-size:.68rem}
+    .users-protected i{color:var(--users-green)}
+    .users-empty{padding:2rem 1rem;border:1px dashed #334155;border-radius:.75rem;color:var(--users-muted);text-align:center}
+    .users-flash{display:flex;align-items:flex-start;gap:.6rem;padding:.75rem 1rem;border:1px solid rgba(16,185,129,.3);border-radius:.65rem;background:rgba(16,185,129,.08);color:#a7f3d0;font-size:.8rem}
+    .users-flash-error{border-color:rgba(248,113,113,.35);background:rgba(248,113,113,.08);color:#fecaca}
+    .users-dialog{width:min(32rem,calc(100vw - 2rem));max-height:calc(100dvh - 2rem);overflow:auto;margin:auto;padding:1.25rem;border:1px solid #334155;border-radius:.9rem;background:var(--users-card);color:#e2e8f0;box-shadow:0 24px 60px rgba(0,0,0,.55)}
+    .users-dialog::backdrop{background:rgba(0,0,0,.7);backdrop-filter:blur(2px)}
+    .users-dialog-head{display:flex;align-items:center;gap:.75rem;margin-bottom:1rem;padding-bottom:1rem;border-bottom:1px solid var(--users-line)}
+    .users-dialog-icon{width:2.5rem;height:2.5rem;display:grid;place-items:center;flex-shrink:0;border-radius:.65rem;background:rgba(16,185,129,.15);color:#6ee7b7}
+    .users-dialog-kicker{color:var(--users-muted);font-size:.65rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase}
+    .users-dialog-title{margin-top:.1rem;color:#fff;font-size:1.1rem;font-weight:700}
+    .users-form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.75rem}
+    .users-field{min-width:0}
+    .users-field-wide{grid-column:1/-1}
+    .users-label{display:block;margin-bottom:.35rem;color:var(--users-muted);font-size:.72rem;font-weight:500}
+    .users-input{width:100%;min-height:2.5rem;padding:.5rem .7rem;border:1px solid #334155;border-radius:.5rem;outline:none;background:var(--users-inner);color:#e2e8f0;font:inherit;font-size:.75rem}
+    .users-input:focus{border-color:#10b981;box-shadow:0 0 0 2px rgba(16,185,129,.12)}
+    .users-input::placeholder{color:#64748b}
+    .users-input[type=password]{padding-right:2.5rem}
+    .users-password{position:relative}
+    .users-password-toggle{position:absolute;top:50%;right:.7rem;transform:translateY(-50%);border:0;background:transparent;color:#64748b;cursor:pointer}
+    .users-password-toggle:hover{color:#e2e8f0}
+    .users-dialog-actions{display:flex;justify-content:flex-end;gap:.5rem;margin-top:1.25rem}
+    .users-skip-link{position:absolute;left:-9999px;top:1rem;z-index:100;padding:.65rem 1rem;border-radius:.5rem;background:var(--users-green);color:#04130d}
+    .users-skip-link:focus{left:1rem}
+    .users-body :focus-visible{outline:2px solid var(--users-green);outline-offset:2px}
+    @media(min-width:640px){.users-inner{padding:1.5rem}.users-heading{flex-direction:row;align-items:end}.users-clock{display:inline-flex}.users-kpis{grid-template-columns:repeat(4,minmax(0,1fr))}.users-card{padding:1.15rem}}
+    @media(min-width:768px){.users-card-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+    @media(min-width:1024px){
+      .users-sidebar.collapsed{flex-basis:4.5rem;width:4.5rem}
+      .users-sidebar.collapsed .users-brand,.users-sidebar.collapsed .users-profile{justify-content:center;padding-left:0;padding-right:0}
+      .users-sidebar.collapsed .users-brand-name,.users-sidebar.collapsed .users-profile-info,.users-sidebar.collapsed nav a span,.users-sidebar.collapsed .users-logout span{display:none!important}
+      .users-sidebar.collapsed nav a,.users-sidebar.collapsed .users-logout{justify-content:center;padding-left:0;padding-right:0}
+      .users-sidebar.collapsed nav a{gap:0}
+      .users-inner{padding:2rem}
+      .users-card-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
+    }
+    @media(max-width:1023px){
+      .users-sidebar{position:fixed;inset:0 auto 0 0;width:16rem;flex-basis:16rem;transform:translateX(-100%)}
+      .users-sidebar.is-open{transform:translateX(0)}
+      .users-overlay.is-open{display:block}
+    }
+    @media(max-width:520px){
+      .users-inner{padding:1rem;gap:1.25rem}
+      .users-header{padding:0 .75rem}
+      .users-header-badge{padding:.35rem .5rem}
+      .users-dialog{padding:1rem}
+      .users-card-actions{flex-wrap:wrap}
+      .users-protected{font-size:.62rem}
+    }
+    @media print{
+      .users-sidebar,.users-header,.users-actions,.users-overlay,.users-dialog,.users-card-actions{display:none!important}
+      .users-shell,.users-content,.users-main{display:block;height:auto;overflow:visible}
+      body.users-body{background:#fff;color:#000}
+      .users-card,.users-kpi{break-inside:avoid;border:1px solid #ccc;background:#fff;box-shadow:none}
+      .users-title,.users-full-name,.users-meta-value,.users-section-title{color:#000}
+    }
+    @media(prefers-reduced-motion:reduce){*,*::before,*::after{transition:none!important}}
+  </style>
 </head>
-<body class="bg-slate-900 text-slate-100 font-sans min-h-screen flex flex-col md:flex-row overflow-x-hidden">
-  <aside class="w-full md:w-20 lg:w-64 bg-slate-950 border-r border-slate-800 flex flex-col justify-between shrink-0">
-    <div>
-      <div class="p-4 lg:p-6 flex items-center gap-3 border-b border-slate-800/80">
-        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-500 to-teal-400 flex items-center justify-center text-slate-950 text-xl"><i class="fa-solid fa-utensils"></i></div>
-        <div class="hidden lg:block"><h1 class="font-bold text-lg leading-none text-white">GourmetControl</h1><span class="text-xs text-slate-400">Administración</span></div>
-      </div>
-      <div class="p-4 border-b border-slate-800/50 hidden lg:flex items-center gap-3 bg-slate-900/40">
-        <div class="relative">
-          <div class="w-10 h-10 rounded-full bg-emerald-500/15 border-2 border-emerald-500 flex items-center justify-center text-emerald-400" aria-hidden="true"><i class="fa-solid fa-user-shield"></i></div>
-          <span class="absolute bottom-0 right-0 w-3 h-3 bg-emerald-500 border-2 border-slate-950 rounded-full" aria-hidden="true"></span>
-        </div>
-        <div>
-          <p class="text-sm font-semibold text-white leading-tight">{{ request.user.get_full_name|default:request.user.username }}</p>
-          <p class="text-xs text-emerald-400 font-medium">{{ request.user.get_role_display }} &bull; Activo</p>
-        </div>
+<body class="users-body">
+  <a href="#contenido" class="users-skip-link">Saltar al contenido</a>
+  <div class="users-shell">
+    <div id="users-overlay" class="users-overlay" aria-hidden="true"></div>
+    <aside id="users-sidebar" class="users-sidebar" aria-label="Navegación principal">
+      <div class="users-brand">
+        <div class="users-brand-icon"><i class="fa-solid fa-utensils" aria-hidden="true"></i></div>
+        <div class="users-brand-name"><strong>GourmetControl</strong><span>Panel de administración</span></div>
       </div>
       {% include "usuarios/_admin_sidebar_nav.html" with seccion_activa="usuarios" %}
-    </div>
-    <div class="p-3 border-t border-slate-800/80"><a href="{% url 'usuarios:logout' %}" class="w-full flex items-center justify-center lg:justify-start gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold text-rose-400 hover:bg-rose-500/10 transition-all"><i class="fa-solid fa-right-from-bracket text-base" aria-hidden="true"></i><span class="hidden lg:inline">Cerrar sesión</span></a></div>
-  </aside>
-  <main class="flex-1 flex flex-col h-screen overflow-hidden">
-    <header class="h-16 border-b border-slate-800 bg-slate-950/60 backdrop-blur px-6 flex items-center justify-between shrink-0"><div class="flex items-center gap-4"><h2 class="text-lg font-bold text-white flex items-center gap-2 leading-none"><i class="fa-solid fa-users text-emerald-400 text-base" aria-hidden="true"></i><span>Gestión de usuarios</span></h2></div></header>
-    <div class="flex-1 overflow-y-auto">
-    <div class="admin-body">
-      {% if messages %}<div role="status" aria-live="polite">{% for message in messages %}<div class="admin-flash {% if message.tags == 'error' %}admin-flash-error{% else %}admin-flash-ok{% endif %}"><i class="fa-solid {% if message.tags == 'error' %}fa-circle-xmark{% else %}fa-circle-check{% endif %} admin-flash-icon" aria-hidden="true"></i><span>{{ message }}</span></div>{% endfor %}</div>{% endif %}
-      <div class="turn-page-heading"><div><p class="panel-kicker">Administración</p><h1 class="admin-h1">Usuarios</h1><p class="turn-page-subtitle">Crea cuentas y administra el acceso del equipo.</p></div><span class="admin-section-count">{{ usuarios|length }} cuentas</span></div>
-      <div class="admin-grid">
-        <section class="admin-card turn-dashboard-card" aria-labelledby="crear-usuario-heading">
-          <div class="turn-card-heading"><div class="turn-section-icon"><i class="fa-solid fa-user-plus"></i></div><div><p class="panel-kicker">Equipo</p><h2 id="crear-usuario-heading">Crear usuario</h2></div></div>
-          <form method="post" action="{% url 'usuarios:crear_usuario' %}" class="admin-form-row">
-            {% csrf_token %}
-            <input type="text" name="first_name" placeholder="Nombre" autocomplete="given-name" required class="admin-input" aria-label="Nombre">
-            <input type="text" name="last_name" placeholder="Apellidos" autocomplete="family-name" required class="admin-input" aria-label="Apellidos">
-            <input type="text" name="username" placeholder="Nombre de usuario" autocomplete="username" required class="admin-input" aria-label="Nombre de usuario">
-            <input type="password" name="password" placeholder="Contraseña" autocomplete="new-password" required class="admin-input" aria-label="Contraseña">
-            <select name="role" required class="admin-input" aria-label="Rol"><option value="" disabled selected>Seleccionar rol</option>{% for value, label in user.ROLE_CHOICES %}<option value="{{ value }}">{{ label }}</option>{% endfor %}</select>
-            <button type="submit" class="btn btn-primary btn-sm turn-action-btn"><i class="fa-solid fa-plus"></i> Crear usuario</button>
-          </form>
-        </section>
-        <section class="admin-card turn-dashboard-card" aria-labelledby="usuarios-heading">
-          <div class="turn-card-heading"><div class="turn-section-icon"><i class="fa-solid fa-address-book"></i></div><div><p class="panel-kicker">Equipo</p><h2 id="usuarios-heading">Usuarios registrados</h2></div></div>
-          <div class="turn-user-list">
-            {% for usuario in usuarios %}
-            <div class="turn-user-row">
-              <div><strong>{{ usuario.get_full_name|default:usuario.username }}</strong><span>{{ usuario.username }} · {{ usuario.get_role_display }}</span></div>
-              <div class="turn-user-actions">
-                <span class="turn-user-status {% if usuario.is_active %}is-active{% endif %}">{{ usuario.is_active|yesno:"Activo,Inactivo" }}</span>
-                <details class="turn-user-edit" name="user-edit">
-                  <summary class="btn btn-outline btn-sm"><i class="fa-solid fa-pen"></i> Editar</summary>
-                  <form method="post" action="{% url 'usuarios:editar_usuario' usuario.id %}" class="turn-user-edit-form">
-                    {% csrf_token %}
-                    <div class="turn-user-edit-header"><h2>Editar usuario</h2><button type="button" class="btn btn-outline btn-sm" data-close-user-edit><i class="fa-solid fa-xmark"></i> Cerrar</button></div>
-                    <div><label>Nombre</label><input type="text" name="first_name" value="{{ usuario.first_name }}" class="admin-input" required disabled></div>
-                    <div><label>Apellidos</label><input type="text" name="last_name" value="{{ usuario.last_name }}" class="admin-input" required disabled></div>
-                    <div><label>Usuario</label><input type="text" name="username" value="{{ usuario.username }}" class="admin-input" required disabled></div>
-                    <div><label>Correo</label><input type="email" name="email" value="{{ usuario.email }}" class="admin-input" disabled></div>
-                    <div><label>Teléfono</label><input type="text" name="telefono" value="{{ usuario.telefono }}" class="admin-input" disabled></div>
-                    <div><label>Rol</label><select name="role" class="admin-input" required disabled>{% for value, label in usuario.ROLE_CHOICES %}<option value="{{ value }}" {% if usuario.role == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></div>
-                    <div class="turn-user-password-status"><label>Contraseña actual</label><span>Protegida</span></div>
-                    <div class="turn-user-password-field"><label for="user-password-{{ usuario.id }}">Nueva contraseña</label><div class="turn-user-password-input"><input id="user-password-{{ usuario.id }}" type="password" name="password" placeholder="Dejar vacía para conservarla" autocomplete="new-password" class="admin-input" disabled><button type="button" class="password-toggle" data-toggle-password="user-password-{{ usuario.id }}" aria-label="Mostrar contraseña"><i class="fa-solid fa-eye"></i></button></div></div>
-                    <div class="turn-user-edit-actions"><button type="button" class="btn btn-outline btn-sm" data-enable-user-edit><i class="fa-solid fa-pen"></i> Editar datos</button><button type="submit" class="btn btn-primary btn-sm" data-save-user-edit disabled><i class="fa-solid fa-floppy-disk"></i> Guardar cambios</button></div>
-                  </form>
-                </details>
-                {% if usuario != request.user %}<form method="post" action="{% url 'usuarios:cambiar_estado_usuario' usuario.id %}">{% csrf_token %}<button type="submit" class="btn btn-sm {% if usuario.is_active %}btn-orange{% else %}btn-primary{% endif %}">{{ usuario.is_active|yesno:"Desactivar,Activar" }}</button></form>{% endif %}
-              </div>
-            </div>
-            {% empty %}<div class="turn-empty">No hay usuarios registrados.</div>{% endfor %}
+      <div class="users-sidebar-foot">
+        <div class="users-profile">
+          <div class="users-profile-icon"><i class="fa-solid fa-user" aria-hidden="true"></i></div>
+          <div class="users-profile-info">
+            <p class="users-profile-name">{{ request.user.get_full_name|default:request.user.username }}</p>
+            <p class="users-profile-role">{{ request.user.get_role_display }} &bull; Activo</p>
           </div>
-        </section>
+        </div>
+        <a href="{% url 'usuarios:logout' %}" class="users-logout"><i class="fa-solid fa-arrow-right-from-bracket" aria-hidden="true"></i><span>Cerrar sesión</span></a>
       </div>
+    </aside>
+
+    <div class="users-content">
+      <header class="users-header">
+        <div class="users-header-left">
+          <button id="users-menu-button" type="button" class="users-menu" aria-label="Desplegar menú" aria-controls="users-sidebar" aria-expanded="false"><i class="fa-solid fa-bars" aria-hidden="true"></i></button>
+          <p class="users-header-title"><i class="fa-solid fa-users" aria-hidden="true"></i>Gestión de usuarios</p>
+          <span id="users-clock" class="users-clock" aria-hidden="true"></span>
+        </div>
+        <span class="users-header-badge"><i class="fa-solid fa-user-shield" aria-hidden="true"></i><span>Acceso del equipo</span></span>
+      </header>
+
+      <main id="contenido" class="users-main">
+        <div class="users-inner">
+          {% if messages %}
+            <div role="status" aria-live="polite">
+              {% for message in messages %}
+                <div class="users-flash {% if message.tags == 'error' %}users-flash-error{% endif %}">
+                  <i class="fa-solid {% if message.tags == 'error' %}fa-circle-exclamation{% else %}fa-circle-check{% endif %}" aria-hidden="true"></i>
+                  <span>{{ message }}</span>
+                </div>
+              {% endfor %}
+            </div>
+          {% endif %}
+
+          <section class="users-heading" aria-labelledby="users-page-title">
+            <div>
+              <p class="users-kicker">Administración</p>
+              <h1 id="users-page-title" class="users-title">Usuarios</h1>
+              <p class="users-subtitle">Crea cuentas y administra el acceso del equipo.</p>
+            </div>
+            <div class="users-actions">
+              <button type="button" class="users-btn users-btn-primary" data-open-dialog="new-user-dialog">
+                <i class="fa-solid fa-plus" aria-hidden="true"></i>Nuevo usuario
+              </button>
+            </div>
+          </section>
+
+          <section aria-labelledby="team-summary-title">
+            <h2 id="team-summary-title" class="users-section-title"><i class="fa-solid fa-users" aria-hidden="true"></i>Resumen del equipo</h2>
+            <div class="users-kpis">
+              <article class="users-kpi users-kpi-highlight">
+                <div class="users-kpi-label"><span class="users-kpi-icon"><i class="fa-solid fa-users" aria-hidden="true"></i></span>Cuentas totales</div>
+                <p class="users-kpi-value">{{ usuarios|length }}</p>
+              </article>
+              <article class="users-kpi">
+                <div class="users-kpi-label"><span class="users-kpi-icon"><i class="fa-solid fa-user-check" aria-hidden="true"></i></span>Activas</div>
+                <p class="users-kpi-value">{{ usuarios_activos }}</p>
+              </article>
+              <article class="users-kpi">
+                <div class="users-kpi-label"><span class="users-kpi-icon"><i class="fa-solid fa-user-slash" aria-hidden="true"></i></span>Inactivas</div>
+                <p class="users-kpi-value">{{ usuarios_inactivos }}</p>
+              </article>
+              <article class="users-kpi">
+                <div class="users-kpi-label"><span class="users-kpi-icon"><i class="fa-solid fa-user-shield" aria-hidden="true"></i></span>Administradores</div>
+                <p class="users-kpi-value">{{ administradores }}</p>
+              </article>
+            </div>
+          </section>
+
+          <section aria-labelledby="registered-users-title">
+            <h2 id="registered-users-title" class="users-section-title"><i class="fa-solid fa-address-book" aria-hidden="true"></i>Usuarios registrados</h2>
+            <div class="users-card-grid">
+              {% for usuario in usuarios %}
+                <article class="users-card {% if not usuario.is_active %}users-card-inactive{% endif %}">
+                  <div class="users-card-head">
+                    <div class="users-card-identity">
+                      <span class="users-avatar {% if usuario.is_active %}users-avatar-active{% endif %}" aria-hidden="true">
+                        {% with nombre=usuario.get_full_name|default:usuario.username %}
+                          {{ nombre|slice:":1"|upper }}{% if usuario.last_name %}{{ usuario.last_name|slice:":1"|upper }}{% endif %}
+                        {% endwith %}
+                      </span>
+                      <div class="users-card-copy">
+                        <p class="users-account-label">Cuenta de usuario</p>
+                        <h3 class="users-full-name">{{ usuario.get_full_name|default:usuario.username }}</h3>
+                      </div>
+                    </div>
+                    <span class="users-status {% if usuario.is_active %}users-status-active{% endif %}">
+                      <i class="fa-solid {% if usuario.is_active %}fa-circle-check{% else %}fa-circle-minus{% endif %}" aria-hidden="true"></i>
+                      {{ usuario.is_active|yesno:"Activo,Inactivo" }}
+                    </span>
+                  </div>
+                  <div class="users-meta-grid">
+                    <div class="users-meta"><p class="users-meta-label">Usuario</p><p class="users-meta-value">@{{ usuario.username }}</p></div>
+                    <div class="users-meta"><p class="users-meta-label">Rol</p><p class="users-meta-value">{{ usuario.get_role_display }}</p></div>
+                  </div>
+                  <div class="users-card-actions">
+                    {% if usuario == request.user %}
+                      <span class="users-protected"><i class="fa-solid fa-lock" aria-hidden="true"></i>Tu cuenta protegida</span>
+                    {% else %}
+                      <form method="post" action="{% url 'usuarios:cambiar_estado_usuario' usuario.id %}" data-confirm="{% if usuario.is_active %}¿Desactivar a {{ usuario.username }}? No podrá iniciar sesión.{% endif %}">
+                        {% csrf_token %}
+                        <button type="submit" class="users-btn {% if usuario.is_active %}users-btn-warning{% else %}users-btn-success{% endif %}">
+                          <i class="fa-solid {% if usuario.is_active %}fa-user-slash{% else %}fa-user-check{% endif %}" aria-hidden="true"></i>
+                          {% if usuario.is_active %}Desactivar{% else %}Activar{% endif %}
+                        </button>
+                      </form>
+                    {% endif %}
+                    <button type="button" class="users-btn" data-open-dialog="edit-user-{{ usuario.id }}" aria-label="Editar {{ usuario.get_full_name|default:usuario.username }}">
+                      <i class="fa-solid fa-pen" aria-hidden="true"></i>Editar
+                    </button>
+                  </div>
+                </article>
+              {% empty %}
+                <p class="users-empty">No hay usuarios registrados.</p>
+              {% endfor %}
+            </div>
+          </section>
+        </div>
+      </main>
     </div>
+  </div>
+
+  <dialog id="new-user-dialog" class="users-dialog" aria-labelledby="new-user-title">
+    <div class="users-dialog-head">
+      <span class="users-dialog-icon"><i class="fa-solid fa-user-plus" aria-hidden="true"></i></span>
+      <div><p class="users-dialog-kicker">Equipo</p><h2 id="new-user-title" class="users-dialog-title">Crear usuario</h2></div>
     </div>
-  </main>
+    <form method="post" action="{% url 'usuarios:crear_usuario' %}">
+      {% csrf_token %}
+      <div class="users-form-grid">
+        <div class="users-field"><label class="users-label" for="new-first-name">Nombre</label><input id="new-first-name" class="users-input" type="text" name="first_name" autocomplete="given-name" required></div>
+        <div class="users-field"><label class="users-label" for="new-last-name">Apellidos</label><input id="new-last-name" class="users-input" type="text" name="last_name" autocomplete="family-name" required></div>
+        <div class="users-field users-field-wide"><label class="users-label" for="new-username">Nombre de usuario</label><input id="new-username" class="users-input" type="text" name="username" autocomplete="username" required></div>
+        <div class="users-field">
+          <label class="users-label" for="new-password">Contraseña</label>
+          <div class="users-password"><input id="new-password" class="users-input" type="password" name="password" autocomplete="new-password" required><button type="button" class="users-password-toggle" data-toggle-password="new-password" aria-label="Mostrar contraseña"><i class="fa-solid fa-eye" aria-hidden="true"></i></button></div>
+        </div>
+        <div class="users-field"><label class="users-label" for="new-role">Rol</label><select id="new-role" class="users-input" name="role" required><option value="" disabled selected>Seleccionar rol</option>{% for value, label in user.ROLE_CHOICES %}<option value="{{ value }}">{{ label }}</option>{% endfor %}</select></div>
+      </div>
+      <div class="users-dialog-actions">
+        <button type="button" class="users-btn" data-close-dialog>Cancelar</button>
+        <button type="submit" class="users-btn users-btn-primary"><i class="fa-solid fa-plus" aria-hidden="true"></i>Crear usuario</button>
+      </div>
+    </form>
+  </dialog>
+
+  {% for usuario in usuarios %}
+    <dialog id="edit-user-{{ usuario.id }}" class="users-dialog users-edit-dialog" aria-labelledby="edit-user-title-{{ usuario.id }}">
+      <div class="users-dialog-head">
+        <span class="users-dialog-icon"><i class="fa-solid fa-user-pen" aria-hidden="true"></i></span>
+        <div><p class="users-dialog-kicker">Equipo</p><h2 id="edit-user-title-{{ usuario.id }}" class="users-dialog-title">Editar usuario</h2></div>
+      </div>
+      <form method="post" action="{% url 'usuarios:editar_usuario' usuario.id %}">
+        {% csrf_token %}
+        <div class="users-form-grid">
+          <div class="users-field"><label class="users-label" for="edit-first-name-{{ usuario.id }}">Nombre</label><input id="edit-first-name-{{ usuario.id }}" class="users-input" type="text" name="first_name" value="{{ usuario.first_name }}" autocomplete="given-name" required></div>
+          <div class="users-field"><label class="users-label" for="edit-last-name-{{ usuario.id }}">Apellidos</label><input id="edit-last-name-{{ usuario.id }}" class="users-input" type="text" name="last_name" value="{{ usuario.last_name }}" autocomplete="family-name" required></div>
+          <div class="users-field users-field-wide"><label class="users-label" for="edit-username-{{ usuario.id }}">Nombre de usuario</label><input id="edit-username-{{ usuario.id }}" class="users-input" type="text" name="username" value="{{ usuario.username }}" autocomplete="username" required></div>
+          <div class="users-field"><label class="users-label" for="edit-email-{{ usuario.id }}">Correo</label><input id="edit-email-{{ usuario.id }}" class="users-input" type="email" name="email" value="{{ usuario.email }}"></div>
+          <div class="users-field"><label class="users-label" for="edit-phone-{{ usuario.id }}">Teléfono</label><input id="edit-phone-{{ usuario.id }}" class="users-input" type="text" name="telefono" value="{{ usuario.telefono }}"></div>
+          <div class="users-field"><label class="users-label" for="edit-role-{{ usuario.id }}">Rol</label><select id="edit-role-{{ usuario.id }}" class="users-input" name="role" required>{% for value, label in usuario.ROLE_CHOICES %}<option value="{{ value }}" {% if usuario.role == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></div>
+          <div class="users-field">
+            <label class="users-label" for="edit-password-{{ usuario.id }}">Nueva contraseña</label>
+            <div class="users-password"><input id="edit-password-{{ usuario.id }}" class="users-input" type="password" name="password" placeholder="Vacía = conservar" autocomplete="new-password"><button type="button" class="users-password-toggle" data-toggle-password="edit-password-{{ usuario.id }}" aria-label="Mostrar contraseña"><i class="fa-solid fa-eye" aria-hidden="true"></i></button></div>
+          </div>
+        </div>
+        <div class="users-dialog-actions">
+          <button type="button" class="users-btn" data-close-dialog>Cancelar</button>
+          <button type="submit" class="users-btn users-btn-primary"><i class="fa-solid fa-check" aria-hidden="true"></i>Guardar cambios</button>
+        </div>
+      </form>
+    </dialog>
+  {% endfor %}
+
   <script>
-    const userEditDialogs = document.querySelectorAll('.turn-user-edit');
-    userEditDialogs.forEach(dialog => {
-      dialog.addEventListener('toggle', () => {
-        if (!dialog.open) return;
-        userEditDialogs.forEach(otherDialog => {
-          if (otherDialog !== dialog) otherDialog.open = false;
-        });
+    const sidebar = document.getElementById('users-sidebar');
+    const overlay = document.getElementById('users-overlay');
+    const menuButton = document.getElementById('users-menu-button');
+    const isDesktop = () => window.matchMedia('(min-width: 1024px)').matches;
+    const syncMenu = () => {
+      const expanded = isDesktop()
+        ? !sidebar.classList.contains('collapsed')
+        : sidebar.classList.contains('is-open');
+      menuButton.setAttribute('aria-expanded', String(expanded));
+      menuButton.setAttribute('aria-label', expanded ? 'Replegar menú' : 'Desplegar menú');
+    };
+    const closeDrawer = () => {
+      sidebar.classList.remove('is-open');
+      overlay.classList.remove('is-open');
+      syncMenu();
+    };
+    menuButton.addEventListener('click', () => {
+      if (isDesktop()) {
+        sidebar.classList.toggle('collapsed');
+      } else {
+        sidebar.classList.toggle('is-open');
+        overlay.classList.toggle('is-open');
+      }
+      syncMenu();
+    });
+    overlay.addEventListener('click', closeDrawer);
+    window.addEventListener('resize', () => {
+      if (isDesktop()) closeDrawer();
+      syncMenu();
+    });
+
+    document.querySelectorAll('[data-open-dialog]').forEach(button => {
+      button.addEventListener('click', () => {
+        const dialog = document.getElementById(button.dataset.openDialog);
+        if (!dialog) return;
+        dialog.showModal();
+        dialog.querySelector('input:not([type=hidden]),select')?.focus();
       });
     });
-    document.querySelectorAll('.turn-user-edit-form').forEach(form => {
-      const fields = form.querySelectorAll('input:not([type="hidden"]), select');
-      const editButton = form.querySelector('[data-enable-user-edit]');
-      const saveButton = form.querySelector('[data-save-user-edit]');
-      form.querySelector('[data-close-user-edit]').addEventListener('click', () => { form.closest('details').open = false; });
-      editButton.addEventListener('click', () => { fields.forEach(field => { field.disabled = false; }); editButton.hidden = true; saveButton.disabled = false; fields[0].focus(); });
+    document.querySelectorAll('[data-close-dialog]').forEach(button => {
+      button.addEventListener('click', () => button.closest('dialog').close());
     });
     document.querySelectorAll('[data-toggle-password]').forEach(button => {
-      button.addEventListener('click', () => { const field = document.getElementById(button.dataset.togglePassword); const visible = field.type === 'text'; field.type = visible ? 'password' : 'text'; button.setAttribute('aria-label', visible ? 'Mostrar contraseña' : 'Ocultar contraseña'); button.innerHTML = `<i class="fa-solid fa-eye${visible ? '' : '-slash'}"></i>`; });
+      button.addEventListener('click', () => {
+        const field = document.getElementById(button.dataset.togglePassword);
+        const visible = field.type === 'text';
+        field.type = visible ? 'password' : 'text';
+        button.setAttribute('aria-label', visible ? 'Mostrar contraseña' : 'Ocultar contraseña');
+        button.innerHTML = `<i class="fa-solid fa-eye${visible ? '' : '-slash'}" aria-hidden="true"></i>`;
+      });
     });
+    document.querySelectorAll('dialog.users-dialog').forEach(dialog => {
+      dialog.addEventListener('click', event => {
+        if (event.target === dialog) dialog.close();
+      });
+    });
+    document.querySelectorAll('form[data-confirm]').forEach(form => {
+      form.addEventListener('submit', event => {
+        if (form.dataset.confirm && !window.confirm(form.dataset.confirm)) event.preventDefault();
+      });
+    });
+    document.addEventListener('keydown', event => {
+      if (event.key === 'Escape' && !isDesktop()) closeDrawer();
+    });
+    const clock = document.getElementById('users-clock');
+    const updateClock = () => {
+      clock.textContent = new Intl.DateTimeFormat('es', {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true,
+      }).format(new Date());
+    };
+    updateClock();
+    window.setInterval(updateClock, 30000);
+    syncMenu();
   </script>
 </body>
 </html>

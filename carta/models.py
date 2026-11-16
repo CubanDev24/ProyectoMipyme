@@ -3,6 +3,7 @@ from django.db import models
 class Categoria(models.Model):
     nombre = models.CharField(max_length=100)
     orden = models.PositiveIntegerField(default=0)
+    visible = models.BooleanField(default=True)
     class Meta:
         ordering = ['orden', 'nombre']
         verbose_name = 'Categoría'

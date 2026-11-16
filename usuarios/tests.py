@@ -1,17 +1,18 @@
 from datetime import date, datetime, timedelta
 from io import BytesIO
 from decimal import Decimal
+from unittest.mock import patch
 
 from openpyxl import load_workbook
 from django.test import Client, RequestFactory, TestCase
 from django.urls import reverse
 from django.utils import timezone
 
-from inventario.models import Insumo, MovimientoInventario
+from inventario.models import Insumo, MovimientoInventario, RecetaItem
 from carta.models import Categoria, Plato
 from pedidos.models import Factura, ItemPedido, Mesa, Pedido, RechazoItemPedido
 from usuarios.models import ProductoIPVTurno, Usuario, Notificacion, Turno, configurar_turno, get_turno_abierto, registrar_inicio_turno, cerrar_turno, mesas_del_turno
-from usuarios.views import historial_turnos_view, historial_turno_detalle_view, ipv_turno
+from usuarios.views import historial_turnos_view
 
 
 class UsuarioTurnoTests(TestCase):
@@ -55,6 +56,21 @@ class UsuarioTurnoTests(TestCase):
         self.assertRedirects(response, reverse('pedidos:mesera'))
         self.assertFalse(Turno.objects.filter(fecha=timezone.localdate()).exists())
 
+    def test_login_administrador_abre_el_panel_del_turno_actual(self):
+        response = self.client.post(reverse('usuarios:login'), {
+            'username': self.admin.username,
+            'password': '123456',
+        })
+
+        self.assertRedirects(response, reverse('usuarios:dashboard'))
+        dashboard = self.client.get(reverse('usuarios:dashboard'))
+
+        self.assertEqual(dashboard.status_code, 200)
+        self.assertTemplateUsed(dashboard, 'administrador/base_admin.html')
+        self.assertTemplateUsed(dashboard, 'administrador/_admin_content_dashboard.html')
+        self.assertEqual(dashboard.context['admin_active_section'], 'detalle_turno')
+        self.assertIn('no-store', dashboard['Cache-Control'])
+
     def test_dashboard_muestra_facturas_del_turno_y_excluye_las_anteriores(self):
         turno = registrar_inicio_turno(self.mesera)
         mesa = Mesa.objects.create(numero=1, abierta=True)
@@ -97,26 +113,54 @@ class UsuarioTurnoTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'name="fondo_inicial_cup"')
         self.assertContains(response, 'Detalle del turno actual')
-        self.assertContains(response, f'href="{reverse("inventario:administrador")}#wifi"')
+        self.assertContains(
+            response,
+            'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap',
+        )
+        self.assertContains(response, f'href="{reverse("inventario:wifi_qr")}"')
         self.assertEqual(list(response.context['facturas_turno']), [factura_turno])
-        self.assertContains(response, f'Factura #{factura_turno.pk}')
+        self.assertContains(
+            response,
+            '<tr class="cols"><th>N.º</th><th>Hora</th><th class="l">Mesa</th>',
+        )
+        self.assertContains(response, '<th class="l">Forma de pago</th><th>Total</th>')
+        self.assertContains(
+            response,
+            '<tfoot><tr><td colspan="3"></td>'
+            '<td class="c turn-invoice-total-label">TOTAL</td><td class="r">',
+        )
+        self.assertContains(response, 'Consulta el rendimiento histórico, el IPV y el cierre de cada turno.')
+        self.assertContains(response, 'class="btn btn-primary turn-history-link no-print"')
+        self.assertNotContains(response, '<th class="no-print">Detalle</th>')
+        self.assertContains(response, f'aria-label="Ver detalle de la factura {factura_turno.pk}"')
+        self.assertContains(response, f'<strong>#{factura_turno.pk}</strong>')
         self.assertContains(response, 'Plato de prueba')
         self.assertContains(response, 'Inventario perpetuo de ventas')
         self.assertContains(response, 'Fondo inicial')
-        self.assertContains(response, 'Importe de ventas acumulado')
+        self.assertContains(response, 'id="ipv-total-row"')
+        self.assertContains(
+            response,
+            '<tr class="cols"><th class="rn">4</th><th class="l">PRODUCTO</th>'
+            '<th>Vendido</th><th>Precio venta</th><th>Importe ventas</th>',
+        )
+        self.assertContains(response, '<th class="act-col no-print">Registrar rotura</th>')
         self.assertNotContains(response, '<th>Saldo inicial</th>')
         self.assertNotContains(response, '<th>Entradas</th>')
         self.assertNotContains(response, '<th>Disponible</th>')
         self.assertNotContains(response, '<th>Saldo final</th>')
+        self.assertNotContains(response, 'turn-product-sold')
         self.assertNotContains(response, 'Configurar IPV del turno')
         self.assertContains(response, 'setInterval(actualizarInventarioTurno, 5000)')
-        self.assertNotContains(response, f'Factura #{factura_anterior.pk}')
+        self.assertNotContains(
+            response,
+            f'aria-label="Ver detalle de la factura {factura_anterior.pk}"',
+        )
 
         self.client.force_login(self.cajera)
         response_cajera = self.client.get(reverse('usuarios:dashboard'))
         self.assertEqual(response_cajera.status_code, 200)
         self.assertTrue(response_cajera.context['puede_ver_datos_financieros'])
-        self.assertContains(response_cajera, f'Factura #{factura_turno.pk}')
+        self.assertContains(response_cajera, f'aria-label="Ver detalle de la factura {factura_turno.pk}"')
         self.assertContains(response_cajera, 'Inventario perpetuo de ventas')
 
     def test_mesera_y_cocina_no_ven_datos_financieros_ni_ipv(self):
@@ -265,11 +309,20 @@ class UsuarioTurnoTests(TestCase):
         self.assertEqual(response.context['resumen_general']['total_general_cup'], Decimal('300.00'))
         self.assertEqual(response.context['resumen_general']['total_efectivo_cup'], Decimal('100.00'))
         self.assertEqual(response.context['resumen_general']['total_transferencia_cup'], Decimal('200.00'))
+        self.assertEqual(response.context['efectivo_porcentaje'], Decimal(100) / Decimal(3))
+        self.assertEqual(response.context['transferencia_porcentaje'], Decimal(200) / Decimal(3))
+        self.assertEqual(
+            {item['id'] for item in response.context['ventas_grafico']},
+            {item['turno'].pk for item in response.context['historial']},
+        )
         self.assertContains(response, (hoy - timedelta(days=3)).isoformat())
         self.assertContains(response, (hoy - timedelta(days=2)).isoformat())
 
-    def test_reportes_muestran_ventas_y_categorias_del_periodo_seleccionado(self):
-        hoy = timezone.localdate()
+    @patch('usuarios.views.timezone.localdate')
+    def test_reportes_muestran_ventas_y_categorias_del_periodo_seleccionado(self, localdate_mock):
+        fecha_actual = datetime.now(timezone.get_current_timezone()).date()
+        hoy = fecha_actual + timedelta(days=(2 - fecha_actual.weekday()) % 7)
+        localdate_mock.return_value = hoy
         categoria_bebidas = Categoria.objects.create(nombre='Bebidas')
         categoria_comidas = Categoria.objects.create(nombre='Comidas')
         plato = Plato.objects.create(nombre='Jugo', categoria=categoria_bebidas, precio='25.00')
@@ -298,7 +351,7 @@ class UsuarioTurnoTests(TestCase):
                 [{'plato': plato.nombre, 'categoria': categoria_bebidas.nombre, 'cantidad': 3}],
             ),
             (
-                hoy - timedelta(days=8),
+                hoy - timedelta(days=hoy.weekday() + 1),
                 'usd',
                 Decimal('75.00'),
                 Decimal('0'),
@@ -326,11 +379,26 @@ class UsuarioTurnoTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, f'href="{reverse("usuarios:reportes")}"')
-        self.assertContains(response, f'href="{reverse("inventario:administrador")}#wifi"')
+        self.assertContains(response, f'href="{reverse("inventario:wifi_qr")}"')
         self.assertEqual(response.context['cantidad_facturas'], 2)
         self.assertEqual(response.context['total_cup'], Decimal('300.00'))
         self.assertEqual(response.context['total_unidades'], 6)
+        self.assertEqual(
+            sum(punto['total_anterior'] for punto in response.context['recaudacion_grafico']),
+            Decimal('75.00'),
+        )
         self.assertEqual(response.context['productos_mas_vendidos'][0]['cantidad'], 5)
+        self.assertEqual(response.context['unidades_sin_costo_receta'], 6)
+        self.assertEqual(response.context['venta_con_costo'], Decimal('0'))
+        self.assertEqual(response.context['reportes_costo_categorias'], [])
+        self.assertContains(response, 'id="gCat"')
+        self.assertContains(response, 'Bebidas')
+        self.assertEqual(len(response.context['reportes_export']), 3)
+        self.assertEqual(
+            {fila[5] for fila in response.context['reportes_export']},
+            {'Jugo', 'Sándwich'},
+        )
+        self.assertEqual(len(response.context['facturas_export']), 2)
         self.assertEqual(response.context['ventas_por_categoria'][0]['participacion'], 83)
         self.assertIn('#34d399', response.context['categorias_donut'])
         self.assertTrue(response.context['pagos_donut'])
@@ -340,9 +408,41 @@ class UsuarioTurnoTests(TestCase):
         }
         self.assertEqual(categorias, {'Bebidas': 5, 'Comidas': 1})
         self.assertContains(response, 'Semana actual')
-        self.assertContains(response, 'Recaudación por día')
-        self.assertContains(response, 'report-timeline-bar')
-        self.assertContains(response, 'report-donut')
+        self.assertContains(response, 'class="tabbar no-print"')
+        self.assertContains(response, 'href="?periodo=hoy"')
+        self.assertContains(response, 'Recaudación en el tiempo')
+        self.assertContains(response, 'id="gTop"')
+        self.assertContains(response, 'id="gPago"')
+        self.assertContains(response, 'id="gTiempo"')
+        self.assertEqual(response.content.decode().count('class="card"'), 6)
+        self.assertContains(response, 'highcharts/11.4.8/highcharts.js')
+        self.assertContains(response, 'exceljs/4.4.0/exceljs.min.js')
+        self.assertNotContains(response, 'apexcharts')
+        self.assertNotContains(response, 'class="report-note"')
+
+        response_default = self.client.get(reverse('usuarios:reportes'))
+        self.assertEqual(response_default.context['periodo_label'], 'Mes actual')
+        self.assertEqual(response_default.context['fecha_desde'], hoy.replace(day=1))
+
+        response_hoy = self.client.get(reverse('usuarios:reportes'), {'periodo': 'hoy'})
+        self.assertEqual(response_hoy.context['periodo_label'], 'Hoy')
+        self.assertEqual(response_hoy.context['fecha_desde'], hoy)
+        self.assertEqual(response_hoy.context['fecha_hasta'], hoy)
+        self.assertEqual(response_hoy.context['cantidad_facturas'], 1)
+        self.assertTrue(all(
+            punto['etiqueta'].endswith('h')
+            for punto in response_hoy.context['recaudacion_grafico']
+        ))
+        self.assertEqual(
+            sum(punto['total'] for punto in response_hoy.context['recaudacion_grafico']),
+            Decimal('200.00'),
+        )
+        self.assertEqual(
+            sum(punto['facturas'] for punto in response_hoy.context['recaudacion_grafico']),
+            1,
+        )
+        self.assertContains(response_hoy, 'id="tab-hoy"')
+        self.assertContains(response_hoy, 'aria-selected="true"')
 
         response_rango = self.client.get(reverse('usuarios:reportes'), {
             'periodo': 'rango',
@@ -351,6 +451,124 @@ class UsuarioTurnoTests(TestCase):
         })
         self.assertEqual(response_rango.context['cantidad_facturas'], 1)
         self.assertEqual(response_rango.context['total_cup'], Decimal('200.00'))
+
+        inicio_rango = hoy - timedelta(days=9)
+        response_rango_extendido = self.client.get(reverse('usuarios:reportes'), {
+            'periodo': 'rango',
+            'fecha_desde': inicio_rango.isoformat(),
+            'fecha_hasta': hoy.isoformat(),
+        })
+        grafico_diario = response_rango_extendido.context['recaudacion_grafico']
+        self.assertEqual(len(grafico_diario), 10)
+        self.assertTrue(any(punto['total'] == 0 for punto in grafico_diario))
+        self.assertTrue(all('total_anterior' in punto for punto in grafico_diario))
+
+        inicio_meses = (hoy.replace(day=1) - timedelta(days=65)).replace(day=1)
+        response_meses = self.client.get(reverse('usuarios:reportes'), {
+            'periodo': 'rango',
+            'fecha_desde': inicio_meses.isoformat(),
+            'fecha_hasta': hoy.isoformat(),
+        })
+        grafico_mensual = response_meses.context['recaudacion_grafico']
+        cantidad_meses = (hoy.year - inicio_meses.year) * 12 + hoy.month - inicio_meses.month + 1
+        self.assertEqual(len(grafico_mensual), cantidad_meses)
+        self.assertTrue(any(punto['total'] == 0 for punto in grafico_mensual))
+        self.assertTrue(all('total_anterior' in punto for punto in grafico_mensual))
+
+    def test_reportes_calculan_costos_mermas_rotacion_y_platos_sin_ventas(self):
+        hoy = timezone.localdate()
+        categoria = Categoria.objects.create(nombre='Platos')
+        vendido = Plato.objects.create(
+            nombre='Pollo con arroz',
+            categoria=categoria,
+            precio='100.00',
+        )
+        sin_ventas = Plato.objects.create(
+            nombre='Postre del día',
+            categoria=categoria,
+            precio='50.00',
+        )
+        insumo = Insumo.objects.create(
+            nombre='Pollo para reportes',
+            tipo_inventario='cocina',
+            unidad='kg',
+            stock_actual='10.000',
+            costo='20.00',
+        )
+        RecetaItem.objects.create(plato=vendido, insumo=insumo, cantidad='2.000')
+        pedido = Pedido.objects.create(estado='cerrado')
+        factura = Factura.objects.create(
+            pedido=pedido,
+            forma_pago='efectivo_cup',
+            total_cup='300.00',
+            monto_efectivo_cup='300.00',
+            items_snapshot=[{
+                'plato_id': vendido.pk,
+                'plato': vendido.nombre,
+                'categoria': categoria.nombre,
+                'cantidad': 3,
+                'precio_unit': '100.00',
+            }],
+        )
+        Factura.objects.filter(pk=factura.pk).update(
+            creado_en=timezone.make_aware(datetime.combine(hoy, datetime.min.time()))
+        )
+        ItemPedido.objects.create(
+            pedido=pedido,
+            plato=vendido,
+            cantidad=1,
+            cantidad_rechazada=1,
+        )
+        rechazo = RechazoItemPedido.objects.create(
+            item=ItemPedido.objects.get(pedido=pedido),
+            cantidad=1,
+            motivo='Temperatura incorrecta',
+            reportado_por=self.cajera,
+        )
+        RechazoItemPedido.objects.filter(pk=rechazo.pk).update(
+            creado_en=timezone.make_aware(datetime.combine(hoy, datetime.min.time()))
+        )
+        MovimientoInventario.objects.create(
+            insumo=insumo,
+            tipo_inventario='cocina',
+            producto_nombre=insumo.nombre,
+            categoria_nombre='Carnes',
+            tipo='salida',
+            cantidad='6.000',
+            stock_anterior='16.000',
+            stock_posterior='10.000',
+            unidad='kg',
+            motivo='Consumo para pedidos',
+        )
+        MovimientoInventario.objects.create(
+            insumo=insumo,
+            tipo_inventario='cocina',
+            producto_nombre=insumo.nombre,
+            categoria_nombre='Carnes',
+            tipo='merma',
+            cantidad='1.000',
+            stock_anterior='11.000',
+            stock_posterior='10.000',
+            unidad='kg',
+            motivo='Producto dañado',
+        )
+
+        self.client.force_login(self.admin)
+        response = self.client.get(reverse('usuarios:reportes'), {'periodo': 'hoy'})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context['venta_con_costo'], Decimal('300.00'))
+        self.assertEqual(response.context['costo_ventas'], Decimal('120.000'))
+        self.assertEqual(response.context['margen_bruto'], Decimal('180.000'))
+        self.assertEqual(response.context['unidades_sin_costo_receta'], 0)
+        self.assertEqual(response.context['unidades_merma'], Decimal('2.000'))
+        self.assertEqual(response.context['perdida_merma_conocida'], Decimal('60.000'))
+        self.assertEqual(response.context['rotacion_insumos'][0]['consumo'], Decimal('6.000'))
+        self.assertIn(sin_ventas.nombre, {
+            plato['nombre'] for plato in response.context['platos_huerfanos']
+        })
+        self.assertContains(response, 'Costo vs. venta')
+        self.assertContains(response, 'Reporte de rotación de inventario')
 
     def test_reportes_son_solo_para_el_administrador_y_validan_el_rango(self):
         self.client.force_login(self.cajera)
@@ -407,8 +625,8 @@ class UsuarioTurnoTests(TestCase):
         self.assertContains(response, 'El turno anterior fue el')
         self.assertContains(response, reverse('usuarios:historial_turno_detalle', args=[turno_anterior.pk]))
         self.assertContains(response, f'href="{reverse("usuarios:reportes")}"')
-        self.assertContains(response, f'href="{reverse("inventario:administrador")}#inventario-restaurante"')
-        self.assertContains(response, f'href="{reverse("inventario:administrador")}#inventario-cocina"')
+        self.assertContains(response, f'href="{reverse("inventario:restaurante_admin")}"')
+        self.assertContains(response, f'href="{reverse("inventario:cocina_admin")}"')
         self.assertNotContains(response, 'Crear usuario')
 
     def test_dashboard_admin_con_turno_cerrado_muestra_detalle_e_historial(self):
@@ -426,6 +644,22 @@ class UsuarioTurnoTests(TestCase):
         self.assertContains(response, reverse('usuarios:historial_turno_detalle', args=[turno.pk]))
         self.assertContains(response, reverse('usuarios:historial_turnos'))
         self.assertNotContains(response, 'Abrir turno de hoy')
+
+    def test_dashboard_admin_turno_actual_usa_layout_de_turno_abierto(self):
+        turno = registrar_inicio_turno(self.admin)
+        self.client.force_login(self.admin)
+
+        response = self.client.get(reverse('usuarios:dashboard'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context['turno'].pk, turno.pk)
+        self.assertContains(response, 'id="inventario"')
+        self.assertContains(response, 'INVENTARIO PERPETUO DE VENTAS')
+        self.assertContains(response, 'id="rechazados"')
+        self.assertContains(response, 'id="ipv-rejections-body"')
+        self.assertContains(response, 'id="dlgCierre"')
+        self.assertContains(response, 'class="letters"')
+        self.assertContains(response, 'requestSubmit()')
 
     def test_historial_turnos_filtra_desde_el_servidor_y_mantiene_los_filtros(self):
         turno_mayo_10 = Turno.objects.create(
@@ -464,9 +698,9 @@ class UsuarioTurnoTests(TestCase):
             response,
             f"Cierre: {timezone.localtime(turno_mayo_10.cierre):%d/%m/%Y %H:%M}",
         )
-        self.assertEqual(response.content.count(b'<input '), 3)
-        self.assertEqual(response.content.count(b'<select '), 2)
-        self.assertEqual(response.content.count(b'<button '), 2)
+        self.assertEqual(response.content.count(b'<input '), 4)
+        self.assertEqual(response.content.count(b'<select '), 3)
+        self.assertEqual(response.content.count(b'<button '), 3)
         self.assertEqual(
             {item['turno'].pk for item in response.context['historial']},
             {turno_mayo_10.pk, turno_mayo_20.pk, turno_junio.pk},
@@ -476,20 +710,25 @@ class UsuarioTurnoTests(TestCase):
         self.assertContains(response, 'id="filtro-anio"')
         self.assertContains(response, 'id="filtro-fecha-desde"')
         self.assertContains(response, 'id="filtro-fecha-hasta"')
-        self.assertContains(response, 'Filtrar por rango de fechas')
+        self.assertContains(response, 'Ordenar por')
+        self.assertContains(response, 'Solo con diferencia de arqueo')
+        self.assertContains(response, 'Notas del cierre')
+        self.assertContains(response, 'Sin notas.')
         self.assertContains(response, 'aria-label="Fecha desde"')
         self.assertContains(response, 'aria-label="Fecha hasta"')
         self.assertContains(response, 'aria-label="Mes"')
         self.assertContains(response, 'aria-label="Año"')
-        self.assertContains(response, 'background-color: #0f172a;')
-        self.assertContains(response, 'color: #f8fafc;')
-        self.assertContains(response, 'Filtrar por mes y año')
+        self.assertContains(response, 'background-color:#0f172a')
+        self.assertContains(response, 'color:#f8fafc')
+        self.assertContains(response, 'name="orden"')
         self.assertContains(response, 'id="turn-filter-form"')
         self.assertContains(response, 'id="limpiar-filtros"')
         self.assertContains(response, 'method="get"')
         self.assertContains(response, 'name="fecha_desde"')
         self.assertContains(response, 'name="fecha_hasta"')
         self.assertContains(response, "addEventListener('click'")
+        self.assertContains(response, 'id="history-chart"')
+        self.assertEqual(len(response.context['ventas_grafico']), 3)
 
         response_filtrada = self.client.get(reverse('usuarios:historial_turnos'), {
             'fecha_desde': '2024-05-10',
@@ -505,6 +744,57 @@ class UsuarioTurnoTests(TestCase):
         self.assertContains(response_filtrada, 'value="2024-05-10"')
         self.assertContains(response_filtrada, 'value="2024-05-20"')
 
+    def test_historial_permite_ordenar_turnos_por_fecha_mas_antigua(self):
+        primero = Turno.objects.create(estado='cerrado', cierre=timezone.now())
+        segundo = Turno.objects.create(estado='cerrado', cierre=timezone.now())
+        inicio = timezone.now()
+        Turno.objects.filter(pk=primero.pk).update(apertura=inicio - timedelta(days=2))
+        Turno.objects.filter(pk=segundo.pk).update(apertura=inicio - timedelta(days=1))
+        self.client.force_login(self.admin)
+
+        response = self.client.get(reverse('usuarios:historial_turnos'), {'orden': 'antiguo'})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            [item['turno'].pk for item in response.context['historial']],
+            [primero.pk, segundo.pk],
+        )
+        self.assertContains(response, 'value="antiguo" selected')
+
+    def test_historial_muestra_observaciones_y_datos_adicionales_de_caja(self):
+        ahora = timezone.now()
+        turno = Turno.objects.create(
+            estado='cerrado',
+            cierre=ahora + timedelta(minutes=1),
+            fondo_inicial_cup=Decimal('75.00'),
+            observaciones='Se realizó inventario al finalizar el turno.',
+        )
+        mesa = Mesa.objects.create(numero=91)
+        Factura.objects.create(
+            pedido=Pedido.objects.create(mesa=mesa, estado='cerrado'),
+            mesa_numero=mesa.numero,
+            forma_pago='efectivo_cup',
+            total_cup=Decimal('200.00'),
+            monto_efectivo_cup=Decimal('200.00'),
+        )
+        self.client.force_login(self.admin)
+
+        response = self.client.get(reverse('usuarios:historial_turnos'))
+
+        self.assertEqual(response.status_code, 200)
+        item = next(
+            item for item in response.context['historial']
+            if item['turno'].pk == turno.pk
+        )
+        self.assertEqual(item['fondo_inicial_cup'], Decimal('75.00'))
+        self.assertEqual(item['efectivo_esperado_cup'], Decimal('275.00'))
+        self.assertContains(response, 'Se realizó inventario al finalizar el turno.')
+        self.assertContains(response, 'Fondo inicial registrado')
+        self.assertContains(response, '75,00 CUP')
+        self.assertContains(response, 'Efectivo esperado al cierre')
+        self.assertContains(response, '275,00 CUP')
+        self.assertContains(response, 'no representa un arqueo contado')
+
     def test_admin_tiene_seccion_separada_para_gestionar_usuarios(self):
         self.client.force_login(self.admin)
 
@@ -513,15 +803,44 @@ class UsuarioTurnoTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'Crear usuario')
         self.assertContains(response, 'Usuarios registrados')
+        self.assertContains(response, f'href="{reverse("inventario:wifi_qr")}"')
 
-    def test_editores_de_usuario_solo_permiten_una_modal_abierta(self):
+    def test_gestion_usuarios_renderiza_tarjetas_y_dialogos_de_edicion(self):
         self.client.force_login(self.admin)
 
         response = self.client.get(reverse('usuarios:gestion_usuarios'))
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, '<details class="turn-user-edit" name="user-edit">')
-        self.assertContains(response, "otherDialog.open = false")
+        self.assertEqual(response.context['usuarios_activos'], 4)
+        self.assertEqual(response.context['usuarios_inactivos'], 0)
+        self.assertEqual(response.context['administradores'], 1)
+        self.assertContains(response, 'Cuentas totales')
+        self.assertContains(response, 'Administradores')
+        self.assertContains(response, 'class="users-card')
+        self.assertContains(response, 'users-edit-dialog')
+        self.assertContains(response, 'data-open-dialog')
+        self.assertNotContains(response, '<details')
+
+    def test_formulario_editar_usuario_muestra_los_datos_actuales(self):
+        self.mesera.first_name = 'María'
+        self.mesera.last_name = 'López'
+        self.mesera.username = 'maria_lopez'
+        self.mesera.email = 'maria@example.com'
+        self.mesera.telefono = '55512345'
+        self.mesera.save()
+        self.client.force_login(self.admin)
+
+        response = self.client.get(reverse('usuarios:gestion_usuarios'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'name="first_name" value="María"')
+        self.assertContains(response, 'name="last_name" value="López"')
+        self.assertContains(response, 'name="username" value="maria_lopez"')
+        self.assertContains(response, 'name="email" value="maria@example.com"')
+        self.assertContains(response, 'name="telefono" value="55512345"')
+        self.assertContains(response, '<option value="mesera" selected>')
+        self.assertContains(response, 'placeholder="Vacía = conservar"')
+        self.assertNotContains(response, 'name="password" value=')
 
     def test_sidebar_del_administrador_se_mantiene_completo_en_sus_secciones(self):
         turno = Turno.objects.create(
@@ -536,10 +855,10 @@ class UsuarioTurnoTests(TestCase):
             reverse('usuarios:historial_turno_detalle', args=[turno.pk]),
         ]
         enlaces_sidebar = [
-            f'href="{reverse("inventario:administrador")}#configuracion"',
-            f'href="{reverse("inventario:administrador")}#carta"',
-            f'href="{reverse("inventario:administrador")}#inventario-restaurante"',
-            f'href="{reverse("inventario:administrador")}#inventario-cocina"',
+            f'href="{reverse("inventario:configuracion_admin")}"',
+            f'href="{reverse("inventario:carta_admin")}"',
+            f'href="{reverse("inventario:restaurante_admin")}"',
+            f'href="{reverse("inventario:cocina_admin")}"',
             f'href="{reverse("usuarios:gestion_usuarios")}"',
             f'href="{reverse("usuarios:dashboard")}"',
             f'href="{reverse("usuarios:historial_turnos")}"',
@@ -554,13 +873,14 @@ class UsuarioTurnoTests(TestCase):
                     self.assertContains(response, enlace)
                 if pagina == reverse('usuarios:gestion_usuarios'):
                     self.assertContains(response, 'admin')
-                    self.assertContains(response, 'Administrador &bull; Activo')
+                    self.assertContains(response, 'users-profile-role')
+                    self.assertContains(response, 'Administrador')
 
     def test_detalle_diario_muestra_navegacion_segun_el_rol(self):
         roles = (
             (self.mesera, 'Mesera', reverse('pedidos:mesera')),
             (self.cocina, 'Cocina', reverse('pedidos:cocina')),
-            (self.admin, 'Administrador', reverse('inventario:administrador')),
+            (self.admin, 'Administrador', reverse('usuarios:dashboard')),
         )
 
         for usuario, etiqueta_rol, enlace_rol in roles:
@@ -570,7 +890,12 @@ class UsuarioTurnoTests(TestCase):
 
                 self.assertEqual(response.status_code, 200)
                 self.assertContains(response, enlace_rol)
-                self.assertContains(response, f'{etiqueta_rol} &bull; Activo')
+                estado_rol = (
+                    f'{etiqueta_rol} · Activo'
+                    if usuario.role == 'administrador'
+                    else f'{etiqueta_rol} &bull; Activo'
+                )
+                self.assertContains(response, estado_rol)
                 if usuario.role == 'cocina':
                     self.assertContains(
                         response,
@@ -590,7 +915,7 @@ class UsuarioTurnoTests(TestCase):
                             f'href="{reverse("pedidos:mesera")}#{seccion}"',
                         )
                 if usuario.role != 'administrador':
-                    self.assertNotContains(response, f'href="{reverse("inventario:administrador")}#configuracion"')
+                    self.assertNotContains(response, f'href="{reverse("inventario:configuracion_admin")}"')
                     self.assertNotContains(response, f'href="{reverse("usuarios:gestion_usuarios")}"')
                     self.assertNotContains(response, f'href="{reverse("usuarios:historial_turnos")}"')
 
@@ -961,7 +1286,7 @@ class UsuarioTurnoTests(TestCase):
             response,
             reverse('usuarios:historial_turno_detalle', args=[turno.pk]),
         )
-        self.assertContains(response, 'Turno cerrado')
+        self.assertContains(response, 'Cerrado')
         self.assertContains(response, 'Cierre realizado por administración')
         turno.refresh_from_db()
         self.assertEqual(turno.estado, 'cerrado')
@@ -984,7 +1309,16 @@ class UsuarioTurnoTests(TestCase):
         self.assertContains(dashboard, 'El turno pasó de medianoche')
         self.assertContains(dashboard, 'Continuar turno')
         self.assertContains(dashboard, 'Cerrar turno')
+        self.assertContains(dashboard, 'href="#cierre"')
+        self.assertContains(dashboard, 'id="cierre-turno-heading"')
         self.assertContains(dashboard, f'name="turno_id" value="{turno_anterior.pk}"')
+        html = dashboard.content.decode()
+        inicio_operativo = html.index('aria-labelledby="turn-operational-heading"')
+        fin_operativo = html.index('</section>', inicio_operativo)
+        inicio_cierre = html.index('<section id="cierre"')
+        fin_cierre = html.index('</section>', inicio_cierre)
+        self.assertNotIn('El turno pasó de medianoche', html[inicio_operativo:fin_operativo])
+        self.assertIn('El turno pasó de medianoche', html[inicio_cierre:fin_cierre])
 
         response = self.client.post(reverse('usuarios:cerrar_turno'), {
             'turno_id': turno_anterior.pk,
@@ -995,7 +1329,7 @@ class UsuarioTurnoTests(TestCase):
             response,
             reverse('usuarios:historial_turno_detalle', args=[turno_anterior.pk]),
         )
-        self.assertContains(response, 'Turno cerrado')
+        self.assertContains(response, 'Cerrado')
         self.assertContains(response, 'Cierre del turno atrasado')
         turno_anterior.refresh_from_db()
         turno_hoy.refresh_from_db()
@@ -1017,7 +1351,7 @@ class UsuarioTurnoTests(TestCase):
 
         response = self.client.get(reverse('usuarios:dashboard'))
         self.assertContains(response, 'El turno pasó de medianoche')
-        self.assertNotContains(response, 'id="cierre-turno-heading"')
+        self.assertContains(response, 'id="cierre-turno-heading"')
 
         response = self.client.post(reverse('usuarios:continuar_turno'), {
             'turno_id': turno.pk,
@@ -1283,7 +1617,7 @@ class UsuarioTurnoTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'Historial de turnos')
         self.assertContains(response, '500.00')
-        self.assertContains(response, 'General')
+        self.assertContains(response, 'Rendimiento general')
 
     def test_admin_puede_ver_detalle_de_turno_especifico_con_ipv(self):
         turno = registrar_inicio_turno(self.mesera)
@@ -1306,15 +1640,34 @@ class UsuarioTurnoTests(TestCase):
         )
 
         turno_cerrado = cerrar_turno(self.cajera)
+        turno_actual = registrar_inicio_turno(self.admin)
+        self.assertNotEqual(turno_cerrado.pk, turno_actual.pk)
 
-        request = RequestFactory().get(f'/turnos/{turno_cerrado.pk}/')
-        request.user = self.admin
-        response = historial_turno_detalle_view(request, turno_cerrado.pk)
+        self.client.force_login(self.admin)
+        response = self.client.get(
+            reverse('usuarios:historial_turno_detalle', args=[turno_cerrado.pk])
+        )
 
         self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context['turno'].pk, turno_cerrado.pk)
+        self.assertEqual(response.context['detalles']['total_general_cup'], Decimal('400.00'))
+        self.assertEqual(response.context['mesas_atendidas'], 1)
+        self.assertEqual(response.context['admin_active_section'], 'historial')
         self.assertContains(response, 'Detalle del turno')
-        self.assertContains(response, 'IPV')
+        self.assertContains(response, f'Detalle del turno #{turno_cerrado.pk}')
+        self.assertContains(response, f'data-turno-id="{turno_cerrado.pk}"')
+        self.assertNotContains(response, f'data-turno-id="{turno_actual.pk}"')
+        self.assertContains(response, 'Inventario perpetuo de venta')
+        self.assertContains(response, 'Arqueo de cierre')
+        self.assertContains(response, 'Cant. vendida')
+        self.assertContains(response, 'Saldo final')
+        self.assertContains(response, 'P. unit. de venta')
+        self.assertContains(response, 'Detalle de platos rechazados')
         self.assertContains(response, '400.00')
+        self.assertContains(
+            response,
+            reverse('usuarios:ipv_turno', args=[turno_cerrado.pk]),
+        )
         self.assertContains(
             response,
             reverse('usuarios:ipv_turno_pdf', args=[turno_cerrado.pk]),
@@ -1462,6 +1815,22 @@ class UsuarioTurnoTests(TestCase):
             cantidad_inicial=Decimal('5'),
             entradas=Decimal('3'),
         )
+        mesa = Mesa.objects.create(numero=95)
+        pedido = Pedido.objects.create(mesa=mesa, estado='cerrado')
+        Factura.objects.create(
+            pedido=pedido,
+            mesa_numero=mesa.numero,
+            forma_pago='efectivo_cup',
+            total_cup=Decimal('251.00'),
+            monto_efectivo_cup=Decimal('251.00'),
+            items_snapshot=[{
+                'plato_id': plato.pk,
+                'plato': plato.nombre,
+                'cantidad': 2,
+                'precio_unit': '125.50',
+                'subtotal': '251.00',
+            }],
+        )
 
         pdf_response = self.client.get(
             reverse('usuarios:ipv_turno_pdf', args=[turno.pk]),
@@ -1480,24 +1849,33 @@ class UsuarioTurnoTests(TestCase):
             'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
         )
         self.assertIn(f'ipv_turno_{turno.pk}.xlsx', excel_response['Content-Disposition'])
-        libro = load_workbook(BytesIO(excel_response.content), read_only=True)
-        hoja = libro['IPV']
-        self.assertEqual(hoja['A3'].value, 'Fondo inicial CUP')
-        self.assertEqual(hoja['A4'].value, 'Descripción')
+        libro = load_workbook(BytesIO(excel_response.content))
+        self.assertEqual(
+            libro.sheetnames,
+            ['Resumen', 'Productos vendidos', 'IPV turno actual', 'Facturas', 'Rechazados'],
+        )
+        hoja = libro['IPV turno actual']
         self.assertEqual(
             [celda.value for celda in next(hoja.iter_rows(min_row=4, max_row=4, max_col=7))],
             [
-                'Descripción',
+                'Producto',
                 'Categoría',
-                'Cant. vendida',
-                'Platos rechazados',
+                'Vendido',
                 'Precio venta',
-                'Importe',
-                'Merma / rotura',
+                'Importe ventas',
+                'Roturas',
+                'Estado',
             ],
         )
         self.assertEqual(hoja['A5'].value, '=2+3')
         self.assertEqual(hoja['A5'].data_type, 's')
+        self.assertEqual(hoja['C5'].value, Decimal('2'))
+        self.assertEqual(hoja['E5'].value, '=C5*D5')
+        self.assertEqual(libro['Productos vendidos']['B5'].value, '=2+3')
+        self.assertEqual(libro['Productos vendidos']['F5'].value, '=D5*E5')
+        self.assertEqual(libro['Facturas']['D5'].value, 'Efectivo CUP')
+        self.assertEqual(libro['Facturas']['F5'].value, Decimal('251.00'))
+        self.assertEqual(len(libro['Resumen']._charts), 2)
         libro.close()
 
     def test_ipv_exportaciones_funcionan_sin_filas(self):
@@ -1509,9 +1887,14 @@ class UsuarioTurnoTests(TestCase):
 
         self.assertEqual(pdf_response.status_code, 200)
         self.assertTrue(pdf_response.content.startswith(b'%PDF'))
-        libro = load_workbook(BytesIO(excel_response.content), read_only=True)
-        self.assertEqual(libro['IPV']['A3'].value, 'Fondo inicial CUP')
-        self.assertEqual(libro['IPV']['A4'].value, 'Descripción')
+        libro = load_workbook(BytesIO(excel_response.content))
+        self.assertEqual(
+            libro.sheetnames,
+            ['Resumen', 'Productos vendidos', 'IPV turno actual', 'Facturas', 'Rechazados'],
+        )
+        self.assertEqual(libro['IPV turno actual']['A4'].value, 'Producto')
+        self.assertEqual(libro['IPV turno actual']['A5'].value, 'TOTAL')
+        self.assertEqual(libro['Facturas']['A5'].value, 'Aún no hay facturas en este turno.')
         libro.close()
 
     def test_ipv_exportaciones_solo_permiten_roles_financieros(self):

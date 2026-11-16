@@ -1,0 +1,275 @@
+{% load static %}
+<div class="history-inner">
+          {% if messages %}
+            <div role="status" aria-live="polite">
+              {% for message in messages %}<p class="history-flash">{{ message }}</p>{% endfor %}
+            </div>
+          {% endif %}
+          <section class="history-heading" aria-labelledby="history-page-title">
+            <div>
+              <h1 id="history-page-title" class="history-title">Historial de turnos</h1>
+              <p class="history-subtitle">Consulta el rendimiento y los cierres registrados.</p>
+            </div>
+            <div class="history-actions no-print">
+              <button type="button" class="history-btn" onclick="window.print()"><i class="fa-solid fa-print" aria-hidden="true"></i>Imprimir</button>
+            </div>
+          </section>
+
+          <section class="history-card no-print" aria-labelledby="history-filter-title">
+            <h2 id="history-filter-title" class="history-section-title"><i class="fa-solid fa-filter" aria-hidden="true"></i>Filtros</h2>
+            <form id="turn-filter-form" method="get" action="{% url 'usuarios:historial_turnos' %}">
+              <div class="history-filters">
+                <label class="history-field" for="filtro-texto">Buscar por texto
+                  <span class="history-input-wrap"><i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i><input class="history-input" type="search" id="filtro-texto" name="texto" value="{{ texto_filtro }}" placeholder="Participante o notas" autocomplete="off"></span>
+                </label>
+                <label class="history-field" for="filtro-mes">Mes
+                  <select class="history-filter-sort" id="filtro-mes" name="mes" aria-label="Mes" data-selected="{{ mes_filtro }}"><option value="">Todos</option></select>
+                </label>
+                <label class="history-field" for="filtro-anio">Año
+                  <select class="history-filter-sort" id="filtro-anio" name="anio" aria-label="Año"><option value="">Todos</option>{% for anio in anios_disponibles %}<option value="{{ anio }}"{% if anio_filtro == anio|stringformat:"s" %} selected{% endif %}>{{ anio }}</option>{% endfor %}</select>
+                </label>
+                <label class="history-date" for="filtro-fecha-desde">Desde<input lang="es" type="date" id="filtro-fecha-desde" name="fecha_desde" value="{{ fecha_desde_filtro }}" aria-label="Fecha desde"></label>
+                <label class="history-date" for="filtro-fecha-hasta">Hasta<input lang="es" type="date" id="filtro-fecha-hasta" name="fecha_hasta" value="{{ fecha_hasta_filtro }}" aria-label="Fecha hasta"></label>
+              </div>
+              {% if error_filtros %}<p class="history-filter-error" role="alert"><i class="fa-solid fa-circle-exclamation" aria-hidden="true"></i>{{ error_filtros }}</p>{% endif %}
+              <div class="history-filter-footer">
+                <div class="history-filter-options">
+                  <label for="filtro-orden">Ordenar por
+                    <select class="history-filter-sort" id="filtro-orden" name="orden">
+                      <option value="reciente"{% if orden_filtro == 'reciente' %} selected{% endif %}>Más recientes</option>
+                      <option value="antiguo"{% if orden_filtro == 'antiguo' %} selected{% endif %}>Más antiguos</option>
+                      <option value="venta"{% if orden_filtro == 'venta' %} selected{% endif %}>Mayor venta</option>
+                      <option value="rendimiento"{% if orden_filtro == 'rendimiento' %} selected{% endif %}>Mayor rendimiento</option>
+                    </select>
+                  </label>
+                  <label for="filtro-solo-diferencias" title="El cierre actual no guarda el importe declarado para comparar el arqueo.">
+                    <input type="checkbox" id="filtro-solo-diferencias" disabled aria-describedby="arqueo-filter-help">Solo con diferencia de arqueo
+                    <span id="arqueo-filter-help" class="history-visually-hidden">No disponible: el sistema no registra el importe declarado al cierre.</span>
+                  </label>
+                </div>
+                <div class="history-filter-summary">
+                  <p class="history-filter-status" id="turn-filter-status" role="status" aria-live="polite">
+                    {% if error_filtros %}{{ error_filtros }}{% elif filtros_aplicados %}{{ historial.paginator.count }} turnos coinciden con los filtros.{% elif historial.paginator.count %}{{ historial.paginator.count }} turnos cerrados.{% else %}Aún no se registran cierres de turno.{% endif %}
+                  </p>
+                  <button class="history-btn" type="button" id="limpiar-filtros"><i class="fa-solid fa-eraser" aria-hidden="true"></i>Limpiar</button>
+                </div>
+              </div>
+            </form>
+          </section>
+
+          <section aria-labelledby="resumen-general-heading">
+            <h2 id="resumen-general-heading" class="history-section-title"><i class="fa-solid fa-chart-line" aria-hidden="true"></i>Rendimiento general{% if filtros_aplicados %}<span class="history-section-tag">· según filtros</span>{% endif %}</h2>
+            <div class="history-kpis">
+              <article class="history-kpi">
+                <div class="history-kpi-label"><span class="history-kpi-icon"><i class="fa-solid fa-calendar-check" aria-hidden="true"></i></span>Turnos cerrados</div>
+                <p class="history-kpi-value">{{ resumen_general.turnos_cerrados }}</p>
+                <p class="history-kpi-note">en el período</p>
+              </article>
+              <article class="history-kpi history-kpi-highlight">
+                <div class="history-kpi-label"><span class="history-kpi-icon"><i class="fa-solid fa-sack-dollar" aria-hidden="true"></i></span>Total general</div>
+                <p class="history-kpi-value">{{ resumen_general.total_general_cup|floatformat:0 }} CUP</p>
+                <p class="history-kpi-note">ingresos registrados</p>
+              </article>
+              <article class="history-kpi">
+                <div class="history-kpi-label"><span class="history-kpi-icon"><i class="fa-solid fa-dollar-sign" aria-hidden="true"></i></span>Total USD</div>
+                <p class="history-kpi-value">{{ resumen_general.total_usd|floatformat:2 }} USD</p>
+                <p class="history-kpi-note">divisas registradas</p>
+              </article>
+              <article class="history-kpi">
+                <div class="history-kpi-label"><span class="history-kpi-icon"><i class="fa-solid fa-money-bill-wave" aria-hidden="true"></i></span>Efectivo CUP</div>
+                <p class="history-kpi-value">{{ resumen_general.total_efectivo_cup|floatformat:0 }} CUP</p>
+                <p class="history-kpi-note">caja física</p>
+              </article>
+              <article class="history-kpi">
+                <div class="history-kpi-label"><span class="history-kpi-icon"><i class="fa-solid fa-credit-card" aria-hidden="true"></i></span>Transferencia CUP</div>
+                <p class="history-kpi-value">{{ resumen_general.total_transferencia_cup|floatformat:0 }} CUP</p>
+                <p class="history-kpi-note">pagos digitales</p>
+              </article>
+              <article class="history-kpi">
+                <div class="history-kpi-label"><span class="history-kpi-icon"><i class="fa-solid fa-receipt" aria-hidden="true"></i></span>Facturas</div>
+                <p class="history-kpi-value">{{ resumen_general.total_facturas }}</p>
+                <p class="history-kpi-note">en los turnos filtrados</p>
+              </article>
+              <article class="history-kpi">
+                <div class="history-kpi-label"><span class="history-kpi-icon"><i class="fa-solid fa-chart-simple" aria-hidden="true"></i></span>Promedio por factura</div>
+                <p class="history-kpi-value">{{ resumen_general.promedio_ipv|floatformat:2 }} CUP</p>
+                <p class="history-kpi-note">importe promedio</p>
+              </article>
+              <article class="history-kpi">
+                <div class="history-kpi-label"><span class="history-kpi-icon"><i class="fa-solid fa-gauge-high" aria-hidden="true"></i></span>Rendimiento promedio</div>
+                <p class="history-kpi-value">{{ resumen_general.rendimiento_promedio|floatformat:2 }} CUP/h</p>
+                <p class="history-kpi-note">por hora abierta</p>
+              </article>
+            </div>
+          </section>
+
+          {% if ventas_grafico %}
+            <div class="history-analysis" id="historial-analisis">
+              <section class="history-card" aria-labelledby="history-chart-title">
+                <h2 id="history-chart-title" class="history-section-title"><i class="fa-solid fa-chart-column" aria-hidden="true"></i>Ventas por turno</h2>
+                <div class="history-chart-scroll"><div class="history-chart" id="history-chart" role="list" aria-label="Ventas por turno"></div></div>
+                <div class="history-chart-legend"><span><i class="history-dot" aria-hidden="true"></i>Total registrado en CUP</span></div>
+              </section>
+              <section class="history-card" aria-labelledby="history-mix-title">
+                <h2 id="history-mix-title" class="history-section-title"><i class="fa-solid fa-coins" aria-hidden="true"></i>Ingresos por forma de pago</h2>
+                <div class="history-mix-list">
+                  <div>
+                    <div class="history-mix-head"><span><i class="fa-solid fa-money-bill-wave history-mix-icon-cash" aria-hidden="true"></i> Efectivo CUP</span><strong>{{ resumen_general.total_efectivo_cup|floatformat:0 }} CUP</strong></div>
+                    <div class="history-mix-track" role="img" aria-label="Efectivo: {{ efectivo_porcentaje|floatformat:0 }} por ciento"><div class="history-mix-fill" style="width:{{ efectivo_porcentaje|floatformat:2 }}%"></div></div>
+                  </div>
+                  <div>
+                    <div class="history-mix-head"><span><i class="fa-solid fa-credit-card history-mix-icon-transfer" aria-hidden="true"></i> Transferencia CUP</span><strong>{{ resumen_general.total_transferencia_cup|floatformat:0 }} CUP</strong></div>
+                    <div class="history-mix-track" role="img" aria-label="Transferencia: {{ transferencia_porcentaje|floatformat:0 }} por ciento"><div class="history-mix-fill history-mix-fill-transfer" style="width:{{ transferencia_porcentaje|floatformat:2 }}%"></div></div>
+                  </div>
+                  <div class="history-mix-head"><span><i class="fa-solid fa-dollar-sign history-mix-icon-usd" aria-hidden="true"></i> Divisas</span><strong>{{ resumen_general.total_usd|floatformat:2 }} USD</strong></div>
+                </div>
+                <p class="history-mix-note"><i class="fa-solid fa-circle-info" aria-hidden="true"></i>Las proporciones comparan efectivo y transferencia en CUP. USD se muestra por separado, sin convertirlo.</p>
+              </section>
+            </div>
+          {% endif %}
+
+          <section id="historial-turnos" aria-labelledby="history-closures-title">
+            <h2 id="history-closures-title" class="history-section-title"><i class="fa-solid fa-clipboard-check" aria-hidden="true"></i>Cierres registrados</h2>
+            {% if historial %}
+              <div class="history-turn-grid">
+                {% for item in historial %}
+                  <article class="history-turn-card" id="turno-{{ item.turno.pk }}" tabindex="-1" aria-labelledby="turno-heading-{{ forloop.counter }}">
+                    <div class="history-turn-heading">
+                      <span class="history-section-icon"><i class="fa-solid fa-calendar-check" aria-hidden="true"></i></span>
+                      <div class="history-turn-heading-copy"><p class="history-card-kicker">Cierre registrado</p><h3 id="turno-heading-{{ forloop.counter }}" class="history-turn-date">Turno {{ item.turno.fecha|date:'d/m/Y' }}</h3></div>
+                      <span class="history-status"><i class="fa-solid fa-circle-check" aria-hidden="true"></i>{{ item.turno.get_estado_display }}</span>
+                    </div>
+                    <div class="history-turn-meta">
+                      <span class="history-meta-pill"><i class="fa-solid fa-lock-open" aria-hidden="true"></i>Apertura: {{ item.turno.apertura|date:'d/m/Y H:i' }}</span>
+                      <span class="history-meta-pill"><i class="fa-solid fa-lock" aria-hidden="true"></i>Cierre: {{ item.turno.cierre|date:'d/m/Y H:i'|default:'—' }}</span>
+                      <span class="history-meta-pill{% if item.horas_abiertas > 24 %} history-meta-pill-warning{% endif %}"><i class="fa-solid fa-hourglass-half" aria-hidden="true"></i>{{ item.horas_abiertas|floatformat:1 }} h{% if item.horas_abiertas > 24 %} · supera las 24 h{% endif %}</span>
+                      <span class="history-meta-pill"><i class="fa-solid fa-receipt" aria-hidden="true"></i>{{ item.cantidad_facturas }} factura{{ item.cantidad_facturas|pluralize:"s" }}</span>
+                    </div>
+                    <div class="history-participants">
+                      <span class="history-participants-label"><i class="fa-solid fa-user-group" aria-hidden="true"></i> Participantes</span>
+                      {% for user in item.turno.usuarios.all %}<span class="history-chip" title="{{ user.get_full_name|default:user.username }}">{{ user.get_full_name|default:user.username }}</span>{% empty %}<span class="history-chip">Sin participantes</span>{% endfor %}
+                    </div>
+                    <div class="history-turn-metrics">
+                      <div class="history-stat history-stat-highlight"><p class="history-stat-label">Total</p><p class="history-stat-value">{{ item.total_general_cup|floatformat:0 }} CUP</p></div>
+                      <div class="history-stat"><p class="history-stat-label">Efectivo</p><p class="history-stat-value">{{ item.total_efectivo_cup|floatformat:0 }} CUP</p></div>
+                      <div class="history-stat"><p class="history-stat-label">Transferencia</p><p class="history-stat-value">{{ item.total_transferencia_cup|floatformat:0 }} CUP</p></div>
+                      <div class="history-stat"><p class="history-stat-label">USD</p><p class="history-stat-value">{{ item.total_usd|floatformat:2 }} USD</p></div>
+                      <div class="history-stat"><p class="history-stat-label">IPV</p><p class="history-stat-value">{{ item.ipv|floatformat:2 }} CUP</p></div>
+                      <div class="history-stat"><p class="history-stat-label">Rendimiento/h</p><p class="history-stat-value">{{ item.rendimiento_por_hora_cup|floatformat:2 }} CUP/h</p></div>
+                    </div>
+                    <div class="history-notes">
+                      <h4 class="history-notes-title">Notas del cierre</h4>
+                      <p class="history-notes-title">Observaciones</p>
+                      {% if item.turno.observaciones %}
+                        <p class="history-notes-text{% if item.turno.observaciones|length > 140 %} is-collapsed{% endif %}">{{ item.turno.observaciones }}</p>
+                        {% if item.turno.observaciones|length > 140 %}<button type="button" class="history-note-toggle no-print" data-note-toggle aria-expanded="false">Ver más</button>{% endif %}
+                      {% else %}<p class="history-notes-text">Sin notas.</p>{% endif %}
+                      <div class="history-note-facts" aria-label="Información adicional de caja">
+                        <div class="history-note-fact">
+                          <p class="history-note-fact-label">Fondo inicial registrado</p>
+                          <p class="history-note-fact-value">{{ item.fondo_inicial_cup|floatformat:2 }} CUP</p>
+                        </div>
+                        <div class="history-note-fact">
+                          <p class="history-note-fact-label">Efectivo esperado al cierre</p>
+                          <p class="history-note-fact-value">{{ item.efectivo_esperado_cup|floatformat:2 }} CUP</p>
+                        </div>
+                      </div>
+                      <p class="history-notes-text history-note-disclaimer">Calculado como fondo inicial más efectivo cobrado; no representa un arqueo contado.</p>
+                    </div>
+                    <a href="{% url 'usuarios:historial_turno_detalle' item.turno.pk %}" class="history-btn history-btn-primary history-detail-link no-print"><i class="fa-solid fa-arrow-right" aria-hidden="true"></i>Ver detalle del turno</a>
+                  </article>
+                {% endfor %}
+              </div>
+            {% else %}
+              <div class="history-empty">
+                <i class="fa-solid fa-calendar-xmark history-empty-icon" aria-hidden="true"></i>
+                <h3 class="history-empty-title">{% if filtros_aplicados %}No hay turnos que coincidan con estos filtros{% else %}No hay turnos cerrados{% endif %}</h3>
+                <p class="history-empty-text">{% if filtros_aplicados %}Prueba con otro rango o ajusta los filtros.{% else %}Aún no se registran cierres de turno.{% endif %}</p>
+              </div>
+            {% endif %}
+          </section>
+
+          <div class="history-pagination">
+            {% include 'includes/pagination.html' with page_obj=historial page_parameter='page' pagination_query=historial_pagination_query pagination_anchor='#historial-turnos' %}
+          </div>
+        </div>
+</div>
+  </div>
+
+  {{ ventas_grafico|json_script:"history-chart-data" }}
+  <script>
+    const filtroMes = document.getElementById('filtro-mes');
+    const formularioFiltros = document.getElementById('turn-filter-form');
+    const botonLimpiar = document.getElementById('limpiar-filtros');
+    const formatoMes = new Intl.DateTimeFormat('es', { month: 'long', timeZone: 'UTC' });
+    for (let mes = 1; mes <= 12; mes += 1) {
+      const opcion = document.createElement('option');
+      opcion.value = String(mes).padStart(2, '0');
+      const nombreMes = formatoMes.format(new Date(Date.UTC(2020, mes - 1, 1)));
+      opcion.textContent = nombreMes.charAt(0).toLocaleUpperCase('es') + nombreMes.slice(1);
+      filtroMes.append(opcion);
+    }
+    const mesSeleccionado = Number(filtroMes.dataset.selected);
+    filtroMes.value = mesSeleccionado ? String(mesSeleccionado).padStart(2, '0') : '';
+    formularioFiltros.querySelectorAll('select, input[type="date"]').forEach(control => {
+      control.addEventListener('change', () => formularioFiltros.requestSubmit());
+    });
+    botonLimpiar.addEventListener('click', () => {
+      window.location.assign(formularioFiltros.action);
+    });
+    document.querySelectorAll('[data-note-toggle]').forEach(button => {
+      button.addEventListener('click', () => {
+        const note = button.previousElementSibling;
+        const expanded = button.getAttribute('aria-expanded') === 'true';
+        note.classList.toggle('is-collapsed', expanded);
+        button.setAttribute('aria-expanded', String(!expanded));
+        button.textContent = expanded ? 'Ver más' : 'Ver menos';
+      });
+    });
+
+    const chartElement = document.getElementById('history-chart');
+    const chartData = JSON.parse(document.getElementById('history-chart-data').textContent);
+    if (chartElement && chartData.length) {
+      const numberFormat = new Intl.NumberFormat('es', { maximumFractionDigits: 0 });
+      const maximum = Math.max(...chartData.map(item => Number(item.total)), 0);
+      chartData.slice().reverse().forEach(item => {
+        const amount = Number(item.total);
+        const link = document.createElement('a');
+        link.className = 'history-bar-link';
+        link.href = item.url;
+        link.setAttribute('role', 'listitem');
+        link.setAttribute('aria-label', `Turno del ${item.fecha}: ${numberFormat.format(amount)} CUP. Ver detalle`);
+        link.title = `Turno del ${item.fecha} · ${numberFormat.format(amount)} CUP`;
+
+        const value = document.createElement('span');
+        value.className = 'history-bar-value';
+        value.textContent = amount >= 10000
+          ? `${new Intl.NumberFormat('es', { maximumFractionDigits: 1 }).format(amount / 1000)} mil`
+          : numberFormat.format(amount);
+
+        const track = document.createElement('span');
+        track.className = 'history-bar-track';
+        const bar = document.createElement('span');
+        bar.className = `history-bar${amount === 0 ? ' history-bar-zero' : ''}`;
+        bar.style.height = `${maximum > 0 ? Math.max(amount > 0 ? 4 : 0, amount / maximum * 100) : 0}%`;
+        track.append(bar);
+
+        const date = document.createElement('span');
+        date.className = 'history-bar-date';
+        date.textContent = item.fecha.slice(0, 5);
+        link.append(value, track, date);
+        chartElement.append(link);
+      });
+    }
+
+    const clock = document.getElementById('history-clock');
+    const updateClock = () => {
+      clock.textContent = new Intl.DateTimeFormat('es', {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true,
+      }).format(new Date());
+    };
+    updateClock();
+    window.setInterval(updateClock, 30000);
+  </script>

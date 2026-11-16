@@ -1,0 +1,118 @@
+{% load static %}
+<div class="wifi-print-content">
+
+  {% if messages %}
+  <div class="admin-flash-list">
+    {% for message in messages %}
+  {% if message.tags != 'error' %}
+  <div class="admin-flash {% if message.tags == 'error' %}admin-flash-error{% else %}admin-flash-ok{% endif %}"><i class="fa-solid {% if message.tags == 'error' %}fa-circle-xmark{% else %}fa-circle-check{% endif %} admin-flash-icon" aria-hidden="true"></i><span>{{ message }}</span></div>
+  {% endif %}
+  {% endfor %}
+</div>
+{% endif %}
+
+<div class="wifi-page-intro">
+    <p class="text-[11px] font-semibold tracking-widest text-emerald-400 uppercase">Administración</p>
+    <h1 class="text-2xl font-bold text-white tracking-tight">Wi-Fi y código QR</h1>
+    <p class="text-slate-400 mt-1">Conecta a los clientes a la red del local y abre el sistema desde otros dispositivos.</p>
+  </div>
+
+  <div class="wifi-print-cards grid grid-cols-1 xl:grid-cols-2 gap-6">
+    <section class="card card-top" data-qr-card="configuracion" aria-labelledby="t-cfg">
+      <div class="card-h"><span class="kic !w-11 !h-11 !bg-emerald-500/15 !text-emerald-300 text-base"><i class="fa-solid fa-wifi" aria-hidden="true"></i></span><div><p class="text-[11px] font-semibold tracking-widest text-slate-400 uppercase">Conexión del local</p><h2 id="t-cfg" class="font-bold text-white text-lg">Red Wi-Fi</h2></div></div>
+      <p class="text-sm text-slate-400 mb-4">Configura la red del local para generar un QR que los clientes puedan escanear y usar para conectarse. Los QR de las mesas no cambian.</p>
+      <form method="post" action="{% url 'inventario:configurar_wifi' %}" class="wifi-config-form">
+        {% csrf_token %}
+        <div><label for="ssid" class="lbl-f">Nombre de la red Wi-Fi</label><input id="ssid" name="ssid" value="{{ wifi_configuracion.ssid|default:'' }}" class="fld !text-sm !py-2.5" placeholder="Ej. LasCuquis-Clientes" autocomplete="off" maxlength="32" required></div>
+        <div><label for="wpass" class="lbl-f">Contraseña</label>
+          <div class="relative"><input id="wpass" name="password" type="password" value="{{ wifi_configuracion.password|default:'' }}" class="fld wifi-input !text-sm !py-2.5" placeholder="Contraseña de la red" autocomplete="new-password" maxlength="63">
+          <button type="button" id="eye" class="wifi-password-toggle" aria-label="Mostrar u ocultar contraseña" aria-pressed="false"><i class="fa-solid fa-eye text-sm" aria-hidden="true"></i></button></div>
+          <p class="text-xs text-slate-500 mt-1.5 flex items-center gap-1.5"><i class="fa-solid fa-circle-info" aria-hidden="true"></i>Déjala vacía si la red no tiene contraseña.</p></div>
+        <p id="wErr" role="alert" class="wifi-error">{% if messages %}{% for message in messages %}{% if message.tags == 'error' %}<i class="fa-solid fa-circle-exclamation" aria-hidden="true"></i>{{ message }}{% endif %}{% endfor %}{% endif %}</p>
+        <button type="submit" id="saveWifi" class="btn-p w-full justify-center !py-2.5"><i class="fa-solid fa-floppy-disk" aria-hidden="true"></i>Guardar y generar QR</button>
+      </form>
+    </section>
+
+    <section class="card card-top flex flex-col" data-qr-card="wifi" aria-labelledby="t-qw">
+      <div class="card-h"><span class="kic !w-11 !h-11 !bg-emerald-500/15 !text-emerald-300 text-base"><i class="fa-solid fa-qrcode" aria-hidden="true"></i></span><div><p class="text-[11px] font-semibold tracking-widest text-slate-400 uppercase">Código para los clientes</p><h2 id="t-qw" class="font-bold text-white text-lg">QR de la Wi-Fi</h2></div></div>
+      {% if wifi_qr %}
+      <div id="wifiOut" class="wifi-qr-output">
+        <div id="wifiQR" class="qrbox"><img id="wifi-qr-image" src="{{ wifi_qr }}" alt="Código QR para conectarse a la red Wi-Fi {{ wifi_configuracion.ssid }}"></div>
+        <div class="flex flex-wrap justify-center gap-2"><span class="meta"><i class="fa-solid fa-wifi" aria-hidden="true"></i><span id="mSsid">{{ wifi_configuracion.ssid }}</span></span><span class="meta"><i class="fa-solid fa-{% if wifi_configuracion.password %}lock{% else %}lock-open{% endif %}" aria-hidden="true"></i><span id="mSec">{% if wifi_configuracion.password %}WPA/WPA2{% else %}Red abierta{% endif %}</span></span></div>
+        <div class="flex flex-wrap justify-center gap-2 w-full qr-print-actions">
+          <button type="button" class="btn" id="jpgW" onclick="descargarQrJpg('wifi-qr-image', 'qr-wifi.jpg')"><i class="fa-solid fa-download" aria-hidden="true"></i>Guardar JPG</button>
+          <button type="button" class="btn-p" id="prW" onclick="imprimirQr('wifi')"><i class="fa-solid fa-print" aria-hidden="true"></i>Imprimir QR</button>
+        </div>
+      </div>
+      {% else %}
+      <div id="wifiEmpty" class="flex-1 flex flex-col items-center justify-center text-center py-10 gap-3">
+        <span class="kic !w-12 !h-12 text-lg"><i class="fa-solid fa-qrcode" aria-hidden="true"></i></span>
+        <p class="text-slate-400 text-sm max-w-xs">Guarda el nombre de la red y su contraseña para mostrar aquí el QR de conexión.</p>
+      </div>
+      {% endif %}
+    </section>
+  </div>
+
+  <section class="card card-top" data-qr-card="sistema" aria-labelledby="t-qs">
+    <div class="card-h"><span class="kic !w-11 !h-11 !bg-emerald-500/15 !text-emerald-300 text-base"><i class="fa-solid fa-desktop" aria-hidden="true"></i></span><div><p class="text-[11px] font-semibold tracking-widest text-slate-400 uppercase">Acceso al restaurante</p><h2 id="t-qs" class="font-bold text-white text-lg">QR del sistema</h2></div></div>
+    <div class="flex flex-col md:flex-row items-center gap-8">
+      <div id="sysQR" class="qrbox shrink-0"><img id="sistema-qr-image" src="{{ sistema_qr }}" alt="Código QR para abrir el sistema en {{ sistema_url }}"></div>
+      <div class="flex-1 w-full">
+        <p class="text-sm text-slate-400">Escanea este código para abrir el sistema en otro equipo. La dirección incluye la IP y el puerto usados para acceder a esta página.</p>
+        <div class="stat mt-4 flex items-center justify-between gap-3"><div class="min-w-0"><p class="text-xs text-slate-400">Dirección del sistema</p><p id="sysUrl" class="num font-semibold text-emerald-300 truncate wifi-system-url">{{ sistema_url }}</p></div>
+          <button type="button" class="btn shrink-0" id="copyUrl" data-url="{{ sistema_url }}"><i class="fa-regular fa-copy" aria-hidden="true"></i>Copiar</button></div>
+        <p id="wifi-copy-status" class="wifi-copy-status" role="status" aria-live="polite"></p>
+        <div class="flex flex-wrap gap-2 mt-4 qr-print-actions">
+          <button type="button" class="btn" id="jpgS" onclick="descargarQrJpg('sistema-qr-image', 'qr-sistema.jpg')"><i class="fa-solid fa-download" aria-hidden="true"></i>Guardar JPG</button>
+          <button type="button" class="btn-p" id="prS" onclick="imprimirQr('sistema')"><i class="fa-solid fa-print" aria-hidden="true"></i>Imprimir QR</button>
+        </div>
+      </div>
+    </div>
+  </section>
+</div>
+</div>
+</div>
+<div id="toast" role="status" aria-live="polite" class="fixed bottom-5 left-1/2 -translate-x-1/2 bg-emerald-500 text-black font-medium px-4 py-2 rounded-lg shadow-lg opacity-0 pointer-events-none transition-opacity no-print"></div>
+<script>
+async function descargarQrJpg(imageId,nombreArchivo){
+  const imagen=document.getElementById(imageId);
+  if(!imagen){alert('No se encontró el código QR que quieres guardar.');return}
+  try{
+    await imagen.decode();
+    const canvas=document.createElement('canvas');
+    canvas.width=imagen.naturalWidth;canvas.height=imagen.naturalHeight;
+    const contexto=canvas.getContext('2d');
+    if(!contexto)throw new Error('El navegador no pudo preparar la imagen.');
+    contexto.fillStyle='#fff';contexto.fillRect(0,0,canvas.width,canvas.height);contexto.drawImage(imagen,0,0);
+    const jpg=await new Promise(resolve=>canvas.toBlob(resolve,'image/jpeg',.95));
+    if(!jpg)throw new Error('El navegador no pudo convertir el QR a JPG.');
+    const url=URL.createObjectURL(jpg),enlace=document.createElement('a');
+    enlace.href=url;enlace.download=nombreArchivo;enlace.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
+  }catch(error){alert(`No se pudo guardar el QR como JPG: ${error.message}`)}
+}
+function imprimirQr(tipo){
+  document.body.dataset.qrParaImprimir=tipo;document.body.classList.add('imprimir-qrs');
+  window.addEventListener('afterprint',()=>{document.body.classList.remove('imprimir-qrs');delete document.body.dataset.qrParaImprimir},{once:true});
+  window.print();
+}
+document.getElementById('eye').onclick=()=>{
+  const input=document.getElementById('wpass'),boton=document.getElementById('eye'),visible=input.type==='password';
+  input.type=visible?'text':'password';boton.setAttribute('aria-pressed',String(visible));
+  boton.setAttribute('aria-label',visible?'Ocultar contraseña':'Mostrar contraseña');
+  boton.innerHTML=`<i class="fa-solid fa-eye${visible?'-slash':''} text-sm" aria-hidden="true"></i>`;
+};
+document.getElementById('copyUrl').onclick=async event=>{
+  const url=event.currentTarget.dataset.url,estado=document.getElementById('wifi-copy-status');
+  try{
+    if(navigator.clipboard&&window.isSecureContext)await navigator.clipboard.writeText(url);
+    else{
+      const input=document.createElement('textarea');input.value=url;input.setAttribute('readonly','');input.style.position='fixed';input.style.opacity='0';
+      document.body.appendChild(input);input.select();const copiado=document.execCommand('copy');input.remove();
+      if(!copiado)throw new Error('El navegador no permitió copiar la dirección.');
+    }
+    estado.textContent='Dirección copiada.';
+  }catch(error){estado.textContent=`No se pudo copiar la dirección: ${error.message}`}
+};
+const tick=()=>{document.getElementById('reports-clock').textContent=new Date().toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit',hour12:true})};
+tick();setInterval(tick,30000);
+</script>

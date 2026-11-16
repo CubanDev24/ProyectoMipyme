@@ -1,0 +1,276 @@
+{% load static l10n %}
+<div class="reports-inner turn-admin-inner">
+  {% include "usuarios/_dashboard_admin.html" %}
+</div>
+    <div id="factura-modal" class="invoice-modal-backdrop hidden fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-6" role="dialog" aria-modal="true" aria-labelledby="factura-modal-title">
+    <div class="invoice-modal-panel">
+      <div class="invoice-modal-heading">
+        <div><span class="invoice-modal-kicker">Detalle del cobro</span><h2 id="factura-modal-title">Factura</h2></div>
+        <button type="button" id="factura-modal-close" class="invoice-modal-close" aria-label="Cerrar detalle de factura"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
+      </div>
+      <div id="factura-modal-content" class="invoice-modal-body"></div>
+    </div>
+  </div>
+  <div id="toast-container" class="toast-container"></div>
+  <script>
+    const inventarioVentasUrl = '{% url "usuarios:inventario_ventas_turno" %}';
+    const formatoCantidad = new Intl.NumberFormat('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+    function escaparCelda(valor) {
+      return String(valor ?? '').replace(/[&<>"']/g, caracter => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+      })[caracter]);
+    }
+
+    function formatoNumero(valor) {
+      const numero = Number(valor);
+      return formatoCantidad.format(Number.isFinite(numero) ? numero : 0);
+    }
+
+    function formatoExistencia(valor, controlada) {
+      return controlada ? formatoNumero(valor) : '—';
+    }
+
+    const ipvCsrfToken = document.querySelector('#ipv-csrf-form input[name="csrfmiddlewaretoken"]')?.value;
+    const ipvCuerpo = document.getElementById('inventory-ledger-body');
+    let ipvProductosActuales = [];
+
+    function renderizarProductosIpv() {
+      if (!ipvCuerpo) return;
+      const consulta = (document.getElementById('ipv-search')?.value || '')
+        .normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase();
+      const categoria = document.getElementById('ipv-category-filter')?.value || '';
+      const soloVendidos = document.getElementById('ipv-only-sold')?.checked || false;
+      const productos = ipvProductosActuales.filter(producto => {
+        const nombre = String(producto.nombre || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+        return (!consulta || nombre.includes(consulta))
+          && (!categoria || producto.categoria === categoria)
+          && (!soloVendidos || Number(producto.cantidad_vendida) > 0);
+      });
+      const total = productos.reduce((suma, producto) => suma + Number(producto.importe_venta || 0), 0);
+      const totalVendido = productos.reduce((suma, producto) => suma + Number(producto.cantidad_vendida || 0), 0);
+      const filaTotal = document.getElementById('ipv-total-row');
+      const totalHoja = document.getElementById('ipv-sheet-total');
+      const vacio = document.getElementById('ipv-empty');
+      const estadistica = document.getElementById('ipv-stat');
+      if (!productos.length) {
+        ipvCuerpo.innerHTML = '';
+        if (filaTotal) filaTotal.innerHTML = '';
+        vacio?.classList.remove('hidden');
+      } else {
+        vacio?.classList.add('hidden');
+        ipvCuerpo.innerHTML = productos.map((producto, indice) => {
+          const vendido = Number(producto.cantidad_vendida || 0);
+          return `
+            <tr class="${vendido > 0 ? 'sold' : ''}">
+              <td class="rn">${indice + 5}</td>
+              <td class="d turn-product-cell">${escaparCelda(producto.nombre)}<small>${escaparCelda(producto.categoria)}</small></td>
+              <td>${formatoNumero(vendido)}</td>
+              <td>${formatoNumero(producto.precio_venta)} CUP</td>
+              <td class="imp ${Number(producto.importe_venta) > 0 ? 'text-emerald-300' : ''}">${formatoNumero(producto.importe_venta)} CUP</td>
+              <td class="${Number(producto.merma_rotura) > 0 ? 'text-red-300' : ''}">${formatoNumero(producto.merma_rotura)}</td>
+              <td class="no-print turn-rotura-cell"><div class="act-w"><input class="turn-template-field turn-rotura-input" type="number" min="0.001" step="0.001" data-merma-cantidad aria-label="Cantidad rota de ${escaparCelda(producto.nombre)}"><button type="button" data-merma-url="${escaparCelda(producto.merma_url)}" title="Registrar rotura de ${escaparCelda(producto.nombre)}"><i class="fa-solid fa-plus" aria-hidden="true"></i></button></div></td>
+            </tr>`;
+        }).join('');
+        if (filaTotal) {
+          filaTotal.innerHTML = `<td class="rn"></td><td class="d">TOTAL</td><td>${formatoNumero(totalVendido)}</td><td></td><td>${formatoNumero(total)} CUP</td><td>${formatoNumero(productos.reduce((sum, producto) => sum + Number(producto.merma_rotura || 0), 0))}</td><td class="no-print"></td>`;
+        }
+      }
+      if (totalHoja) totalHoja.textContent = `${formatoNumero(total)} CUP`;
+      if (estadistica) estadistica.textContent = `${productos.length} productos mostrados · Total de ventas: ${formatoNumero(total)} CUP`;
+    }
+
+    if (ipvCuerpo) {
+      document.getElementById('ipv-search')?.addEventListener('input', renderizarProductosIpv);
+      document.getElementById('ipv-category-filter')?.addEventListener('change', renderizarProductosIpv);
+      document.getElementById('ipv-only-sold')?.addEventListener('change', renderizarProductosIpv);
+      ipvCuerpo.addEventListener('click', async event => {
+        const boton = event.target.closest('[data-merma-url]');
+        if (!boton) return;
+        const fila = boton.closest('tr');
+        const campo = fila.querySelector('[data-merma-cantidad]');
+        const datos = new FormData();
+        datos.append('cantidad', campo.value);
+        boton.disabled = true;
+        try {
+          const response = await fetch(boton.dataset.mermaUrl, {
+            method: 'POST',
+            headers: { 'X-CSRFToken': ipvCsrfToken },
+            body: datos,
+          });
+          const resultado = await response.json();
+          if (!response.ok) throw new Error(resultado.error || 'No se pudo registrar la rotura.');
+          campo.value = '';
+          await actualizarInventarioTurno();
+        } catch (error) {
+          const estado = document.getElementById('inventory-ledger-updated');
+          estado.textContent = error.message || 'No se pudo registrar la rotura.';
+          estado.classList.add('error');
+        } finally {
+          boton.disabled = false;
+        }
+      });
+    }
+
+    async function actualizarInventarioTurno() {
+      const cuerpo = document.getElementById('inventory-ledger-body');
+      const estado = document.getElementById('inventory-ledger-updated');
+      const cuerpoRechazos = document.getElementById('ipv-rejections-body');
+      if (!cuerpo || !cuerpoRechazos || !estado) return;
+      try {
+        const response = await fetch(inventarioVentasUrl, { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+        if (!response.ok) throw new Error('No se pudo cargar el inventario.');
+        const data = await response.json();
+        if (!data.turno_abierto) {
+          cuerpo.innerHTML = '<tr><td colspan="7" class="inventory-ledger-status">No hay un turno abierto.</td></tr>';
+          estado.textContent = 'Sin turno activo';
+          return;
+        }
+        const fondo = document.getElementById('ipv-fondo-inicial-resumen');
+        const efectivo = document.getElementById('ipv-ventas-efectivo');
+        const efectivoFinal = document.getElementById('ipv-efectivo-final');
+        const transferencia = document.getElementById('ipv-ventas-transferencia');
+        const usd = document.getElementById('ipv-ventas-usd');
+        if (fondo) fondo.textContent = `${formatoNumero(data.fondo_inicial_cup)} CUP`;
+        if (efectivo) efectivo.textContent = `${formatoNumero(data.ventas_efectivo_cup)} CUP`;
+        if (efectivoFinal) efectivoFinal.textContent = `${formatoNumero(data.efectivo_final_cup)} CUP`;
+        if (transferencia) transferencia.textContent = `${formatoNumero(data.ventas_transferencia_cup)} CUP`;
+        if (usd) usd.textContent = `${formatoNumero(data.ventas_usd)} USD`;
+        ipvProductosActuales = data.productos;
+        const categorySelect = document.getElementById('ipv-category-filter');
+        if (categorySelect) {
+          const previousCategory = categorySelect.value;
+          const categories = [...new Set(data.productos.map(producto => producto.categoria))].sort((a, b) => a.localeCompare(b, 'es'));
+          categorySelect.innerHTML = '<option value="">Todas las categorías</option>' + categories.map(category => `<option value="${escaparCelda(category)}">${escaparCelda(category)}</option>`).join('');
+          categorySelect.value = categories.includes(previousCategory) ? previousCategory : '';
+        }
+        renderizarProductosIpv();
+        if (!data.rechazos.length) {
+          cuerpoRechazos.innerHTML = '<tr><td colspan="6" class="inventory-ledger-status">No hay platos rechazados en este turno.</td></tr>';
+          document.getElementById('ipv-rejections-stat').textContent = 'Sin registros';
+        } else {
+          cuerpoRechazos.innerHTML = data.rechazos.map(rechazo => `
+            <tr>
+              <td>${escaparCelda(rechazo.creado_en)}</td>
+              <td>${escaparCelda(rechazo.mesa)}</td>
+              <td><span class="ledger-product">${escaparCelda(rechazo.plato)}</span></td>
+              <td class="ledger-loss">${formatoNumero(rechazo.cantidad)}</td>
+              <td>${escaparCelda(rechazo.motivo)}</td>
+              <td>${escaparCelda(rechazo.reportado_por) || '—'}</td>
+            </tr>`).join('');
+          const cantidadRechazada = data.rechazos.reduce((total, rechazo) => total + Number(rechazo.cantidad || 0), 0);
+          document.getElementById('ipv-rejections-stat').textContent = `${data.rechazos.length} registros · ${formatoNumero(cantidadRechazada)} platos rechazados`;
+        }
+        estado.textContent = `Actualizado ${data.actualizado_en}`;
+        estado.classList.remove('error');
+      } catch (error) {
+        estado.textContent = error.message || 'No se pudo actualizar.';
+        estado.classList.add('error');
+        const estadoRechazos = document.getElementById('ipv-rejections-stat');
+        if (estadoRechazos) estadoRechazos.textContent = 'No se pudieron cargar los datos';
+      }
+    }
+
+    actualizarInventarioTurno();
+    setInterval(actualizarInventarioTurno, 5000);
+
+    const facturaModal = document.getElementById('factura-modal');
+    const facturaModalTitle = document.getElementById('factura-modal-title');
+    const facturaModalContent = document.getElementById('factura-modal-content');
+    const facturaModalClose = document.getElementById('factura-modal-close');
+    let facturaTriggerAnterior = null;
+
+    function cerrarModalFacturaTurno() {
+      facturaModal.classList.add('hidden');
+      facturaModalContent.replaceChildren();
+      document.body.classList.remove('overflow-hidden');
+      facturaTriggerAnterior?.focus();
+    }
+
+    document.querySelectorAll('[data-factura-id]').forEach(button => {
+      button.addEventListener('click', () => {
+        const facturaId = button.dataset.facturaId;
+        const detalle = document.getElementById(`factura-detalle-${facturaId}`);
+        if (!detalle) return;
+        facturaTriggerAnterior = button;
+        facturaModalTitle.textContent = `Factura #${facturaId}`;
+        facturaModalContent.replaceChildren(detalle.content.cloneNode(true));
+        facturaModal.classList.remove('hidden');
+        document.body.classList.add('overflow-hidden');
+        facturaModalClose.focus();
+      });
+    });
+
+    facturaModalClose.addEventListener('click', cerrarModalFacturaTurno);
+    facturaModal.addEventListener('click', event => {
+      if (event.target === facturaModal) cerrarModalFacturaTurno();
+    });
+    document.addEventListener('keydown', event => {
+      if (event.key === 'Escape' && !facturaModal.classList.contains('hidden')) cerrarModalFacturaTurno();
+    });
+  </script>
+  <script>
+    (() => {
+      const clock = document.getElementById('reports-clock') || document.getElementById('clock-display');
+      const updateClock = () => {
+        if (clock) {
+          clock.textContent = new Date().toLocaleTimeString('es-ES', {
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: true,
+          });
+        }
+      };
+      updateClock();
+      setInterval(updateClock, 30000);
+
+      const duration = document.getElementById('turn-duration');
+      if (duration) {
+        const openedAt = new Date(duration.dataset.opened);
+        const closedAt = duration.dataset.closed ? new Date(duration.dataset.closed) : null;
+        const updateDuration = () => {
+          const elapsed = Math.max(0, (closedAt || new Date()) - openedAt);
+          const hours = Math.floor(elapsed / 3600000);
+          const minutes = Math.floor((elapsed % 3600000) / 60000);
+          duration.classList.toggle('is-long', hours >= 24);
+          duration.querySelector('span').textContent = `${hours} h ${String(minutes).padStart(2, '0')} min · ${closedAt ? 'duración total' : 'en curso'}${hours >= 24 ? ' · supera las 24 h' : ''}`;
+        };
+        updateDuration();
+        if (!closedAt) setInterval(updateDuration, 30000);
+      }
+
+      document.querySelectorAll('.turn-banner-dismiss').forEach(button => {
+        button.addEventListener('click', () => button.closest('.turn-admin-banner')?.classList.add('hidden'));
+      });
+
+      const closeNotes = document.getElementById('observaciones-cierre');
+      const closeNotesCount = document.getElementById('turn-close-observations-count');
+      if (closeNotes && closeNotesCount) {
+        const updateCloseNotesCount = () => {
+          closeNotesCount.textContent = closeNotes.value.length;
+        };
+        closeNotes.addEventListener('input', updateCloseNotesCount);
+        updateCloseNotesCount();
+      }
+
+      const closeForm = document.getElementById('turn-close-form');
+      const closeDialog = document.getElementById('dlgCierre');
+      const confirmClose = document.getElementById('dlgSi');
+      const cancelClose = document.getElementById('dlgNo');
+      if (closeForm && closeDialog && confirmClose && cancelClose) {
+        closeForm.addEventListener('submit', event => {
+          if (closeForm.dataset.confirmed === 'true') {
+            delete closeForm.dataset.confirmed;
+            return;
+          }
+          event.preventDefault();
+          closeDialog.showModal();
+        });
+        confirmClose.addEventListener('click', () => {
+          closeForm.dataset.confirmed = 'true';
+          closeForm.requestSubmit();
+        });
+        cancelClose.addEventListener('click', () => closeDialog.close());
+      }
+    })();
+  </script>

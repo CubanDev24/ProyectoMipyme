@@ -1,0 +1,283 @@
+{% load static l10n %}
+<div id="admin-view-configuracion" class="config-page">
+  {% if messages %}
+  <div class="admin-flash-list" role="status" aria-live="polite">
+    {% for message in messages %}
+    <div class="admin-flash {% if message.tags == 'error' %}admin-flash-error{% endif %}">
+      <i class="fa-solid {% if message.tags == 'error' %}fa-circle-exclamation{% else %}fa-circle-check{% endif %}" aria-hidden="true"></i>
+      <span>{{ message }}</span>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <div class="config-heading">
+    <p class="config-eyebrow">Administración</p>
+    <h1 class="text-2xl font-bold text-white tracking-tight">Configuración</h1>
+    <p class="text-slate-400 mt-1">Categorías de la carta y trazabilidad de los movimientos de inventario.</p>
+  </div>
+
+  <section aria-labelledby="config-resumen-title">
+    <h2 id="config-resumen-title" class="card-t"><i class="fa-solid fa-gauge-high" aria-hidden="true"></i>Resumen</h2>
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-3" id="kpis">
+      <article class="kpi hi">
+        <div class="flex items-center gap-2.5"><span class="kic"><i class="fa-solid fa-tags" aria-hidden="true"></i></span><span class="text-xs text-slate-400">Categorías</span></div>
+        <p class="num mt-3 text-2xl font-bold tracking-tight text-emerald-300">{{ categorias|length }}</p>
+        <p class="text-xs text-slate-500 mt-1">en la carta</p>
+      </article>
+      <article class="kpi">
+        <div class="flex items-center gap-2.5"><span class="kic"><i class="fa-solid fa-boxes-stacked" aria-hidden="true"></i></span><span class="text-xs text-slate-400">Productos</span></div>
+        <p class="num mt-3 text-2xl font-bold tracking-tight text-white">{{ insumos|length }}</p>
+        <p class="text-xs text-slate-500 mt-1">en inventario</p>
+      </article>
+      <article class="kpi">
+        <div class="flex items-center gap-2.5"><span class="kic"><i class="fa-solid fa-right-left" aria-hidden="true"></i></span><span class="text-xs text-slate-400">Movimientos</span></div>
+        <p class="num mt-3 text-2xl font-bold tracking-tight text-white">{{ movimientos.paginator.count }}</p>
+        <p class="text-xs text-slate-500 mt-1">registrados</p>
+      </article>
+      <article class="kpi">
+        <div class="flex items-center gap-2.5"><span class="kic"><i class="fa-solid fa-clock" aria-hidden="true"></i></span><span class="text-xs text-slate-400">Último movimiento</span></div>
+        <p class="num mt-3 text-2xl font-bold tracking-tight text-white">{% if ultimo_movimiento %}{{ ultimo_movimiento.creado_en|date:"H:i" }}{% else %}—{% endif %}</p>
+        <p class="text-xs text-slate-500 mt-1">{% if ultimo_movimiento %}{{ ultimo_movimiento.creado_en|date:"d/m/Y" }}{% else %}sin actividad{% endif %}</p>
+      </article>
+    </div>
+  </section>
+
+  <section class="card card-top" id="categorias" aria-labelledby="config-categorias-title">
+    <div class="card-h flex-wrap">
+      <span class="kic kic-large"><i class="fa-solid fa-tags" aria-hidden="true"></i></span>
+      <div class="flex-1 min-w-0"><p class="config-eyebrow muted">Carta</p><h2 id="config-categorias-title" class="font-bold text-white text-lg">Categorías de la carta</h2></div>
+      <div class="category-heading-actions"><span class="badge ok" id="catCount">{{ categorias|length }} {% if categorias|length == 1 %}categoría{% else %}categorías{% endif %}</span><button type="button" id="newCatBtn" class="btn-p"><i class="fa-solid fa-plus" aria-hidden="true"></i>Nueva categoría</button></div>
+    </div>
+    <div id="catSum" class="category-summary">
+      <span class="meta"><i class="fa-solid fa-eye" aria-hidden="true"></i>{{ categorias_visibles_count }} visibles</span>
+      <span class="meta"><i class="fa-solid fa-eye-slash" aria-hidden="true"></i>{{ categorias_ocultas_count }} ocultas</span>
+      <span class="meta"><i class="fa-solid fa-utensils" aria-hidden="true"></i>{{ platos_categorias_count }} platos en total</span>
+    </div>
+    <div id="cats" class="category-list">
+      {% for categoria in categorias %}
+      <article class="category-row" data-category-row data-search="{{ categoria.nombre|lower }}">
+        <span class="category-order">{{ forloop.counter|stringformat:"02d" }}</span>
+        <span class="category-icon"><i class="fa-solid {{ categoria.icono_admin }}" aria-hidden="true"></i></span>
+        <div class="category-details">
+          <p class="category-name" title="{{ categoria.nombre }}">{{ categoria.nombre }}</p>
+          <p class="category-description">{{ categoria.platos_count }} {% if categoria.platos_count == 1 %}plato{% else %}platos{% endif %} · {% if categoria.visible %}Visible en la carta{% else %}Oculta de la carta{% endif %}</p>
+        </div>
+        <div class="category-share">
+          <div class="category-progress"><span style="width:{{ categoria.porcentaje_platos }}%"></span></div>
+          <span>{{ categoria.porcentaje_platos }}% de la carta</span>
+        </div>
+        <form method="post" action="{% url 'inventario:categoria_alternar_visibilidad' categoria.pk %}" class="category-toggle-form">
+          {% csrf_token %}
+          <button type="submit" class="category-switch {% if categoria.visible %}is-on{% endif %}" role="switch" aria-checked="{{ categoria.visible|yesno:'true,false' }}" aria-label="{% if categoria.visible %}Ocultar{% else %}Mostrar{% endif %} {{ categoria.nombre }} en la carta" title="{% if categoria.visible %}Ocultar de la carta{% else %}Mostrar en la carta{% endif %}">
+            <span></span>
+          </button>
+        </form>
+        <div class="category-order-actions">
+          <form method="post" action="{% url 'inventario:categoria_mover' categoria.pk %}">
+            {% csrf_token %}<input type="hidden" name="direccion" value="up">
+            <button type="submit" class="category-icon-button" aria-label="Subir {{ categoria.nombre }}" title="Subir categoría" {% if not categoria.puede_subir %}disabled{% endif %}><i class="fa-solid fa-chevron-up" aria-hidden="true"></i></button>
+          </form>
+          <form method="post" action="{% url 'inventario:categoria_mover' categoria.pk %}">
+            {% csrf_token %}<input type="hidden" name="direccion" value="down">
+            <button type="submit" class="category-icon-button" aria-label="Bajar {{ categoria.nombre }}" title="Bajar categoría" {% if not categoria.puede_bajar %}disabled{% endif %}><i class="fa-solid fa-chevron-down" aria-hidden="true"></i></button>
+          </form>
+        </div>
+        <div class="category-actions">
+          <button type="button" class="category-edit-button" data-edit-category data-name="{{ categoria.nombre }}" data-url="{% url 'inventario:categoria_editar' categoria.pk %}"><i class="fa-solid fa-pen" aria-hidden="true"></i>Editar</button>
+          <form method="post" action="{% url 'inventario:categoria_eliminar' categoria.pk %}" onsubmit="return confirm('¿Eliminar la categoría {{ categoria.nombre|escapejs }}? Los platos se conservarán sin categoría.');">
+            {% csrf_token %}
+            <button type="submit" class="category-delete-button" aria-label="Eliminar {{ categoria.nombre }}" title="Eliminar categoría"><i class="fa-solid fa-trash" aria-hidden="true"></i></button>
+          </form>
+        </div>
+      </article>
+      {% empty %}
+      <p class="config-empty">Aún no hay categorías. Crea la primera con «Nueva categoría».</p>
+      {% endfor %}
+    </div>
+  </section>
+
+  <section class="card card-top" id="movimientos-inventario" aria-labelledby="config-movimientos-title">
+    <div class="card-h flex-wrap">
+      <span class="kic kic-large"><i class="fa-solid fa-right-left" aria-hidden="true"></i></span>
+      <div class="flex-1 min-w-0"><p class="config-eyebrow muted">Trazabilidad</p><h2 id="config-movimientos-title" class="font-bold text-white text-lg">Historial de movimientos</h2></div>
+      <div class="flex items-center gap-2"><span class="badge ok" id="movCount">{{ movimientos.paginator.count }} {% if movimientos.paginator.count == 1 %}movimiento{% else %}movimientos{% endif %}</span><button type="button" id="newMovBtn" class="btn-p" {% if not insumos %}disabled{% endif %}><i class="fa-solid fa-plus-minus" aria-hidden="true"></i>Registrar movimiento</button></div>
+    </div>
+    <div class="move-filters">
+      <label class="relative search-label">
+        <span class="sr-only">Buscar movimientos</span>
+        <i class="fa-solid fa-magnifying-glass search-icon" aria-hidden="true"></i>
+        <input id="movimientos-search" class="fld fld-search" placeholder="Buscar producto, motivo o responsable" autocomplete="off">
+      </label>
+      <div class="flex flex-wrap gap-2" id="fTipo" role="group" aria-label="Filtrar movimientos por tipo">
+        <button type="button" class="per" data-t="" aria-pressed="true">Todos</button>
+        <button type="button" class="per" data-t="entrada" aria-pressed="false">Entradas</button>
+        <button type="button" class="per" data-t="salida" aria-pressed="false">Salidas</button>
+        <button type="button" class="per" data-t="merma" aria-pressed="false">Mermas</button>
+      </div>
+    </div>
+    <div class="xlw">
+      <div class="xls">
+        <table class="tbl" id="movimientos-table">
+          <thead><tr><th>Fecha y hora</th><th>Producto</th><th>Inventario</th><th>Categoría</th><th>Tipo</th><th>Cantidad</th><th>Stock (antes → después)</th><th>Responsable</th><th>Motivo</th></tr></thead>
+          <tbody>
+            {% for movimiento in movimientos %}
+            <tr data-movimiento-row data-type="{{ movimiento.tipo }}" data-search="{{ movimiento.producto_nombre|lower }} {{ movimiento.categoria_nombre|lower }} {{ movimiento.responsable_nombre|lower }} {{ movimiento.motivo|lower }}">
+              <td>{{ movimiento.creado_en|date:"d/m/Y H:i" }}</td>
+              <td><b class="text-white">{{ movimiento.producto_nombre }}</b><span class="sub">{{ movimiento.unidad }}</span></td>
+              <td>{% if movimiento.tipo_inventario %}{{ movimiento.get_tipo_inventario_display }}{% else %}Histórico{% endif %}</td>
+              <td>{{ movimiento.categoria_nombre }}</td>
+              <td><span class="badge {% if movimiento.tipo == 'entrada' %}in{% elif movimiento.tipo == 'salida' %}out{% else %}loss{% endif %}">{{ movimiento.get_tipo_display }}</span></td>
+              <td class="q-{{ movimiento.tipo }}">{% if movimiento.tipo == 'entrada' %}+{% elif movimiento.tipo == 'salida' %}−{% else %}×{% endif %}{{ movimiento.cantidad|floatformat:3 }} {{ movimiento.unidad }}</td>
+              <td><span class="text-slate-500">{{ movimiento.stock_anterior|floatformat:3 }}</span><i class="fa-solid fa-arrow-right text-slate-600 mx-1" aria-hidden="true"></i><b class="text-white">{{ movimiento.stock_posterior|floatformat:3 }}</b> <span class="text-slate-500">{{ movimiento.unidad }}</span></td>
+              <td>{{ movimiento.responsable_nombre }}</td>
+              <td class="mot">{{ movimiento.motivo|default:"—" }}</td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="9" class="config-empty">Aún no hay movimientos registrados.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      <div class="tbl-bar"><span id="movimientos-info">Mostrando {{ movimientos|length }} de {{ movimientos.paginator.count }} movimientos de esta página.</span></div>
+    </div>
+    {% include 'includes/pagination.html' with page_obj=movimientos page_parameter='movimientos_page' pagination_query=movimientos_pagination_query pagination_anchor='#movimientos-inventario' %}
+  </section>
+
+  <dialog id="dCat" class="card" aria-labelledby="dcT">
+    <form method="post" action="{% url 'inventario:categoria_crear' %}" id="categoryForm" class="form-grid">
+      {% csrf_token %}
+      <div class="card-h card-h-tight">
+        <span class="kic kic-category"><i class="fa-solid fa-tag" aria-hidden="true"></i></span>
+        <div><p class="config-eyebrow muted">Carta</p><h3 id="dcT" class="font-bold text-white text-lg">Nueva categoría</h3></div>
+      </div>
+      <div><label for="catName" class="lbl-f">Nombre de la categoría</label><input id="catName" name="nombre" class="fld fld-input" placeholder="Ej. Bebidas, Carnes, Postres" maxlength="100" autocomplete="off" required></div>
+      <div class="flex justify-end gap-2 mt-2"><button type="button" class="btn" id="catCancel">Cancelar</button><button type="submit" class="btn-p"><i class="fa-solid fa-check" aria-hidden="true"></i><span id="catSaveT">Agregar categoría</span></button></div>
+    </form>
+  </dialog>
+
+  <dialog id="dMov" class="card" aria-labelledby="dmT">
+    <form method="post" action="{% url 'inventario:movimiento_crear' %}" id="movementForm" class="form-grid">
+      {% csrf_token %}
+      <div class="card-h card-h-tight">
+        <span class="kic kic-category"><i class="fa-solid fa-plus-minus" aria-hidden="true"></i></span>
+        <div><p class="config-eyebrow muted">Trazabilidad</p><h3 id="dmT" class="font-bold text-white text-lg">Registrar movimiento</h3></div>
+      </div>
+      <div>
+        <label for="movimiento-insumo" class="lbl-f">Producto</label>
+        <select id="movimiento-insumo" name="insumo_id" class="fld fld-input" required>
+          <option value="">Selecciona un producto</option>
+          {% for insumo in insumos %}
+          <option value="{{ insumo.pk }}" data-stock="{{ insumo.stock_actual|unlocalize }}" data-unit="{{ insumo.unidad }}" data-unit-label="{{ insumo.get_unidad_display }}">{% if insumo.tipo_inventario %}{{ insumo.get_tipo_inventario_display }}{% else %}Por clasificar{% endif %} · {{ insumo.nombre }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div><label for="movimiento-tipo" class="lbl-f">Tipo de movimiento</label><select id="movimiento-tipo" name="tipo" class="fld fld-input" required><option value="entrada">Entrada</option><option value="salida">Salida</option><option value="merma">Merma</option></select></div>
+      <div>
+        <label for="movimiento-cantidad" class="lbl-f">Cantidad</label>
+        <div class="relative"><input id="movimiento-cantidad" type="number" name="cantidad" step="0.001" min="0.001" inputmode="decimal" class="fld fld-input fld-with-unit" placeholder="0" required><span id="mUnit" class="unit-suffix"></span></div>
+      </div>
+      <div><label for="mMot" class="lbl-f">Motivo (opcional)</label><input id="mMot" name="motivo" class="fld fld-input" placeholder="Ej. Compra a proveedor" maxlength="200" autocomplete="off"></div>
+      <div class="stat grid grid-cols-2 gap-3"><div><p class="text-xs text-slate-400">Stock actual</p><p id="pvNow" class="num font-semibold text-white mt-0.5">—</p></div><div><p class="text-xs text-slate-400">Quedará en</p><p id="pvAfter" class="num font-semibold text-emerald-300 mt-0.5">—</p></div></div>
+      <p id="mErr" role="alert" class="hidden text-xs text-red-300"></p>
+      <div class="flex justify-end gap-2 mt-2"><button type="button" class="btn" id="movCancel">Cancelar</button><button type="submit" class="btn-p"><i class="fa-solid fa-check" aria-hidden="true"></i>Registrar movimiento</button></div>
+    </form>
+  </dialog>
+</div>
+<script>
+(() => {
+  const normalize = value => String(value || '').toLocaleLowerCase('es').normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  const categoryDialog = document.getElementById('dCat');
+  const categoryForm = document.getElementById('categoryForm');
+  const categoryName = document.getElementById('catName');
+  const categoryTitle = document.getElementById('dcT');
+  const categorySaveText = document.getElementById('catSaveT');
+  const createCategoryUrl = categoryForm.action;
+
+  document.getElementById('newCatBtn').addEventListener('click', () => {
+    categoryForm.reset();
+    categoryForm.action = createCategoryUrl;
+    categoryTitle.textContent = 'Nueva categoría';
+    categorySaveText.textContent = 'Agregar categoría';
+    categoryDialog.showModal();
+    categoryName.focus();
+  });
+  document.getElementById('catCancel').addEventListener('click', () => categoryDialog.close());
+  document.querySelectorAll('[data-edit-category]').forEach(button => {
+    button.addEventListener('click', () => {
+      categoryForm.action = button.dataset.url;
+      categoryName.value = button.dataset.name;
+      categoryTitle.textContent = 'Editar categoría';
+      categorySaveText.textContent = 'Guardar cambios';
+      categoryDialog.showModal();
+      categoryName.focus();
+      categoryName.select();
+    });
+  });
+
+  const search = document.getElementById('movimientos-search');
+  const filterButtons = Array.from(document.querySelectorAll('#fTipo [data-t]'));
+  const rows = Array.from(document.querySelectorAll('[data-movimiento-row]'));
+  const info = document.getElementById('movimientos-info');
+  let movementType = '';
+  const applyMovementFilters = () => {
+    const query = normalize(search.value.trim());
+    let visible = 0;
+    rows.forEach(row => {
+      const matchesText = !query || normalize(row.dataset.search).includes(query);
+      const matchesType = !movementType || row.dataset.type === movementType;
+      row.hidden = !(matchesText && matchesType);
+      if (!row.hidden) visible += 1;
+    });
+    info.textContent = `Mostrando ${visible} de ${rows.length} movimientos de esta página.`;
+  };
+  search.addEventListener('input', applyMovementFilters);
+  filterButtons.forEach(button => {
+    button.addEventListener('click', () => {
+      movementType = button.dataset.t;
+      filterButtons.forEach(item => item.setAttribute('aria-pressed', String(item === button)));
+      applyMovementFilters();
+    });
+  });
+
+  const movementDialog = document.getElementById('dMov');
+  const product = document.getElementById('movimiento-insumo');
+  const type = document.getElementById('movimiento-tipo');
+  const quantity = document.getElementById('movimiento-cantidad');
+  const unit = document.getElementById('mUnit');
+  const currentStock = document.getElementById('pvNow');
+  const nextStock = document.getElementById('pvAfter');
+  const numberFormat = new Intl.NumberFormat('es-ES', { maximumFractionDigits: 3 });
+  const updatePreview = () => {
+    const option = product.selectedOptions[0];
+    const stock = Number(option.dataset.stock);
+    const amount = Number(quantity.value);
+    const unitLabel = option.dataset.unitLabel || '';
+    unit.textContent = unitLabel;
+    if (!option.value || !Number.isFinite(stock)) {
+      currentStock.textContent = '—';
+      nextStock.textContent = '—';
+      return;
+    }
+    currentStock.textContent = `${numberFormat.format(stock)} ${unitLabel}`;
+    if (!(amount > 0)) {
+      nextStock.textContent = '—';
+      return;
+    }
+    const after = type.value === 'entrada' ? stock + amount : stock - amount;
+    nextStock.textContent = `${numberFormat.format(after)} ${unitLabel}`;
+    nextStock.classList.toggle('text-red-300', after < 0);
+    nextStock.classList.toggle('text-emerald-300', after >= 0);
+  };
+  document.getElementById('newMovBtn').addEventListener('click', () => {
+    document.getElementById('movementForm').reset();
+    updatePreview();
+    movementDialog.showModal();
+    product.focus();
+  });
+  document.getElementById('movCancel').addEventListener('click', () => movementDialog.close());
+  product.addEventListener('change', updatePreview);
+  type.addEventListener('change', updatePreview);
+  quantity.addEventListener('input', updatePreview);
+})();
+</script>

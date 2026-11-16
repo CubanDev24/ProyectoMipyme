@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+{% load static %}
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GourmetControl · {{ admin_page_title }}</title>
+  <link rel="icon" type="image/svg+xml" href="{% static 'img/favicon.svg' %}">
+  <link rel="stylesheet" href="{% static 'css/tailwind.css' %}">
+  <link rel="stylesheet" href="{% static 'vendor/fontawesome/css/all.min.css' %}">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  {% if admin_load_main_css %}<link rel="stylesheet" href="{% static 'css/main.css' %}">{% endif %}
+  {% if admin_head_template %}{% include admin_head_template %}{% endif %}
+  <style>
+    *{box-sizing:border-box}
+    body.report-body{margin:0;font-family:Inter,system-ui,sans-serif;background:radial-gradient(900px 380px at 70% -120px,rgba(16,185,129,.10),transparent 70%),#0b0f19;background-attachment:fixed;color:#e2e8f0;min-height:100vh}
+    .report-body :focus-visible{outline:2px solid #34d399;outline-offset:2px;border-radius:6px}
+    .reports-shell{display:flex;height:100dvh;overflow:hidden}
+    .reports-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:30}
+    #admin-sidebar{position:relative;z-index:40;display:flex;flex:0 0 16rem;flex-direction:column;overflow:hidden;background:#090d16;border-right:1px solid #1e293b;transition:flex-basis .2s ease,width .2s ease,transform .2s ease}
+    .reports-brand{height:3.5rem;display:flex;align-items:center;gap:.75rem;padding:0 1rem;border-bottom:1px solid #1e293b;flex-shrink:0}
+    .reports-brand-icon{width:2.25rem;height:2.25rem;border-radius:.55rem;display:flex;align-items:center;justify-content:center;flex-shrink:0;background:rgba(16,185,129,.15);color:#34d399}
+    .reports-brand-name{min-width:0}
+    .reports-brand-name strong{display:block;color:#fff;font-size:.875rem;line-height:1.1}
+    .reports-brand-name span{display:block;margin-top:.2rem;color:#94a3b8;font-size:.7rem}
+    #admin-sidebar nav{flex:1;overflow:auto;padding:.75rem}
+    #admin-sidebar nav a{display:flex;align-items:center;gap:.75rem;padding:.6rem .75rem;border:1px solid transparent;border-radius:.5rem;color:#94a3b8;font-size:.8rem;text-decoration:none;transition:background .15s,color .15s}
+    #admin-sidebar nav a:hover{background:rgba(30,41,59,.55);color:#fff}
+    #admin-sidebar nav a[aria-current=page]{background:rgba(16,185,129,.1);border-color:rgba(16,185,129,.25);color:#6ee7b7}
+    #admin-sidebar nav a i{width:1rem;text-align:center;flex-shrink:0;line-height:1.25rem}
+    #admin-sidebar nav a span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .reports-user{display:flex;align-items:center;gap:.75rem;padding:.6rem .4rem}
+    .reports-user-icon{width:2.25rem;height:2.25rem;border-radius:50%;display:grid;place-items:center;flex-shrink:0;background:rgba(5,150,105,.25);border:1px solid rgba(16,185,129,.3);color:#6ee7b7}
+    .reports-user p{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .reports-user-name{font-size:.75rem;font-weight:500;color:#fff}
+    .reports-user-role{margin-top:.15rem;font-size:.7rem;color:#94a3b8}
+    .reports-sidebar-foot{padding:.75rem;border-top:1px solid #1e293b;flex-shrink:0}
+    .reports-logout{display:flex;align-items:center;gap:.75rem;padding:.6rem .75rem;border-radius:.5rem;color:#94a3b8;font-size:.8rem;text-decoration:none}
+    .reports-logout:hover{background:rgba(239,68,68,.1);color:#fca5a5}
+    .reports-content{display:flex;flex:1;flex-direction:column;min-width:0}
+    .reports-header{height:3.5rem;display:flex;align-items:center;justify-content:space-between;gap:.75rem;padding:0 1rem;border-bottom:1px solid #1e293b;background:rgba(11,15,25,.95);backdrop-filter:blur(12px);flex-shrink:0}
+    .reports-header-left,.reports-header-title,.reports-header-badge{display:flex;align-items:center}
+    .reports-header-left{gap:.65rem;min-width:0}
+    .reports-menu{padding:.5rem;margin-left:-.5rem;border:0;border-radius:.5rem;background:transparent;color:#cbd5e1;cursor:pointer}
+    .reports-menu:hover{background:rgba(30,41,59,.6);color:#fff}
+    .reports-header-title{gap:.5rem;overflow:hidden;color:#fff;font-size:.9rem;font-weight:600;white-space:nowrap}
+    .reports-header-title i{color:#34d399}
+    .reports-clock{display:none;color:#cbd5e1;background:rgba(30,41,59,.7);border:1px solid #334155;border-radius:999px;padding:.25rem .65rem;font-size:.7rem;white-space:nowrap}
+    .reports-header-badge{gap:.45rem;padding:.35rem .7rem;border:1px solid rgba(16,185,129,.3);border-radius:999px;background:rgba(16,185,129,.1);color:#6ee7b7;font-size:.7rem;font-weight:500;white-space:nowrap}
+    .reports-main{flex:1;overflow:auto}
+    @media(min-width:640px){.reports-clock{display:inline-flex}}
+    @media(min-width:1024px){#admin-sidebar.collapsed{flex-basis:4.5rem;width:4.5rem}#admin-sidebar.collapsed .reports-brand,#admin-sidebar.collapsed .reports-user{justify-content:center;padding-left:0;padding-right:0}#admin-sidebar.collapsed .reports-brand-name,#admin-sidebar.collapsed .reports-user-info,#admin-sidebar.collapsed nav a span,#admin-sidebar.collapsed .reports-logout span{display:none}#admin-sidebar.collapsed nav a,#admin-sidebar.collapsed .reports-logout{justify-content:center;padding-left:0;padding-right:0}#admin-sidebar.collapsed nav a{gap:0}}
+    @media(max-width:1023px){#admin-sidebar{position:fixed;inset:0 auto 0 0;width:16rem;flex-basis:16rem;transform:translateX(-100%)}#admin-sidebar.is-open{transform:translateX(0)}.reports-overlay.is-open{display:block}}
+    @media(max-width:520px){.reports-header{padding:0 .75rem}.reports-header-badge{padding:.35rem .5rem}}
+    @media print{#admin-sidebar,.reports-header,.no-print,.reports-overlay{display:none!important}.reports-shell,.reports-content,.reports-main{display:block;height:auto;overflow:visible}body.report-body{background:#fff;color:#000}}
+    @media(prefers-reduced-motion:reduce){*,*::before,*::after{transition:none!important}}
+  </style>
+</head>
+<body class="report-body{% if admin_page == 'reports' %} report-page{% endif %}">
+  <a href="#contenido" class="sr-only focus:not-sr-only focus:absolute focus:z-50 focus:bg-emerald-500 focus:text-black focus:px-3 focus:py-2">Saltar al contenido</a>
+  <div class="reports-shell">
+    <div id="admin-overlay" class="reports-overlay no-print" aria-hidden="true"></div>
+    <aside id="admin-sidebar" class="reports-sidebar no-print" aria-label="Navegación principal">
+      <div class="reports-brand">
+        <div class="reports-brand-icon"><i class="fa-solid fa-utensils" aria-hidden="true"></i></div>
+        <div class="reports-brand-name"><strong>GourmetControl</strong><span>Panel de administración</span></div>
+      </div>
+      {% include "usuarios/_admin_sidebar_nav.html" with seccion_activa=admin_active_section %}
+      <div class="reports-sidebar-foot">
+        <div class="reports-user">
+          <div class="reports-user-icon"><i class="fa-solid fa-user" aria-hidden="true"></i></div>
+          <div class="reports-user-info">
+            <p class="reports-user-name">{{ request.user.get_full_name|default:request.user.username }}</p>
+            <p class="reports-user-role">{{ request.user.get_role_display }} · Activo</p>
+          </div>
+        </div>
+        <a href="{% url 'usuarios:logout' %}" class="reports-logout"><i class="fa-solid fa-arrow-right-from-bracket" aria-hidden="true"></i><span>Cerrar sesión</span></a>
+      </div>
+    </aside>
+    <div class="reports-content">
+      <header class="reports-header no-print">
+        <div class="reports-header-left">
+          <button id="admin-menu" type="button" class="reports-menu" aria-label="Desplegar menú" aria-controls="admin-sidebar" aria-expanded="false"><i class="fa-solid fa-bars" aria-hidden="true"></i></button>
+          <p class="reports-header-title"><i class="fa-solid {{ admin_header_icon }}" aria-hidden="true"></i><span id="page-view-title">{{ admin_page_title }}</span></p>
+          {% if admin_clock_id %}<span id="{{ admin_clock_id }}" class="reports-clock" aria-hidden="true"></span>{% endif %}
+        </div>
+        <span class="reports-header-badge"><i class="fa-solid {{ admin_badge_icon }}" aria-hidden="true"></i>{{ admin_badge_text }}</span>
+      </header>
+      <main id="contenido" class="reports-main{% if admin_page == 'wifi' %} wifi-print-main{% endif %}{% if admin_page == 'carta' %} text-sm{% endif %}">
+        {% if admin_content_template %}{% include admin_content_template %}{% endif %}
+      </main>
+    </div>
+  </div>
+  <script>
+    (() => {
+      const sidebar = document.getElementById('admin-sidebar');
+      const overlay = document.getElementById('admin-overlay');
+      const menu = document.getElementById('admin-menu');
+      const desktop = () => window.matchMedia('(min-width: 1024px)').matches;
+      const syncMenu = () => {
+        const expanded = desktop()
+          ? !sidebar.classList.contains('collapsed')
+          : sidebar.classList.contains('is-open');
+        menu.setAttribute('aria-expanded', String(expanded));
+        menu.setAttribute('aria-label', expanded ? 'Replegar menú' : 'Desplegar menú');
+      };
+      const closeDrawer = () => {
+        sidebar.classList.remove('is-open');
+        overlay.classList.remove('is-open');
+        syncMenu();
+      };
+      menu.addEventListener('click', () => {
+        if (desktop()) {
+          const collapsed = sidebar.classList.toggle('collapsed');
+          try { localStorage.setItem('gc-sidebar-collapsed', collapsed ? '1' : '0'); } catch {}
+          syncMenu();
+        } else {
+          const open = sidebar.classList.toggle('is-open');
+          overlay.classList.toggle('is-open', open);
+          syncMenu();
+        }
+      });
+      overlay.addEventListener('click', closeDrawer);
+      document.addEventListener('keydown', event => {
+        if (event.key === 'Escape' && !desktop()) closeDrawer();
+      });
+      window.addEventListener('resize', () => {
+        if (desktop()) closeDrawer();
+        syncMenu();
+      });
+      try {
+        if (localStorage.getItem('gc-sidebar-collapsed') === '1') sidebar.classList.add('collapsed');
+      } catch {}
+      syncMenu();
+      const clock = document.getElementById('{{ admin_clock_id }}');
+      const updateClock = () => {
+        if (clock) clock.textContent = new Date().toLocaleTimeString('es-ES', {
+          hour: '2-digit',
+          minute: '2-digit',
+          hour12: true,
+        });
+      };
+      updateClock();
+      window.setInterval(updateClock, 30000);
+    })();
+  </script>
+</body>
+</html>

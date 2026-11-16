@@ -1,0 +1,118 @@
+<style>
+  .cocina-page{width:100%;max-width:80rem;margin:auto;padding:1.25rem;display:grid;gap:1.5rem;color:#e2e8f0}
+  .cocina-page .cocina-intro>p,.cocina-page .cocina-card-heading>div>p,.cocina-page .cocina-dialog-heading>div>p{margin:0 0 .25rem;color:#34d399;font-size:.6875rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase}
+  .cocina-page .cocina-intro h1{margin:0;color:#fff;font-size:1.5rem;font-weight:700;letter-spacing:-.025em}
+  .cocina-page .cocina-intro>span{display:block;margin-top:.25rem;color:#94a3b8;font-size:.875rem}
+  .cocina-page .cocina-section-title{display:flex;align-items:center;gap:.6rem;margin:0 0 1rem;color:#fff;font-size:1rem;font-weight:700}
+  .cocina-page .cocina-section-title i{color:#34d399;font-size:.9rem}
+  .cocina-page .cocina-kpis{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.75rem}
+  .cocina-page .cocina-kpi{min-width:0;border:1px solid #1e293b;border-radius:.9rem;background:#101625;padding:1rem}
+  .cocina-page .cocina-kpi.is-highlight{border-color:#10b98166;background:linear-gradient(160deg,#10b98122,#101625 70%)}
+  .cocina-page .cocina-kpi.is-warning{border-color:#f59e0b66;background:linear-gradient(160deg,#f59e0b1f,#101625 70%)}
+  .cocina-page .cocina-kpi-heading{display:flex;align-items:center;gap:.625rem;color:#94a3b8;font-size:.75rem}
+  .cocina-page .cocina-icon{display:flex;width:2rem;height:2rem;flex:none;align-items:center;justify-content:center;border-radius:.55rem;background:#1e293b;color:#94a3b8;font-size:.8rem}
+  .cocina-page .cocina-kpi.is-highlight .cocina-icon{background:#10b98133;color:#34d399}
+  .cocina-page .cocina-kpi.is-warning .cocina-icon{background:#f59e0b33;color:#fcd34d}
+  .cocina-page .cocina-kpi-value{overflow:hidden;margin:.75rem 0 0;color:#fff;font-size:1.5rem;font-weight:700;letter-spacing:-.025em;text-overflow:ellipsis;white-space:nowrap;font-variant-numeric:tabular-nums}
+  .cocina-page .cocina-kpi.is-highlight .cocina-kpi-value{color:#6ee7b7}
+  .cocina-page .cocina-kpi-caption{margin:.25rem 0 0;color:#64748b;font-size:.75rem}
+  .cocina-page .cocina-card{position:relative;border:1px solid #1e293b;border-radius:.9rem;background:#101625;padding:1.25rem;box-shadow:0 1px 0 rgba(255,255,255,.03) inset,0 8px 24px -12px rgba(0,0,0,.6)}
+  .cocina-page .cocina-card-top:before{position:absolute;top:-1px;left:8%;right:8%;height:2px;background:linear-gradient(90deg,transparent,#10b981aa,transparent);content:""}
+  .cocina-page .cocina-card-heading{display:flex;align-items:center;gap:.9rem;margin-bottom:1.1rem;padding-bottom:1rem;border-bottom:1px solid #1e293b}
+  .cocina-page .cocina-icon-large{width:2.75rem;height:2.75rem;background:#10b98126;color:#6ee7b7;font-size:1rem}
+  .cocina-page .cocina-heading-text{min-width:0;flex:1}
+  .cocina-page .cocina-card-heading h2{margin:0;color:#fff;font-size:1.125rem;font-weight:700}
+  .cocina-page .cocina-card-heading>div>p{color:#94a3b8}
+  .cocina-page .cocina-heading-actions{display:flex;align-items:center;gap:.5rem}
+  .cocina-page .cocina-badge{display:inline-flex;align-items:center;gap:.4rem;border:1px solid #10b98155;border-radius:999px;background:#10b9811a;padding:.25rem .7rem;color:#6ee7b7;font-size:.72rem;font-weight:600;white-space:nowrap}
+  .cocina-page .cocina-primary-button,.cocina-page .cocina-secondary-button,.cocina-page .cocina-danger-icon-button{display:inline-flex;align-items:center;justify-content:center;gap:.5rem;border-radius:.5rem;cursor:pointer;transition:background .15s,border-color .15s,color .15s}
+  .cocina-page .cocina-primary-button{min-height:2.5rem;border:1px solid transparent;background:#10b981;padding:.55rem .95rem;color:#04130d;font-size:.8rem;font-weight:600}
+  .cocina-page .cocina-primary-button:hover{background:#34d399}
+  .cocina-page .cocina-secondary-button{min-height:2.35rem;border:1px solid #334155;background:#0a0d14;padding:.45rem .8rem;color:#e2e8f0;font-size:.75rem;font-weight:500;white-space:nowrap}
+  .cocina-page .cocina-secondary-button:hover{border-color:#475569;background:#1e293b}
+  .cocina-page .cocina-danger-icon-button{width:2.35rem;height:2.35rem;border:1px solid #ef444455;background:#ef44440d;color:#f87171}
+  .cocina-page .cocina-danger-icon-button:hover{background:#ef444426}
+  .cocina-page .cocina-category-grid{display:grid;grid-template-columns:minmax(0,1fr);gap:.625rem}
+  .cocina-page .cocina-category{display:flex;min-width:0;flex-wrap:wrap;align-items:center;gap:.75rem;border:1px solid #1e293b;border-radius:.6rem;background:#0a0d14;padding:.75rem}
+  .cocina-page .cocina-category-icon{width:2.5rem;height:2.5rem;background:#10b98126;color:#6ee7b7;font-size:.9rem}
+  .cocina-page .cocina-category-body{min-width:0;flex:1 1 10rem}
+  .cocina-page .cocina-category-name{overflow:hidden;margin:0;color:#fff;font-size:.875rem;font-weight:600;text-overflow:ellipsis;white-space:nowrap}
+  .cocina-page .cocina-category-count{margin:.2rem 0 0;color:#94a3b8;font-size:.75rem}
+  .cocina-page .cocina-category-count span{color:#fcd34d}
+  .cocina-page .cocina-category-share{width:7rem;flex:none;color:#64748b;font-size:.625rem;text-align:right}
+  .cocina-page .cocina-progress{height:.375rem;overflow:hidden;border-radius:999px;background:#1e293b}
+  .cocina-page .cocina-progress span{display:block;height:100%;border-radius:inherit;background:#10b98199}
+  .cocina-page .cocina-category-share>span{display:block;margin-top:.3rem}
+  .cocina-page .cocina-category-actions,.cocina-page .cocina-product-actions{display:flex;align-items:center;gap:.5rem;margin-left:auto}
+  .cocina-page .cocina-category-actions form,.cocina-page .cocina-product-actions form{margin:0}
+  .cocina-page .cocina-empty{padding:2rem 1rem;color:#64748b;text-align:center}
+  .cocina-page .cocina-description{margin:-.2rem 0 1rem;color:#94a3b8;font-size:.875rem}
+  .cocina-page .cocina-toolbar{display:flex;flex-wrap:wrap;align-items:center;gap:.75rem;margin-bottom:.75rem}
+  .cocina-page .cocina-search{position:relative;min-width:14rem;max-width:24rem;flex:1}
+  .cocina-page .cocina-search i{position:absolute;top:50%;left:.75rem;transform:translateY(-50%);color:#64748b;font-size:.75rem}
+  .cocina-page .cocina-search input,.cocina-page .cocina-select,.cocina-page .cocina-input{width:100%;border:1px solid #334155;border-radius:.5rem;background:#0a0d14;padding:.625rem .75rem;color:#e2e8f0;font-size:.8rem;transition:border-color .15s}
+  .cocina-page .cocina-search input{padding-left:2.25rem}
+  .cocina-page .cocina-search input:focus,.cocina-page .cocina-select:focus,.cocina-page .cocina-input:focus{border-color:#10b981;outline:none}
+  .cocina-page .cocina-search input::placeholder,.cocina-page .cocina-input::placeholder{color:#64748b}
+  .cocina-page .cocina-select{width:auto;min-width:12rem;color-scheme:dark}
+  .cocina-page .cocina-filters{display:flex;flex-wrap:wrap;gap:.5rem;margin-bottom:1rem}
+  .cocina-page .cocina-filter{border:1px solid #334155;border-radius:.5rem;background:#0a0d14;padding:.45rem .85rem;color:#cbd5e1;font-size:.75rem;font-weight:500;white-space:nowrap;cursor:pointer}
+  .cocina-page .cocina-filter:hover{background:#1e293b}
+  .cocina-page .cocina-filter[aria-pressed=true]{border-color:#10b981aa;background:#10b98122;color:#6ee7b7}
+  .cocina-page .cocina-filter[data-s=low][aria-pressed=true]{border-color:#f59e0b88;background:#f59e0b1a;color:#fcd34d}
+  .cocina-page .cocina-filter[data-s=zero][aria-pressed=true]{border-color:#ef444488;background:#ef44441a;color:#fca5a5}
+  .cocina-page .cocina-filter[data-s=over][aria-pressed=true]{border-color:#8da2c088;background:#8da2c01a;color:#a3b8cc}
+  .cocina-page .cocina-table-wrap{overflow:hidden;border:1px solid #1e293b;border-radius:.75rem;background:#0a0d14}
+  .cocina-page .cocina-table-scroll{overflow-x:auto}
+  .cocina-page .cocina-table{width:100%;min-width:68rem;border-collapse:separate;border-spacing:0;font-size:.8rem}
+  .cocina-page .cocina-table th,.cocina-page .cocina-table td{padding:.7rem .8rem;border-bottom:1px solid #1a2233;color:#cbd5e1;text-align:left;vertical-align:middle;font-variant-numeric:tabular-nums}
+  .cocina-page .cocina-table thead th{border-bottom:2px solid #10b981;background:#0b2e27;color:#a7f3d0;font-size:.68rem;font-weight:600;letter-spacing:.06em;text-transform:uppercase;white-space:nowrap}
+  .cocina-page .cocina-table tbody tr:hover td{background:#111a2b}
+  .cocina-page .cocina-table tbody tr:last-child td{border-bottom:0}
+  .cocina-page .cocina-table tr[hidden]{display:none}
+  .cocina-page .cocina-product-name{color:#fff}
+  .cocina-page .cocina-sub{display:block;margin-top:.1rem;color:#64748b;font-size:.68rem}
+  .cocina-page .cocina-currency,.cocina-page .cocina-dash{color:#64748b;font-size:.7rem}
+  .cocina-page .cocina-stock-value{display:flex;align-items:baseline;gap:.35rem;white-space:nowrap}
+  .cocina-page .cocina-stock-value strong{color:#fff}
+  .cocina-page .cocina-stock-value span{color:#64748b;font-size:.7rem}
+  .cocina-page .cocina-stock-progress{width:7.5rem;height:.25rem;overflow:hidden;margin-top:.4rem;border-radius:999px;background:#1e293b}
+  .cocina-page .cocina-stock-progress span{display:block;height:100%;border-radius:inherit;background:#10b98199}
+  .cocina-page .cocina-stock-progress span.state-low{background:#fbbf24}
+  .cocina-page .cocina-stock-progress span.state-zero{background:#f87171}
+  .cocina-page .cocina-stock-progress span.state-over{background:#94a3b8}
+  .cocina-page .cocina-status{display:inline-flex;align-items:center;border:1px solid;border-radius:999px;padding:.2rem .55rem;font-size:.65rem;font-weight:700;white-space:nowrap}
+  .cocina-page .cocina-status.state-ok{border-color:#10b98155;background:#10b9811a;color:#6ee7b7}
+  .cocina-page .cocina-status.state-low{border-color:#f59e0b55;background:#f59e0b1a;color:#fcd34d}
+  .cocina-page .cocina-status.state-zero{border-color:#ef444455;background:#ef44441a;color:#fca5a5}
+  .cocina-page .cocina-status.state-over{border-color:#8da2c055;background:#8da2c01a;color:#a3b8cc}
+  .cocina-page .cocina-switch{position:relative;width:2.25rem;height:1.25rem;border:0;border-radius:999px;background:#334155;cursor:pointer;transition:background .15s}
+  .cocina-page .cocina-switch:after{position:absolute;top:2px;left:2px;width:calc(1.25rem - 4px);height:calc(1.25rem - 4px);border-radius:50%;background:#e2e8f0;content:"";transition:transform .15s}
+  .cocina-page .cocina-switch.is-on{background:#10b981}
+  .cocina-page .cocina-switch.is-on:after{transform:translateX(1rem)}
+  .cocina-page .cocina-product-actions .cocina-secondary-button{min-height:2rem;padding:.35rem .55rem;font-size:.7rem}
+  .cocina-page .cocina-product-actions .cocina-danger-icon-button{width:2rem;height:2rem}
+  .cocina-page .cocina-table-footer{display:flex;justify-content:space-between;border-top:1px solid #1e293b;background:#090d16;padding:.6rem 1rem;color:#94a3b8;font-size:.75rem}
+  .cocina-page .cocina-messages{display:grid;gap:.5rem}
+  .cocina-page .cocina-message{display:flex;align-items:center;gap:.6rem;border:1px solid #10b98155;border-left:4px solid #10b981;border-radius:.5rem;background:#101625;padding:.65rem 1rem;color:#a7f3d0;font-size:.8rem}
+  .cocina-page .cocina-message.is-error{border-color:#f8717155;border-left-color:#f87171;color:#fecaca}
+  .cocina-page .cocina-dialog{position:fixed;top:50%;left:50%;width:min(28rem,92vw);max-height:calc(100dvh - 2rem);overflow:auto;margin:0;border:1px solid #1e293b;border-radius:.9rem;background:#101625;padding:1.25rem;color:#e2e8f0;transform:translate(-50%,-50%);box-shadow:0 8px 32px #0009}
+  .cocina-page .cocina-product-dialog{width:min(34rem,92vw)}
+  .cocina-page .cocina-dialog::backdrop{background:#000000b3;backdrop-filter:blur(2px)}
+  .cocina-page .cocina-form{display:grid;gap:1rem}
+  .cocina-page .cocina-dialog-heading{display:flex;align-items:center;gap:.75rem;padding-bottom:.9rem;border-bottom:1px solid #1e293b}
+  .cocina-page .cocina-dialog-heading h3{margin:0;color:#fff;font-size:1.125rem;font-weight:700}
+  .cocina-page .cocina-dialog-heading>div>p{color:#94a3b8}
+  .cocina-page .cocina-label{display:block;margin-bottom:.35rem;color:#94a3b8;font-size:.75rem;font-weight:500}
+  .cocina-page .cocina-product-form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.75rem}
+  .cocina-page .cocina-product-form-grid .wide{grid-column:1/-1}
+  .cocina-page .cocina-active-control{display:flex;align-items:center;justify-content:space-between;gap:1rem;border:1px solid #1e293b;border-radius:.6rem;background:#0a0d14;padding:.75rem}
+  .cocina-page .cocina-active-control p{margin:0;color:#fff;font-size:.875rem;font-weight:600}
+  .cocina-page .cocina-active-control span{display:block;margin-top:.2rem;color:#94a3b8;font-size:.7rem}
+  .cocina-page .cocina-dialog-actions{display:flex;justify-content:flex-end;gap:.5rem;margin-top:.25rem}
+  .cocina-page :focus-visible{outline:2px solid #34d399;outline-offset:2px;border-radius:6px}
+  @media(min-width:640px){.cocina-page{padding:1.5rem}.cocina-page .cocina-kpis{grid-template-columns:repeat(4,minmax(0,1fr))}}
+  @media(min-width:1280px){.cocina-page .cocina-category-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+  @media(max-width:760px){.cocina-page .cocina-card-heading{flex-wrap:wrap}.cocina-page .cocina-heading-actions{width:100%;justify-content:flex-end}.cocina-page .cocina-category-share{display:none}}
+  @media(max-width:520px){.cocina-page{gap:1.25rem;padding:1rem}.cocina-page .cocina-card{padding:1rem}.cocina-page .cocina-toolbar{align-items:stretch}.cocina-page .cocina-search,.cocina-page .cocina-select{max-width:none;min-width:0}.cocina-page .cocina-product-form-grid{grid-template-columns:1fr}.cocina-page .cocina-product-form-grid .wide{grid-column:auto}.cocina-page .cocina-category{gap:.5rem}.cocina-page .cocina-category-body{flex-basis:calc(100% - 3.5rem)}.cocina-page .cocina-category-actions{width:100%;justify-content:flex-end}}
+</style>

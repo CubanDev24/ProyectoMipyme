@@ -1,17 +1,20 @@
 import json
+import unicodedata
 from decimal import Decimal, InvalidOperation
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.db import transaction
-from django.db.models import Prefetch
+from django.db.models import Count, DecimalField, ExpressionWrapper, F, Prefetch, Q, Sum
 from django.core.paginator import Paginator
+from django.http import Http404
 from django.shortcuts import render, redirect, get_object_or_404
 from django.urls import reverse
 from django.views.decorators.http import require_POST
 
 from carta.models import Categoria, Plato
 from carta.qr import generar_qr_sistema, generar_qr_wifi
+from usuarios.admin_layout import admin_page_context
 from .models import CategoriaInventario, Guarnicion, GuarnicionRecetaItem, Insumo, MovimientoInventario, RecetaItem, TasaCambio
 from .services import receta_tiene_insumo_sin_stock
 from usuarios.models import ConfiguracionWifi
@@ -32,7 +35,74 @@ def _es_cajera(user):
 def _url_gestion_carta(user):
     if user.role == 'cajera':
         return reverse('inventario:carta_cajera')
-    return f'{reverse("inventario:administrador")}#carta'
+    return f'{reverse("inventario:carta_admin")}#carta-platos'
+
+
+def _url_admin_seccion(seccion, ancla=''):
+    rutas = {
+        'configuracion': 'inventario:configuracion_admin',
+        'restaurante': 'inventario:restaurante_admin',
+        'cocina': 'inventario:cocina_admin',
+        'carta': 'inventario:carta_admin',
+    }
+    return f'{reverse(rutas[seccion])}{ancla}'
+
+
+def _url_inventario_admin(tipo):
+    if tipo in ('cocina', 'restaurante'):
+        return _url_admin_seccion(tipo)
+    return _url_admin_seccion('configuracion')
+
+
+def _icono_categoria(nombre):
+    nombre_normalizado = unicodedata.normalize('NFKD', nombre)
+    nombre_normalizado = ''.join(
+        caracter for caracter in nombre_normalizado
+        if not unicodedata.combining(caracter)
+    ).lower()
+    if 'entrante' in nombre_normalizado or 'entrada' in nombre_normalizado:
+        return 'fa-utensils'
+    if 'sopa' in nombre_normalizado:
+        return 'fa-bowl-food'
+    if 'principal' in nombre_normalizado or 'carne' in nombre_normalizado:
+        return 'fa-drumstick-bite'
+    if 'postre' in nombre_normalizado:
+        return 'fa-ice-cream'
+    if 'bebida' in nombre_normalizado:
+        return 'fa-martini-glass-citrus'
+    return 'fa-tag'
+
+
+def _icono_categoria_inventario(nombre, tipo='cocina'):
+    nombre_normalizado = unicodedata.normalize('NFKD', nombre)
+    nombre_normalizado = ''.join(
+        caracter for caracter in nombre_normalizado
+        if not unicodedata.combining(caracter)
+    ).lower()
+    if tipo == 'restaurante':
+        if 'vino' in nombre_normalizado:
+            return 'fa-wine-glass'
+        if any(palabra in nombre_normalizado for palabra in ('licor', 'ron', 'whisky', 'vodka', 'gin', 'tequila', 'destil')):
+            return 'fa-wine-bottle'
+        if 'cerve' in nombre_normalizado:
+            return 'fa-beer-mug-empty'
+        if any(palabra in nombre_normalizado for palabra in ('refresc', 'jugo', 'batido', 'bebid')):
+            return 'fa-glass-water'
+        if any(palabra in nombre_normalizado for palabra in ('agua', 'hielo')):
+            return 'fa-bottle-water'
+        if any(palabra in nombre_normalizado for palabra in ('barra', 'insumo', 'descart')):
+            return 'fa-box-open'
+    if any(palabra in nombre_normalizado for palabra in ('prote', 'carne', 'pollo', 'pescado')):
+        return 'fa-drumstick-bite'
+    if any(palabra in nombre_normalizado for palabra in ('despens', 'grano', 'seco')):
+        return 'fa-box-open'
+    if any(palabra in nombre_normalizado for palabra in ('fruta', 'verdur', 'vegetal')):
+        return 'fa-carrot'
+    if any(palabra in nombre_normalizado for palabra in ('lacte', 'huevo', 'queso')):
+        return 'fa-egg'
+    if any(palabra in nombre_normalizado for palabra in ('bebid', 'licor')):
+        return 'fa-bottle-water'
+    return 'fa-tag'
 
 
 def _platos_por_categoria(platos, categorias):
@@ -141,7 +211,7 @@ def _guarniciones_desde_post(request):
 
 @login_required
 @user_passes_test(_es_admin)
-def administrador(request):
+def _render_administrador(request, admin_pagina=None):
     insumos = Insumo.objects.select_related('categoria', 'categoria_inventario').all()
     movimientos = Paginator(
         MovimientoInventario.objects.select_related('insumo', 'usuario').order_by('-creado_en', '-pk'),
@@ -165,7 +235,9 @@ def administrador(request):
         )
         plato.guarniciones_ids = list(plato.guarniciones_incluidas.values_list('pk', flat=True))
         plato.guarniciones_json = json.dumps(plato.guarniciones_ids)
-    categorias = Categoria.objects.prefetch_related(
+    categorias = list(Categoria.objects.annotate(
+        platos_count=Count('platos', distinct=True),
+    ).prefetch_related(
         Prefetch(
             'platos',
             queryset=Plato.objects.filter(
@@ -174,13 +246,25 @@ def administrador(request):
             ).distinct(),
             to_attr='platos_publicados',
         )
-    )
+    ))
+    total_platos_categorias = sum(categoria.platos_count for categoria in categorias)
+    for indice, categoria in enumerate(categorias):
+        categoria.icono_admin = _icono_categoria(categoria.nombre)
+        categoria.puede_subir = indice > 0
+        categoria.puede_bajar = indice < len(categorias) - 1
+        categoria.porcentaje_platos = (
+            int(categoria.platos_count * 100 / total_platos_categorias + 0.5)
+            if total_platos_categorias
+            else 0
+        )
     platos_por_categoria = _platos_por_categoria(platos, categorias)
     platos_sin_categoria = [
         plato for plato in platos
         if plato.categoria_id is None and plato.disponible and plato.receta_admin
     ]
-    guarniciones = list(Guarnicion.objects.prefetch_related(
+    guarniciones = list(Guarnicion.objects.annotate(
+        platos_count=Count('platos', distinct=True),
+    ).prefetch_related(
         Prefetch('receta', queryset=GuarnicionRecetaItem.objects.select_related('insumo'), to_attr='receta_admin'),
     ))
     for guarnicion in guarniciones:
@@ -188,6 +272,17 @@ def administrador(request):
             {'insumo_id': item.insumo_id, 'cantidad': str(item.cantidad)}
             for item in guarnicion.receta_admin
         ])
+    guarniciones_activas = [
+        item for item in guarniciones
+        if item.activa and item.receta_admin and all(
+            receta.insumo.activo and receta.insumo.stock_actual > 0
+            for receta in item.receta_admin
+        )
+    ]
+    platos_publicados = [
+        plato for plato in platos
+        if plato.disponible and plato.receta_admin
+    ]
 
     plato_sel = None
     plato_id = request.GET.get('plato')
@@ -212,39 +307,105 @@ def administrador(request):
             'categorias': CategoriaInventario.objects.filter(tipo=tipo),
             'categoria_carta': categorias,
         })
+    inventario_admin = next(
+        (area for area in inventarios if area['tipo'] == admin_pagina),
+        None,
+    )
+    inventario_kpis = {}
+    if admin_pagina in ('cocina', 'restaurante') and inventario_admin:
+        tipo_inventario = admin_pagina
+        insumos_area = insumos.filter(tipo_inventario=tipo_inventario)
+        inventario_kpis = insumos_area.aggregate(
+            productos=Count('pk'),
+            valor=Sum(ExpressionWrapper(
+                F('stock_actual') * F('costo'),
+                output_field=DecimalField(max_digits=20, decimal_places=5),
+            )),
+            bajos=Count(
+                'pk',
+                filter=Q(stock_actual__gt=0, stock_actual__lte=F('stock_minimo')),
+            ),
+            agotados=Count('pk', filter=Q(stock_actual__lte=0)),
+        )
+        inventario_kpis['valor'] = inventario_kpis['valor'] or Decimal('0')
+        categorias_area = list(
+            CategoriaInventario.objects.filter(tipo=tipo_inventario).annotate(
+                productos_count=Count(
+                    'insumos',
+                    filter=Q(insumos__tipo_inventario=tipo_inventario),
+                    distinct=True,
+                ),
+                productos_bajos=Count(
+                    'insumos',
+                    filter=Q(
+                        insumos__tipo_inventario=tipo_inventario,
+                        insumos__stock_actual__lte=F('insumos__stock_minimo'),
+                    ),
+                    distinct=True,
+                ),
+            )
+        )
+        for categoria in categorias_area:
+            categoria.icono_admin = _icono_categoria_inventario(
+                categoria.nombre,
+                tipo_inventario,
+            )
+            categoria.porcentaje_admin = (
+                int(categoria.productos_count * 100 / inventario_kpis['productos'] + 0.5)
+                if inventario_kpis['productos']
+                else 0
+            )
+        inventario_admin = dict(inventario_admin, categorias=categorias_area)
+        for insumo in inventario_admin['insumos']:
+            if insumo.stock_actual <= 0:
+                estado, etiqueta = 'zero', 'Agotado'
+            elif insumo.stock_bajo:
+                estado, etiqueta = 'low', 'Bajo mínimo'
+            elif insumo.stock_maximo > 0 and insumo.stock_actual > insumo.stock_maximo:
+                estado, etiqueta = 'over', 'Excedido'
+            else:
+                estado, etiqueta = 'ok', 'Normal'
+            insumo.estado_admin = estado
+            insumo.estado_admin_label = etiqueta
+            insumo.porcentaje_stock = (
+                min(int(insumo.stock_actual * 100 / insumo.stock_maximo + Decimal('0.5')), 100)
+                if insumo.stock_maximo > 0
+                else 0
+            )
     insumos_por_clasificar = Paginator(
         insumos.filter(tipo_inventario__isnull=True).order_by('nombre'),
         25,
     ).get_page(request.GET.get('sin_clasificar_page'))
-    wifi_configuracion = ConfiguracionWifi.objects.filter(pk=1).first()
-    wifi_qr = (
-        generar_qr_wifi(wifi_configuracion.ssid, wifi_configuracion.password)
-        if wifi_configuracion and wifi_configuracion.ssid
-        else None
-    )
-    sistema_url, sistema_qr = generar_qr_sistema(request)
-
-    return render(request, 'administrador/administrador.html', {
+    context = {
+        'admin_pagina': admin_pagina,
         'insumos': insumos,
         'inventarios': inventarios,
+        'inventario_admin': inventario_admin,
+        'inventario_kpis': inventario_kpis,
+        'unidad_choices': Insumo.UNIDAD_CHOICES,
         'insumos_por_clasificar': insumos_por_clasificar,
         'sin_clasificar_pagination_query': _pagination_query(request, 'sin_clasificar_page'),
         'sin_clasificar_pagination_anchor': '#inventario-por-clasificar',
         'categorias_inventario': CategoriaInventario.objects.all(),
         'movimientos': movimientos,
+        'ultimo_movimiento': (
+            MovimientoInventario.objects.order_by('-creado_en', '-pk').first()
+            if admin_pagina == 'configuracion'
+            else None
+        ),
         'movimientos_pagination_query': movimientos_pagina_query,
         'movimientos_pagination_anchor': '#movimientos-inventario',
         'platos': platos,
         'platos_por_categoria': platos_por_categoria,
         'guarniciones': guarniciones,
-        'guarniciones_activas': [
-            item for item in guarniciones
-            if item.activa and item.receta_admin and all(
-                receta.insumo.activo and receta.insumo.stock_actual > 0
-                for receta in item.receta_admin
-            )
-        ],
+        'guarniciones_activas': guarniciones_activas,
+        'platos_disponibles_count': sum(plato.disponible for plato in platos),
+        'platos_no_disponibles_count': sum(not plato.disponible for plato in platos),
+        'carta_publicada_count': len(platos_publicados) + len(guarniciones_activas),
         'categorias': categorias,
+        'categorias_visibles_count': sum(categoria.visible for categoria in categorias),
+        'categorias_ocultas_count': sum(not categoria.visible for categoria in categorias),
+        'platos_categorias_count': total_platos_categorias,
         'platos_sin_categoria': platos_sin_categoria,
         'plato_sel': plato_sel,
         'receta_items': receta_items,
@@ -253,11 +414,59 @@ def administrador(request):
             tipo_inventario__in=['cocina', 'restaurante'],
         ).select_related('categoria_inventario').order_by('tipo_inventario', 'nombre'),
         'tasa_actual': TasaCambio.actual(),
+    }
+    context.update(admin_page_context(admin_pagina or 'admin'))
+    return render(request, 'administrador/base_admin.html', context)
+
+
+@login_required
+@user_passes_test(_es_admin)
+def administrador(request):
+    return _render_administrador(request)
+
+
+@login_required
+@user_passes_test(_es_admin)
+def configuracion_admin(request):
+    return _render_administrador(request, 'configuracion')
+
+
+@login_required
+@user_passes_test(_es_admin)
+def restaurante_admin(request):
+    return _render_administrador(request, 'restaurante')
+
+
+@login_required
+@user_passes_test(_es_admin)
+def cocina_admin(request):
+    return _render_administrador(request, 'cocina')
+
+
+@login_required
+@user_passes_test(_es_admin)
+def carta_admin(request):
+    return _render_administrador(request, 'carta')
+
+
+@login_required
+@user_passes_test(_es_admin)
+def wifi_qr(request):
+    wifi_configuracion = ConfiguracionWifi.objects.filter(pk=1).first()
+    wifi_qr = (
+        generar_qr_wifi(wifi_configuracion.ssid, wifi_configuracion.password)
+        if wifi_configuracion and wifi_configuracion.ssid
+        else None
+    )
+    sistema_url, sistema_qr = generar_qr_sistema(request)
+    context = {
         'wifi_configuracion': wifi_configuracion,
         'wifi_qr': wifi_qr,
         'sistema_url': sistema_url,
         'sistema_qr': sistema_qr,
-    })
+    }
+    context.update(admin_page_context('wifi'))
+    return render(request, 'administrador/base_admin.html', context)
 
 
 @login_required
@@ -420,7 +629,7 @@ def entrada_almacen_cajera(request):
 def configurar_wifi(request):
     ssid = request.POST.get('ssid', '')
     password = request.POST.get('password', '')
-    destino = f'{reverse("inventario:administrador")}#wifi'
+    destino = reverse('inventario:wifi_qr')
 
     if not ssid.strip():
         messages.error(request, 'Debes indicar el nombre de la red Wi-Fi.')
@@ -449,7 +658,7 @@ def categoria_crear(request):
         else:
             Categoria.objects.create(nombre=nombre, orden=Categoria.objects.count() + 1)
             messages.success(request, f'Categoría "{nombre}" creada.')
-    return redirect('/administrador/#categorias')
+    return redirect(_url_admin_seccion('configuracion', '#categorias'))
 
 
 @login_required
@@ -468,7 +677,7 @@ def categoria_editar(request, pk):
             categoria.nombre = nombre
             categoria.save(update_fields=['nombre'])
             messages.success(request, f'Categoría actualizada a "{nombre}".')
-    return redirect('/administrador/#categorias')
+    return redirect(_url_admin_seccion('configuracion', '#categorias'))
 
 
 @login_required
@@ -482,7 +691,53 @@ def categoria_eliminar(request, pk):
             request,
             f'Categoría "{nombre}" eliminada. Los platos se conservaron sin categoría.',
         )
-    return redirect('/administrador/#categorias')
+    return redirect(_url_admin_seccion('configuracion', '#categorias'))
+
+
+@login_required
+@user_passes_test(_es_admin)
+@require_POST
+def categoria_alternar_visibilidad(request, pk):
+    categoria = get_object_or_404(Categoria, pk=pk)
+    categoria.visible = not categoria.visible
+    categoria.save(update_fields=['visible'])
+    estado = 'visible' if categoria.visible else 'oculta'
+    messages.success(request, f'Categoría "{categoria.nombre}" ahora está {estado} en la carta.')
+    return redirect(_url_admin_seccion('configuracion', '#categorias'))
+
+
+@login_required
+@user_passes_test(_es_admin)
+@require_POST
+def categoria_mover(request, pk):
+    direccion = request.POST.get('direccion')
+    if direccion not in {'up', 'down'}:
+        messages.error(request, 'La dirección de reordenamiento no es válida.')
+        return redirect(_url_admin_seccion('configuracion', '#categorias'))
+
+    with transaction.atomic():
+        categorias = list(
+            Categoria.objects.select_for_update().order_by('orden', 'nombre', 'pk')
+        )
+        indice = next(
+            (i for i, categoria in enumerate(categorias) if categoria.pk == pk),
+            None,
+        )
+        if indice is None:
+            raise Http404('La categoría no existe.')
+        nuevo_indice = indice - 1 if direccion == 'up' else indice + 1
+        if nuevo_indice < 0 or nuevo_indice >= len(categorias):
+            messages.info(request, 'La categoría ya está en ese extremo del orden.')
+        else:
+            categorias[indice], categorias[nuevo_indice] = (
+                categorias[nuevo_indice],
+                categorias[indice],
+            )
+            for orden, categoria in enumerate(categorias, start=1):
+                categoria.orden = orden
+            Categoria.objects.bulk_update(categorias, ['orden'])
+            messages.success(request, f'Orden de "{categorias[nuevo_indice].nombre}" actualizado.')
+    return redirect(_url_admin_seccion('configuracion', '#categorias'))
 
 
 @login_required
@@ -491,7 +746,7 @@ def categoria_inventario_crear(request, tipo):
     nombre_tipo = dict(CategoriaInventario.TIPO_CHOICES).get(tipo)
     if not nombre_tipo:
         messages.error(request, 'Selecciona un inventario válido.')
-        return redirect('inventario:administrador')
+        return redirect(_url_admin_seccion('configuracion'))
     if request.method == 'POST':
         nombre = request.POST.get('nombre', '').strip()
         if not nombre:
@@ -507,7 +762,7 @@ def categoria_inventario_crear(request, tipo):
                 orden=CategoriaInventario.objects.filter(tipo=tipo).count() + 1,
             )
             messages.success(request, f'Categoría "{nombre}" creada en {nombre_tipo}.')
-    return redirect(f'/administrador/#inventario-{tipo}')
+    return redirect(_url_admin_seccion(tipo, f'#inventario-{tipo}'))
 
 
 @login_required
@@ -529,7 +784,7 @@ def categoria_inventario_editar(request, tipo, pk):
             categoria.nombre = nombre
             categoria.save(update_fields=['nombre'])
             messages.success(request, f'Categoría actualizada a "{nombre}".')
-    return redirect(f'/administrador/#inventario-{tipo}')
+    return redirect(_url_admin_seccion(tipo, f'#categorias-{tipo}'))
 
 
 @login_required
@@ -545,7 +800,7 @@ def categoria_inventario_eliminar(request, tipo, pk):
             f'Categoría "{nombre}" eliminada de {nombre_tipo}. '
             'Los productos se conservaron sin categoría.',
         )
-    return redirect(f'/administrador/#inventario-{tipo}')
+    return redirect(_url_admin_seccion(tipo, f'#categorias-{tipo}'))
 
 
 @login_required
@@ -705,6 +960,33 @@ def plato_editar(request, pk):
 @login_required
 @user_passes_test(_es_admin)
 @require_POST
+def plato_alternar_disponibilidad(request, pk):
+    plato = get_object_or_404(Plato, pk=pk)
+    if not plato.disponible:
+        receta = [
+            (item.insumo, item.cantidad)
+            for item in plato.receta.select_related('insumo')
+        ]
+        if not receta:
+            messages.error(request, 'Agrega al menos un producto de inventario antes de publicar este plato.')
+            return redirect(_url_admin_seccion('carta', '#carta-platos'))
+        if receta_tiene_insumo_sin_stock(receta):
+            messages.error(request, 'No se puede publicar el plato porque uno o más productos de su receta no tienen stock.')
+            return redirect(_url_admin_seccion('carta', '#carta-platos'))
+        plato.disponible = True
+    else:
+        plato.disponible = False
+    plato.save(update_fields=['disponible'])
+    messages.success(
+        request,
+        f'Plato "{plato.nombre}" {"marcado como disponible" if plato.disponible else "marcado como agotado"}.',
+    )
+    return redirect(_url_admin_seccion('carta', '#carta-platos'))
+
+
+@login_required
+@user_passes_test(_es_admin)
+@require_POST
 def guarnicion_crear(request):
     nombre = request.POST.get('nombre', '').strip()
     descripcion = request.POST.get('descripcion', '').strip()
@@ -713,16 +995,16 @@ def guarnicion_crear(request):
     )
     if not nombre or len(nombre) > 120:
         messages.error(request, 'Indica un nombre válido para la guarnición (hasta 120 caracteres).')
-        return redirect('/administrador/#carta-guarniciones')
+        return redirect(_url_admin_seccion('carta', '#carta-guarniciones'))
     if Guarnicion.objects.filter(nombre__iexact=nombre).exists():
         messages.error(request, 'Ya existe una guarnición con ese nombre.')
-        return redirect('/administrador/#carta-guarniciones')
+        return redirect(_url_admin_seccion('carta', '#carta-guarniciones'))
     if error_receta or not receta:
         messages.error(request, error_receta or 'Agrega al menos un producto de inventario a la receta.')
-        return redirect('/administrador/#carta-guarniciones')
+        return redirect(_url_admin_seccion('carta', '#carta-guarniciones'))
     if receta_tiene_insumo_sin_stock(receta):
         messages.error(request, 'No se puede activar una guarnición con productos sin stock.')
-        return redirect('/administrador/#carta-guarniciones')
+        return redirect(_url_admin_seccion('carta', '#carta-guarniciones'))
     with transaction.atomic():
         guarnicion = Guarnicion.objects.create(nombre=nombre, descripcion=descripcion)
         GuarnicionRecetaItem.objects.bulk_create([
@@ -730,7 +1012,7 @@ def guarnicion_crear(request):
             for insumo, cantidad in receta
         ])
     messages.success(request, f'Guarnición "{nombre}" creada con {len(receta)} producto(s) de inventario.')
-    return redirect('/administrador/#carta-guarniciones')
+    return redirect(_url_admin_seccion('carta', '#carta-guarniciones'))
 
 
 @login_required
@@ -745,17 +1027,17 @@ def guarnicion_editar(request, pk):
     )
     if not nombre or len(nombre) > 120:
         messages.error(request, 'Indica un nombre válido para la guarnición (hasta 120 caracteres).')
-        return redirect('/administrador/#carta-guarniciones')
+        return redirect(_url_admin_seccion('carta', '#carta-guarniciones'))
     if Guarnicion.objects.filter(nombre__iexact=nombre).exclude(pk=pk).exists():
         messages.error(request, 'Ya existe otra guarnición con ese nombre.')
-        return redirect('/administrador/#carta-guarniciones')
+        return redirect(_url_admin_seccion('carta', '#carta-guarniciones'))
     if error_receta or not receta:
         messages.error(request, error_receta or 'La guarnición necesita al menos un producto de inventario.')
-        return redirect('/administrador/#carta-guarniciones')
+        return redirect(_url_admin_seccion('carta', '#carta-guarniciones'))
     activa = request.POST.get('activa') == 'on'
     if activa and receta_tiene_insumo_sin_stock(receta):
         messages.error(request, 'No se puede activar una guarnición con productos sin stock.')
-        return redirect('/administrador/#carta-guarniciones')
+        return redirect(_url_admin_seccion('carta', '#carta-guarniciones'))
     with transaction.atomic():
         guarnicion.nombre = nombre
         guarnicion.descripcion = descripcion
@@ -767,7 +1049,32 @@ def guarnicion_editar(request, pk):
             for insumo, cantidad in receta
         ])
     messages.success(request, f'Guarnición "{nombre}" actualizada.')
-    return redirect('/administrador/#carta-guarniciones')
+    return redirect(_url_admin_seccion('carta', '#carta-guarniciones'))
+
+
+@login_required
+@user_passes_test(_es_admin)
+@require_POST
+def guarnicion_eliminar(request, pk):
+    guarnicion = get_object_or_404(Guarnicion, pk=pk)
+    nombre = guarnicion.nombre
+    guarnicion.delete()
+    messages.success(request, f'Guarnición "{nombre}" eliminada.')
+    return redirect(_url_admin_seccion('carta', '#carta-guarniciones'))
+
+
+@login_required
+@user_passes_test(_es_admin)
+@require_POST
+def guarnicion_alternar_estado(request, pk):
+    guarnicion = get_object_or_404(Guarnicion, pk=pk)
+    guarnicion.activa = not guarnicion.activa
+    guarnicion.save(update_fields=['activa'])
+    messages.success(
+        request,
+        f'Guarnición "{guarnicion.nombre}" {"activada" if guarnicion.activa else "desactivada"}.',
+    )
+    return redirect(_url_admin_seccion('carta', '#carta-guarniciones'))
 
 
 @login_required
@@ -781,7 +1088,7 @@ def plato_eliminar(request, pk):
         nombre = plato.nombre
         plato.delete()
         messages.success(request, f'Plato "{nombre}" eliminado.')
-    return redirect('inventario:administrador')
+    return redirect(_url_admin_seccion('carta'))
 
 
 @login_required
@@ -816,6 +1123,7 @@ def insumo_crear(request):
         elif Insumo.objects.filter(nombre__iexact=nombre).exists():
             messages.error(request, f'Ya existe un insumo llamado "{nombre}".')
         else:
+            activo = request.POST.get('activo', 'on') == 'on'
             categoria_inventario = None
             if categoria_inventario_id:
                 categoria_inventario = CategoriaInventario.objects.filter(
@@ -824,7 +1132,7 @@ def insumo_crear(request):
                 ).first()
                 if not categoria_inventario:
                     messages.error(request, 'La categoría no pertenece al inventario seleccionado.')
-                    return redirect(f'/administrador/#inventario-{tipo_inventario}')
+                    return redirect(_url_inventario_admin(tipo_inventario))
             insumo = Insumo.objects.create(
                 nombre=nombre,
                 tipo_inventario=tipo_inventario,
@@ -835,8 +1143,8 @@ def insumo_crear(request):
                 stock_maximo=stock_maximo or Decimal('0'),
                 costo=costo or Decimal('0'),
                 precio=precio or Decimal('0'),
-                disponible=True,
-                activo=True,
+                disponible=activo,
+                activo=activo,
             )
             if insumo.stock_actual > 0:
                 from .services import _registrar_movimiento
@@ -845,7 +1153,7 @@ def insumo_crear(request):
                     usuario=request.user, motivo='Inventario inicial',
                 )
             messages.success(request, f'Producto "{nombre}" creado en {dict(CategoriaInventario.TIPO_CHOICES)[tipo_inventario]}.')
-    return redirect(f"/administrador/#inventario-{request.POST.get('tipo_inventario', 'restaurante')}")
+    return redirect(_url_inventario_admin(request.POST.get('tipo_inventario', 'restaurante')))
 
 
 @login_required
@@ -858,7 +1166,7 @@ def insumo_editar(request, pk):
         tipo_inventario = request.POST.get('tipo_inventario', insumo.tipo_inventario)
         if tipo_inventario not in dict(CategoriaInventario.TIPO_CHOICES):
             messages.error(request, 'Selecciona Cocina o Restaurante para el producto.')
-            return redirect('inventario:administrador')
+            return redirect(_url_inventario_admin(insumo.tipo_inventario))
         stock_actual = _to_decimal(request.POST.get('stock_actual'))
         stock_minimo = _to_decimal(request.POST.get('stock_minimo'))
         stock_maximo = _to_decimal(request.POST.get('stock_maximo'))
@@ -881,16 +1189,16 @@ def insumo_editar(request, pk):
         ))
         if len(nombre) > 150:
             messages.error(request, 'El nombre del producto no puede superar 150 caracteres.')
-            return redirect(f'/administrador/#inventario-{tipo_inventario}')
+            return redirect(_url_inventario_admin(tipo_inventario))
         if unidad not in dict(Insumo.UNIDAD_CHOICES):
             messages.error(request, 'Selecciona una unidad válida.')
-            return redirect(f'/administrador/#inventario-{tipo_inventario}')
+            return redirect(_url_inventario_admin(tipo_inventario))
         if not valores_decimales_validos:
             messages.error(request, 'Revisa los valores: existencias admiten hasta 8 enteros y 3 decimales; costo y precio, hasta 6 enteros y 2 decimales. No se permiten negativos excepto en existencia actual.')
-            return redirect(f'/administrador/#inventario-{tipo_inventario}')
+            return redirect(_url_inventario_admin(tipo_inventario))
         if Insumo.objects.filter(nombre__iexact=nombre).exclude(pk=insumo.pk).exists():
             messages.error(request, f'Ya existe un producto llamado "{nombre}".')
-            return redirect(f'/administrador/#inventario-{tipo_inventario}')
+            return redirect(_url_inventario_admin(tipo_inventario))
         insumo.nombre = nombre
         insumo.unidad = unidad
         insumo.tipo_inventario = tipo_inventario
@@ -903,7 +1211,7 @@ def insumo_editar(request, pk):
             ).first()
             if not categoria_inventario:
                 messages.error(request, 'La categoría no pertenece al inventario seleccionado.')
-                return redirect(f'/administrador/#inventario-{tipo_inventario}')
+                return redirect(_url_inventario_admin(tipo_inventario))
         insumo.categoria_inventario = categoria_inventario
         if stock_actual is not None:
             stock_anterior = insumo.stock_actual
@@ -935,8 +1243,8 @@ def insumo_editar(request, pk):
                 motivo='Ajuste manual del inventario',
             )
         messages.success(request, f'Insumo "{insumo.nombre}" actualizado.')
-        return redirect(f'/administrador/#inventario-{tipo_inventario}')
-    return redirect('inventario:administrador')
+        return redirect(_url_inventario_admin(tipo_inventario))
+    return redirect(_url_admin_seccion('configuracion'))
 
 
 @login_required
@@ -962,8 +1270,8 @@ def movimiento_crear(request):
             )
             messages.success(request, f'Movimiento registrado para "{insumo.nombre}".')
     if insumo and insumo.tipo_inventario:
-        return redirect(f'/administrador/#inventario-{insumo.tipo_inventario}')
-    return redirect('/administrador/#movimientos-inventario')
+        return redirect(_url_inventario_admin(insumo.tipo_inventario))
+    return redirect(_url_admin_seccion('configuracion', '#movimientos-inventario'))
 
 
 @login_required
@@ -974,7 +1282,7 @@ def insumo_eliminar(request, pk):
         nombre = insumo.nombre
         insumo.delete()
         messages.success(request, f'Insumo "{nombre}" eliminado.')
-    return redirect('inventario:administrador')
+    return redirect(_url_inventario_admin(insumo.tipo_inventario))
 
 
 @login_required
@@ -998,7 +1306,7 @@ def receta_agregar(request, plato_id):
                 plato=plato, insumo=insumo, defaults={'cantidad': cantidad}
             )
             messages.success(request, f'"{insumo.nombre}" agregado a la receta de {plato.nombre}.')
-    return redirect('/administrador/#carta')
+    return redirect(_url_admin_seccion('carta', '#carta-platos'))
 
 
 @login_required
@@ -1012,7 +1320,7 @@ def receta_item_eliminar(request, pk):
             plato.disponible = False
             plato.save(update_fields=['disponible'])
         messages.success(request, 'Ingrediente quitado de la receta.')
-    return redirect('/administrador/#carta')
+    return redirect(_url_admin_seccion('carta', '#carta-platos'))
 
 
 @login_required
@@ -1025,4 +1333,4 @@ def tasa_actualizar(request):
         else:
             TasaCambio.objects.create(valor=valor)
             messages.success(request, f'Tasa de cambio actualizada: 1 USD = {valor} CUP.')
-    return redirect('inventario:administrador')
+    return redirect(_url_admin_seccion('configuracion'))

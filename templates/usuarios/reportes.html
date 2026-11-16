@@ -4,522 +4,612 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Reportes - GourmetControl</title>
-  <link rel="icon" type="image/svg+xml" href="{% static 'img/favicon.svg' %}?v=20261013">
+  <title>GourmetControl · Reportes</title>
+  <link rel="icon" type="image/svg+xml" href="{% static 'img/favicon.svg' %}">
   <link rel="stylesheet" href="{% static 'css/tailwind.css' %}">
   <link rel="stylesheet" href="{% static 'vendor/fontawesome/css/all.min.css' %}">
-  <link rel="stylesheet" href="{% static 'css/main.css' %}?v=20261014-status-flash-icons">
-  <script src="{% static 'js/responsive-sidebar.js' %}?v=20261001-sidebar-logout" defer></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/apexcharts/3.45.1/apexcharts.min.js"></script>
   <style>
-    .report-page-grid {
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      align-items: stretch;
-      gap: 1rem;
-    }
-    .report-page-grid > .admin-card {
-      min-width: 0;
-      margin: 0;
-      border-color: rgb(71 85 105 / .58);
-      background:
-        radial-gradient(ellipse at top right, rgb(16 185 129 / .08), transparent 48%),
-        linear-gradient(145deg, rgb(15 23 42 / .98), rgb(2 8 23 / .9));
-      box-shadow: 0 18px 40px rgb(2 6 23 / .22), inset 0 1px rgb(255 255 255 / .025);
-    }
-    .report-period-card,
-    .report-summary-card {
-      grid-column: 1 / -1;
-    }
-    .report-period-tabs {
-      display: flex;
-      flex-wrap: wrap;
-      gap: .5rem;
-      margin-top: 1.1rem;
-    }
-    .report-period-tabs a {
-      padding: .65rem .9rem;
-      border: 1px solid rgb(71 85 105 / .75);
-      border-radius: .75rem;
-      color: #cbd5e1;
-      font-size: .8rem;
-      font-weight: 650;
-      text-decoration: none;
-      background: rgb(15 23 42 / .65);
-      transition: border-color .18s ease, background .18s ease, transform .18s ease, color .18s ease;
-    }
-    .report-period-tabs a:hover,
-    .report-period-tabs a[aria-current="page"] {
-      border-color: rgb(16 185 129 / .5);
-      background: linear-gradient(135deg, rgb(16 185 129 / .2), rgb(20 184 166 / .08));
-      color: #6ee7b7;
-    }
-    .report-period-tabs a:hover { transform: translateY(-1px); }
-    .report-date-form {
-      display: flex;
-      flex-wrap: wrap;
-      align-items: end;
-      gap: .75rem;
-      margin-top: 1rem;
-    }
-    .report-date-form label {
-      display: grid;
-      gap: .35rem;
-      color: #cbd5e1;
-      font-size: .75rem;
-      font-weight: 650;
-    }
-    .report-date-form input {
-      min-height: 42px;
-      border: 1px solid rgb(71 85 105);
-      border-radius: .6rem;
-      background: #020817;
-      padding: 0 .7rem;
-      color: #f8fafc;
-      color-scheme: dark;
-    }
-    .report-date-form button {
-      min-height: 42px;
-    }
-    .report-error {
-      margin-top: .85rem;
-      color: #fca5a5;
-      font-size: .85rem;
-    }
-    .report-metric-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-      gap: .8rem;
-      margin-top: 1rem;
-    }
-    .report-metric {
-      position: relative;
-      min-width: 0;
-      display: grid;
-      align-content: start;
-      gap: .55rem;
-      min-height: 112px;
-      padding: 1rem 1.05rem;
-      overflow: hidden;
-      border: 1px solid rgb(71 85 105 / .56);
-      border-radius: 1rem;
-      background: linear-gradient(145deg, rgb(15 23 42 / .9), rgb(2 8 23 / .68));
-      transition: transform .18s ease, border-color .18s ease, box-shadow .18s ease;
-    }
-    .report-metric:hover {
-      transform: translateY(-2px);
-      border-color: rgb(52 211 153 / .38);
-      box-shadow: 0 12px 24px rgb(2 6 23 / .22);
-    }
-    .report-metric span {
-      color: #94a3b8;
-      font-size: .7rem;
-      font-weight: 650;
-      letter-spacing: .035em;
-    }
-    .report-metric strong {
-      color: #f8fafc;
-      font-size: clamp(1.1rem, 2vw, 1.45rem);
-      line-height: 1.2;
-      font-variant-numeric: tabular-nums;
-      overflow-wrap: anywhere;
-    }
-    .report-metric-icon {
-      display: grid;
-      width: 2rem;
-      height: 2rem;
-      place-items: center;
-      border: 1px solid rgb(52 211 153 / .18);
-      border-radius: .7rem;
-      color: #6ee7b7;
-      background: rgb(16 185 129 / .11);
-      font-size: .85rem;
-    }
-    .report-metric:nth-child(2) .report-metric-icon { color: #7dd3fc; background: rgb(14 165 233 / .11); border-color: rgb(56 189 248 / .2); }
-    .report-metric:nth-child(3) .report-metric-icon { color: #c4b5fd; background: rgb(139 92 246 / .12); border-color: rgb(167 139 250 / .2); }
-    .report-metric:nth-child(4) .report-metric-icon { color: #fcd34d; background: rgb(245 158 11 / .11); border-color: rgb(251 191 36 / .2); }
-    .report-metric:nth-child(5) .report-metric-icon { color: #fda4af; background: rgb(244 63 94 / .11); border-color: rgb(251 113 133 / .2); }
-    .report-metric:nth-child(6) .report-metric-icon { color: #5eead4; background: rgb(20 184 166 / .11); border-color: rgb(45 212 191 / .2); }
-    .report-chart {
-      display: grid;
-      gap: .85rem;
-      margin-top: 1.25rem;
-    }
-    .report-bar-row {
-      display: grid;
-      grid-template-columns: minmax(0, 1fr) minmax(90px, 1.5fr) auto;
-      align-items: center;
-      gap: .9rem;
-      padding: .65rem .7rem;
-      border: 1px solid rgb(51 65 85 / .46);
-      border-radius: .8rem;
-      background: rgb(2 8 23 / .34);
-      font-size: .78rem;
-      transition: background .18s ease, border-color .18s ease;
-    }
-    .report-bar-row:hover {
-      border-color: rgb(71 85 105 / .8);
-      background: rgb(15 23 42 / .72);
-    }
-    .report-bar-label {
-      display: flex;
-      align-items: center;
-      gap: .55rem;
-      color: #cbd5e1;
-      overflow-wrap: anywhere;
-      font-weight: 600;
-    }
-    .report-rank {
-      display: inline-grid;
-      width: 1.65rem;
-      height: 1.65rem;
-      flex: 0 0 auto;
-      place-items: center;
-      border: 1px solid rgb(71 85 105 / .65);
-      border-radius: .55rem;
-      color: #94a3b8;
-      background: rgb(15 23 42 / .85);
-      font-size: .65rem;
-      font-variant-numeric: tabular-nums;
-    }
-    .report-bar-track {
-      height: .7rem;
-      overflow: hidden;
-      border-radius: 999px;
-      background: rgb(30 41 59 / .9);
-      box-shadow: inset 0 1px 3px rgb(0 0 0 / .22);
-    }
-    .report-bar {
-      height: 100%;
-      border-radius: inherit;
-      background: linear-gradient(90deg, color-mix(in srgb, var(--bar-color, #34d399) 76%, #0f172a), var(--bar-color, #34d399));
-      box-shadow: 0 0 14px color-mix(in srgb, var(--bar-color, #34d399) 34%, transparent);
-      transition: width .45s ease;
-    }
-    .report-bar-value {
-      color: #f8fafc;
-      text-align: right;
-      white-space: nowrap;
-      font-variant-numeric: tabular-nums;
-    }
-    .report-payments {
-      display: grid;
-      gap: .75rem;
-      margin-top: 1.15rem;
-    }
-    .report-payment {
-      display: grid;
-      gap: .5rem;
-      padding: .8rem;
-      border: 1px solid rgb(51 65 85 / .5);
-      border-radius: .85rem;
-      background: rgb(2 8 23 / .34);
-    }
-    .report-payment-meta {
-      display: flex;
-      flex-wrap: wrap;
-      justify-content: space-between;
-      gap: .35rem .7rem;
-      color: #cbd5e1;
-      font-size: .76rem;
-    }
-    .report-payment-meta strong {
-      color: #f8fafc;
-      font-variant-numeric: tabular-nums;
-    }
-    .report-donut-panel {
-      display: grid;
-      grid-template-columns: minmax(130px, 180px) minmax(0, 1fr);
-      align-items: center;
-      gap: 1.4rem;
-      margin-top: 1.2rem;
-    }
-    .report-donut {
-      position: relative;
-      width: min(100%, 180px);
-      aspect-ratio: 1;
-      margin-inline: auto;
-      border-radius: 50%;
-      filter: drop-shadow(0 10px 20px rgb(2 6 23 / .28));
-    }
-    .report-donut::before {
-      position: absolute;
-      inset: 0;
-      border-radius: inherit;
-      background: conic-gradient(var(--report-donut-segments));
-      content: "";
-      -webkit-mask: radial-gradient(circle, transparent 0 57%, #000 58%);
-      mask: radial-gradient(circle, transparent 0 57%, #000 58%);
-    }
-    .report-donut-center {
-      position: absolute;
-      inset: 25%;
-      display: grid;
-      align-content: center;
-      justify-items: center;
-      gap: .2rem;
-      border-radius: 50%;
-      background: linear-gradient(145deg, #111c30, #08111f);
-      text-align: center;
-    }
-    .report-donut-center strong {
-      color: #f8fafc;
-      font-size: 1.35rem;
-      line-height: 1;
-      font-variant-numeric: tabular-nums;
-    }
-    .report-donut-center span {
-      color: #94a3b8;
-      font-size: .62rem;
-      line-height: 1.2;
-    }
-    .report-legend {
-      display: grid;
-      gap: .6rem;
-      min-width: 0;
-    }
-    .report-legend-item {
-      display: grid;
-      grid-template-columns: .65rem minmax(0, 1fr) auto;
-      align-items: center;
-      gap: .55rem;
-      color: #cbd5e1;
-      font-size: .75rem;
-    }
-    .report-legend-swatch {
-      width: .65rem;
-      height: .65rem;
-      border-radius: 50%;
-      background: var(--legend-color);
-      box-shadow: 0 0 10px color-mix(in srgb, var(--legend-color) 40%, transparent);
-    }
-    .report-legend-label {
-      min-width: 0;
-      overflow-wrap: anywhere;
-    }
-    .report-legend-value {
-      color: #f8fafc;
-      text-align: right;
-      white-space: nowrap;
-      font-size: .7rem;
-      font-variant-numeric: tabular-nums;
-    }
-    .report-timeline-wrap {
-      margin-top: 1.3rem;
-      padding: 1rem .8rem .4rem;
-      overflow-x: auto;
-      border: 1px solid rgb(51 65 85 / .52);
-      border-radius: 1rem;
-      background:
-        repeating-linear-gradient(to top, transparent 0, transparent 39px, rgb(71 85 105 / .2) 40px),
-        rgb(2 8 23 / .35);
-      scrollbar-color: #475569 transparent;
-      scrollbar-width: thin;
-    }
-    .report-timeline {
-      display: flex;
-      align-items: stretch;
-      gap: .55rem;
-      min-width: max-content;
-      min-height: 190px;
-      padding: 0 .25rem;
-    }
-    .report-timeline-item {
-      display: grid;
-      grid-template-rows: minmax(0, 1fr) auto;
-      justify-items: center;
-      gap: .55rem;
-      width: 54px;
-      min-height: 190px;
-    }
-    .report-timeline-column {
-      display: flex;
-      width: 100%;
-      height: 100%;
-      align-items: end;
-      justify-content: center;
-    }
-    .report-timeline-bar {
-      width: 25px;
-      min-height: 4px;
-      border: 1px solid color-mix(in srgb, var(--bar-color) 80%, white);
-      border-bottom: 0;
-      border-radius: .55rem .55rem .15rem .15rem;
-      background: linear-gradient(180deg, var(--bar-color), color-mix(in srgb, var(--bar-color) 25%, #0f172a));
-      box-shadow: 0 0 18px color-mix(in srgb, var(--bar-color) 24%, transparent);
-      transition: filter .18s ease, transform .18s ease;
-    }
-    .report-timeline-item:hover .report-timeline-bar {
-      filter: brightness(1.2);
-      transform: scaleX(1.08);
-    }
-    .report-timeline-label {
-      color: #94a3b8;
-      font-size: .66rem;
-      white-space: nowrap;
-    }
-    .report-timeline-value {
-      max-width: 80px;
-      color: #e2e8f0;
-      font-size: .62rem;
-      font-variant-numeric: tabular-nums;
-      text-align: center;
-      white-space: nowrap;
-    }
-    .report-chart-caption {
-      display: flex;
-      align-items: center;
-      gap: .45rem;
-      margin-top: .8rem;
-      color: #94a3b8;
-      font-size: .7rem;
-    }
-    @media (max-width: 520px) {
-      .report-page-grid { grid-template-columns: minmax(0, 1fr); }
-      .report-period-card,
-      .report-summary-card { grid-column: auto; }
-      .report-donut-panel { grid-template-columns: minmax(110px, 140px) minmax(0, 1fr); gap: .8rem; }
-      .report-donut-center strong { font-size: 1.1rem; }
-      .report-legend-item { gap: .4rem; font-size: .7rem; }
-      .report-bar-row {
-        grid-template-columns: minmax(0, 1fr) minmax(58px, .8fr);
-        gap: .55rem;
-      }
-      .report-bar-value {
-        grid-column: 1 / -1;
-        text-align: left;
-      }
-    }
-    @media (prefers-reduced-motion: reduce) {
-      .report-period-tabs a,
-      .report-metric,
-      .report-bar-row,
-      .report-bar,
-      .report-timeline-bar { transition: none; }
-    }
+    body.report-body{font-family:Inter,system-ui,sans-serif;background:radial-gradient(900px 380px at 70% -120px,rgba(16,185,129,.10),transparent 70%),#0b0f19;background-attachment:fixed;color:#e2e8f0;min-height:100vh}
+    .reports-shell{display:flex;height:100dvh;overflow:hidden}
+    .reports-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:30}
+    .reports-sidebar{position:relative;z-index:40;display:flex;flex:0 0 16rem;flex-direction:column;overflow:hidden;background:#090d16;border-right:1px solid #1e293b;transition:width .2s ease,transform .2s ease}
+    .reports-brand{height:3.5rem;display:flex;align-items:center;gap:.75rem;padding:0 1rem;border-bottom:1px solid #1e293b;flex-shrink:0}
+    .reports-brand-icon{width:2.25rem;height:2.25rem;border-radius:.55rem;display:flex;align-items:center;justify-content:center;flex-shrink:0;background:rgba(16,185,129,.15);color:#34d399}
+    .reports-brand-name{min-width:0}
+    .reports-brand-name strong{display:block;color:#fff;font-size:.875rem;line-height:1.1}
+    .reports-brand-name span{display:block;margin-top:.2rem;color:#94a3b8;font-size:.7rem}
+    .reports-sidebar nav{flex:1;overflow:auto;padding:.75rem}
+    .reports-sidebar nav a{display:flex;align-items:center;gap:.75rem;padding:.6rem .75rem;border:1px solid transparent;border-radius:.5rem;color:#94a3b8;font-size:.8rem;text-decoration:none;transition:background .15s,color .15s}
+    .reports-sidebar nav a:hover{background:rgba(30,41,59,.55);color:#fff}
+    .reports-sidebar nav a[aria-current=page]{background:rgba(16,185,129,.1);border-color:rgba(16,185,129,.25);color:#6ee7b7}
+    .reports-sidebar nav a i{width:1rem;text-align:center;flex-shrink:0}
+    .reports-sidebar nav a span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .reports-user{display:flex;align-items:center;gap:.75rem;padding:.6rem .4rem}
+    .reports-user-icon{width:2.25rem;height:2.25rem;border-radius:50%;display:grid;place-items:center;flex-shrink:0;background:rgba(5,150,105,.25);border:1px solid rgba(16,185,129,.3);color:#6ee7b7}
+    .reports-user p{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .reports-user-name{font-size:.75rem;font-weight:500;color:#fff}
+    .reports-user-role{margin-top:.15rem;font-size:.7rem;color:#94a3b8}
+    .reports-sidebar-foot{padding:.75rem;border-top:1px solid #1e293b;flex-shrink:0}
+    .reports-logout{display:flex;align-items:center;gap:.75rem;padding:.6rem .75rem;border-radius:.5rem;color:#94a3b8;font-size:.8rem;text-decoration:none}
+    .reports-logout:hover{background:rgba(239,68,68,.1);color:#fca5a5}
+    .reports-content{display:flex;flex:1;flex-direction:column;min-width:0}
+    .reports-header{height:3.5rem;display:flex;align-items:center;justify-content:space-between;gap:.75rem;padding:0 1rem;border-bottom:1px solid #1e293b;background:rgba(11,15,25,.95);backdrop-filter:blur(12px);flex-shrink:0}
+    .reports-header-left,.reports-header-title,.reports-header-badge{display:flex;align-items:center}
+    .reports-header-left{gap:.65rem;min-width:0}
+    .reports-menu{padding:.5rem;margin-left:-.5rem;border-radius:.5rem;color:#cbd5e1}
+    .reports-menu:hover{background:rgba(30,41,59,.6);color:#fff}
+    .reports-header-title{gap:.5rem;overflow:hidden;color:#fff;font-size:.9rem;font-weight:600;white-space:nowrap}
+    .reports-header-title i{color:#34d399}
+    .reports-clock{display:none;color:#cbd5e1;background:rgba(30,41,59,.7);border:1px solid #334155;border-radius:999px;padding:.25rem .65rem;font-size:.7rem;white-space:nowrap}
+    .reports-header-badge{gap:.45rem;padding:.35rem .7rem;border:1px solid rgba(16,185,129,.3);border-radius:999px;background:rgba(16,185,129,.1);color:#6ee7b7;font-size:.7rem;font-weight:500;white-space:nowrap}
+    .reports-main{flex:1;overflow:auto}
+    .reports-inner{max-width:80rem;margin:auto;padding:1.25rem;display:grid;gap:1.5rem}
+    .reports-heading{display:flex;flex-direction:column;justify-content:space-between;gap:.85rem}
+    .reports-kicker{color:#34d399;font-size:.68rem;font-weight:700;letter-spacing:.14em;text-transform:uppercase}
+    .reports-title{margin-top:.2rem;color:#fff;font-size:1.5rem;font-weight:700;letter-spacing:-.03em}
+    .reports-subtitle{margin-top:.35rem;color:#94a3b8;font-size:.85rem}
+    .reports-actions{display:flex;flex-wrap:wrap;gap:.5rem}
+    .report-btn{display:inline-flex;align-items:center;justify-content:center;gap:.5rem;padding:.48rem .8rem;border:1px solid #334155;border-radius:.5rem;background:#0a0d14;color:#e2e8f0;font-size:.75rem;font-weight:500;text-decoration:none;transition:background .15s,border-color .15s}
+    .report-btn:hover{background:#1e293b;border-color:#475569}
+    .report-card{min-width:0;padding:1.25rem;border:1px solid #1e293b;border-radius:.9rem;background:#101625;box-shadow:inset 0 1px rgba(255,255,255,.03),0 8px 24px -12px rgba(0,0,0,.6)}
+    .report-card-title{display:flex;align-items:center;gap:.6rem;margin-bottom:1rem;color:#fff;font-size:1rem;font-weight:700}
+    .report-card-title i{color:#34d399;font-size:.9rem}
+    .period-intro{display:flex;align-items:center;gap:.75rem;margin-bottom:1rem;padding-bottom:1rem;border-bottom:1px solid #1e293b}
+    .report-icon{width:2.5rem;height:2.5rem;display:grid;place-items:center;flex-shrink:0;border-radius:.6rem;background:rgba(16,185,129,.15);color:#6ee7b7}
+    .period-caption{color:#94a3b8;font-size:.68rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase}
+    .period-name{margin-top:.15rem;color:#fff;font-weight:700}
+    .period-name span{color:#94a3b8;font-weight:500}
+    .period-tabs{display:flex;flex-wrap:wrap;gap:.5rem}
+    .period-tab{padding:.45rem .85rem;border:1px solid #334155;border-radius:.5rem;background:#0a0d14;color:#e2e8f0;font-size:.75rem;font-weight:500;text-decoration:none;transition:background .15s,border-color .15s}
+    .period-tab:hover{background:#1e293b}
+    .period-tab[aria-current=page]{border-color:rgba(16,185,129,.67);background:rgba(16,185,129,.13);color:#6ee7b7}
+    .period-form{display:flex;flex-wrap:wrap;align-items:end;gap:.75rem;margin-top:1rem}
+    .period-form label{display:grid;gap:.35rem;color:#94a3b8;font-size:.75rem;font-weight:500}
+    .period-form input{width:100%;min-height:2.5rem;padding:.45rem .7rem;border:1px solid #334155;border-radius:.5rem;background:#0a0d14;color:#e2e8f0;color-scheme:dark;font-size:.75rem}
+    .period-form button{min-height:2.5rem}
+    .period-error{display:flex;align-items:center;gap:.45rem;margin-top:.8rem;color:#fca5a5;font-size:.75rem}
+    .report-section-heading{display:flex;align-items:center;gap:.6rem;margin-bottom:.75rem;color:#fff;font-size:1rem;font-weight:700}
+    .report-section-heading i{color:#34d399;font-size:.9rem}
+    .report-kpis{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.75rem}
+    .report-kpi{min-width:0;padding:.85rem;border:1px solid #1e293b;border-radius:.9rem;background:#101625}
+    .report-kpi.primary{border-color:rgba(16,185,129,.4);background:linear-gradient(160deg,rgba(16,185,129,.13),#101625 70%)}
+    .report-kpi-head{display:flex;align-items:center;gap:.6rem}
+    .report-kpi-icon{width:2rem;height:2rem;display:grid;place-items:center;flex-shrink:0;border-radius:.55rem;background:#1e293b;color:#94a3b8;font-size:.8rem}
+    .report-kpi.primary .report-kpi-icon{background:rgba(16,185,129,.2);color:#34d399}
+    .report-kpi-label{color:#94a3b8;font-size:.7rem}
+    .report-kpi-value{margin-top:.75rem;color:#fff;font-size:1.4rem;font-weight:700;letter-spacing:-.03em;overflow-wrap:anywhere}
+    .report-kpi.primary .report-kpi-value{color:#6ee7b7}
+    .report-note{display:flex;align-items:flex-start;gap:.45rem;margin-top:.8rem;color:#64748b;font-size:.72rem}
+    .report-note i{margin-top:.15rem}
+    .report-panels{display:grid;grid-template-columns:minmax(0,1fr);gap:1.25rem}
+    .product-list{display:grid;gap:1rem}
+    .product-row{min-width:0}
+    .product-line{display:flex;align-items:center;justify-content:space-between;gap:.75rem;margin-bottom:.4rem;font-size:.75rem}
+    .product-name{display:flex;align-items:center;gap:.6rem;min-width:0;color:#e2e8f0}
+    .product-rank{width:1.25rem;flex-shrink:0;color:#64748b;font-variant-numeric:tabular-nums}
+    .product-name-text{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .product-quantity{flex-shrink:0;color:#94a3b8;font-variant-numeric:tabular-nums}
+    .product-quantity strong{color:#fff}
+    .product-track{height:.5rem;overflow:hidden;border-radius:999px;background:#1e293b}
+    .product-bar{height:100%;border-radius:inherit;background:rgba(16,185,129,.6)}
+    .product-row:first-child .product-bar{background:#34d399}
+    .panel-foot{margin-top:1rem;color:#64748b;font-size:.72rem}
+    .chart-empty{padding:2.5rem .5rem;text-align:center;color:#64748b;font-size:.8rem}
+    .donut-layout{display:flex;flex-direction:column;align-items:center;gap:1.25rem;padding:.25rem 0}
+    .report-card[aria-labelledby="categories-heading"]{display:flex;flex-direction:column}
+    .category-layout{display:grid;justify-items:center;gap:1rem;padding:.25rem 0}
+    .category-svg{width:100%;max-width:19rem}
+    .category-legend{display:grid;width:100%;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:.65rem}
+    .category-legend-row{display:grid;gap:.45rem;min-width:0;padding:.75rem;border:1px solid #1e293b;border-radius:.75rem;background:#0a0d14}
+    .category-legend-name{display:flex;align-items:flex-start;gap:.45rem;min-width:0;color:#94a3b8;font-size:.75rem}
+    .category-legend-name .donut-swatch{flex:0 0 .65rem;margin-top:.18rem}
+    .category-legend-value{color:#fff;font-size:.8rem;font-variant-numeric:tabular-nums}
+    .payment-svg{width:10rem;height:10rem;flex-shrink:0}
+    .donut-legend{display:grid;width:100%;gap:.65rem}
+    .donut-legend-row{display:grid;grid-template-columns:.65rem minmax(0,1fr) auto;align-items:center;gap:.55rem;color:#cbd5e1;font-size:.75rem}
+    .donut-swatch{width:.65rem;height:.65rem;border-radius:.15rem}
+    .donut-label{min-width:0;overflow-wrap:anywhere}
+    .donut-value{color:#fff;text-align:right;font-size:.7rem;font-variant-numeric:tabular-nums}
+    .chart-canvas{width:100%;min-width:0}
+    .category-chart{height:15rem!important;min-height:0!important;overflow:visible}
+    .payment-chart{height:18rem}
+    .trend-chart{height:19rem}
+    .trend-legend{display:flex;flex-wrap:wrap;align-items:center;gap:.6rem 1.25rem;margin-bottom:.75rem;color:#94a3b8;font-size:.72rem}
+    .trend-legend-item{display:flex;align-items:center;gap:.5rem}
+    .trend-legend-dot{width:.65rem;height:.65rem;flex-shrink:0;border-radius:50%}
+    .trend-legend-item strong{color:#fff;font-variant-numeric:tabular-nums}
+    .trend-change{font-variant-numeric:tabular-nums}
+    .apexcharts-tooltip{border:1px solid #334155!important;border-radius:.6rem!important;background:#0a0d14!important;box-shadow:0 12px 28px rgba(0,0,0,.45)!important;color:#e2e8f0!important}
+    .apexcharts-tooltip-title{border-bottom:1px solid #1e293b!important;background:#101625!important;color:#cbd5e1!important;font-family:Inter,system-ui,sans-serif!important}
+    .apexcharts-tooltip-text,.apexcharts-tooltip-text-y-label,.apexcharts-tooltip-text-y-value{color:#e2e8f0!important;font-family:Inter,system-ui,sans-serif!important}
+    .apexcharts-tooltip-marker{box-shadow:0 0 0 2px rgba(255,255,255,.12)}
+    .apexcharts-xaxistooltip,.apexcharts-yaxistooltip{border:1px solid #334155!important;background:#101625!important;color:#e2e8f0!important}
+    .apexcharts-xaxistooltip:after,.apexcharts-xaxistooltip:before,.apexcharts-yaxistooltip:after,.apexcharts-yaxistooltip:before{border-bottom-color:#101625!important}
+    .chart-load-error{padding:2.5rem .5rem;text-align:center;color:#fca5a5;font-size:.8rem}
+    .empty-note{padding:1.5rem;border:1px solid #1e293b;border-radius:.9rem;background:#101625;text-align:center}
+    .empty-note strong{display:block;margin-top:.6rem;color:#fff}
+    .empty-note p{margin-top:.25rem;color:#94a3b8;font-size:.8rem}
+    .reports-toast{position:fixed;bottom:1.25rem;left:50%;z-index:60;transform:translateX(-50%);padding:.6rem 1rem;border-radius:.5rem;background:#10b981;color:#04130d;font-weight:600;box-shadow:0 8px 24px rgba(0,0,0,.35);opacity:0;pointer-events:none;transition:opacity .15s}
+    .reports-toast.visible{opacity:1}
+    .num{font-variant-numeric:tabular-nums}
+    .report-body :focus-visible{outline:2px solid #34d399;outline-offset:2px;border-radius:6px}
+    @media(min-width:640px){.reports-inner{padding:1.5rem}.reports-heading{flex-direction:row;align-items:end}.reports-clock{display:inline-flex}.report-kpis{grid-template-columns:repeat(3,minmax(0,1fr))}.donut-layout{flex-direction:row;align-items:center}.donut-legend{flex:1}}
+    @media(min-width:1024px){.reports-sidebar.collapsed{flex-basis:4.5rem;width:4.5rem}.reports-sidebar.collapsed .reports-brand,.reports-sidebar.collapsed .reports-user{justify-content:center;padding-left:0;padding-right:0}.reports-sidebar.collapsed .reports-brand-name,.reports-sidebar.collapsed .reports-user-info,.reports-sidebar.collapsed nav a span,.reports-sidebar.collapsed .reports-logout span{display:none}.reports-sidebar.collapsed nav a,.reports-sidebar.collapsed .reports-logout{justify-content:center;padding-left:0;padding-right:0}.reports-sidebar.collapsed nav a{gap:0}.reports-inner{padding:2rem}.report-panels{grid-template-columns:repeat(2,minmax(0,1fr))}.report-card{padding:1.25rem}.report-kpis{grid-template-columns:repeat(3,minmax(0,1fr))}.category-layout{grid-template-rows:minmax(0,1fr) auto;flex:1;min-height:0}}
+    @media(max-width:1023px){.reports-sidebar{position:fixed;inset:0 auto 0 0;width:16rem;transform:translateX(-100%)}.reports-sidebar.is-open{transform:translateX(0)}.reports-overlay.is-open{display:block}}
+    @media(max-width:520px){.reports-inner{padding:1rem;gap:1.25rem}.report-card{padding:1rem}.report-kpis{gap:.55rem}.report-kpi{padding:.7rem}.report-kpi-value{font-size:1.1rem}.period-form label{flex:1 1 8rem}.donut-layout{flex-direction:row;gap:.75rem}.category-svg{min-width:0}.payment-svg{width:8rem;height:8rem}.donut-legend-row{gap:.4rem;font-size:.68rem}.trend-item{min-width:2.5rem}}
+    @media print{.reports-sidebar,.reports-header,.no-print,.reports-overlay{display:none!important}.reports-shell,.reports-content,.reports-main{display:block;height:auto;overflow:visible}.reports-inner{max-width:none;padding:0}.report-card,.report-kpi,.empty-note{break-inside:avoid;border:1px solid #ccc!important;background:#fff!important;box-shadow:none!important}body.report-body{background:#fff;color:#000}.reports-title,.report-card-title,.report-kpi-value,.product-quantity strong,.donut-value{color:#000!important}}
+    @media(prefers-reduced-motion:reduce){*,*::before,*::after{transition:none!important}}
   </style>
 </head>
-<body class="bg-slate-900 text-slate-100 font-sans min-h-screen flex flex-col md:flex-row overflow-x-hidden">
-  <aside class="w-full md:w-20 lg:w-64 bg-slate-950 border-r border-slate-800 flex flex-col justify-between shrink-0">
-    <div>
-      <div class="p-4 lg:p-6 flex items-center gap-3 border-b border-slate-800/80">
-        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-500 to-teal-400 flex items-center justify-center text-slate-950 text-xl" aria-hidden="true"><i class="fa-solid fa-utensils"></i></div>
-        <div class="hidden lg:block"><h1 class="font-bold text-lg leading-none text-white">GourmetControl</h1><span class="text-xs text-slate-400">Administración</span></div>
-      </div>
-      <div class="p-4 border-b border-slate-800/50 hidden lg:flex items-center gap-3 bg-slate-900/40">
-        <div class="w-10 h-10 rounded-full bg-emerald-500/15 border-2 border-emerald-500 flex items-center justify-center text-emerald-400" aria-hidden="true"><i class="fa-solid fa-user-shield"></i></div>
-        <div><p class="text-sm font-semibold text-white leading-tight">{{ request.user.get_full_name|default:request.user.username }}</p><p class="text-xs text-emerald-400 font-medium">{{ request.user.get_role_display }} &bull; Activo</p></div>
-      </div>
-      {% include "usuarios/_admin_sidebar_nav.html" with seccion_activa="reportes" %}
+<body class="report-body">
+<a href="#contenido" class="sr-only">Saltar al contenido</a>
+<div class="reports-shell">
+  <div id="reports-overlay" class="reports-overlay no-print"></div>
+  <aside id="reports-sidebar" class="reports-sidebar no-print">
+    <div class="reports-brand">
+      <div class="reports-brand-icon"><i class="fa-solid fa-utensils" aria-hidden="true"></i></div>
+      <div class="reports-brand-name"><strong>GourmetControl</strong><span>Panel de administración</span></div>
     </div>
-    <div class="p-3 border-t border-slate-800/80"><a href="{% url 'usuarios:logout' %}" class="w-full flex items-center justify-center lg:justify-start gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold text-rose-400 hover:bg-rose-500/10 transition-all"><i class="fa-solid fa-right-from-bracket text-base" aria-hidden="true"></i><span class="hidden lg:inline">Cerrar sesión</span></a></div>
+    {% include "usuarios/_admin_sidebar_nav.html" with seccion_activa="reportes" %}
+    <div class="reports-sidebar-foot">
+      <div class="reports-user">
+        <div class="reports-user-icon"><i class="fa-solid fa-user" aria-hidden="true"></i></div>
+        <div class="reports-user-info"><p class="reports-user-name">{{ request.user.get_full_name|default:request.user.username }}</p><p class="reports-user-role">{{ request.user.get_role_display }} · Activo</p></div>
+      </div>
+      <a href="{% url 'usuarios:logout' %}" class="reports-logout"><i class="fa-solid fa-arrow-right-from-bracket" aria-hidden="true"></i><span>Cerrar sesión</span></a>
+    </div>
   </aside>
-  <main class="flex-1 flex flex-col h-screen overflow-hidden">
-    <header class="h-16 border-b border-slate-800 bg-slate-950/60 backdrop-blur px-6 flex items-center justify-between shrink-0">
-      <h2 class="text-lg font-bold text-white flex items-center gap-2 leading-none"><i class="fa-solid fa-chart-pie text-emerald-400 text-base" aria-hidden="true"></i><span>Reportes</span></h2>
-      <span class="text-[11px] bg-slate-800 text-slate-300 px-2.5 py-1 rounded-full border border-slate-700 font-medium">{{ periodo_label }}</span>
+  <div class="reports-content">
+    <header class="reports-header no-print">
+      <div class="reports-header-left">
+        <button id="reports-menu" type="button" class="reports-menu" aria-label="Desplegar menú" aria-controls="reports-sidebar" aria-expanded="false"><i class="fa-solid fa-bars"></i></button>
+        <p class="reports-header-title"><i class="fa-solid fa-chart-line" aria-hidden="true"></i>Reportes</p>
+        <span id="reports-clock" class="reports-clock num" aria-hidden="true"></span>
+      </div>
+      <span class="reports-header-badge"><i class="fa-solid fa-chart-pie" aria-hidden="true"></i>Informe de ventas</span>
     </header>
-    <div class="flex-1 overflow-y-auto">
-      <div class="admin-body">
-        <div class="turn-page-heading"><div><p class="panel-kicker">Administración</p><h1 class="admin-h1">Reportes</h1><p class="turn-page-subtitle">Ventas, productos y formas de pago por periodo.</p></div></div>
-        <div class="admin-grid report-page-grid">
-          <section class="admin-card turn-dashboard-card report-period-card" aria-labelledby="periodo-heading">
-            <div class="turn-card-heading"><div class="turn-section-icon" aria-hidden="true"><i class="fa-solid fa-calendar-days"></i></div><div><p class="panel-kicker">Periodo del informe</p><h2 id="periodo-heading">{{ periodo_label }}{% if fecha_desde and fecha_hasta %} · {{ fecha_desde|date:"d/m/Y" }}–{{ fecha_hasta|date:"d/m/Y" }}{% endif %}</h2></div></div>
-            <nav class="report-period-tabs mt-4" aria-label="Periodos de reportes">
-              <a href="?periodo=semana" {% if periodo == "semana" %}aria-current="page"{% endif %}>Semana actual</a>
-              <a href="?periodo=mes" {% if periodo == "mes" %}aria-current="page"{% endif %}>Mes actual</a>
-              <a href="?periodo=mes_anterior" {% if periodo == "mes_anterior" %}aria-current="page"{% endif %}>Mes anterior</a>
-              <a href="?periodo=ano" {% if periodo == "ano" %}aria-current="page"{% endif %}>Año actual</a>
-              <a href="?periodo=rango" {% if periodo == "rango" %}aria-current="page"{% endif %}>Rango de fechas</a>
-            </nav>
-            {% if periodo == "rango" %}
-              <form method="get" action="{% url 'usuarios:reportes' %}" class="report-date-form">
-                <input type="hidden" name="periodo" value="rango">
-                <label for="fecha-desde">Desde<input id="fecha-desde" type="date" name="fecha_desde" value="{{ fecha_desde_raw }}" required></label>
-                <label for="fecha-hasta">Hasta<input id="fecha-hasta" type="date" name="fecha_hasta" value="{{ fecha_hasta_raw }}" required></label>
-                <button type="submit" class="btn btn-primary"><i class="fa-solid fa-filter" aria-hidden="true"></i> Aplicar periodo</button>
-              </form>
-            {% endif %}
-            {% if error_fechas %}<p class="report-error" role="alert">{{ error_fechas }}</p>{% endif %}
-          </section>
+    <main id="contenido" class="reports-main">
+      <div class="reports-inner">
+        <div class="reports-heading">
+          <div>
+            <p class="reports-kicker">Administración</p>
+            <h1 class="reports-title">Reportes</h1>
+            <p class="reports-subtitle">Ventas, productos y formas de pago por período.</p>
+          </div>
+          <div class="reports-actions no-print">
+            <button id="export-report" type="button" class="report-btn"><i class="fa-solid fa-file-excel" style="color:#34d399"></i>Exportar a Excel</button>
+            <button type="button" onclick="window.print()" class="report-btn"><i class="fa-solid fa-print"></i>Imprimir</button>
+          </div>
+        </div>
 
-          <section class="admin-card turn-dashboard-card report-summary-card" aria-label="Totales de ventas">
-            <div class="turn-card-heading"><div class="turn-section-icon" aria-hidden="true"><i class="fa-solid fa-coins"></i></div><div><p class="panel-kicker">Resumen de ventas</p><h2>Totales del periodo</h2></div></div>
-            <div class="report-metric-grid">
-              <div class="report-metric"><i class="report-metric-icon fa-solid fa-sack-dollar" aria-hidden="true"></i><span>Recaudación total (CUP)</span><strong>{{ total_cup|floatformat:2 }}</strong></div>
-              <div class="report-metric"><i class="report-metric-icon fa-solid fa-dollar-sign" aria-hidden="true"></i><span>Recaudado en USD</span><strong>{{ total_usd|floatformat:2 }} USD</strong></div>
-              <div class="report-metric"><i class="report-metric-icon fa-solid fa-receipt" aria-hidden="true"></i><span>Facturas</span><strong>{{ cantidad_facturas }}</strong></div>
-              <div class="report-metric"><i class="report-metric-icon fa-solid fa-chart-line" aria-hidden="true"></i><span>Promedio por factura</span><strong>{{ promedio_factura|floatformat:2 }} CUP</strong></div>
-              <div class="report-metric"><i class="report-metric-icon fa-solid fa-boxes-stacked" aria-hidden="true"></i><span>Unidades vendidas</span><strong>{{ total_unidades }}</strong></div>
-              <div class="report-metric"><i class="report-metric-icon fa-solid fa-bowl-food" aria-hidden="true"></i><span>Productos vendidos</span><strong>{{ productos_unicos }}</strong></div>
-            </div>
-            <p class="turn-page-subtitle mt-4">El total en CUP incluye la equivalencia de las ventas cobradas en USD; el importe USD se muestra aparte.</p>
-            {% if items_invalidos %}<p class="report-error" role="status">{{ items_invalidos }} artículos con datos inválidos no se incluyeron en los gráficos de productos.</p>{% endif %}
-          </section>
+        <section class="report-card no-print" aria-labelledby="period-heading">
+          <div class="period-intro">
+            <span class="report-icon"><i class="fa-solid fa-calendar-days" aria-hidden="true"></i></span>
+            <div><p class="period-caption">Período del informe</p><h2 id="period-heading" class="period-name">{{ periodo_label }}{% if fecha_desde and fecha_hasta %} <span>· {{ fecha_desde|date:"d/m/Y" }}–{{ fecha_hasta|date:"d/m/Y" }}</span>{% endif %}</h2></div>
+          </div>
+          <nav class="period-tabs" aria-label="Períodos de reportes">
+            <a class="period-tab" href="?periodo=semana" {% if periodo == "semana" %}aria-current="page"{% endif %}>Semana actual</a>
+            <a class="period-tab" href="?periodo=mes" {% if periodo == "mes" %}aria-current="page"{% endif %}>Mes actual</a>
+            <a class="period-tab" href="?periodo=mes_anterior" {% if periodo == "mes_anterior" %}aria-current="page"{% endif %}>Mes anterior</a>
+            <a class="period-tab" href="?periodo=ano" {% if periodo == "ano" %}aria-current="page"{% endif %}>Año actual</a>
+            <a class="period-tab" href="?periodo=rango" {% if periodo == "rango" %}aria-current="page"{% endif %}>Rango de fechas</a>
+          </nav>
+          {% if periodo == "rango" %}
+            <form method="get" action="{% url 'usuarios:reportes' %}" class="period-form">
+              <input type="hidden" name="periodo" value="rango">
+              <label for="fecha-desde">Desde<input id="fecha-desde" type="date" name="fecha_desde" value="{{ fecha_desde_raw }}" required></label>
+              <label for="fecha-hasta">Hasta<input id="fecha-hasta" type="date" name="fecha_hasta" value="{{ fecha_hasta_raw }}" required></label>
+              <button type="submit" class="report-btn"><i class="fa-solid fa-filter"></i>Aplicar período</button>
+            </form>
+          {% endif %}
+          {% if error_fechas %}<p class="period-error" role="alert"><i class="fa-solid fa-circle-exclamation"></i>{{ error_fechas }}</p>{% endif %}
+        </section>
 
-          <section class="admin-card turn-dashboard-card" aria-labelledby="productos-heading">
-            <div class="turn-card-heading"><div class="turn-section-icon" aria-hidden="true"><i class="fa-solid fa-fire"></i></div><div><p class="panel-kicker">Demanda</p><h2 id="productos-heading">Productos más vendidos</h2></div></div>
+        <section aria-labelledby="totals-heading">
+          <h2 id="totals-heading" class="report-section-heading"><i class="fa-solid fa-coins"></i>Totales del período</h2>
+          <div class="report-kpis">
+            <div class="report-kpi primary"><div class="report-kpi-head"><span class="report-kpi-icon"><i class="fa-solid fa-sack-dollar"></i></span><span class="report-kpi-label">Recaudación total (CUP)</span></div><p class="report-kpi-value num">{{ total_cup|floatformat:2 }}</p></div>
+            <div class="report-kpi"><div class="report-kpi-head"><span class="report-kpi-icon"><i class="fa-solid fa-dollar-sign"></i></span><span class="report-kpi-label">Recaudado en USD</span></div><p class="report-kpi-value num">{{ total_usd|floatformat:2 }} USD</p></div>
+            <div class="report-kpi"><div class="report-kpi-head"><span class="report-kpi-icon"><i class="fa-solid fa-receipt"></i></span><span class="report-kpi-label">Facturas</span></div><p class="report-kpi-value num">{{ cantidad_facturas }}</p></div>
+            <div class="report-kpi"><div class="report-kpi-head"><span class="report-kpi-icon"><i class="fa-solid fa-chart-line"></i></span><span class="report-kpi-label">Promedio por factura</span></div><p class="report-kpi-value num">{{ promedio_factura|floatformat:2 }} CUP</p></div>
+            <div class="report-kpi"><div class="report-kpi-head"><span class="report-kpi-icon"><i class="fa-solid fa-boxes-stacked"></i></span><span class="report-kpi-label">Unidades vendidas</span></div><p class="report-kpi-value num">{{ total_unidades }}</p></div>
+            <div class="report-kpi"><div class="report-kpi-head"><span class="report-kpi-icon"><i class="fa-solid fa-burger"></i></span><span class="report-kpi-label">Productos vendidos</span></div><p class="report-kpi-value num">{{ productos_unicos }}</p></div>
+          </div>
+          <p class="report-note"><i class="fa-solid fa-circle-info"></i>El total en CUP incluye la equivalencia de las ventas cobradas en USD; el importe USD se muestra aparte.</p>
+          {% if items_invalidos %}<p class="period-error" role="status">{{ items_invalidos }} artículos con datos inválidos no se incluyeron en los gráficos de productos.</p>{% endif %}
+        </section>
+
+        <div class="report-panels">
+          <section class="report-card" aria-labelledby="products-heading">
+            <h2 id="products-heading" class="report-card-title"><i class="fa-solid fa-fire"></i>Productos más vendidos</h2>
             {% if productos_mas_vendidos %}
-              <div class="report-chart" role="list" aria-label="Unidades vendidas por producto">
+              <div class="product-list" role="list" aria-label="Unidades vendidas por producto">
                 {% for producto in productos_mas_vendidos %}
-                  <div class="report-bar-row" role="listitem"><span class="report-bar-label"><span class="report-rank">{{ forloop.counter|stringformat:"02d" }}</span>{{ producto.nombre }}</span><div class="report-bar-track" aria-hidden="true"><div class="report-bar" style="--bar-color: {{ producto.color }}; width: {{ producto.porcentaje }}%"></div></div><strong class="report-bar-value">{{ producto.cantidad }} u.</strong></div>
+                  <div class="product-row" role="listitem">
+                    <div class="product-line"><span class="product-name"><span class="product-rank num">{{ forloop.counter|stringformat:"02d" }}</span><span class="product-name-text" title="{{ producto.nombre }}">{{ producto.nombre }}</span></span><span class="product-quantity"><strong>{{ producto.cantidad }} u.</strong> · {{ producto.participacion }}%</span></div>
+                    <div class="product-track"><div class="product-bar" style="width:{{ producto.porcentaje }}%"></div></div>
+                  </div>
                 {% endfor %}
               </div>
-              <p class="report-chart-caption"><i class="fa-solid fa-arrow-up-right-dots" aria-hidden="true"></i> Top 10 por unidades · escala relativa al producto líder</p>
-            {% else %}<p class="turn-page-subtitle mt-4">No hay productos vendidos en este periodo.</p>{% endif %}
+              <p class="panel-foot"><i class="fa-solid fa-ranking-star"></i> Top 10 por unidades vendidas</p>
+            {% else %}<p class="chart-empty">Sin datos en este período.</p>{% endif %}
           </section>
 
-          <section class="admin-card turn-dashboard-card" aria-labelledby="categorias-heading">
-            <div class="turn-card-heading"><div class="turn-section-icon" aria-hidden="true"><i class="fa-solid fa-layer-group"></i></div><div><p class="panel-kicker">Composición</p><h2 id="categorias-heading">Unidades por categoría</h2></div></div>
+          <section class="report-card" aria-labelledby="categories-heading">
+            <h2 id="categories-heading" class="report-card-title"><i class="fa-solid fa-layer-group"></i>Unidades por categoría</h2>
             {% if ventas_por_categoria %}
-              <div class="report-donut-panel">
-                <div class="report-donut" style="--report-donut-segments: {{ categorias_donut }}" role="img" aria-label="Distribución de {{ total_unidades }} unidades por categoría">
-                  <div class="report-donut-center"><strong>{{ total_unidades }}</strong><span>unidades</span></div>
-                </div>
-                <div class="report-legend" role="list" aria-label="Detalle de unidades por categoría">
-                {% for categoria in ventas_por_categoria %}
-                  <div class="report-legend-item" role="listitem"><span class="report-legend-swatch" style="--legend-color: {{ categoria.color }}" aria-hidden="true"></span><span class="report-legend-label">{{ categoria.nombre }}</span><strong class="report-legend-value">{{ categoria.cantidad }} · {{ categoria.participacion }}%</strong></div>
-                {% endfor %}
-                </div>
-              </div>
-            {% else %}<p class="turn-page-subtitle mt-4">No hay ventas por categoría en este periodo.</p>{% endif %}
-          </section>
-
-          <section class="admin-card turn-dashboard-card" aria-labelledby="pagos-heading">
-            <div class="turn-card-heading"><div class="turn-section-icon" aria-hidden="true"><i class="fa-solid fa-money-bill-transfer"></i></div><div><p class="panel-kicker">Cobros</p><h2 id="pagos-heading">Recaudación por forma de pago</h2></div></div>
-            {% if pagos_con_recaudacion %}
-              <div class="report-donut-panel">
-                <div class="report-donut" style="--report-donut-segments: {{ pagos_donut }}" role="img" aria-label="Distribución de {{ total_cup|floatformat:2 }} CUP por forma de pago">
-                  <div class="report-donut-center"><strong>{{ pagos_con_recaudacion|length }}</strong><span>formas de pago</span></div>
-                </div>
-                <div class="report-legend" role="list" aria-label="Detalle de recaudación por forma de pago">
-                  {% for pago in pagos %}
-                    <div class="report-legend-item" role="listitem"><span class="report-legend-swatch" style="--legend-color: {{ pago.color|default:'#64748b' }}" aria-hidden="true"></span><span class="report-legend-label">{{ pago.nombre }} · {{ pago.facturas }} facturas</span><strong class="report-legend-value">{{ pago.participacion|default:0 }}%<br>{{ pago.total_cup|floatformat:2 }} CUP{% if pago.total_usd %}<br>{{ pago.total_usd|floatformat:2 }} USD{% endif %}</strong></div>
+              <div class="category-layout">
+                <div id="category-chart" class="chart-canvas category-chart" role="img" aria-label="Unidades vendidas por categoría"></div>
+                <div class="category-legend" role="list" aria-label="Detalle de unidades por categoría">
+                  {% for categoria in ventas_por_categoria %}
+                    <div class="category-legend-row" role="listitem"><span class="category-legend-name"><span class="donut-swatch" style="background:{{ categoria.color }}"></span><span class="donut-label">{{ categoria.nombre }}</span></span><strong class="category-legend-value num">{{ categoria.cantidad }} u. · {{ categoria.participacion }}%</strong></div>
                   {% endfor %}
                 </div>
               </div>
-            {% else %}<p class="turn-page-subtitle mt-4">No hay pagos registrados en este periodo.</p>{% endif %}
-            <p class="turn-page-subtitle mt-4">Efectivo: {{ total_efectivo_cup|floatformat:2 }} CUP · Transferencia: {{ total_transferencia_cup|floatformat:2 }} CUP</p>
+            {% else %}<p class="chart-empty">Sin datos en este período.</p>{% endif %}
           </section>
 
-          <section class="admin-card turn-dashboard-card" aria-labelledby="recaudacion-heading">
-            <div class="turn-card-heading"><div class="turn-section-icon" aria-hidden="true"><i class="fa-solid fa-chart-column"></i></div><div><p class="panel-kicker">Evolución</p><h2 id="recaudacion-heading">Recaudación por {% if agrupar_por_mes %}mes{% else %}día{% endif %}</h2></div></div>
+          <section class="report-card" aria-labelledby="payments-heading">
+            <h2 id="payments-heading" class="report-card-title"><i class="fa-solid fa-money-check-dollar"></i>Recaudación por forma de pago</h2>
+            <div id="payment-chart" class="chart-canvas payment-chart" role="img" aria-label="Recaudación por forma de pago"></div>
+            <ul class="donut-legend">
+              {% for pago in pagos %}
+                <li class="donut-legend-row"><span class="donut-swatch" style="background:{{ pago.color|default:'#64748b' }}"></span><span class="donut-label">{{ pago.nombre }} · {{ pago.facturas }} {% if pago.facturas == 1 %}factura{% else %}facturas{% endif %}</span><strong class="donut-value num">{{ pago.participacion|default:0 }}% · {{ pago.total_cup|floatformat:2 }} CUP{% if pago.total_usd %}<br>{{ pago.total_usd|floatformat:2 }} USD{% endif %}</strong></li>
+              {% endfor %}
+            </ul>
+            <p class="panel-foot num">Efectivo: {{ total_efectivo_cup|floatformat:2 }} CUP · Transferencia: {{ total_transferencia_cup|floatformat:2 }} CUP</p>
+          </section>
+
+          <section class="report-card" aria-labelledby="trend-heading">
+            <h2 id="trend-heading" class="report-card-title"><i class="fa-solid fa-chart-column"></i>Recaudación en el tiempo</h2>
             {% if recaudacion_grafico %}
-              <div class="report-timeline-wrap">
-                <div class="report-timeline" role="list" aria-label="Recaudación en CUP por fecha">
-                {% for punto in recaudacion_grafico %}
-                  <div class="report-timeline-item" role="listitem" title="{{ punto.etiqueta }}: {{ punto.total|floatformat:2 }} CUP">
-                    <div class="report-timeline-column"><div class="report-timeline-bar" style="--bar-color: {{ punto.color }}; height: {{ punto.porcentaje }}%" aria-hidden="true"></div></div>
-                    <div><strong class="report-timeline-value">{{ punto.total|floatformat:0 }}</strong><div class="report-timeline-label">{{ punto.etiqueta }}</div></div>
-                  </div>
-                {% endfor %}
-                </div>
-              </div>
-              <p class="report-chart-caption"><i class="fa-solid fa-arrows-left-right" aria-hidden="true"></i> Columnas escaladas al día de mayor recaudación · desliza para explorar fechas</p>
-            {% else %}<p class="turn-page-subtitle mt-4">No hay recaudación en este periodo.</p>{% endif %}
+              <div id="trend-legend" class="trend-legend"></div>
+              <div id="trend-chart" class="chart-canvas trend-chart" role="img" aria-label="Recaudación en CUP comparada con el período anterior"></div>
+              <p class="panel-foot"><i class="fa-solid fa-left-right"></i> Comparado con el período anterior de igual duración · pasa el cursor para ver el detalle</p>
+            {% else %}<p class="chart-empty">Elige un rango de fechas válido para ver la evolución.</p>{% endif %}
           </section>
         </div>
+
+        {% if not cantidad_facturas %}
+          <div class="empty-note"><span class="report-icon"><i class="fa-solid fa-chart-simple"></i></span><strong>No hay ventas en este período</strong><p>Elige otro período o amplía el rango de fechas.</p></div>
+        {% endif %}
       </div>
-    </div>
-  </main>
+    </main>
+  </div>
+</div>
+<div id="reports-toast" class="reports-toast no-print" role="status" aria-live="polite"></div>
+{{ reportes_export|json_script:"reportes-export-data" }}
+{{ ventas_por_categoria|json_script:"reportes-categorias-data" }}
+{{ pagos|json_script:"reportes-pagos-data" }}
+{{ recaudacion_grafico|json_script:"reportes-tendencia-data" }}
+<script>
+(() => {
+  const sidebar = document.getElementById('reports-sidebar');
+  const overlay = document.getElementById('reports-overlay');
+  const menu = document.getElementById('reports-menu');
+  const toast = document.getElementById('reports-toast');
+  const isDesktop = () => window.matchMedia('(min-width: 1024px)').matches;
+  const storageKey = 'gc-sidebar-collapsed';
+  const showToast = (message) => {
+    toast.textContent = message;
+    toast.classList.add('visible');
+    window.setTimeout(() => toast.classList.remove('visible'), 2400);
+  };
+  const syncMenu = () => {
+    const expanded = isDesktop()
+      ? !sidebar.classList.contains('collapsed')
+      : sidebar.classList.contains('is-open');
+    menu.setAttribute('aria-expanded', String(expanded));
+    menu.setAttribute('aria-label', expanded ? 'Replegar menú' : 'Desplegar menú');
+  };
+  const closeDrawer = () => {
+    sidebar.classList.remove('is-open');
+    overlay.classList.remove('is-open');
+    syncMenu();
+  };
+  menu.addEventListener('click', () => {
+    if (isDesktop()) {
+      const collapsed = sidebar.classList.toggle('collapsed');
+      try { localStorage.setItem(storageKey, collapsed ? '1' : '0'); } catch {}
+      syncMenu();
+    } else {
+      const open = sidebar.classList.toggle('is-open');
+      overlay.classList.toggle('is-open', open);
+      syncMenu();
+    }
+  });
+  overlay.addEventListener('click', closeDrawer);
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && !isDesktop()) closeDrawer();
+  });
+  window.addEventListener('resize', () => {
+    if (isDesktop()) closeDrawer();
+    syncMenu();
+  });
+  try {
+    if (localStorage.getItem(storageKey) === '1') sidebar.classList.add('collapsed');
+  } catch {}
+  syncMenu();
+
+  const clock = document.getElementById('reports-clock');
+  const updateClock = () => {
+    clock.textContent = new Date().toLocaleTimeString('es-ES', {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true,
+    });
+  };
+  updateClock();
+  window.setInterval(updateClock, 30000);
+
+  const readJson = (id) => {
+    const node = document.getElementById(id);
+    return node ? JSON.parse(node.textContent) : [];
+  };
+  const numberFormat = new Intl.NumberFormat('es-ES', {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2,
+  });
+  const money = (value) => numberFormat.format(Number(value) || 0);
+  const chartBase = {
+    chart: {
+      fontFamily: 'Inter, system-ui, sans-serif',
+      foreColor: '#94a3b8',
+      background: 'transparent',
+      toolbar: { show: false },
+      animations: { speed: 450 },
+    },
+    grid: { borderColor: '#1e293b', strokeDashArray: 4 },
+    tooltip: { theme: 'dark', style: { fontSize: '12px' } },
+  };
+  const renderChart = (id, options, hasData) => {
+    const element = document.getElementById(id);
+    if (!element) return null;
+    if (!window.ApexCharts) {
+      element.innerHTML = '<p class="chart-load-error">No se pudo cargar el gráfico. Comprueba la conexión e inténtalo de nuevo.</p>';
+      return null;
+    }
+    if (!hasData) {
+      element.innerHTML = '<p class="chart-empty">Sin datos en este período.</p>';
+      return null;
+    }
+    const chart = new window.ApexCharts(element, {
+      ...chartBase,
+      ...options,
+      tooltip: { ...chartBase.tooltip, ...options.tooltip },
+    });
+    chart.render();
+    return chart;
+  };
+  const categories = readJson('reportes-categorias-data');
+  const categoryTotal = categories.reduce((sum, item) => sum + Number(item.cantidad), 0);
+  const categoryChartElement = document.getElementById('category-chart');
+  let categoryChartHeight = 0;
+  const categoryCard = categoryChartElement.closest('.report-card');
+  const categoryChart = renderChart('category-chart', {
+    chart: { type: 'donut', height: 330 },
+    series: categories.map((item) => Number(item.cantidad)),
+    labels: categories.map((item) => item.nombre),
+    colors: categories.map((item) => item.color),
+    stroke: { width: 4, colors: ['#101625'] },
+    dataLabels: { enabled: false },
+    legend: { show: false },
+    plotOptions: {
+      pie: {
+        startAngle: -90,
+        endAngle: 90,
+        offsetY: 59,
+        customScale: 1.3,
+        expandOnClick: false,
+        donut: {
+          size: '70%',
+          labels: {
+            show: true,
+            name: { show: true, offsetY: -34, color: '#94a3b8', fontSize: '12px' },
+            value: { show: true, offsetY: -8, color: '#fff', fontSize: '34px', fontWeight: 700 },
+            total: {
+              show: true,
+              showAlways: true,
+              label: 'unidades vendidas',
+              color: '#94a3b8',
+              fontSize: '12px',
+              formatter: () => numberFormat.format(categoryTotal),
+            },
+          },
+        },
+      },
+    },
+    tooltip: { y: { formatter: (value) => `${numberFormat.format(value)} u.` } },
+  }, categoryTotal > 0);
+  if (categoryChart && window.ResizeObserver) {
+    const categoryChartObserver = new ResizeObserver(() => {
+      const wideLayout = window.matchMedia('(min-width: 1024px)').matches;
+      let nextHeight = Math.min(240, Math.max(192, Math.round(window.innerWidth * 0.3)));
+      if (wideLayout) {
+        const title = categoryCard.querySelector('.report-card-title');
+        const legend = categoryChartElement.parentElement.querySelector('.category-legend');
+        const cardStyle = getComputedStyle(categoryCard);
+        const layoutStyle = getComputedStyle(categoryChartElement.parentElement);
+        const titleMargin = Number.parseFloat(getComputedStyle(title).marginBottom) || 0;
+        const availableHeight = categoryCard.clientHeight
+          - (Number.parseFloat(cardStyle.paddingTop) || 0)
+          - (Number.parseFloat(cardStyle.paddingBottom) || 0)
+          - title.offsetHeight
+          - titleMargin
+          - legend.offsetHeight
+          - (Number.parseFloat(layoutStyle.rowGap) || 0)
+          - (Number.parseFloat(layoutStyle.paddingTop) || 0)
+          - (Number.parseFloat(layoutStyle.paddingBottom) || 0);
+        nextHeight = Math.min(480, Math.max(192, Math.round(availableHeight)));
+      }
+      if (!nextHeight || nextHeight === categoryChartHeight) return;
+      categoryChartHeight = nextHeight;
+      categoryChartElement.style.setProperty('height', `${nextHeight}px`, 'important');
+      const renderHeight = nextHeight + 120;
+      const customScale = Math.min(
+        1.3,
+        (categoryChartElement.clientWidth / (renderHeight * 0.85)) * 0.95,
+      );
+      categoryChart.updateOptions({
+        chart: { height: renderHeight },
+        plotOptions: {
+          pie: {
+            offsetY: Math.round(nextHeight + 4 - (renderHeight - 13.4) / 2),
+            customScale,
+          },
+        },
+      });
+    });
+    categoryChartObserver.observe(categoryChartElement);
+  }
+
+  const payments = readJson('reportes-pagos-data');
+  const activePayments = payments.filter((payment) => Number(payment.total_cup) > 0);
+  const paymentTotal = activePayments.reduce(
+    (sum, payment) => sum + Number(payment.total_cup),
+    0,
+  );
+  renderChart('payment-chart', {
+    chart: { type: 'donut', height: 290 },
+    series: activePayments.map((payment) => Number(payment.total_cup)),
+    labels: activePayments.map((payment) => payment.etiqueta_corta || payment.nombre),
+    colors: activePayments.map((payment) => payment.color || '#64748b'),
+    stroke: { width: 5, colors: ['#101625'] },
+    legend: { show: false },
+    dataLabels: {
+      enabled: true,
+      formatter: (value) => value < 3 ? '' : `${numberFormat.format(value)}%`,
+      style: { fontSize: '12px', fontWeight: 700, colors: ['#0b0f19'] },
+      dropShadow: { enabled: false },
+    },
+    plotOptions: {
+      pie: {
+        expandOnClick: false,
+        donut: {
+          size: '60%',
+          labels: {
+            show: true,
+            name: { color: '#94a3b8', fontSize: '12px' },
+            value: {
+              color: '#fff',
+              fontSize: '24px',
+              fontWeight: 700,
+              formatter: (value) => money(value),
+            },
+            total: {
+              show: true,
+              showAlways: true,
+              label: 'Total CUP',
+              color: '#94a3b8',
+              fontSize: '12px',
+              formatter: () => money(paymentTotal),
+            },
+          },
+        },
+      },
+    },
+    tooltip: { y: { formatter: (value) => `${money(value)} CUP` } },
+  }, paymentTotal > 0);
+
+  const trend = readJson('reportes-tendencia-data');
+  const currentValues = trend.map((point) => Number(point.total));
+  const previousValues = trend.map((point) => Number(point.total_anterior));
+  const currentTotal = currentValues.reduce((sum, value) => sum + value, 0);
+  const previousTotal = previousValues.reduce((sum, value) => sum + value, 0);
+  const trendLegend = document.getElementById('trend-legend');
+  const useCompactTrend = trend.length > 5;
+  if (trendLegend && trend.length && useCompactTrend) {
+    const change = previousTotal
+      ? ((currentTotal - previousTotal) / previousTotal) * 100
+      : null;
+    trendLegend.innerHTML = `
+      <span class="trend-legend-item"><span class="trend-legend-dot" style="background:#2fb594"></span>Período actual <strong>${money(currentTotal)} CUP</strong>${change === null ? '' : `<span class="trend-change" style="color:${change >= 0 ? '#6ee7b7' : '#fca5a5'}">${change >= 0 ? '▲' : '▼'} ${numberFormat.format(Math.abs(change))}%</span>`}</span>
+      <span class="trend-legend-item"><span class="trend-legend-dot" style="background:#f2994a"></span>Período anterior <strong>${money(previousTotal)} CUP</strong></span>`;
+  }
+  const trendOptions = useCompactTrend
+    ? {
+      chart: { type: 'line', height: 290, zoom: { enabled: false } },
+      series: [
+        { name: 'Período actual', data: currentValues },
+        { name: 'Período anterior', data: previousValues },
+      ],
+      colors: ['#2fb594', '#f2994a'],
+      stroke: { curve: 'smooth', width: [3, 2.5] },
+      dataLabels: { enabled: false },
+      markers: { size: 0, hover: { size: 5 } },
+      tooltip: {
+        shared: true,
+        intersect: false,
+        y: { formatter: (value) => `${money(value)} CUP` },
+      },
+    }
+    : {
+      chart: { type: 'bar', height: 290 },
+      series: [{ name: 'Recaudación', data: currentValues }],
+      colors: trend.map((point) => point.es_maximo ? '#34d399' : '#117a60'),
+      plotOptions: {
+        bar: {
+          borderRadius: 4,
+          columnWidth: '62%',
+          distributed: true,
+        },
+      },
+      dataLabels: {
+        enabled: true,
+        offsetY: -18,
+        formatter: (value) => value >= 1000
+          ? `${numberFormat.format(value / 1000)}k`
+          : numberFormat.format(value),
+        style: { colors: ['#94a3b8'], fontSize: '11px', fontWeight: 400 },
+        background: { enabled: false },
+      },
+      tooltip: {
+        y: { formatter: (value) => `${money(value)} CUP` },
+      },
+    };
+  renderChart('trend-chart', {
+    ...trendOptions,
+    legend: { show: false },
+    xaxis: {
+      categories: trend.map((point) => point.etiqueta),
+      tickAmount: Math.min(trend.length, 10),
+      axisBorder: { show: false },
+      axisTicks: { show: false },
+      labels: { hideOverlappingLabels: true },
+      tooltip: { enabled: false },
+    },
+    yaxis: {
+      min: 0,
+      labels: {
+        formatter: (value) => value >= 1000
+          ? `${numberFormat.format(value / 1000)}k`
+          : numberFormat.format(value),
+      },
+    },
+  }, trend.length > 0);
+
+  document.getElementById('export-report').addEventListener('click', () => {
+    const rows = readJson('reportes-export-data');
+    if (!rows.length) {
+      showToast('No hay datos para exportar');
+      return;
+    }
+    const escapeCell = (value) => `"${String(value ?? '').replaceAll('"', '""')}"`;
+    const header = ['Factura', 'Fecha', 'Forma de pago', 'Total (CUP)', 'USD', 'Producto', 'Categoría', 'Unidades'];
+    const content = '\uFEFF' + [header, ...rows].map((row) => row.map(escapeCell).join(',')).join('\r\n');
+    const url = URL.createObjectURL(new Blob([content], { type: 'text/csv;charset=utf-8' }));
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'reportes.csv';
+    link.click();
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+    showToast('Reporte descargado para Excel');
+  });
+})();
+</script>
 </body>
 </html>

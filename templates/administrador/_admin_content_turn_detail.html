@@ -1,0 +1,363 @@
+<div class="turn-detail-page" data-turno-id="{{ turno.pk }}">
+  <div class="turn-detail-heading">
+    <div>
+      <a class="turn-detail-back no-print" href="{% url 'usuarios:historial_turnos' %}">
+        <i class="fa-solid fa-arrow-left" aria-hidden="true"></i> Historial
+      </a>
+      <h1>Detalle del turno</h1>
+      <p id="turn-date">{{ turno.fecha|date:'j \d\e F \d\e Y' }} · Cierre auditado · <span class="num">ID {{ turno.pk }}</span></p>
+    </div>
+    <span class="turn-detail-status status-{{ turno.estado }}">
+      <i class="fa-solid {% if turno.estado == 'cerrado' %}fa-circle-check{% else %}fa-circle-dot{% endif %}" aria-hidden="true"></i>
+      {{ turno.get_estado_display }}
+    </span>
+  </div>
+
+  {% if turno.estado == 'cerrado' and not detalles.cantidad_facturas %}
+  <div class="turn-detail-alert" role="status">
+    <i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i>
+    <div>
+      <strong>Este turno se cerró sin facturas registradas</strong>
+      <p>No hay ventas registradas para comparar con el cierre de caja.</p>
+    </div>
+  </div>
+  {% endif %}
+
+  <section aria-labelledby="turn-kpis-title">
+    <h2 id="turn-kpis-title" class="sr-only">Resumen del turno #{{ turno.pk }}</h2>
+    <div class="turn-detail-kpis">
+      <article class="turn-detail-kpi">
+        <div><span class="turn-detail-kpi-icon"><i class="fa-solid fa-receipt" aria-hidden="true"></i></span><span>Facturas</span></div>
+        <strong>{{ detalles.cantidad_facturas }}</strong><small>órdenes procesadas</small>
+      </article>
+      <article class="turn-detail-kpi is-highlight">
+        <div><span class="turn-detail-kpi-icon"><i class="fa-solid fa-sack-dollar" aria-hidden="true"></i></span><span>Total general</span></div>
+        <strong>{{ detalles.total_general_cup|floatformat:2 }} CUP</strong><small>ingresos registrados</small>
+      </article>
+      <article class="turn-detail-kpi">
+        <div><span class="turn-detail-kpi-icon"><i class="fa-solid fa-money-bill-wave" aria-hidden="true"></i></span><span>Efectivo</span></div>
+        <strong>{{ detalles.total_efectivo_cup|floatformat:2 }} CUP</strong><small>caja física</small>
+      </article>
+      <article class="turn-detail-kpi">
+        <div><span class="turn-detail-kpi-icon"><i class="fa-solid fa-credit-card" aria-hidden="true"></i></span><span>Transferencias</span></div>
+        <strong>{{ detalles.total_transferencia_cup|floatformat:2 }} CUP</strong><small>pagos digitales</small>
+      </article>
+      <article class="turn-detail-kpi">
+        <div><span class="turn-detail-kpi-icon"><i class="fa-solid fa-dollar-sign" aria-hidden="true"></i></span><span>Divisas</span></div>
+        <strong>{{ detalles.total_usd|floatformat:2 }} USD</strong><small>moneda extranjera</small>
+      </article>
+      <article class="turn-detail-kpi">
+        <div><span class="turn-detail-kpi-icon"><i class="fa-solid fa-chart-simple" aria-hidden="true"></i></span><span>Ticket promedio</span></div>
+        <strong>{{ detalles.ipv|floatformat:2 }} CUP</strong><small>por factura</small>
+      </article>
+      <article class="turn-detail-kpi">
+        <div><span class="turn-detail-kpi-icon"><i class="fa-solid fa-hourglass-half" aria-hidden="true"></i></span><span>Horas abiertas</span></div>
+        <strong>{{ detalles.horas_abiertas|floatformat:1 }} h</strong><small>{% if turno.estado == 'abierto' %}duración en curso{% else %}duración del turno{% endif %}</small>
+      </article>
+      <article class="turn-detail-kpi">
+        <div><span class="turn-detail-kpi-icon"><i class="fa-solid fa-gauge-high" aria-hidden="true"></i></span><span>Venta por hora</span></div>
+        <strong>{{ detalles.rendimiento_por_hora_cup|floatformat:2 }} CUP/h</strong><small>promedio del turno</small>
+      </article>
+    </div>
+  </section>
+
+  <div class="turn-detail-grid">
+    <section class="turn-detail-card" aria-labelledby="turn-operational-title">
+      <h2 id="turn-operational-title" class="turn-detail-card-title"><i class="fa-solid fa-clock" aria-hidden="true"></i>Información operativa</h2>
+      <div class="turn-detail-timeline">
+        <span class="turn-detail-timeline-line" aria-hidden="true"></span>
+        <div class="turn-detail-timeline-point is-open" aria-hidden="true"><i class="fa-solid fa-play"></i></div>
+        <div class="turn-detail-time">
+          <span>Apertura</span>
+          <strong>{{ turno.apertura|date:'H:i' }}</strong>
+          <small>{{ turno.apertura|date:'d/m/Y' }}</small>
+        </div>
+        {% if duracion_supera_24h %}
+        <div class="turn-detail-duration-warning">
+          <i class="fa-solid fa-hourglass-half" aria-hidden="true"></i>
+          <span class="num">{{ detalles.horas_abiertas|floatformat:1 }} h</span> · supera las 24 h
+        </div>
+        {% endif %}
+        {% if turno.cierre %}
+        <div class="turn-detail-timeline-point is-close" aria-hidden="true"><i class="fa-solid fa-flag-checkered"></i></div>
+        <div class="turn-detail-time">
+          <span>Cierre</span>
+          <strong>{{ turno.cierre|date:'H:i' }}</strong>
+          <small>{{ turno.cierre|date:'d/m/Y' }}</small>
+        </div>
+        {% else %}
+        <div class="turn-detail-open-note"><i class="fa-solid fa-hourglass-half" aria-hidden="true"></i>Turno todavía abierto</div>
+        {% endif %}
+      </div>
+
+      <div class="turn-detail-facts">
+        <div><span><i class="fa-solid fa-chair" aria-hidden="true"></i>Mesas atendidas</span><strong>{{ mesas_atendidas }}</strong></div>
+        <div><span><i class="fa-solid fa-user-group" aria-hidden="true"></i>Personal en turno</span><strong>{{ participantes|length }}</strong></div>
+      </div>
+
+      <ul class="turn-detail-staff" aria-label="Personal en turno">
+        {% for participante in participantes %}
+        <li><span class="turn-detail-avatar">{{ participante.get_full_name|default:participante.username|slice:":1"|upper }}</span><span>{{ participante.get_full_name|default:participante.username }}</span></li>
+        {% empty %}
+        <li class="turn-detail-no-staff">No hay participantes asociados a este turno.</li>
+        {% endfor %}
+      </ul>
+    </section>
+
+    <section class="turn-detail-card" aria-labelledby="turn-cash-title">
+      <div class="turn-detail-card-heading">
+        <h2 id="turn-cash-title" class="turn-detail-card-title"><i class="fa-solid fa-file-signature" aria-hidden="true"></i>Arqueo de cierre</h2>
+        <button id="copy-turn-summary" type="button" class="turn-detail-button no-print"><i class="fa-regular fa-copy" aria-hidden="true"></i><span>Copiar arqueo</span></button>
+      </div>
+
+      <div class="turn-detail-total">
+        <div><span>Total registrado · {{ turno.fecha|date:'d/m/Y' }}</span><strong id="copy-total-cup">{{ detalles.total_general_cup|floatformat:2 }} CUP</strong></div>
+        <div><span>Divisas registradas</span><strong id="copy-total-usd">{{ detalles.total_usd|floatformat:2 }} USD</strong></div>
+      </div>
+
+      <div class="turn-detail-payment-heading">Desglose por forma de pago</div>
+      <div class="turn-detail-payments">
+        <div class="turn-detail-payment">
+          <div><span><i class="fa-solid fa-money-bill-wave" aria-hidden="true"></i>Efectivo CUP</span><strong id="copy-cash-cup">{{ detalles.total_efectivo_cup|floatformat:2 }} CUP <small>{{ porcentaje_efectivo }} %</small></strong></div>
+          <div class="turn-detail-progress"><span class="is-cash" style="width:{{ porcentaje_efectivo }}%"></span></div>
+        </div>
+        <div class="turn-detail-payment">
+          <div><span><i class="fa-solid fa-credit-card" aria-hidden="true"></i>Transferencia CUP</span><strong id="copy-transfer-cup">{{ detalles.total_transferencia_cup|floatformat:2 }} CUP <small>{{ porcentaje_transferencia }} %</small></strong></div>
+          <div class="turn-detail-progress"><span class="is-transfer" style="width:{{ porcentaje_transferencia }}%"></span></div>
+        </div>
+      </div>
+
+      <div class="turn-detail-comparison">
+        <p><i class="fa-solid fa-scale-unbalanced" aria-hidden="true"></i>Cálculo del efectivo esperado</p>
+        <div class="turn-detail-cash-facts">
+          <div><span>Fondo inicial</span><strong id="copy-opening-fund">{{ detalles.fondo_inicial_cup|floatformat:2 }} CUP</strong></div>
+          <div><span>Efectivo registrado</span><strong>{{ detalles.total_efectivo_cup|floatformat:2 }} CUP</strong></div>
+          <div><span>Efectivo esperado</span><strong id="copy-expected-cash">{{ detalles.efectivo_esperado_cup|floatformat:2 }} CUP</strong></div>
+        </div>
+      </div>
+      <p class="turn-detail-note"><i class="fa-solid fa-circle-info" aria-hidden="true"></i>El efectivo esperado es el fondo inicial más los pagos en efectivo registrados. El sistema no guarda un importe declarado independiente para comparar diferencias.</p>
+
+      <div class="turn-detail-signers">
+        <span>Personal en turno</span>
+        {% for participante in participantes %}
+        <span class="turn-detail-chip">{{ participante.get_full_name|default:participante.username }}</span>
+        {% empty %}
+        <span class="turn-detail-chip">Sin participantes</span>
+        {% endfor %}
+      </div>
+    </section>
+  </div>
+
+  {% if turno.resumen or turno.observaciones %}
+  <div class="turn-detail-grid turn-detail-notes">
+    {% if turno.resumen %}
+    <section class="turn-detail-card" aria-labelledby="turn-close-summary-title">
+      <h2 id="turn-close-summary-title" class="turn-detail-card-title"><i class="fa-solid fa-file-lines" aria-hidden="true"></i>Resumen de cierre</h2>
+      <pre class="turn-detail-pre">{{ turno.resumen }}</pre>
+    </section>
+    {% endif %}
+    {% if turno.observaciones %}
+    <section class="turn-detail-card" aria-labelledby="turn-observations-title">
+      <h2 id="turn-observations-title" class="turn-detail-card-title"><i class="fa-solid fa-comment-dots" aria-hidden="true"></i>Observaciones</h2>
+      <p class="turn-detail-observations">{{ turno.observaciones }}</p>
+    </section>
+    {% endif %}
+  </div>
+  {% endif %}
+
+  <section class="turn-detail-card turn-detail-ipv" aria-labelledby="turn-ipv-title">
+    <div class="turn-detail-ipv-heading no-print">
+      <h2 id="turn-ipv-title" class="turn-detail-card-title"><i class="fa-solid fa-table" aria-hidden="true"></i>Inventario perpetuo de venta</h2>
+      <div class="turn-detail-ipv-controls">
+        <label class="turn-detail-search"><i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i><span class="sr-only">Buscar producto</span><input id="ipv-search" type="search" placeholder="Buscar producto" autocomplete="off"></label>
+        <select id="ipv-category-filter" aria-label="Filtrar por categoría"><option value="">Todas las categorías</option></select>
+        <label class="turn-detail-checkbox"><input id="ipv-only-sold" type="checkbox">Solo con ventas</label>
+        <a class="turn-detail-button" href="{% url 'usuarios:ipv_turno_excel' turno.pk %}"><i class="fa-solid fa-file-excel text-emerald-400" aria-hidden="true"></i>Exportar a Excel</a>
+        <a class="turn-detail-button" href="{% url 'usuarios:ipv_turno_pdf' turno.pk %}"><i class="fa-solid fa-file-pdf text-red-400" aria-hidden="true"></i>Exportar a PDF</a>
+        <button type="button" class="turn-detail-button" onclick="window.print()"><i class="fa-solid fa-print" aria-hidden="true"></i>Imprimir</button>
+      </div>
+    </div>
+
+    <div class="xl">
+      <div class="xl-head">
+        <p class="xl-title">INVENTARIO PERPETUO DE VENTA RESTAURANT</p>
+        <div class="xl-meta"><span><b>RESTAURANT:</b> ________</span><span><b>FECHA:</b> {{ turno.fecha|date:'d/m/Y' }}</span><span><b>TOTAL:</b> <span id="ipv-total">0,00 CUP</span></span></div>
+      </div>
+      <div class="xl-scroll">
+        <table class="xl-t" id="ipv-table">
+          <thead>
+            <tr class="letters"><th></th><th>A</th><th>B</th><th>C</th><th>D</th><th>E</th><th>F</th></tr>
+            <tr class="cols"><th class="rn">4</th><th class="l">DESCRIPCIÓN</th><th>Cant. vendida</th><th>Saldo final</th><th>P. unit. de venta</th><th>Importe de la venta</th><th>Merma por rotura</th></tr>
+          </thead>
+          <tbody id="ipv-body"></tbody>
+          <tfoot><tr id="ipv-foot"></tr></tfoot>
+        </table>
+      </div>
+      <p id="ipv-empty" class="xl-empty" hidden>Ningún producto coincide con la búsqueda. Prueba con otro nombre o quita los filtros.</p>
+      <div class="xl-status"><span class="tab">IPV {{ turno.fecha|date:'d-m-Y' }}</span><span id="ipv-stat" class="num"></span></div>
+    </div>
+  </section>
+
+  <section class="turn-detail-card turn-detail-rejections" aria-labelledby="turn-rejections-title">
+    <div class="turn-detail-rejections-heading">
+      <div>
+        <h2 id="turn-rejections-title" class="turn-detail-card-title"><i class="fa-solid fa-ban" aria-hidden="true"></i>Detalle de platos rechazados</h2>
+        <p>Pérdidas por platos devueltos o rechazados por los clientes durante el turno.</p>
+      </div>
+    </div>
+    <div class="xl">
+      <div class="xl-scroll">
+        <table class="xl-t xl-r" id="ipv-rejections-table">
+          <thead><tr class="cols"><th class="l">Fecha</th><th class="l">Mesa</th><th class="l">Plato</th><th>Cantidad</th><th class="l">Motivo</th><th class="l">Reportado por</th></tr></thead>
+          <tbody id="ipv-rejections-body"></tbody>
+          <tfoot id="ipv-rejections-foot"></tfoot>
+        </table>
+      </div>
+      <p id="ipv-rejections-empty" class="xl-empty" hidden>No se reportaron platos rechazados en este turno.</p>
+      <div class="xl-status"><span class="tab">Platos rechazados</span><span id="ipv-rejections-stat" class="num"></span></div>
+    </div>
+  </section>
+</div>
+
+<div id="turn-detail-toast" class="turn-detail-toast" role="status" aria-live="polite"></div>
+<script>
+(() => {
+  const turnoEstado = "{{ turno.estado }}";
+  const urlIpv = "{% url 'usuarios:ipv_turno' turno.pk %}";
+  const $ = selector => document.querySelector(selector);
+  const tbody = $('#ipv-body');
+  const filtroNombre = $('#ipv-search');
+  const filtroCategoria = $('#ipv-category-filter');
+  const soloVendidos = $('#ipv-only-sold');
+  const stat = $('#ipv-stat');
+  let filasIpv = [];
+  let rechazosIpv = [];
+
+  const numero = value => {
+    if (value === null || value === undefined || value === '') return null;
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  };
+  const formato = (value, decimales = 2) => {
+    const parsed = numero(value);
+    return parsed === null ? '—' : parsed.toLocaleString('es-CU', {
+      minimumFractionDigits: decimales,
+      maximumFractionDigits: decimales,
+    });
+  };
+  const escapar = value => String(value == null ? '' : value).replace(/[&<>"']/g, caracter => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+  })[caracter]);
+  const normalizar = value => String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+
+  function filasVisibles() {
+    const consulta = normalizar(filtroNombre.value).trim();
+    const categoria = filtroCategoria.value;
+    return filasIpv.filter(fila => (
+      (!consulta || normalizar(`${fila.nombre || ''} ${fila.categoria || ''}`).includes(consulta))
+      && (!categoria || fila.categoria === categoria)
+      && (!soloVendidos.checked || Number(fila.cantidad_vendida) > 0)
+    ));
+  }
+
+  function renderizarRechazos() {
+    const tabla = $('#ipv-rejections-table');
+    const vacio = $('#ipv-rejections-empty');
+    const pie = $('#ipv-rejections-foot');
+    const cuerpo = $('#ipv-rejections-body');
+    if (!rechazosIpv.length) {
+      tabla.hidden = true;
+      vacio.hidden = false;
+      $('#ipv-rejections-stat').textContent = 'Sin registros';
+      cuerpo.innerHTML = '';
+      pie.innerHTML = '';
+      return;
+    }
+
+    tabla.hidden = false;
+    vacio.hidden = true;
+    let total = 0;
+    cuerpo.innerHTML = rechazosIpv.map(rechazo => {
+      total += Number(rechazo.cantidad) || 0;
+      return `<tr><td>${escapar(rechazo.creado_en)}</td><td>${escapar(rechazo.mesa)}</td><td class="p">${escapar(rechazo.plato)}</td><td class="q">${formato(rechazo.cantidad, 0)}</td><td class="m">${escapar(rechazo.motivo)}</td><td>${escapar(rechazo.reportado_por) || '—'}</td></tr>`;
+    }).join('');
+    pie.innerHTML = `<tr><td>TOTAL</td><td></td><td></td><td class="q">${formato(total, 0)}</td><td></td><td></td></tr>`;
+    $('#ipv-rejections-stat').textContent = `${rechazosIpv.length} registros · ${formato(total, 0)} platos rechazados`;
+  }
+
+  function renderizarIpv() {
+    const filas = filasVisibles();
+    const sum = clave => filas.reduce((total, fila) => total + (numero(fila[clave]) || 0), 0);
+    const total = sum('importe_venta');
+    $('#ipv-empty').hidden = filas.length > 0;
+    tbody.innerHTML = filas.map((fila, indice) => {
+      const vendida = numero(fila.cantidad_vendida) || 0;
+      return `<tr class="${vendida > 0 ? 'sold' : ''}"><td class="rn">${indice + 5}</td><td class="d" title="${escapar(fila.nombre)}">${escapar(fila.nombre)}</td><td class="v">${formato(vendida, 0)}</td><td>${formato(fila.saldo_final, 3)}</td><td>${formato(fila.precio_venta)}</td><td class="imp">${formato(fila.importe_venta)}</td><td>${formato(fila.merma_rotura, 3)}</td></tr>`;
+    }).join('');
+    $('#ipv-foot').innerHTML = `<td class="rn"></td><td class="d">TOTAL</td><td>${formato(sum('cantidad_vendida'), 0)}</td><td>${formato(sum('saldo_final'), 3)}</td><td></td><td>${formato(total)}</td><td>${formato(sum('merma_rotura'), 3)}</td>`;
+    $('#ipv-total').textContent = `${formato(total)} CUP`;
+    stat.textContent = `${filas.length} productos · Suma de importes: ${formato(total)}`;
+  }
+
+  function cargarIpv() {
+    fetch(urlIpv, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+      .then(async response => {
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || 'No se pudo cargar el inventario del turno.');
+        return data;
+      })
+      .then(data => {
+        filasIpv = data.filas || [];
+        rechazosIpv = data.rechazos || [];
+        const categorias = [...new Set(filasIpv.map(fila => fila.categoria || 'Sin categoría'))]
+          .sort((a, b) => a.localeCompare(b, 'es'));
+        const categoriaAnterior = filtroCategoria.value;
+        filtroCategoria.innerHTML = '<option value="">Todas las categorías</option>'
+          + categorias.map(categoria => `<option value="${escapar(categoria)}">${escapar(categoria)}</option>`).join('');
+        filtroCategoria.value = categorias.includes(categoriaAnterior) ? categoriaAnterior : '';
+        renderizarIpv();
+        renderizarRechazos();
+      })
+      .catch(error => {
+        tbody.innerHTML = '';
+        $('#ipv-empty').hidden = false;
+        $('#ipv-empty').textContent = escapar(error.message || 'No se pudo cargar el inventario del turno.');
+        stat.textContent = 'No se pudieron cargar los datos';
+        $('#ipv-rejections-stat').textContent = 'No se pudieron cargar los datos';
+      });
+  }
+
+  filtroNombre.addEventListener('input', renderizarIpv);
+  filtroCategoria.addEventListener('change', renderizarIpv);
+  soloVendidos.addEventListener('change', renderizarIpv);
+  cargarIpv();
+  if (turnoEstado === 'abierto') window.setInterval(cargarIpv, 30000);
+
+  $('#copy-turn-summary').addEventListener('click', async () => {
+    const participantes = Array.from(document.querySelectorAll('.turn-detail-staff li:not(.turn-detail-no-staff)'))
+      .map(item => item.querySelector('span:nth-child(2)').textContent.trim());
+    const texto = [
+      `Turno #{{ turno.pk }} · ${$('#turn-date').textContent.trim()}`,
+      `Estado: {{ turno.get_estado_display|escapejs }}`,
+      `Facturas: {{ detalles.cantidad_facturas }}`,
+      `Total general: ${$('#copy-total-cup').textContent.trim()}`,
+      `Efectivo: ${$('#copy-cash-cup').textContent.trim()}`,
+      `Transferencias: ${$('#copy-transfer-cup').textContent.trim()}`,
+      `Divisas: ${$('#copy-total-usd').textContent.trim()}`,
+      `Fondo inicial: ${$('#copy-opening-fund').textContent.trim()}`,
+      `Efectivo esperado: ${$('#copy-expected-cash').textContent.trim()}`,
+      `Participantes: ${participantes.join(', ') || 'Sin participantes'}`,
+    ].join('\n');
+    const toast = $('#turn-detail-toast');
+    try {
+      await navigator.clipboard.writeText(texto);
+      toast.textContent = 'Arqueo copiado';
+      toast.classList.add('is-visible');
+    } catch (error) {
+      toast.textContent = 'No se pudo copiar. Inténtalo de nuevo.';
+      toast.classList.add('is-visible', 'is-error');
+    }
+    window.setTimeout(() => toast.classList.remove('is-visible', 'is-error'), 2400);
+  });
+})();
+</script>

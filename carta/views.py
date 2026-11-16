@@ -51,9 +51,9 @@ def carta_cliente(request, mesa_id):
             receta__insumo__activo=False,
         ).distinct(),
     ))
-    categorias = Categoria.objects.prefetch_related(
+    categorias = Categoria.objects.filter(visible=True).prefetch_related(
         Prefetch('platos', queryset=platos_publicados),
-    ).all()
+    )
     categorias_con_platos = [categoria for categoria in categorias if categoria.platos.all()]
     platos_sin_categoria = list(platos_publicados.filter(categoria__isnull=True))
     guarniciones = Guarnicion.objects.filter(

@@ -246,6 +246,10 @@
       {% elif factura.forma_pago == 'mixto' %}
         <div class="meta-info"><span>Efectivo CUP</span><span>{{ factura.monto_efectivo_cup|floatformat:2 }} CUP</span></div>
         <div class="meta-info"><span>Transferencia</span><span>{{ factura.monto_transferencia_cup|floatformat:2 }} CUP</span></div>
+        {% if factura.monto_recibido_cup %}
+        <div class="meta-info"><span>Recibido</span><span>{{ factura.monto_recibido_cup|floatformat:2 }} CUP</span></div>
+        <div class="meta-info"><span>Cambio</span><span>{{ factura.cambio_cup|floatformat:2 }} CUP</span></div>
+        {% endif %}
       {% elif factura.forma_pago == 'usd' %}
         <div class="meta-info"><span>Monto USD</span><span>{{ factura.monto_usd|floatformat:2 }} USD</span></div>
         <div class="meta-info"><span>Tasa</span><span>1 USD = {{ factura.tasa_cambio }} CUP</span></div>

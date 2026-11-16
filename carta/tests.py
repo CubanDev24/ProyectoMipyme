@@ -41,6 +41,28 @@ class WifiQrTests(TestCase):
 
 
 class CartaQrTests(TestCase):
+    def test_public_menu_hides_dishes_in_hidden_categories(self):
+        mesa = Mesa.objects.create(numero=3, activa=True, abierta=True)
+        categoria = Categoria.objects.create(nombre='Categoría oculta', visible=False)
+        plato = Plato.objects.create(
+            categoria=categoria,
+            nombre='Plato no publicado por categoría',
+            precio='15.00',
+            disponible=True,
+        )
+        insumo = Insumo.objects.create(
+            nombre='Ingrediente para categoría oculta',
+            stock_actual='5.000',
+            activo=True,
+        )
+        RecetaItem.objects.create(plato=plato, insumo=insumo, cantidad='0.150')
+
+        response = self.client.get(reverse('carta:carta', args=[mesa.numero]))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertNotContains(response, categoria.nombre)
+        self.assertNotContains(response, plato.nombre)
+
     def test_public_menu_filters_and_displays_available_guarniciones(self):
         mesa = Mesa.objects.create(numero=2, activa=True, abierta=True)
         categoria = Categoria.objects.create(nombre='Platos')

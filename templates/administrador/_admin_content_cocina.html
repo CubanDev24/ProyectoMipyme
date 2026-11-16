@@ -1,0 +1,309 @@
+{% load static l10n %}
+<div id="admin-view-{{ admin_pagina }}" class="cocina-page">
+  {% if messages %}
+  <div class="cocina-messages" role="status" aria-live="polite">
+    {% for message in messages %}
+    <p class="cocina-message {% if message.tags == 'error' %}is-error{% endif %}">
+      <i class="fa-solid {% if message.tags == 'error' %}fa-circle-exclamation{% else %}fa-circle-check{% endif %}" aria-hidden="true"></i>
+      {{ message }}
+    </p>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <div class="cocina-intro">
+    <p>Administración</p>
+    <h1>{{ inventario_admin.nombre }}</h1>
+    <span>{% if admin_pagina == 'restaurante' %}Almacén del restaurante: bebidas, licores e insumos de salón y barra, con control de existencias.{% else %}Almacén de cocina: categorías de productos y control de existencias.{% endif %}</span>
+  </div>
+
+  <section aria-labelledby="cocina-resumen-title">
+    <h2 id="cocina-resumen-title" class="cocina-section-title"><i class="fa-solid fa-gauge-high" aria-hidden="true"></i>Resumen del almacén</h2>
+    <div class="cocina-kpis" id="kpis">
+      <article class="cocina-kpi is-highlight">
+        <div class="cocina-kpi-heading"><span class="cocina-icon"><i class="fa-solid fa-boxes-stacked" aria-hidden="true"></i></span><span>Productos</span></div>
+        <p class="cocina-kpi-value">{{ inventario_kpis.productos }}</p>
+        <p class="cocina-kpi-caption">en el almacén</p>
+      </article>
+      <article class="cocina-kpi">
+        <div class="cocina-kpi-heading"><span class="cocina-icon"><i class="fa-solid fa-coins" aria-hidden="true"></i></span><span>Valor del inventario</span></div>
+        <p class="cocina-kpi-value">{{ inventario_kpis.valor|floatformat:0 }} CUP</p>
+        <p class="cocina-kpi-caption">existencia × costo</p>
+      </article>
+      <article class="cocina-kpi {% if inventario_kpis.bajos %}is-warning{% endif %}">
+        <div class="cocina-kpi-heading"><span class="cocina-icon"><i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i></span><span>Bajo mínimo</span></div>
+        <p class="cocina-kpi-value">{{ inventario_kpis.bajos }}</p>
+        <p class="cocina-kpi-caption">requieren reposición</p>
+      </article>
+      <article class="cocina-kpi">
+        <div class="cocina-kpi-heading"><span class="cocina-icon"><i class="fa-solid fa-ban" aria-hidden="true"></i></span><span>Agotados</span></div>
+        <p class="cocina-kpi-value">{{ inventario_kpis.agotados }}</p>
+        <p class="cocina-kpi-caption">sin existencia</p>
+      </article>
+    </div>
+  </section>
+
+  <section class="cocina-card cocina-card-top" id="categorias-{{ admin_pagina }}" aria-labelledby="cocina-categorias-title">
+    <div class="cocina-card-heading">
+      <span class="cocina-icon cocina-icon-large"><i class="fa-solid fa-tags" aria-hidden="true"></i></span>
+      <div class="cocina-heading-text"><p>{% if admin_pagina == 'restaurante' %}Inventario del restaurante{% else %}Inventario de cocina{% endif %}</p><h2 id="cocina-categorias-title">Categorías {% if admin_pagina == 'restaurante' %}del{% else %}de{% endif %} {{ inventario_admin.nombre }}</h2></div>
+      <div class="cocina-heading-actions">
+        <span class="cocina-badge" id="catCount">{{ inventario_admin.categorias|length }} {% if inventario_admin.categorias|length == 1 %}categoría{% else %}categorías{% endif %}</span>
+        <button type="button" class="cocina-primary-button" id="newCatBtn"><i class="fa-solid fa-plus" aria-hidden="true"></i>Nueva categoría</button>
+      </div>
+    </div>
+    <div class="cocina-category-grid" id="cats">
+      {% for categoria in inventario_admin.categorias %}
+      <article class="cocina-category" data-category-row>
+        <span class="cocina-icon cocina-category-icon"><i class="fa-solid {{ categoria.icono_admin }}" aria-hidden="true"></i></span>
+        <div class="cocina-category-body">
+          <p class="cocina-category-name" title="{{ categoria.nombre }}">{{ categoria.nombre }}</p>
+          <p class="cocina-category-count">{{ categoria.productos_count }} {% if categoria.productos_count == 1 %}producto{% else %}productos{% endif %}{% if categoria.productos_bajos %} · <span>{{ categoria.productos_bajos }} por reponer</span>{% endif %}</p>
+        </div>
+        <div class="cocina-category-share">
+          <div class="cocina-progress"><span style="width:{{ categoria.porcentaje_admin }}%"></span></div>
+          <span>{{ categoria.porcentaje_admin }}% del almacén</span>
+        </div>
+        <div class="cocina-category-actions">
+          <button type="button" class="cocina-secondary-button" data-edit-category data-name="{{ categoria.nombre }}" data-url="{% url 'inventario:categoria_inventario_editar' inventario_admin.tipo categoria.pk %}"><i class="fa-solid fa-pen" aria-hidden="true"></i>Editar</button>
+          <form method="post" action="{% url 'inventario:categoria_inventario_eliminar' inventario_admin.tipo categoria.pk %}" onsubmit="return confirm('¿Eliminar la categoría {{ categoria.nombre|escapejs }}? Los productos se conservarán sin categoría.');">
+            {% csrf_token %}
+            <button type="submit" class="cocina-danger-icon-button" aria-label="Eliminar {{ categoria.nombre }}" title="Eliminar categoría"><i class="fa-solid fa-trash" aria-hidden="true"></i></button>
+          </form>
+        </div>
+      </article>
+      {% empty %}
+      <p class="cocina-empty">Aún no hay categorías. Crea la primera con «Nueva categoría».</p>
+      {% endfor %}
+    </div>
+  </section>
+
+  <section class="cocina-card cocina-card-top" id="inventario-{{ admin_pagina }}" aria-labelledby="cocina-inventario-title">
+    <div class="cocina-card-heading">
+      <span class="cocina-icon cocina-icon-large"><i class="fa-solid fa-boxes-stacked" aria-hidden="true"></i></span>
+      <div class="cocina-heading-text"><p>Control de existencias</p><h2 id="cocina-inventario-title">Inventario {% if admin_pagina == 'restaurante' %}del Restaurante{% else %}de Cocina{% endif %}</h2></div>
+      <div class="cocina-heading-actions">
+        <span class="cocina-badge" id="prodCount">{{ inventario_admin.insumos.paginator.count }} {% if inventario_admin.insumos.paginator.count == 1 %}producto{% else %}productos{% endif %}</span>
+        <button type="button" class="cocina-primary-button" id="newProdBtn"><i class="fa-solid fa-plus" aria-hidden="true"></i>Agregar producto</button>
+      </div>
+    </div>
+    <p class="cocina-description">Gestiona existencias, costos y límites {% if admin_pagina == 'restaurante' %}del restaurante{% else %}de cocina{% endif %}. Las salidas por pedidos se registran automáticamente.</p>
+    <div class="cocina-toolbar">
+      <label class="cocina-search">
+        <span class="sr-only">Buscar producto o categoría</span>
+        <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
+        <input id="q" type="search" placeholder="Buscar producto o categoría" autocomplete="off">
+      </label>
+      <select id="fCat" class="cocina-select" aria-label="Filtrar por categoría">
+        <option value="">Todas las categorías</option>
+        {% for categoria in inventario_admin.categorias %}<option value="{{ categoria.pk }}">{{ categoria.nombre }}</option>{% endfor %}
+      </select>
+    </div>
+    <div class="cocina-filters" id="fEst" role="group" aria-label="Filtrar por estado">
+      <button type="button" class="cocina-filter" data-s="" aria-pressed="true">Todos</button>
+      <button type="button" class="cocina-filter" data-s="ok" aria-pressed="false">Normal</button>
+      <button type="button" class="cocina-filter" data-s="low" aria-pressed="false">Bajo mínimo</button>
+      <button type="button" class="cocina-filter" data-s="zero" aria-pressed="false">Agotado</button>
+      <button type="button" class="cocina-filter" data-s="over" aria-pressed="false">Excedido</button>
+    </div>
+    <div class="cocina-table-wrap">
+      <div class="cocina-table-scroll">
+        <table class="cocina-table" id="rows">
+          <thead><tr><th>Producto</th><th>Categoría</th><th>Costo</th><th>Existencia</th><th>Mínimo</th><th>Máximo</th><th>Estado</th><th>Activo</th><th>Acciones</th></tr></thead>
+          <tbody>
+            {% for i in inventario_admin.insumos %}
+            <tr data-product-row data-search="{{ i.nombre|lower }} {{ i.categoria_inventario.nombre|default:'sin categoría'|lower }}" data-category="{{ i.categoria_inventario_id|default:'' }}" data-state="{{ i.estado_admin }}">
+              <td><strong class="cocina-product-name">{{ i.nombre }}</strong><span class="cocina-sub">{{ i.get_unidad_display }}</span></td>
+              <td>{{ i.categoria_inventario.nombre|default:"—" }}</td>
+              <td>{{ i.costo|floatformat:2 }} <span class="cocina-currency">CUP/{{ i.unidad }}</span></td>
+              <td>
+                <div class="cocina-stock-value"><strong>{{ i.stock_actual|floatformat:3 }}</strong><span>{{ i.unidad }}</span></div>
+                {% if i.stock_maximo > 0 %}<div class="cocina-stock-progress"><span class="state-{{ i.estado_admin }}" style="width:{{ i.porcentaje_stock }}%"></span></div>{% endif %}
+              </td>
+              <td>{{ i.stock_minimo|floatformat:3 }}</td>
+              <td>{% if i.stock_maximo > 0 %}{{ i.stock_maximo|floatformat:3 }}{% else %}<span class="cocina-dash">—</span>{% endif %}</td>
+              <td><span class="cocina-status state-{{ i.estado_admin }}">{{ i.estado_admin_label }}</span></td>
+              <td>
+                <form method="post" action="{% url 'inventario:insumo_editar' i.pk %}">
+                  {% csrf_token %}
+                  <input type="hidden" name="tipo_inventario" value="{{ admin_pagina }}">
+                  <input type="hidden" name="nombre" value="{{ i.nombre }}">
+                  <input type="hidden" name="categoria_inventario" value="{{ i.categoria_inventario_id|default:'' }}">
+                  <input type="hidden" name="unidad" value="{{ i.unidad }}">
+                  <input type="hidden" name="costo" value="{{ i.costo|unlocalize }}">
+                  <input type="hidden" name="precio" value="{{ i.precio|unlocalize }}">
+                  <input type="hidden" name="stock_actual" value="{{ i.stock_actual|unlocalize }}">
+                  <input type="hidden" name="stock_minimo" value="{{ i.stock_minimo|unlocalize }}">
+                  <input type="hidden" name="stock_maximo" value="{{ i.stock_maximo|unlocalize }}">
+                  <input type="hidden" name="activo" value="{% if i.activo %}off{% else %}on{% endif %}">
+                  <button type="submit" class="cocina-switch {% if i.activo %}is-on{% endif %}" role="switch" aria-checked="{{ i.activo|yesno:'true,false' }}" aria-label="{% if i.activo %}Desactivar{% else %}Activar{% endif %} {{ i.nombre }}"></button>
+                </form>
+              </td>
+              <td>
+                <div class="cocina-product-actions">
+                  <button type="button" class="cocina-secondary-button" data-edit-product data-id="{{ i.pk }}" data-name="{{ i.nombre }}" data-category="{{ i.categoria_inventario_id|default:'' }}" data-unit="{{ i.unidad }}" data-cost="{{ i.costo|unlocalize }}" data-stock="{{ i.stock_actual|unlocalize }}" data-min="{{ i.stock_minimo|unlocalize }}" data-max="{{ i.stock_maximo|unlocalize }}" data-price="{{ i.precio|unlocalize }}" data-active="{{ i.activo|yesno:'true,false' }}" data-url="{% url 'inventario:insumo_editar' i.pk %}"><i class="fa-solid fa-pen" aria-hidden="true"></i>Editar</button>
+                  <form method="post" action="{% url 'inventario:insumo_eliminar' i.pk %}" onsubmit="return confirm('¿Eliminar {{ i.nombre|escapejs }} del inventario de {{ inventario_admin.nombre|lower }}?');">
+                    {% csrf_token %}
+                    <button type="submit" class="cocina-danger-icon-button" aria-label="Eliminar {{ i.nombre }}" title="Eliminar producto"><i class="fa-solid fa-trash" aria-hidden="true"></i></button>
+                  </form>
+                </div>
+              </td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="9" class="cocina-empty">Todavía no hay productos en este inventario.</td></tr>
+            {% endfor %}
+            <tr id="noFilteredProducts" hidden><td colspan="9" class="cocina-empty">No hay productos que coincidan con los filtros.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="cocina-table-footer"><span id="info">Mostrando {{ inventario_admin.insumos|length }} de {{ inventario_admin.insumos.paginator.count }} productos de esta página.</span></div>
+    </div>
+    {% include 'includes/pagination.html' with page_obj=inventario_admin.insumos page_parameter=inventario_admin.page_parameter pagination_query=inventario_admin.pagination_query pagination_anchor=inventario_admin.pagination_anchor %}
+  </section>
+
+  <dialog id="dCat" class="cocina-dialog" aria-labelledby="dcT">
+    <form method="post" action="{% url 'inventario:categoria_inventario_crear' inventario_admin.tipo %}" id="categoryForm" class="cocina-form">
+      {% csrf_token %}
+      <div class="cocina-dialog-heading"><span class="cocina-icon cocina-category-icon"><i class="fa-solid fa-tag" aria-hidden="true"></i></span><div><p>{% if admin_pagina == 'restaurante' %}Inventario del restaurante{% else %}Inventario de cocina{% endif %}</p><h3 id="dcT">Nueva categoría</h3></div></div>
+      <div><label for="catName" class="cocina-label">Nombre de la categoría</label><input id="catName" name="nombre" class="cocina-input" placeholder="{% if admin_pagina == 'restaurante' %}Nueva categoría del restaurante{% else %}Nueva categoría de cocina{% endif %}" maxlength="100" autocomplete="off" required></div>
+      <div class="cocina-dialog-actions"><button type="button" class="cocina-secondary-button" id="catCancel">Cancelar</button><button type="submit" class="cocina-primary-button"><i class="fa-solid fa-check" aria-hidden="true"></i><span id="catSaveT">Agregar categoría</span></button></div>
+    </form>
+  </dialog>
+
+  <dialog id="dProd" class="cocina-dialog cocina-product-dialog" aria-labelledby="dpT">
+    <form method="post" action="{% url 'inventario:insumo_crear' %}" id="productForm" class="cocina-form">
+      {% csrf_token %}
+      <input type="hidden" name="tipo_inventario" value="{{ admin_pagina }}">
+      <input type="hidden" name="activo" id="pActiveValue" value="on">
+      <div class="cocina-dialog-heading"><span class="cocina-icon cocina-category-icon"><i class="fa-solid fa-box-open" aria-hidden="true"></i></span><div><p>Control de existencias</p><h3 id="dpT">Agregar producto</h3></div></div>
+      <div class="cocina-product-form-grid">
+        <div class="wide"><label for="pName" class="cocina-label">Nombre del producto o ingrediente</label><input id="pName" name="nombre" class="cocina-input" maxlength="150" autocomplete="off" placeholder="{% if admin_pagina == 'restaurante' %}Ej. Ron añejo{% else %}Ej. Harina de trigo{% endif %}" required></div>
+        <div><label for="pCat" class="cocina-label">Categoría de {{ inventario_admin.nombre }}</label><select id="pCat" name="categoria_inventario" class="cocina-input"><option value="">Sin categoría</option>{% for categoria in inventario_admin.categorias %}<option value="{{ categoria.pk }}">{{ categoria.nombre }}</option>{% endfor %}</select></div>
+        <div><label for="pUnit" class="cocina-label">Unidad</label><select id="pUnit" name="unidad" class="cocina-input">{% for value, label in unidad_choices %}<option value="{{ value }}">{{ label }} ({{ value }})</option>{% endfor %}</select></div>
+        <div><label for="pCost" class="cocina-label">Costo (CUP por unidad)</label><input id="pCost" type="number" name="costo" min="0" max="999999.99" step="0.01" inputmode="decimal" class="cocina-input" placeholder="0.00"></div>
+        {% if admin_pagina == 'restaurante' %}
+        <div><label for="pPrice" class="cocina-label">Precio de venta (CUP por unidad)</label><input id="pPrice" type="number" name="precio" min="0" max="999999.99" step="0.01" inputmode="decimal" class="cocina-input" placeholder="0.00"></div>
+        {% else %}
+        <input type="hidden" name="precio" id="pPrice" value="0">
+        {% endif %}
+        <div><label for="pSt" class="cocina-label">Existencia</label><input id="pSt" type="number" name="stock_actual" min="-99999999.999" max="99999999.999" step="0.001" inputmode="decimal" class="cocina-input" placeholder="0"></div>
+        <div><label for="pMin" class="cocina-label">Mínimo</label><input id="pMin" type="number" name="stock_minimo" min="0" max="99999999.999" step="0.001" inputmode="decimal" class="cocina-input" placeholder="0"></div>
+        <div><label for="pMax" class="cocina-label">Máximo</label><input id="pMax" type="number" name="stock_maximo" min="0" max="999999999.999" step="0.001" inputmode="decimal" class="cocina-input" placeholder="0 = sin máximo"></div>
+        <div class="wide cocina-active-control"><div><p>Producto activo</p><span>Los productos inactivos no se descuentan en los pedidos.</span></div><button type="button" id="pAct" class="cocina-switch is-on" role="switch" aria-checked="true" aria-label="Producto activo"></button></div>
+      </div>
+      <div class="cocina-dialog-actions"><button type="button" class="cocina-secondary-button" id="prodCancel">Cancelar</button><button type="submit" class="cocina-primary-button"><i class="fa-solid fa-check" aria-hidden="true"></i><span id="prodSaveT">Agregar {% if admin_pagina == 'restaurante' %}al Restaurante{% else %}a Cocina{% endif %}</span></button></div>
+    </form>
+  </dialog>
+</div>
+<script>
+(() => {
+  const normalize = value => String(value || '').toLocaleLowerCase('es').normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  const categoryDialog = document.getElementById('dCat');
+  const categoryForm = document.getElementById('categoryForm');
+  const categoryName = document.getElementById('catName');
+  const categoryTitle = document.getElementById('dcT');
+  const categorySaveText = document.getElementById('catSaveT');
+  const createCategoryUrl = categoryForm.action;
+
+  document.getElementById('newCatBtn').addEventListener('click', () => {
+    categoryForm.reset();
+    categoryForm.action = createCategoryUrl;
+    categoryTitle.textContent = 'Nueva categoría';
+    categorySaveText.textContent = 'Agregar categoría';
+    categoryDialog.showModal();
+    categoryName.focus();
+  });
+  document.getElementById('catCancel').addEventListener('click', () => categoryDialog.close());
+  document.querySelectorAll('[data-edit-category]').forEach(button => {
+    button.addEventListener('click', () => {
+      categoryForm.action = button.dataset.url;
+      categoryName.value = button.dataset.name;
+      categoryTitle.textContent = 'Editar categoría';
+      categorySaveText.textContent = 'Guardar cambios';
+      categoryDialog.showModal();
+      categoryName.focus();
+      categoryName.select();
+    });
+  });
+
+  const productDialog = document.getElementById('dProd');
+  const productForm = document.getElementById('productForm');
+  const productTitle = document.getElementById('dpT');
+  const productSaveText = document.getElementById('prodSaveT');
+  const addProductText = "{{ admin_pagina }}" === 'restaurante' ? 'Agregar al Restaurante' : 'Agregar a Cocina';
+  const productActiveSwitch = document.getElementById('pAct');
+  const productActiveValue = document.getElementById('pActiveValue');
+  const createProductUrl = productForm.action;
+  const setProductActive = active => {
+    productActiveSwitch.classList.toggle('is-on', active);
+    productActiveSwitch.setAttribute('aria-checked', String(active));
+    productActiveValue.value = active ? 'on' : 'off';
+  };
+  document.getElementById('newProdBtn').addEventListener('click', () => {
+    productForm.reset();
+    productForm.action = createProductUrl;
+    productTitle.textContent = 'Agregar producto';
+    productSaveText.textContent = addProductText;
+    document.getElementById('pUnit').value = "{{ admin_pagina }}" === 'restaurante' ? 'unidad' : 'kg';
+    document.getElementById('pPrice').value = '0';
+    setProductActive(true);
+    productDialog.showModal();
+    document.getElementById('pName').focus();
+  });
+  document.querySelectorAll('[data-edit-product]').forEach(button => {
+    button.addEventListener('click', () => {
+      productForm.action = button.dataset.url;
+      productTitle.textContent = 'Editar producto';
+      productSaveText.textContent = 'Guardar cambios';
+      document.getElementById('pName').value = button.dataset.name;
+      document.getElementById('pCat').value = button.dataset.category;
+      document.getElementById('pUnit').value = button.dataset.unit;
+      document.getElementById('pCost').value = button.dataset.cost;
+      document.getElementById('pSt').value = button.dataset.stock;
+      document.getElementById('pMin').value = button.dataset.min;
+      document.getElementById('pMax').value = button.dataset.max;
+      document.getElementById('pPrice').value = button.dataset.price;
+      setProductActive(button.dataset.active === 'true');
+      productDialog.showModal();
+      document.getElementById('pName').focus();
+      document.getElementById('pName').select();
+    });
+  });
+  productActiveSwitch.addEventListener('click', () => {
+    setProductActive(productActiveSwitch.getAttribute('aria-checked') !== 'true');
+  });
+  document.getElementById('prodCancel').addEventListener('click', () => productDialog.close());
+
+  const queryInput = document.getElementById('q');
+  const categoryFilter = document.getElementById('fCat');
+  const statusButtons = Array.from(document.querySelectorAll('#fEst [data-s]'));
+  const productRows = Array.from(document.querySelectorAll('[data-product-row]'));
+  const emptyRow = document.getElementById('noFilteredProducts');
+  const info = document.getElementById('info');
+  let stockState = '';
+  const applyFilters = () => {
+    const query = normalize(queryInput.value.trim());
+    const category = categoryFilter.value;
+    let visible = 0;
+    productRows.forEach(row => {
+      const matchesText = !query || normalize(row.dataset.search).includes(query);
+      const matchesCategory = !category || row.dataset.category === category;
+      const matchesState = !stockState || row.dataset.state === stockState;
+      row.hidden = !(matchesText && matchesCategory && matchesState);
+      if (!row.hidden) visible += 1;
+    });
+    emptyRow.hidden = visible > 0 || productRows.length === 0;
+    info.textContent = `Mostrando ${visible} de ${productRows.length} productos de esta página.`;
+  };
+  queryInput.addEventListener('input', applyFilters);
+  categoryFilter.addEventListener('change', applyFilters);
+  statusButtons.forEach(button => {
+    button.addEventListener('click', () => {
+      stockState = button.dataset.s;
+      statusButtons.forEach(item => item.setAttribute('aria-pressed', String(item === button)));
+      applyFilters();
+    });
+  });
+  applyFilters();
+})();
+</script>

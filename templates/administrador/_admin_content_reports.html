@@ -1,0 +1,441 @@
+<div class="tabbar no-print">
+  <div class="rpt-period-inner max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div id="tabs" class="tabs" role="tablist" aria-label="Período del reporte">
+      <a role="tab" id="tab-hoy" class="ptab" data-p="hoy" href="?periodo=hoy" aria-controls="panel" aria-selected="{% if periodo == 'hoy' %}true{% else %}false{% endif %}" tabindex="{% if periodo == 'hoy' %}0{% else %}-1{% endif %}"><span class="tl"><i class="fa-solid fa-sun"></i>Hoy</span><small class="td">{{ hoy|date:"j M"|lower }}</small></a>
+      <a role="tab" id="tab-semana" class="ptab" data-p="semana" href="?periodo=semana" aria-controls="panel" aria-selected="{% if periodo == 'semana' %}true{% else %}false{% endif %}" tabindex="{% if periodo == 'semana' %}0{% else %}-1{% endif %}"><span class="tl"><i class="fa-solid fa-calendar-week"></i>Semana actual</span><small class="td">{{ inicio_semana|date:"j" }}–{{ fin_semana|date:"j M"|lower }}</small></a>
+      <a role="tab" id="tab-mes" class="ptab" data-p="mes" href="?periodo=mes" aria-controls="panel" aria-selected="{% if periodo == 'mes' %}true{% else %}false{% endif %}" tabindex="{% if periodo == 'mes' %}0{% else %}-1{% endif %}"><span class="tl"><i class="fa-solid fa-calendar"></i>Mes actual</span><small class="td">{{ hoy|date:"F Y"|capfirst }}</small></a>
+      <a role="tab" id="tab-mesant" class="ptab" data-p="mesant" href="?periodo=mesant" aria-controls="panel" aria-selected="{% if periodo == 'mes_anterior' or periodo == 'mesant' %}true{% else %}false{% endif %}" tabindex="{% if periodo == 'mes_anterior' or periodo == 'mesant' %}0{% else %}-1{% endif %}"><span class="tl"><i class="fa-solid fa-calendar-minus"></i>Mes anterior</span><small class="td">{{ mes_anterior_fecha|date:"F Y"|capfirst }}</small></a>
+      <a role="tab" id="tab-anio" class="ptab" data-p="anio" href="?periodo=anio" aria-controls="panel" aria-selected="{% if periodo == 'ano' or periodo == 'anio' %}true{% else %}false{% endif %}" tabindex="{% if periodo == 'ano' or periodo == 'anio' %}0{% else %}-1{% endif %}"><span class="tl"><i class="fa-solid fa-calendar-days"></i>Año actual</span><small class="td">{{ hoy|date:"Y" }}</small></a>
+      <a role="tab" id="tab-rango" class="ptab" data-p="rango" href="?periodo=rango" aria-controls="panel" aria-selected="{% if periodo == 'rango' %}true{% else %}false{% endif %}" tabindex="{% if periodo == 'rango' %}0{% else %}-1{% endif %}"><span class="tl"><i class="fa-solid fa-sliders"></i>Rango de fechas</span><small class="td">{% if periodo == "rango" and fecha_desde and fecha_hasta %}{{ fecha_desde|date:"d/m/Y" }} → {{ fecha_hasta|date:"d/m/Y" }}{% else %}Elegir fechas{% endif %}</small></a>
+    </div>
+  </div>
+</div>
+
+<div id="panel" role="tabpanel" aria-labelledby="{% if periodo == 'hoy' %}tab-hoy{% elif periodo == 'semana' %}tab-semana{% elif periodo == 'mes_anterior' or periodo == 'mesant' %}tab-mesant{% elif periodo == 'ano' or periodo == 'anio' %}tab-anio{% elif periodo == 'rango' %}tab-rango{% else %}tab-mes{% endif %}" tabindex="-1" class="pane-in rpt-content max-w-7xl mx-auto p-4 sm:p-6 lg:p-8 space-y-6">
+  <div class="flex flex-col lg:flex-row lg:items-end justify-between gap-4 rpt-heading">
+    <div>
+      <h1 class="text-2xl font-bold text-white tracking-tight">Reportes del negocio</h1>
+      <p class="subt" aria-live="polite"><i class="fa-regular fa-calendar-check"></i><span>Reportes para {{ periodo_subtitulo_prefijo }}<b>{{ periodo_subtitulo_fecha }}</b></span></p>
+    </div>
+    <div class="flex flex-wrap items-center gap-2 no-print">
+      <span class="chip num"><i class="fa-regular fa-calendar"></i>{{ fecha_desde|date:"d/m/Y" }}{% if fecha_hasta != fecha_desde %} → {{ fecha_hasta|date:"d/m/Y" }}{% endif %}</span>
+      <button id="refBtn" type="button" class="btn"><i class="fa-solid fa-rotate text-emerald-400"></i>Actualizar</button>
+      <button id="xlsBtn" type="button" class="btn btn-p"><i class="fa-solid fa-file-excel"></i>Exportar Excel</button>
+      <button id="prnBtn" type="button" class="btn"><i class="fa-solid fa-print text-sky-400"></i>Imprimir</button>
+    </div>
+  </div>
+
+  {% if periodo == "rango" %}
+  <form id="fRango" method="get" action="{% url 'usuarios:reportes' %}" class="fpanel flex flex-wrap items-end gap-3 no-print">
+    <input type="hidden" name="periodo" value="rango">
+    <label class="fld">Desde<input type="date" name="fecha_desde" value="{{ fecha_desde_raw }}" max="{{ hoy|date:'Y-m-d' }}" required></label>
+    <i class="fa-solid fa-arrow-right-long text-slate-600 pb-3.5 rpt-range-arrow" aria-hidden="true"></i>
+    <label class="fld">Hasta<input type="date" name="fecha_hasta" value="{{ fecha_hasta_raw }}" max="{{ hoy|date:'Y-m-d' }}" required></label>
+    <button type="submit" class="btn btn-p rpt-apply-btn"><i class="fa-solid fa-check"></i>Aplicar rango</button>
+    {% if error_fechas %}<p class="text-xs text-rose-300 w-full sm:w-auto sm:pb-3" role="alert">{{ error_fechas }}</p>{% endif %}
+  </form>
+  {% endif %}
+
+  <nav class="flex flex-wrap gap-2 no-print" aria-label="Secciones del reporte">
+    <a href="#totales" class="pill"><i class="fa-solid fa-gauge-high"></i>Totales</a>
+    <a href="#ventas" class="pill"><i class="fa-solid fa-chart-column"></i>Ventas</a>
+    <a href="#rentabilidad" class="pill"><i class="fa-solid fa-scale-balanced"></i>Costo vs. venta</a>
+    <a href="#mermas" class="pill"><i class="fa-solid fa-trash-can-arrow-up"></i>Mermas</a>
+    <a href="#rotacion" class="pill"><i class="fa-solid fa-boxes-stacked"></i>Rotación</a>
+    <a href="#huerfanos" class="pill"><i class="fa-solid fa-ghost"></i>Huérfanos</a>
+  </nav>
+
+  {% if not cantidad_facturas %}<div class="card text-center text-slate-300" role="status"><i class="fa-regular fa-folder-open text-emerald-400 mr-2"></i>No hay ventas registradas en este período. Prueba con otro período o rango de fechas.</div>{% endif %}
+
+  <section id="totales" class="card" aria-labelledby="t-tot">
+    <h2 id="t-tot" class="card-t"><i class="fa-solid fa-gauge-high"></i>Totales del período</h2>
+    <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
+      <div class="kp" style="--c:#34d399"><div class="flex items-center gap-3"><span class="ic"><i class="fa-solid fa-sack-dollar"></i></span><span class="lb">Recaudación total</span></div><p class="vl num">{{ total_cup|floatformat:2 }}<small>CUP</small></p><p class="sb">Facturas cobradas (equiv. CUP)</p></div>
+      <div class="kp" style="--c:#38bdf8"><div class="flex items-center gap-3"><span class="ic"><i class="fa-solid fa-dollar-sign"></i></span><span class="lb">Recaudado en USD</span></div><p class="vl num">{{ total_usd|floatformat:2 }}<small>USD</small></p><p class="sb">Incluido en el total</p></div>
+      <div class="kp" style="--c:#a78bfa"><div class="flex items-center gap-3"><span class="ic"><i class="fa-solid fa-receipt"></i></span><span class="lb">Facturas</span></div><p class="vl num">{{ cantidad_facturas }}</p><p class="sb">Cuentas cerradas en el período</p></div>
+      <div class="kp" style="--c:#fbbf24"><div class="flex items-center gap-3"><span class="ic"><i class="fa-solid fa-user-tag"></i></span><span class="lb">Promedio por factura</span></div><p class="vl num">{{ promedio_factura|floatformat:2 }}<small>CUP</small></p><p class="sb">Gasto medio por cuenta</p></div>
+      <div class="kp" style="--c:#2dd4bf"><div class="flex items-center gap-3"><span class="ic"><i class="fa-solid fa-utensils"></i></span><span class="lb">Unidades vendidas</span></div><p class="vl num">{{ total_unidades }}</p><p class="sb">Platos, bebidas y productos</p></div>
+      <div class="kp" style="--c:#f97316"><div class="flex items-center gap-3"><span class="ic"><i class="fa-solid fa-tags"></i></span><span class="lb">Productos vendidos</span></div><p class="vl num">{{ productos_unicos }}</p><p class="sb">SKU distintos en el período</p></div>
+      <div class="kp" style="--c:#34d399"><div class="flex items-center gap-3"><span class="ic"><i class="fa-solid fa-chart-line"></i></span><span class="lb">Margen bruto</span></div><p class="vl num">{{ margen_bruto|floatformat:2 }}<small>CUP</small></p><p class="sb">{{ margen_bruto_porcentaje|floatformat:1 }} % sobre la venta calculable</p></div>
+      <div class="kp" style="--c:#fb7185"><div class="flex items-center gap-3"><span class="ic"><i class="fa-solid fa-triangle-exclamation"></i></span><span class="lb">Mermas (al costo)</span></div><p class="vl num">{{ perdida_merma_conocida|floatformat:2 }}<small>CUP</small></p><p class="sb">{{ unidades_merma|floatformat:3 }} unidades perdidas</p></div>
+    </div>
+  </section>
+
+  <section id="ventas" class="card" aria-labelledby="t-ven">
+    <h2 id="t-ven" class="card-t"><i class="fa-solid fa-chart-column"></i>Análisis de ventas</h2>
+    <div class="grid grid-cols-1 xl:grid-cols-2 gap-4 rpt-grid-2">
+      <div class="panel"><p class="sub-t">Productos más vendidos <small>Top 8 · unidades</small></p><div id="gTop"></div></div>
+      <div class="panel"><p class="sub-t">Distribución por categoría <small>Unidades vendidas</small></p><div id="gCat" class="flex flex-col sm:flex-row items-center gap-6"></div></div>
+      <div class="panel"><p class="sub-t">Recaudación por forma de pago <small>Equivalente en CUP</small></p><div id="gPago" class="flex flex-col sm:flex-row items-center gap-6"></div></div>
+      <div class="panel"><p class="sub-t">Recaudación en el tiempo <small id="tSub" data-time-unit="{% if fecha_desde == fecha_hasta %}hora{% elif agrupar_por_mes %}mes{% else %}día{% endif %}">Por {% if fecha_desde == fecha_hasta %}hora{% elif agrupar_por_mes %}mes{% else %}día{% endif %} y acumulado (CUP)</small></p><div id="gTiempo"></div></div>
+    </div>
+  </section>
+
+  <section id="rentabilidad" class="card" aria-labelledby="t-ren">
+    <h2 id="t-ren" class="card-t"><i class="fa-solid fa-scale-balanced"></i>Reporte de costo vs. venta</h2>
+    <div class="grid grid-cols-1 xl:grid-cols-5 gap-4 rpt-grid-5">
+      <div class="panel xl:col-span-2 rpt-span-2"><p class="sub-t">Venta y costo por categoría <small>CUP</small></p><div id="gCosto"></div><p class="text-[11px] text-slate-500 mt-1">La línea celeste representa el margen bruto por categoría. Haz clic en la leyenda para ocultar series.</p></div>
+      <div class="xl xl-col xl:col-span-3 rpt-span-3"><div class="xl-scroll"><table class="rt">
+        <thead><tr><th class="l">Categoría</th><th>Uds.</th><th>Venta</th><th>Costo</th><th>Margen</th><th>Margen %</th></tr></thead>
+        <tbody>{% for categoria in reportes_costo_categorias %}<tr><td class="p">{{ categoria.nombre }}</td><td>{{ categoria.unidades }}</td><td>{{ categoria.venta|floatformat:2 }}</td><td>{{ categoria.costo|floatformat:2 }}</td><td class="pos">{{ categoria.margen|floatformat:2 }}</td><td>{{ categoria.margen_porcentaje|floatformat:1 }} %</td></tr>{% endfor %}</tbody>
+        <tfoot><tr><td class="l">TOTAL</td><td>{{ unidades_con_costo_total }}</td><td>{{ venta_con_costo|floatformat:2 }}</td><td>{{ costo_ventas|floatformat:2 }}</td><td>{{ margen_bruto|floatformat:2 }}</td><td>{{ margen_bruto_porcentaje|floatformat:1 }} %</td></tr></tfoot>
+      </table></div><div class="xl-status"><span class="tab">Por categoría</span><span class="num">{{ reportes_costo_categorias|length }} categorías · Margen bruto {{ margen_bruto|floatformat:2 }} CUP</span></div></div>
+    </div>
+    <p class="sub-t mt-6">Detalle por producto <small>Ordenado por margen</small></p>
+    <div class="xl"><div class="xl-scroll tall"><table class="rt">
+      <thead><tr><th class="l">Producto</th><th>Uds.</th><th>Precio</th><th>Costo unit.</th><th>Venta</th><th>Costo</th><th>Margen</th><th>Margen %</th></tr></thead>
+      <tbody>{% for producto in reportes_costo_productos %}<tr><td class="p">{{ producto.nombre }}<small>{{ producto.categoria }}</small></td><td>{{ producto.unidades }}</td><td>{% if producto.precio_promedio != None %}{{ producto.precio_promedio|floatformat:2 }}{% else %}—{% endif %}</td><td>{% if producto.costo_unitario != None %}{{ producto.costo_unitario|floatformat:2 }}{% else %}—{% endif %}</td><td>{{ producto.venta_total|floatformat:2 }}</td><td>{% if producto.unidades_con_costo == producto.unidades %}{{ producto.costo|floatformat:2 }}{% else %}—{% endif %}</td><td class="{% if producto.unidades_con_costo == producto.unidades %}{% if producto.margen >= 0 %}pos{% else %}neg{% endif %}{% endif %}">{% if producto.unidades_con_costo == producto.unidades %}{{ producto.margen|floatformat:2 }}{% else %}—{% endif %}</td><td>{% if producto.unidades_con_costo == producto.unidades %}{{ producto.margen_porcentaje|floatformat:1 }} %{% else %}—{% endif %}</td></tr>{% endfor %}</tbody>
+      <tfoot><tr><td class="l">TOTAL CALCULABLE</td><td>{{ unidades_con_costo_total }}</td><td></td><td></td><td>{{ venta_con_costo|floatformat:2 }}</td><td>{{ costo_ventas|floatformat:2 }}</td><td>{{ margen_bruto|floatformat:2 }}</td><td>{{ margen_bruto_porcentaje|floatformat:1 }} %</td></tr></tfoot>
+    </table></div><div class="xl-status"><span class="tab">Costo vs. venta</span><span class="num">{{ reportes_costo_productos|length }} productos vendidos</span></div></div>
+  </section>
+
+  <section id="mermas" class="card" aria-labelledby="t-mer">
+    <h2 id="t-mer" class="card-t"><i class="fa-solid fa-trash-can-arrow-up"></i>Reporte de mermas y desperdicios</h2>
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4 rpt-mini-grid">
+      <div class="mini"><p>Unidades perdidas</p><p class="num">{{ unidades_merma|floatformat:3 }}</p></div>
+      <div class="mini"><p>Pérdida al costo</p><p class="num">{{ perdida_merma_conocida|floatformat:2 }} CUP</p></div>
+      <div class="mini"><p>% sobre el costo de ventas</p><p class="num">{{ porcentaje_merma_sobre_costo|floatformat:1 }} %</p></div>
+    </div>
+    <div class="grid grid-cols-1 xl:grid-cols-5 gap-4 rpt-grid-5">
+      <div class="panel xl:col-span-2 rpt-span-2"><p class="sub-t">Pérdida por tipo <small>Valor al costo (CUP)</small></p><div id="gMerma"></div></div>
+      <div class="xl xl-col xl:col-span-3 rpt-span-3"><div class="xl-scroll tall"><table class="rt">
+        <thead><tr><th class="l">Fecha</th><th class="l">Producto</th><th class="c">Tipo</th><th>Cant.</th><th class="l">Motivo</th><th>Valor (costo)</th><th class="l">Reportado por</th></tr></thead>
+        <tbody>{% for merma in merma_filas %}<tr><td class="l num">{{ merma.fecha|date:"d/m/Y H:i" }}</td><td class="p">{{ merma.producto }}</td><td class="c"><span class="st {% if merma.tipo == 'Rotura' %}st-warn{% else %}st-info{% endif %}">{{ merma.tipo }}</span></td><td class="amb">{{ merma.cantidad|floatformat:3 }}</td><td class="l">{{ merma.motivo }}</td><td>{% if merma.valor != None %}{{ merma.valor|floatformat:2 }}{% else %}—{% endif %}</td><td class="l">{{ merma.responsable }}</td></tr>{% endfor %}</tbody>
+        <tfoot><tr><td class="l">TOTAL</td><td></td><td></td><td>{{ unidades_merma|floatformat:3 }}</td><td></td><td>{{ perdida_merma_conocida|floatformat:2 }}</td><td></td></tr></tfoot>
+      </table></div><div class="xl-status"><span class="tab">Mermas</span><span class="num">{{ merma_filas|length }} registros · {{ unidades_merma|floatformat:3 }} unidades</span></div></div>
+    </div>
+  </section>
+
+  <section id="rotacion" class="card" aria-labelledby="t-rot">
+    <h2 id="t-rot" class="card-t"><i class="fa-solid fa-boxes-stacked"></i>Reporte de rotación de inventario</h2>
+    <p class="text-slate-400 mb-4">Detecta qué productos se están quedando “muertos” en el almacén y deberían salir del menú por no venderse. La cobertura se calcula con el ritmo de venta del período.</p>
+    <div id="rLeg" class="flex flex-wrap gap-2 mb-4">
+      {% for estado in estados_rotacion %}<span class="inline-flex items-center gap-2 text-xs text-slate-400"><span class="st st-{{ estado.clase }}">{{ estado.nombre }} · {{ estado.cantidad }}</span>{{ estado.descripcion }}</span>{% endfor %}
+    </div>
+    <div class="xl"><div class="xl-scroll tall"><table class="rt">
+      <thead><tr><th class="l">Insumo</th><th class="l">Categoría</th><th>Stock</th><th>Vendido</th><th>Rotación</th><th>Cobertura (días)</th><th>Días sin venta</th><th>Valor en stock</th><th class="c">Estado</th></tr></thead>
+      <tbody>{% for insumo in rotacion_insumos %}<tr><td class="p">{{ insumo.nombre }}</td><td class="l">{{ insumo.categoria }}</td><td>{{ insumo.stock|floatformat:3 }}</td><td>{{ insumo.consumo|floatformat:3 }}</td><td>{% if insumo.rotacion != None %}{{ insumo.rotacion|floatformat:2 }}×{% else %}—{% endif %}</td><td>{% if insumo.cobertura != None %}{{ insumo.cobertura|floatformat:1 }}{% else %}∞{% endif %}</td><td>{% if insumo.dias_sin_salida != None %}{{ insumo.dias_sin_salida }}{% else %}—{% endif %}</td><td>{{ insumo.valor_stock|floatformat:2 }}</td><td class="c"><span class="st st-{% if insumo.estado_clase == 'muted' %}mut{% else %}{{ insumo.estado_clase }}{% endif %}">{{ insumo.estado }}</span></td></tr>{% endfor %}</tbody>
+      <tfoot><tr><td class="l">TOTAL</td><td></td><td>{{ total_stock_rotacion|floatformat:3 }}</td><td>{{ total_consumo_rotacion|floatformat:3 }}</td><td></td><td></td><td></td><td>{{ valor_stock_rotacion|floatformat:2 }}</td><td></td></tr></tfoot>
+    </table></div><div class="xl-status"><span class="tab">Rotación</span><span class="num">{{ rotacion_insumos|length }} productos · {{ cantidad_rotacion_muerta }} muertos · {{ cantidad_rotacion_lenta }} lentos</span></div></div>
+  </section>
+
+  <section id="huerfanos" class="card" aria-labelledby="t-hue">
+    <h2 id="t-hue" class="card-t"><i class="fa-solid fa-ghost"></i>Reporte de platos huérfanos</h2>
+    <p class="text-slate-400 mb-4">Productos que no se vendieron en absoluto durante el período; candidatos a eliminarse o promocionarse en el menú.</p>
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4 rpt-mini-grid">
+      <div class="mini"><p>Platos huérfanos</p><p class="num">{{ platos_huerfanos|length }} de {{ total_platos }}</p></div>
+      <div class="mini"><p>Capital inmovilizado</p><p class="num">—</p></div>
+      <div class="mini"><p>Sugeridos para retirar</p><p class="num">{{ cantidad_huerfanos_retirar }}</p></div>
+    </div>
+    <div class="xl"><div class="xl-scroll"><table class="rt" {% if not platos_huerfanos %}hidden{% endif %}>
+      <thead><tr><th class="l">Producto</th><th>Precio</th><th>Costo</th><th>Stock</th><th>Capital inmovilizado</th><th>Última venta</th><th class="c">Recomendación</th></tr></thead>
+      <tbody>{% for plato in platos_huerfanos %}<tr><td class="p">{{ plato.nombre }}<small>{{ plato.categoria }}</small></td><td>{{ plato.precio|floatformat:2 }}</td><td>{% if plato.costo != None %}{{ plato.costo|floatformat:2 }}{% else %}—{% endif %}</td><td>—</td><td>—</td><td>{% if plato.dias_sin_venta != None %}hace {{ plato.dias_sin_venta }} días{% else %}Sin ventas históricas{% endif %}</td><td class="c"><span class="st st-{% if plato.recomendacion_clase == 'muted' %}mut{% else %}{{ plato.recomendacion_clase }}{% endif %}">{{ plato.recomendacion }}</span></td></tr>{% endfor %}</tbody>
+      {% if platos_huerfanos %}<tfoot><tr><td class="l">TOTAL</td><td></td><td></td><td>—</td><td>—</td><td></td><td></td></tr></tfoot>{% endif %}
+    </table>
+      {% if not platos_huerfanos %}<p class="xl-empty"><i class="fa-solid fa-circle-check text-emerald-400 mr-2"></i>Todos los productos del menú registraron ventas en este período.</p>{% endif %}
+      <div class="xl-status"><span class="tab">Huérfanos</span><span class="num">{% if platos_huerfanos %}{{ platos_huerfanos|length }} productos sin ventas{% else %}Sin huérfanos{% endif %}</span></div>
+    </div>
+  </section>
+</div>
+<div id="toast" role="status" aria-live="polite" class="fixed bottom-5 left-1/2 -translate-x-1/2 bg-emerald-500 text-black font-medium px-4 py-2 rounded-lg shadow-lg opacity-0 pointer-events-none transition-opacity no-print"></div>
+
+{{ productos_mas_vendidos|json_script:"rpt-top-data" }}
+{{ ventas_por_categoria|json_script:"rpt-categories-data" }}
+{{ pagos_con_recaudacion|json_script:"rpt-payments-data" }}
+{{ recaudacion_grafico|json_script:"rpt-time-data" }}
+{{ reportes_costo_categorias|json_script:"rpt-cost-data" }}
+{{ merma_por_tipo|json_script:"rpt-waste-data" }}
+{{ reportes_costo_productos|json_script:"rpt-cost-products-data" }}
+{{ merma_filas|json_script:"rpt-waste-rows-data" }}
+{{ rotacion_insumos|json_script:"rpt-rotation-data" }}
+{{ platos_huerfanos|json_script:"rpt-orphans-data" }}
+{{ facturas_export|json_script:"rpt-invoices-data" }}
+{{ resumen_export|json_script:"rpt-summary-data" }}
+<script>
+(() => {
+  const $ = (selector) => document.querySelector(selector);
+  const read = (id) => JSON.parse(document.getElementById(id).textContent);
+  const top = read('rpt-top-data');
+  const categories = read('rpt-categories-data');
+  const payments = read('rpt-payments-data');
+  const trend = read('rpt-time-data');
+  const cost = read('rpt-cost-data');
+  const costProducts = read('rpt-cost-products-data');
+  const costByName = new Map(costProducts.map((item) => [item.nombre, item]));
+  const costByCategory = new Map(cost.map((item) => [item.nombre, item]));
+  const waste = read('rpt-waste-data');
+  const esc = (value) => String(value ?? '').replace(/[&<>"']/g, (char) => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+  }[char]));
+  const fmt = (value, decimals = 0) => new Intl.NumberFormat('es-ES', {
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals,
+  }).format(Number(value) || 0);
+  const tip = (title, rows) => `<div class="hct"><div class="hct-h">${esc(title)}</div>${rows.map(([key, value]) => `<div class="hct-r"><span>${esc(key)}</span><b>${esc(value)}</b></div>`).join('')}</div>`;
+  const noData = (id, message = 'Sin datos en este período.') => {
+    const element = document.getElementById(id);
+    if (element) element.innerHTML = `<p class="xl-empty">${message}</p>`;
+  };
+  const chartsReady = Boolean(window.Highcharts);
+  if (!chartsReady) {
+    ['gTop', 'gCat', 'gPago', 'gTiempo', 'gCosto', 'gMerma'].forEach((id) => {
+      noData(id, 'No se pudo cargar el gráfico.');
+    });
+  } else {
+    Highcharts.setOptions({
+      colors: ['#34d399', '#fbbf24', '#38bdf8', '#a78bfa', '#fb7185', '#2dd4bf', '#f97316', '#94a3b8'],
+      lang: { thousandsSep: '.', decimalPoint: ',' },
+      chart: { backgroundColor: 'transparent', style: { fontFamily: 'Inter,sans-serif' }, spacing: [8, 8, 8, 8] },
+      title: { text: undefined },
+      credits: { enabled: false },
+      accessibility: { enabled: true },
+      legend: { itemStyle: { color: '#cbd5e1', fontWeight: '500', fontSize: '12px' } },
+      tooltip: { useHTML: true, outside: true, backgroundColor: 'rgba(8,12,22,.97)', borderColor: '#334155', borderRadius: 12, padding: 0, shadow: false },
+      xAxis: { lineColor: '#1e293b', tickColor: '#1e293b', labels: { style: { color: '#94a3b8', fontSize: '11px' } } },
+      yAxis: { gridLineColor: '#1e293b', gridLineDashStyle: 'Dash', title: { text: undefined }, labels: { style: { color: '#64748b', fontSize: '11px' } } },
+    });
+    const chart = (id, options, hasData) => {
+      if (!hasData) { noData(id); return; }
+      Highcharts.chart(id, options);
+    };
+    chart('gTop', {
+      chart: { type: 'bar', height: 300, marginRight: 48 },
+      legend: { enabled: false },
+      xAxis: { categories: top.map((item) => item.nombre), lineWidth: 0, tickLength: 0 },
+      yAxis: { min: 0, allowDecimals: false },
+      tooltip: { formatter() {
+        const item = top[this.point.index];
+        const detail = costByName.get(item.nombre);
+        const rows = [['Categoría', item.categoria], ['Unidades', `${fmt(item.cantidad)} u.`]];
+        if (detail) {
+          rows.push(['Importe', `${fmt(detail.venta_total, 2)} CUP`]);
+          if (Number(detail.unidades_con_costo) === Number(detail.unidades)) {
+            rows.push(['Margen', `${fmt(detail.margen, 2)} CUP`], ['Precio unit.', `${fmt(detail.precio_promedio, 2)} CUP`]);
+          }
+        }
+        return tip(item.nombre, rows);
+      } },
+      plotOptions: { bar: { borderRadius: 8, borderWidth: 0, dataLabels: { enabled: true, format: '{y} u.', style: { color: '#e2e8f0', textOutline: 'none', fontWeight: '600' } } } },
+      series: [{ name: 'Unidades', data: top.map((item) => ({ y: Number(item.cantidad), color: item.color })) }],
+    }, top.length > 0);
+    const donut = (id, rows, seriesName, centerLabel, tooltipRows) => chart(id, {
+      chart: {
+        type: 'pie',
+        height: 300,
+        events: {
+          render() {
+            const series = this.series[0];
+            if (!series || !series.center) return;
+            (this.reportCenterLabels || []).forEach((label) => label.destroy());
+            const visiblePoints = series.points.filter((point) => point.visible);
+            const visibleTotal = visiblePoints.reduce((sum, point) => sum + Number(point.y || 0), 0);
+            const centerX = this.plotLeft + series.center[0];
+            const centerY = this.plotTop + series.center[1];
+            this.reportCenterLabels = [
+              this.renderer.text(fmt(visibleTotal), centerX, centerY + 4)
+                .attr({ align: 'center', zIndex: 6 })
+                .css({ color: '#fff', fontSize: '24px', fontWeight: '700', pointerEvents: 'none' })
+                .add(),
+              this.renderer.text(centerLabel, centerX, centerY + 24)
+                .attr({ align: 'center', zIndex: 6 })
+                .css({ color: '#94a3b8', fontSize: '11px', pointerEvents: 'none' })
+                .add(),
+            ];
+          },
+        },
+      },
+      tooltip: { formatter() { return tip(this.point.name, tooltipRows(this.point, this.percentage)); } },
+      legend: { align: 'right', verticalAlign: 'middle', layout: 'vertical', itemMarginBottom: 8, labelFormatter() { return `<span style="display:inline-flex;justify-content:space-between;gap:.7rem;width:160px;font-size:12px"><span>${esc(this.name)}</span><b style="color:#fff">${fmt(this.y)} · ${fmt(this.percentage)}%</b></span>`; }, useHTML: true },
+      plotOptions: { pie: { innerSize: '68%', size: '86%', borderWidth: 3, borderColor: '#0a0d14', showInLegend: true, dataLabels: { enabled: false } } },
+      series: [{ name: seriesName, data: rows }],
+      responsive: { rules: [{ condition: { maxWidth: 470 }, chartOptions: { chart: { height: 360 }, legend: { align: 'center', verticalAlign: 'bottom', layout: 'horizontal', itemWidth: 180 } } }] },
+    }, rows.length > 0);
+    donut('gCat', categories.map((item) => ({ name: item.nombre, y: Number(item.cantidad), color: item.color })), 'u.', 'unidades', (point, percentage) => {
+      const detail = costByCategory.get(point.name);
+      return [['Unidades', `${fmt(point.y)} u.`], ['% de unidades', `${fmt(percentage, 1)} %`]]
+        .concat(detail ? [['Importe', `${fmt(detail.venta, 2)} CUP`], ['Margen', `${fmt(detail.margen, 2)} CUP`], ['Productos distintos', detail.unidades_con_costo]] : []);
+    });
+    donut('gPago', payments.map((item) => ({ name: item.nombre, y: Number(item.total_cup), color: item.color, facturas: item.facturas })), 'CUP', 'CUP', (point, percentage) => [
+      ['Recaudado', `${fmt(point.y, 2)} CUP`],
+      ['% del total', `${fmt(percentage, 1)} %`],
+      ['Facturas', point.options.facturas],
+      ['Ticket medio', `${fmt(point.options.facturas ? point.y / point.options.facturas : 0, 2)} CUP`],
+    ]);
+    if (trend.length) {
+      const timeUnit = $('#tSub').dataset.timeUnit;
+      const amounts = trend.map((item) => Number(item.total));
+      let accumulated = 0;
+      const cumulative = amounts.map((value) => (accumulated += value));
+      chart('gTiempo', {
+        chart: { height: 300 },
+        xAxis: { categories: trend.map((item) => item.etiqueta), crosshair: true },
+        yAxis: [{ min: 0, labels: { formatter() { return fmt(this.value); } } }, { min: 0, opposite: true, gridLineWidth: 0, labels: { formatter() { return fmt(this.value); } } }],
+        legend: { align: 'center', verticalAlign: 'bottom' },
+        tooltip: { shared: true, formatter() {
+          const index = this.points[0].point.index;
+          const point = trend[index];
+          const cumulativePoint = this.points.find((seriesPoint) => seriesPoint.series.name === 'Acumulado (eje der.)');
+          const cumulativeValue = cumulativePoint ? cumulativePoint.y : cumulative[index];
+          return tip(this.x, [
+            ['Facturas', point.facturas],
+            ['Recaudado', `${fmt(point.total, 2)} CUP`],
+            ['Acumulado', `${fmt(cumulativeValue, 2)} CUP`],
+            ['% del total acumulado', `${fmt(accumulated ? cumulativeValue / accumulated * 100 : 0, 1)} %`],
+          ]);
+        } },
+        plotOptions: { column: { borderRadius: 5, borderWidth: 0 }, spline: { lineWidth: 2.5, marker: { radius: 4, lineWidth: 2, lineColor: '#38bdf8', fillColor: '#0a0d14' } } },
+        series: [{ type: 'column', name: `Por ${timeUnit} (eje izq.)`, color: '#10b981', data: amounts }, { type: 'spline', name: 'Acumulado (eje der.)', yAxis: 1, color: '#38bdf8', data: cumulative }],
+      }, true);
+    } else noData('gTiempo');
+    const costCategories = cost.filter((item) => Number(item.venta) > 0 || Number(item.costo) > 0);
+    chart('gCosto', {
+      chart: { height: 320 },
+      xAxis: { categories: costCategories.map((item) => item.nombre), crosshair: true },
+      yAxis: [{ min: 0 }, { min: 0, max: 100, opposite: true, gridLineWidth: 0, labels: { format: '{value} %' } }],
+      legend: { align: 'center', verticalAlign: 'bottom' },
+      tooltip: { shared: true, formatter() { return tip(this.x, this.points.map((point) => [point.series.name, point.series.name === 'Margen %' ? `${fmt(point.y, 1)} %` : `${fmt(point.y, 2)} CUP`])); } },
+      plotOptions: { column: { borderRadius: 6, borderWidth: 0 }, spline: { lineWidth: 3, marker: { radius: 5 } } },
+      series: [
+        { type: 'column', name: 'Venta', color: '#34d399', data: costCategories.map((item) => Number(item.venta)) },
+        { type: 'column', name: 'Costo', color: '#fbbf24', data: costCategories.map((item) => Number(item.costo)) },
+        { type: 'spline', name: 'Margen %', yAxis: 1, color: '#38bdf8', data: costCategories.map((item) => Number(item.margen_porcentaje)) },
+      ],
+    }, costCategories.length > 0);
+    const knownWaste = waste.filter((item) => Number(item.valor) > 0);
+    chart('gMerma', {
+      chart: { type: 'bar', height: Math.max(230, knownWaste.length * 56 + 56), marginRight: 56 },
+      legend: { enabled: false },
+      xAxis: { categories: knownWaste.map((item) => item.tipo), lineWidth: 0, tickLength: 0 },
+      yAxis: { min: 0 },
+      tooltip: { formatter() { const item = knownWaste[this.point.index]; return tip(item.tipo, [['Unidades', `${fmt(item.cantidad, 3)} u.`], ['Pérdida (costo)', `${fmt(item.valor, 2)} CUP`]]); } },
+      plotOptions: { bar: { borderRadius: 8, borderWidth: 0, dataLabels: { enabled: true, formatter() { return `${fmt(this.y, 2)} CUP`; }, style: { color: '#e2e8f0', textOutline: 'none', fontWeight: '600' } } } },
+      series: [{ name: 'Pérdida', color: '#fb7185', data: knownWaste.map((item) => Number(item.valor)) }],
+    }, knownWaste.length > 0);
+  }
+  const toast = (message) => {
+    const element = $('#toast');
+    element.textContent = message;
+    element.style.opacity = '1';
+    window.setTimeout(() => { element.style.opacity = '0'; }, 2200);
+  };
+  const tabs = Array.from(document.querySelectorAll('#tabs [role="tab"]'));
+  $('#tabs').addEventListener('keydown', (event) => {
+    const index = tabs.indexOf(document.activeElement);
+    if (index < 0) return;
+    const next = {
+      ArrowRight: (index + 1) % tabs.length,
+      ArrowLeft: (index - 1 + tabs.length) % tabs.length,
+      Home: 0,
+      End: tabs.length - 1,
+    }[event.key];
+    if (next === undefined) return;
+    event.preventDefault();
+    tabs[next].focus();
+    tabs[next].click();
+  });
+  $('#refBtn').addEventListener('click', () => window.location.reload());
+  $('#prnBtn').addEventListener('click', () => window.print());
+  const columns = (sheet, widths) => {
+    sheet.columns = widths.map((width) => ({ width }));
+  };
+  const buildSheet = (workbook, name, title, rows, headers, widths, tabColor, totals, formats = []) => {
+    const sheet = workbook.addWorksheet(name, { properties: { tabColor }, views: [{ state: 'frozen', ySplit: 4 }], pageSetup: { orientation: 'landscape', fitToPage: true, fitToWidth: 1 } });
+    columns(sheet, widths);
+    sheet.mergeCells(1, 1, 1, headers.length);
+    sheet.getCell(1, 1).value = title;
+    sheet.getCell(1, 1).font = { name: 'Calibri', size: 16, bold: true, color: { argb: 'FFFFFFFF' } };
+    sheet.getCell(1, 1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E5631' } };
+    sheet.getRow(1).height = 34;
+    sheet.mergeCells(2, 1, 2, headers.length);
+    sheet.getCell(2, 1).value = `Período: {{ periodo_label|escapejs }} · {{ fecha_desde|date:'d/m/Y' }} – {{ fecha_hasta|date:'d/m/Y' }}`;
+    sheet.getCell(2, 1).font = { bold: true, color: { argb: 'FF1E5631' } };
+    sheet.getRow(3).height = 8;
+    const header = sheet.getRow(4);
+    header.values = headers;
+    header.height = 26;
+    header.eachCell((cell) => {
+      cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E5631' } };
+      cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+    });
+    if (rows.length) sheet.addRows(rows);
+    else {
+      sheet.mergeCells(5, 1, 5, headers.length);
+      sheet.getCell(5, 1).value = 'Sin registros en el período.';
+    }
+    sheet.eachRow((row, rowNumber) => {
+      if (rowNumber < 5) return;
+      row.eachCell((cell) => {
+        cell.border = { bottom: { style: 'thin', color: { argb: 'FFD0D7D2' } } };
+        cell.alignment = { vertical: 'middle' };
+        if (typeof cell.value === 'number' && formats[cell.col - 1]) cell.numFmt = formats[cell.col - 1];
+        else if (typeof cell.value === 'number') cell.numFmt = '#,##0.00';
+      });
+    });
+    if (rows.length && totals) {
+      const totalRow = sheet.addRow(totals.map((value, index) => {
+        if (value !== 'SUM') return value ?? '';
+        const column = String.fromCharCode(65 + index);
+        const result = rows.reduce((sum, row) => sum + (Number(row[index]) || 0), 0);
+        return { formula: `SUM(${column}5:${column}${4 + rows.length})`, result };
+      }));
+      totalRow.height = 24;
+      totalRow.eachCell((cell) => {
+        cell.font = { bold: true, color: { argb: 'FF1E5631' } };
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFCFE8D5' } };
+        cell.border = { top: { style: 'medium', color: { argb: 'FF2E7D45' } } };
+        if (typeof cell.value === 'number' || (cell.value && cell.value.formula)) cell.numFmt = formats[cell.col - 1] || '#,##0.00';
+      });
+    }
+    if (rows.length) sheet.autoFilter = { from: { row: 4, column: 1 }, to: { row: 4 + rows.length, column: headers.length } };
+    return sheet;
+  };
+  $('#xlsBtn').addEventListener('click', async () => {
+    if (!window.ExcelJS) { toast('No se pudo cargar el módulo de Excel. Revisa tu conexión.'); return; }
+    try {
+      const summary = read('rpt-summary-data');
+      const wb = new ExcelJS.Workbook();
+      wb.creator = 'GourmetControl';
+      buildSheet(wb, 'Totales', 'TOTALES DEL PERÍODO', summary.map(([label, value, unit]) => [label, Number(value), unit]), ['Indicador', 'Valor', 'Unidad'], [34, 20, 14], 'FF1E5631', null, ['#,##0.00']);
+      const totalUnits = categories.reduce((sum, item) => sum + Number(item.cantidad), 0);
+      const totalPaymentAmount = payments.reduce((sum, item) => sum + Number(item.total_cup), 0);
+      const topRows = [...costProducts]
+        .sort((left, right) => Number(right.unidades) - Number(left.unidades))
+        .map((item) => [item.nombre, item.categoria, Number(item.unidades), Number(item.venta_total), totalUnits ? Number(item.unidades) / totalUnits : 0]);
+      buildSheet(wb, 'Más vendidos', 'PRODUCTOS MÁS VENDIDOS', topRows, ['Producto', 'Categoría', 'Unidades', 'Importe', '% unidades'], [32, 22, 14, 18, 14], 'FFB7791F', ['TOTAL', '', 'SUM', 'SUM', totalUnits ? 1 : 0], ['', '', '#,##0', '#,##0.00', '0.0%']);
+      const categoryRows = categories.map((item) => {
+        const detail = costByCategory.get(item.nombre);
+        return [item.nombre, Number(item.cantidad), Number(item.participacion) / 100, detail ? Number(detail.venta) : '', detail ? Number(detail.costo) : '', detail ? Number(detail.margen) : '', detail && Number(detail.venta) ? Number(detail.margen) / Number(detail.venta) : ''];
+      });
+      const calculatedSale = categoryRows.reduce((sum, row) => sum + (Number(row[3]) || 0), 0);
+      const calculatedMargin = categoryRows.reduce((sum, row) => sum + (Number(row[5]) || 0), 0);
+      buildSheet(wb, 'Por categoría', 'DISTRIBUCIÓN POR CATEGORÍA', categoryRows, ['Categoría', 'Unidades', '% unidades', 'Venta calculable', 'Costo', 'Margen', 'Margen %'], [24, 14, 14, 20, 18, 18, 14], 'FF2E7D45', ['TOTAL', 'SUM', 'SUM', 'SUM', 'SUM', 'SUM', calculatedSale ? calculatedMargin / calculatedSale : 0], ['', '#,##0', '0.0%', '#,##0.00', '#,##0.00', '#,##0.00', '0.0%']);
+      const paymentRows = payments.map((item) => [item.nombre, Number(item.facturas), Number(item.total_cup), Number(item.participacion) / 100]);
+      buildSheet(wb, 'Forma de pago', 'RECAUDACIÓN POR FORMA DE PAGO', paymentRows, ['Forma de pago', 'Facturas', 'Recaudado (CUP)', '% del total'], [24, 12, 20, 14], 'FF1F3A8A', ['TOTAL', 'SUM', 'SUM', totalPaymentAmount ? 1 : 0], ['', '#,##0', '#,##0.00', '0.0%']);
+      const invoiceRows = read('rpt-invoices-data').map((row) => [row[0], row[1], row[2], row[3], row[4], Number(row[5]), Number(row[6])]);
+      buildSheet(wb, 'Facturas', 'FACTURAS DEL PERÍODO', invoiceRows, ['Fecha', 'N.º', 'Hora', 'Mesa', 'Forma de pago', 'Total (CUP)', 'USD'], [14, 10, 10, 14, 20, 18, 14], 'FF1F3A8A', ['TOTAL', '', '', '', '', 'SUM', 'SUM'], ['', '#,##0', '', '', '', '#,##0.00', '#,##0.00']);
+      const costRows = costProducts.map((item) => {
+        const completo = Number(item.unidades_con_costo) === Number(item.unidades);
+        return [item.nombre, item.categoria, Number(item.unidades), item.precio_promedio === null ? '' : Number(item.precio_promedio), completo ? Number(item.costo_unitario) : '', completo ? Number(item.venta_total) : '', completo ? Number(item.costo) : '', completo ? Number(item.margen) : '', completo ? Number(item.margen_porcentaje) / 100 : ''];
+      });
+      buildSheet(wb, 'Costo vs venta', 'REPORTE DE COSTO VS. VENTA', costRows, ['Producto', 'Categoría', 'Unidades', 'Precio', 'Costo unit.', 'Venta', 'Costo', 'Margen', 'Margen %'], [30, 20, 12, 14, 16, 18, 18, 18, 14], 'FFB7791F', ['TOTAL', '', 'SUM', '', '', 'SUM', 'SUM', 'SUM', calculatedSale ? calculatedMargin / calculatedSale : 0], ['', '', '#,##0', '#,##0.00', '#,##0.00', '#,##0.00', '#,##0.00', '#,##0.00', '0.0%']);
+      const wasteRows = read('rpt-waste-rows-data').map((item) => [item.fecha, item.producto, item.tipo, Number(item.cantidad), item.motivo, item.valor === null ? '' : Number(item.valor), item.responsable]);
+      buildSheet(wb, 'Mermas', 'MERMAS Y DESPERDICIOS', wasteRows, ['Fecha', 'Producto', 'Tipo', 'Cantidad', 'Motivo', 'Valor (costo)', 'Reportado por'], [22, 28, 16, 12, 26, 18, 22], 'FF9C1C1C', ['TOTAL', '', '', 'SUM', '', 'SUM', ''], ['', '', '', '#,##0.000', '', '#,##0.00', '']);
+      const rotationRows = read('rpt-rotation-data').map((item) => [item.nombre, item.categoria, Number(item.stock), Number(item.consumo), item.rotacion, item.cobertura, item.dias_sin_salida, Number(item.valor_stock), item.estado]);
+      buildSheet(wb, 'Rotación', 'ROTACIÓN DE INVENTARIO', rotationRows, ['Insumo', 'Categoría', 'Stock', 'Vendido', 'Rotación', 'Cobertura (días)', 'Días sin venta', 'Valor en stock', 'Estado'], [28, 20, 12, 12, 14, 18, 18, 20, 16], 'FF7B3FA0', ['TOTAL', '', 'SUM', 'SUM', '', '', '', 'SUM', ''], ['', '', '#,##0.000', '#,##0.000', '#,##0.00', '#,##0.0', '#,##0', '#,##0.00', '']);
+      buildSheet(wb, 'Huérfanos', 'PLATOS HUÉRFANOS (SIN VENTAS)', read('rpt-orphans-data').map((item) => [item.nombre, item.categoria, Number(item.precio), item.costo === null ? '' : Number(item.costo), '—', '—', item.dias_sin_venta ?? '', item.recomendacion]), ['Producto', 'Categoría', 'Precio', 'Costo', 'Stock', 'Capital inmovilizado', 'Última venta (días)', 'Recomendación'], [28, 20, 16, 16, 12, 22, 20, 26], 'FF9C1C1C', ['TOTAL', '', '', '', '—', '—', '', ''], ['', '', '#,##0.00', '#,##0.00', '', '', '#,##0', '', '']);
+      const buffer = await wb.xlsx.writeBuffer();
+      const url = URL.createObjectURL(new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }));
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'reportes-{{ fecha_desde|date:"Y-m-d" }}_a_{{ fecha_hasta|date:"Y-m-d" }}.xlsx';
+      link.click();
+      window.setTimeout(() => URL.revokeObjectURL(url), 2000);
+      toast('Archivo Excel descargado');
+    } catch (error) {
+      console.error(error);
+      toast('No se pudo generar el Excel');
+    }
+  });
+})();
+</script>

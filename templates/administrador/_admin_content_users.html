@@ -1,0 +1,194 @@
+{% load static %}
+<div class="users-inner">
+          {% if messages %}
+            <div role="status" aria-live="polite">
+              {% for message in messages %}
+                <div class="users-flash {% if message.tags == 'error' %}users-flash-error{% endif %}">
+                  <i class="fa-solid {% if message.tags == 'error' %}fa-circle-exclamation{% else %}fa-circle-check{% endif %}" aria-hidden="true"></i>
+                  <span>{{ message }}</span>
+                </div>
+              {% endfor %}
+            </div>
+          {% endif %}
+
+          <section class="users-heading" aria-labelledby="users-page-title">
+            <div>
+              <p class="users-kicker">Administración</p>
+              <h1 id="users-page-title" class="users-title">Usuarios</h1>
+              <p class="users-subtitle">Crea cuentas y administra el acceso del equipo.</p>
+            </div>
+            <div class="users-actions">
+              <button type="button" class="users-btn users-btn-primary" data-open-dialog="new-user-dialog">
+                <i class="fa-solid fa-plus" aria-hidden="true"></i>Nuevo usuario
+              </button>
+            </div>
+          </section>
+
+          <section aria-labelledby="team-summary-title">
+            <h2 id="team-summary-title" class="users-section-title"><i class="fa-solid fa-users" aria-hidden="true"></i>Resumen del equipo</h2>
+            <div class="users-kpis">
+              <article class="users-kpi users-kpi-highlight">
+                <div class="users-kpi-label"><span class="users-kpi-icon"><i class="fa-solid fa-users" aria-hidden="true"></i></span>Cuentas totales</div>
+                <p class="users-kpi-value">{{ usuarios|length }}</p>
+              </article>
+              <article class="users-kpi">
+                <div class="users-kpi-label"><span class="users-kpi-icon"><i class="fa-solid fa-user-check" aria-hidden="true"></i></span>Activas</div>
+                <p class="users-kpi-value">{{ usuarios_activos }}</p>
+              </article>
+              <article class="users-kpi">
+                <div class="users-kpi-label"><span class="users-kpi-icon"><i class="fa-solid fa-user-slash" aria-hidden="true"></i></span>Inactivas</div>
+                <p class="users-kpi-value">{{ usuarios_inactivos }}</p>
+              </article>
+              <article class="users-kpi">
+                <div class="users-kpi-label"><span class="users-kpi-icon"><i class="fa-solid fa-user-shield" aria-hidden="true"></i></span>Administradores</div>
+                <p class="users-kpi-value">{{ administradores }}</p>
+              </article>
+            </div>
+          </section>
+
+          <section aria-labelledby="registered-users-title">
+            <h2 id="registered-users-title" class="users-section-title"><i class="fa-solid fa-address-book" aria-hidden="true"></i>Usuarios registrados</h2>
+            <div class="users-card-grid">
+              {% for usuario in usuarios %}
+                <article class="users-card {% if not usuario.is_active %}users-card-inactive{% endif %}">
+                  <div class="users-card-head">
+                    <div class="users-card-identity">
+                      <span class="users-avatar {% if usuario.is_active %}users-avatar-active{% endif %}" aria-hidden="true">
+                        {% with nombre=usuario.get_full_name|default:usuario.username %}
+                          {{ nombre|slice:":1"|upper }}{% if usuario.last_name %}{{ usuario.last_name|slice:":1"|upper }}{% endif %}
+                        {% endwith %}
+                      </span>
+                      <div class="users-card-copy">
+                        <p class="users-account-label">Cuenta de usuario</p>
+                        <h3 class="users-full-name">{{ usuario.get_full_name|default:usuario.username }}</h3>
+                      </div>
+                    </div>
+                    <span class="users-status {% if usuario.is_active %}users-status-active{% endif %}">
+                      <i class="fa-solid {% if usuario.is_active %}fa-circle-check{% else %}fa-circle-minus{% endif %}" aria-hidden="true"></i>
+                      {{ usuario.is_active|yesno:"Activo,Inactivo" }}
+                    </span>
+                  </div>
+                  <div class="users-meta-grid">
+                    <div class="users-meta"><p class="users-meta-label">Usuario</p><p class="users-meta-value">@{{ usuario.username }}</p></div>
+                    <div class="users-meta"><p class="users-meta-label">Rol</p><p class="users-meta-value">{{ usuario.get_role_display }}</p></div>
+                  </div>
+                  <div class="users-card-actions">
+                    {% if usuario == request.user %}
+                      <span class="users-protected"><i class="fa-solid fa-lock" aria-hidden="true"></i>Tu cuenta protegida</span>
+                    {% else %}
+                      <form method="post" action="{% url 'usuarios:cambiar_estado_usuario' usuario.id %}" data-confirm="{% if usuario.is_active %}¿Desactivar a {{ usuario.username }}? No podrá iniciar sesión.{% endif %}">
+                        {% csrf_token %}
+                        <button type="submit" class="users-btn {% if usuario.is_active %}users-btn-warning{% else %}users-btn-success{% endif %}">
+                          <i class="fa-solid {% if usuario.is_active %}fa-user-slash{% else %}fa-user-check{% endif %}" aria-hidden="true"></i>
+                          {% if usuario.is_active %}Desactivar{% else %}Activar{% endif %}
+                        </button>
+                      </form>
+                    {% endif %}
+                    <button type="button" class="users-btn" data-open-dialog="edit-user-{{ usuario.id }}" aria-label="Editar {{ usuario.get_full_name|default:usuario.username }}">
+                      <i class="fa-solid fa-pen" aria-hidden="true"></i>Editar
+                    </button>
+                  </div>
+                </article>
+              {% empty %}
+                <p class="users-empty">No hay usuarios registrados.</p>
+              {% endfor %}
+            </div>
+          </section>
+        </div>
+</div>
+  </div>
+
+  <dialog id="new-user-dialog" class="users-dialog" aria-labelledby="new-user-title">
+    <div class="users-dialog-head">
+      <span class="users-dialog-icon"><i class="fa-solid fa-user-plus" aria-hidden="true"></i></span>
+      <div><p class="users-dialog-kicker">Equipo</p><h2 id="new-user-title" class="users-dialog-title">Crear usuario</h2></div>
+    </div>
+    <form method="post" action="{% url 'usuarios:crear_usuario' %}">
+      {% csrf_token %}
+      <div class="users-form-grid">
+        <div class="users-field"><label class="users-label" for="new-first-name">Nombre</label><input id="new-first-name" class="users-input" type="text" name="first_name" autocomplete="given-name" required></div>
+        <div class="users-field"><label class="users-label" for="new-last-name">Apellidos</label><input id="new-last-name" class="users-input" type="text" name="last_name" autocomplete="family-name" required></div>
+        <div class="users-field users-field-wide"><label class="users-label" for="new-username">Nombre de usuario</label><input id="new-username" class="users-input" type="text" name="username" autocomplete="username" required></div>
+        <div class="users-field">
+          <label class="users-label" for="new-password">Contraseña</label>
+          <div class="users-password"><input id="new-password" class="users-input" type="password" name="password" autocomplete="new-password" required><button type="button" class="users-password-toggle" data-toggle-password="new-password" aria-label="Mostrar contraseña"><i class="fa-solid fa-eye" aria-hidden="true"></i></button></div>
+        </div>
+        <div class="users-field"><label class="users-label" for="new-role">Rol</label><select id="new-role" class="users-input" name="role" required><option value="" disabled selected>Seleccionar rol</option>{% for value, label in user.ROLE_CHOICES %}<option value="{{ value }}">{{ label }}</option>{% endfor %}</select></div>
+      </div>
+      <div class="users-dialog-actions">
+        <button type="button" class="users-btn" data-close-dialog>Cancelar</button>
+        <button type="submit" class="users-btn users-btn-primary"><i class="fa-solid fa-plus" aria-hidden="true"></i>Crear usuario</button>
+      </div>
+    </form>
+  </dialog>
+
+  {% for usuario in usuarios %}
+    <dialog id="edit-user-{{ usuario.id }}" class="users-dialog users-edit-dialog" aria-labelledby="edit-user-title-{{ usuario.id }}">
+      <div class="users-dialog-head">
+        <span class="users-dialog-icon"><i class="fa-solid fa-user-pen" aria-hidden="true"></i></span>
+        <div><p class="users-dialog-kicker">Equipo</p><h2 id="edit-user-title-{{ usuario.id }}" class="users-dialog-title">Editar usuario</h2></div>
+      </div>
+      <form method="post" action="{% url 'usuarios:editar_usuario' usuario.id %}">
+        {% csrf_token %}
+        <div class="users-form-grid">
+          <div class="users-field"><label class="users-label" for="edit-first-name-{{ usuario.id }}">Nombre</label><input id="edit-first-name-{{ usuario.id }}" class="users-input" type="text" name="first_name" value="{{ usuario.first_name }}" autocomplete="given-name" required></div>
+          <div class="users-field"><label class="users-label" for="edit-last-name-{{ usuario.id }}">Apellidos</label><input id="edit-last-name-{{ usuario.id }}" class="users-input" type="text" name="last_name" value="{{ usuario.last_name }}" autocomplete="family-name" required></div>
+          <div class="users-field users-field-wide"><label class="users-label" for="edit-username-{{ usuario.id }}">Nombre de usuario</label><input id="edit-username-{{ usuario.id }}" class="users-input" type="text" name="username" value="{{ usuario.username }}" autocomplete="username" required></div>
+          <div class="users-field"><label class="users-label" for="edit-email-{{ usuario.id }}">Correo</label><input id="edit-email-{{ usuario.id }}" class="users-input" type="email" name="email" value="{{ usuario.email }}"></div>
+          <div class="users-field"><label class="users-label" for="edit-phone-{{ usuario.id }}">Teléfono</label><input id="edit-phone-{{ usuario.id }}" class="users-input" type="text" name="telefono" value="{{ usuario.telefono }}"></div>
+          <div class="users-field"><label class="users-label" for="edit-role-{{ usuario.id }}">Rol</label><select id="edit-role-{{ usuario.id }}" class="users-input" name="role" required>{% for value, label in usuario.ROLE_CHOICES %}<option value="{{ value }}" {% if usuario.role == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></div>
+          <div class="users-field">
+            <label class="users-label" for="edit-password-{{ usuario.id }}">Nueva contraseña</label>
+            <div class="users-password"><input id="edit-password-{{ usuario.id }}" class="users-input" type="password" name="password" placeholder="Vacía = conservar" autocomplete="new-password"><button type="button" class="users-password-toggle" data-toggle-password="edit-password-{{ usuario.id }}" aria-label="Mostrar contraseña"><i class="fa-solid fa-eye" aria-hidden="true"></i></button></div>
+          </div>
+        </div>
+        <div class="users-dialog-actions">
+          <button type="button" class="users-btn" data-close-dialog>Cancelar</button>
+          <button type="submit" class="users-btn users-btn-primary"><i class="fa-solid fa-check" aria-hidden="true"></i>Guardar cambios</button>
+        </div>
+      </form>
+    </dialog>
+  {% endfor %}
+
+  <script>
+    document.querySelectorAll('[data-open-dialog]').forEach(button => {
+      button.addEventListener('click', () => {
+        const dialog = document.getElementById(button.dataset.openDialog);
+        if (!dialog) return;
+        dialog.showModal();
+        dialog.querySelector('input:not([type=hidden]),select')?.focus();
+      });
+    });
+    document.querySelectorAll('[data-close-dialog]').forEach(button => {
+      button.addEventListener('click', () => button.closest('dialog').close());
+    });
+    document.querySelectorAll('[data-toggle-password]').forEach(button => {
+      button.addEventListener('click', () => {
+        const field = document.getElementById(button.dataset.togglePassword);
+        const visible = field.type === 'text';
+        field.type = visible ? 'password' : 'text';
+        button.setAttribute('aria-label', visible ? 'Mostrar contraseña' : 'Ocultar contraseña');
+        button.innerHTML = `<i class="fa-solid fa-eye${visible ? '' : '-slash'}" aria-hidden="true"></i>`;
+      });
+    });
+    document.querySelectorAll('dialog.users-dialog').forEach(dialog => {
+      dialog.addEventListener('click', event => {
+        if (event.target === dialog) dialog.close();
+      });
+    });
+    document.querySelectorAll('form[data-confirm]').forEach(form => {
+      form.addEventListener('submit', event => {
+        if (form.dataset.confirm && !window.confirm(form.dataset.confirm)) event.preventDefault();
+      });
+    });
+    const clock = document.getElementById('users-clock');
+    const updateClock = () => {
+      clock.textContent = new Intl.DateTimeFormat('es', {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true,
+      }).format(new Date());
+    };
+    updateClock();
+    window.setInterval(updateClock, 30000);
+  </script>
