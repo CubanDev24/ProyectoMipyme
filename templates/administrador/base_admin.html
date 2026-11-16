@@ -8,9 +8,7 @@
   <link rel="icon" type="image/svg+xml" href="{% static 'img/favicon.svg' %}">
   <link rel="stylesheet" href="{% static 'css/tailwind.css' %}">
   <link rel="stylesheet" href="{% static 'vendor/fontawesome/css/all.min.css' %}">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{% static 'css/fonts.css' %}">
   {% if admin_load_main_css %}<link rel="stylesheet" href="{% static 'css/main.css' %}">{% endif %}
   {% if admin_head_template %}{% include admin_head_template %}{% endif %}
   <style>

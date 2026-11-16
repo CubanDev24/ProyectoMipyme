@@ -176,35 +176,48 @@
     const element = document.getElementById(id);
     if (element) element.innerHTML = `<p class="xl-empty">${message}</p>`;
   };
-  const chartsReady = Boolean(window.Highcharts);
+  const chartsReady = typeof window.ApexCharts === 'function';
   if (!chartsReady) {
     ['gTop', 'gCat', 'gPago', 'gTiempo', 'gCosto', 'gMerma'].forEach((id) => {
       noData(id, 'No se pudo cargar el gráfico.');
     });
   } else {
-    Highcharts.setOptions({
-      colors: ['#34d399', '#fbbf24', '#38bdf8', '#a78bfa', '#fb7185', '#2dd4bf', '#f97316', '#94a3b8'],
-      lang: { thousandsSep: '.', decimalPoint: ',' },
-      chart: { backgroundColor: 'transparent', style: { fontFamily: 'Inter,sans-serif' }, spacing: [8, 8, 8, 8] },
-      title: { text: undefined },
-      credits: { enabled: false },
-      accessibility: { enabled: true },
-      legend: { itemStyle: { color: '#cbd5e1', fontWeight: '500', fontSize: '12px' } },
-      tooltip: { useHTML: true, outside: true, backgroundColor: 'rgba(8,12,22,.97)', borderColor: '#334155', borderRadius: 12, padding: 0, shadow: false },
-      xAxis: { lineColor: '#1e293b', tickColor: '#1e293b', labels: { style: { color: '#94a3b8', fontSize: '11px' } } },
-      yAxis: { gridLineColor: '#1e293b', gridLineDashStyle: 'Dash', title: { text: undefined }, labels: { style: { color: '#64748b', fontSize: '11px' } } },
-    });
+    const palette = ['#34d399', '#fbbf24', '#38bdf8', '#a78bfa', '#fb7185', '#2dd4bf', '#f97316', '#94a3b8'];
     const chart = (id, options, hasData) => {
       if (!hasData) { noData(id); return; }
-      Highcharts.chart(id, options);
+      const element = document.getElementById(id);
+      if (!element) return;
+      const defaults = {
+        chart: { background: 'transparent', fontFamily: 'Inter, sans-serif', foreColor: '#94a3b8', toolbar: { show: false } },
+        grid: { borderColor: '#1e293b', strokeDashArray: 4 },
+        legend: { labels: { colors: '#cbd5e1' }, fontSize: '12px' },
+        tooltip: { theme: 'dark' },
+        dataLabels: { enabled: false },
+      };
+      new ApexCharts(element, {
+        ...defaults,
+        ...options,
+        chart: { ...defaults.chart, ...options.chart },
+        tooltip: { ...defaults.tooltip, ...options.tooltip, cssClass: 'report-chart-tooltip' },
+      }).render();
     };
+    const axisLabels = { colors: '#94a3b8', fontSize: '11px' };
     chart('gTop', {
-      chart: { type: 'bar', height: 300, marginRight: 48 },
-      legend: { enabled: false },
-      xAxis: { categories: top.map((item) => item.nombre), lineWidth: 0, tickLength: 0 },
-      yAxis: { min: 0, allowDecimals: false },
-      tooltip: { formatter() {
-        const item = top[this.point.index];
+      chart: { type: 'bar', height: 300 },
+      colors: top.map((item) => item.color),
+      series: [{ name: 'Unidades', data: top.map((item) => Number(item.cantidad)) }],
+      plotOptions: { bar: { horizontal: true, distributed: true, borderRadius: 8, barHeight: '65%' } },
+      xaxis: {
+        categories: top.map((item) => item.nombre),
+        labels: { style: axisLabels, formatter: (value) => fmt(value) },
+        axisBorder: { show: false },
+        axisTicks: { show: false },
+      },
+      yaxis: { labels: { style: { colors: '#cbd5e1' }, maxWidth: 150 } },
+      dataLabels: { enabled: true, formatter: (value) => `${fmt(value)} u.`, style: { colors: ['#e2e8f0'], fontWeight: 600 }, background: { enabled: false } },
+      tooltip: { custom: ({ dataPointIndex }) => {
+        const item = top[dataPointIndex];
+        if (!item) return '';
         const detail = costByName.get(item.nombre);
         const rows = [['Categoría', item.categoria], ['Unidades', `${fmt(item.cantidad)} u.`]];
         if (detail) {
@@ -215,47 +228,62 @@
         }
         return tip(item.nombre, rows);
       } },
-      plotOptions: { bar: { borderRadius: 8, borderWidth: 0, dataLabels: { enabled: true, format: '{y} u.', style: { color: '#e2e8f0', textOutline: 'none', fontWeight: '600' } } } },
-      series: [{ name: 'Unidades', data: top.map((item) => ({ y: Number(item.cantidad), color: item.color })) }],
     }, top.length > 0);
-    const donut = (id, rows, seriesName, centerLabel, tooltipRows) => chart(id, {
-      chart: {
-        type: 'pie',
-        height: 300,
-        events: {
-          render() {
-            const series = this.series[0];
-            if (!series || !series.center) return;
-            (this.reportCenterLabels || []).forEach((label) => label.destroy());
-            const visiblePoints = series.points.filter((point) => point.visible);
-            const visibleTotal = visiblePoints.reduce((sum, point) => sum + Number(point.y || 0), 0);
-            const centerX = this.plotLeft + series.center[0];
-            const centerY = this.plotTop + series.center[1];
-            this.reportCenterLabels = [
-              this.renderer.text(fmt(visibleTotal), centerX, centerY + 4)
-                .attr({ align: 'center', zIndex: 6 })
-                .css({ color: '#fff', fontSize: '24px', fontWeight: '700', pointerEvents: 'none' })
-                .add(),
-              this.renderer.text(centerLabel, centerX, centerY + 24)
-                .attr({ align: 'center', zIndex: 6 })
-                .css({ color: '#94a3b8', fontSize: '11px', pointerEvents: 'none' })
-                .add(),
-            ];
+    const donut = (id, rows, centerLabel, tooltipRows) => {
+      const total = rows.reduce((sum, item) => sum + Number(item.y || 0), 0);
+      chart(id, {
+        chart: { type: 'donut', height: 300 },
+        series: rows.map((item) => Number(item.y)),
+        labels: rows.map((item) => item.name),
+        colors: rows.map((item, index) => item.color || palette[index % palette.length]),
+        plotOptions: {
+          pie: {
+            donut: {
+              size: '68%',
+              labels: {
+                show: true,
+                name: { show: false },
+                value: { show: false },
+                total: {
+                  show: true,
+                  showAlways: true,
+                  label: centerLabel,
+                  color: '#94a3b8',
+                  fontSize: '11px',
+                  formatter: (chartContext) => fmt(
+                    chartContext.globals.seriesTotals.reduce((sum, value) => sum + Number(value || 0), 0),
+                  ),
+                },
+              },
+            },
           },
         },
-      },
-      tooltip: { formatter() { return tip(this.point.name, tooltipRows(this.point, this.percentage)); } },
-      legend: { align: 'right', verticalAlign: 'middle', layout: 'vertical', itemMarginBottom: 8, labelFormatter() { return `<span style="display:inline-flex;justify-content:space-between;gap:.7rem;width:160px;font-size:12px"><span>${esc(this.name)}</span><b style="color:#fff">${fmt(this.y)} · ${fmt(this.percentage)}%</b></span>`; }, useHTML: true },
-      plotOptions: { pie: { innerSize: '68%', size: '86%', borderWidth: 3, borderColor: '#0a0d14', showInLegend: true, dataLabels: { enabled: false } } },
-      series: [{ name: seriesName, data: rows }],
-      responsive: { rules: [{ condition: { maxWidth: 470 }, chartOptions: { chart: { height: 360 }, legend: { align: 'center', verticalAlign: 'bottom', layout: 'horizontal', itemWidth: 180 } } }] },
-    }, rows.length > 0);
-    donut('gCat', categories.map((item) => ({ name: item.nombre, y: Number(item.cantidad), color: item.color })), 'u.', 'unidades', (point, percentage) => {
+        legend: {
+          position: 'right',
+          itemMargin: { vertical: 7 },
+          markers: { width: 8, height: 8 },
+          formatter: (name) => {
+            const item = rows.find((row) => row.name === name);
+            if (!item) return name;
+            return `${name} · ${fmt(item.y)} · ${fmt(total ? Number(item.y) / total * 100 : 0)}%`;
+          },
+        },
+        tooltip: { custom: ({ dataPointIndex }) => {
+          const item = rows[dataPointIndex];
+          if (!item) return '';
+          const point = { name: item.name, y: Number(item.y), options: item };
+          const percentage = total ? point.y / total * 100 : 0;
+          return tip(point.name, tooltipRows(point, percentage));
+        } },
+        responsive: [{ breakpoint: 520, options: { chart: { height: 360 }, legend: { position: 'bottom' } } }],
+      }, rows.length > 0);
+    };
+    donut('gCat', categories.map((item) => ({ name: item.nombre, y: Number(item.cantidad), color: item.color })), 'unidades', (point, percentage) => {
       const detail = costByCategory.get(point.name);
       return [['Unidades', `${fmt(point.y)} u.`], ['% de unidades', `${fmt(percentage, 1)} %`]]
         .concat(detail ? [['Importe', `${fmt(detail.venta, 2)} CUP`], ['Margen', `${fmt(detail.margen, 2)} CUP`], ['Productos distintos', detail.unidades_con_costo]] : []);
     });
-    donut('gPago', payments.map((item) => ({ name: item.nombre, y: Number(item.total_cup), color: item.color, facturas: item.facturas })), 'CUP', 'CUP', (point, percentage) => [
+    donut('gPago', payments.map((item) => ({ name: item.nombre, y: Number(item.total_cup), color: item.color, facturas: item.facturas })), 'CUP', (point, percentage) => [
       ['Recaudado', `${fmt(point.y, 2)} CUP`],
       ['% del total', `${fmt(percentage, 1)} %`],
       ['Facturas', point.options.facturas],
@@ -267,49 +295,75 @@
       let accumulated = 0;
       const cumulative = amounts.map((value) => (accumulated += value));
       chart('gTiempo', {
-        chart: { height: 300 },
-        xAxis: { categories: trend.map((item) => item.etiqueta), crosshair: true },
-        yAxis: [{ min: 0, labels: { formatter() { return fmt(this.value); } } }, { min: 0, opposite: true, gridLineWidth: 0, labels: { formatter() { return fmt(this.value); } } }],
-        legend: { align: 'center', verticalAlign: 'bottom' },
-        tooltip: { shared: true, formatter() {
-          const index = this.points[0].point.index;
-          const point = trend[index];
-          const cumulativePoint = this.points.find((seriesPoint) => seriesPoint.series.name === 'Acumulado (eje der.)');
-          const cumulativeValue = cumulativePoint ? cumulativePoint.y : cumulative[index];
-          return tip(this.x, [
+        chart: { type: 'line', height: 300 },
+        colors: ['#10b981', '#38bdf8'],
+        series: [
+          { name: `Por ${timeUnit} (eje izq.)`, type: 'column', data: amounts },
+          { name: 'Acumulado (eje der.)', type: 'line', data: cumulative },
+        ],
+        xaxis: { categories: trend.map((item) => item.etiqueta), labels: { style: axisLabels }, crosshairs: { show: true } },
+        yaxis: [
+          { min: 0, labels: { formatter: (value) => fmt(value), style: axisLabels } },
+          { min: 0, opposite: true, labels: { formatter: (value) => fmt(value), style: axisLabels } },
+        ],
+        plotOptions: { bar: { columnWidth: '48%', borderRadius: 5 } },
+        stroke: { width: [0, 2.5], curve: 'smooth' },
+        markers: { size: [0, 4], strokeColors: '#38bdf8', strokeWidth: 2, colors: ['#0a0d14'] },
+        legend: { position: 'bottom' },
+        tooltip: { shared: true, intersect: false, custom: ({ dataPointIndex }) => {
+          const point = trend[dataPointIndex];
+          if (!point) return '';
+          const cumulativeValue = cumulative[dataPointIndex];
+          return tip(point.etiqueta, [
             ['Facturas', point.facturas],
             ['Recaudado', `${fmt(point.total, 2)} CUP`],
             ['Acumulado', `${fmt(cumulativeValue, 2)} CUP`],
             ['% del total acumulado', `${fmt(accumulated ? cumulativeValue / accumulated * 100 : 0, 1)} %`],
           ]);
         } },
-        plotOptions: { column: { borderRadius: 5, borderWidth: 0 }, spline: { lineWidth: 2.5, marker: { radius: 4, lineWidth: 2, lineColor: '#38bdf8', fillColor: '#0a0d14' } } },
-        series: [{ type: 'column', name: `Por ${timeUnit} (eje izq.)`, color: '#10b981', data: amounts }, { type: 'spline', name: 'Acumulado (eje der.)', yAxis: 1, color: '#38bdf8', data: cumulative }],
       }, true);
     } else noData('gTiempo');
     const costCategories = cost.filter((item) => Number(item.venta) > 0 || Number(item.costo) > 0);
     chart('gCosto', {
-      chart: { height: 320 },
-      xAxis: { categories: costCategories.map((item) => item.nombre), crosshair: true },
-      yAxis: [{ min: 0 }, { min: 0, max: 100, opposite: true, gridLineWidth: 0, labels: { format: '{value} %' } }],
-      legend: { align: 'center', verticalAlign: 'bottom' },
-      tooltip: { shared: true, formatter() { return tip(this.x, this.points.map((point) => [point.series.name, point.series.name === 'Margen %' ? `${fmt(point.y, 1)} %` : `${fmt(point.y, 2)} CUP`])); } },
-      plotOptions: { column: { borderRadius: 6, borderWidth: 0 }, spline: { lineWidth: 3, marker: { radius: 5 } } },
+      chart: { type: 'line', height: 320 },
+      colors: ['#34d399', '#fbbf24', '#38bdf8'],
       series: [
-        { type: 'column', name: 'Venta', color: '#34d399', data: costCategories.map((item) => Number(item.venta)) },
-        { type: 'column', name: 'Costo', color: '#fbbf24', data: costCategories.map((item) => Number(item.costo)) },
-        { type: 'spline', name: 'Margen %', yAxis: 1, color: '#38bdf8', data: costCategories.map((item) => Number(item.margen_porcentaje)) },
+        { name: 'Venta', type: 'column', data: costCategories.map((item) => Number(item.venta)) },
+        { name: 'Costo', type: 'column', data: costCategories.map((item) => Number(item.costo)) },
+        { name: 'Margen %', type: 'line', data: costCategories.map((item) => Number(item.margen_porcentaje)) },
       ],
+      xaxis: { categories: costCategories.map((item) => item.nombre), labels: { style: axisLabels }, crosshairs: { show: true } },
+      yaxis: [
+        { min: 0, labels: { formatter: (value) => fmt(value), style: axisLabels } },
+        { min: 0, max: 100, opposite: true, labels: { formatter: (value) => `${fmt(value)} %`, style: axisLabels } },
+      ],
+      plotOptions: { bar: { columnWidth: '48%', borderRadius: 6 } },
+      stroke: { width: [0, 0, 3], curve: 'smooth' },
+      markers: { size: [0, 0, 4] },
+      legend: { position: 'bottom' },
+      tooltip: { shared: true, intersect: false, custom: ({ dataPointIndex }) => {
+        const item = costCategories[dataPointIndex];
+        if (!item) return '';
+        return tip(item.nombre, [
+          ['Venta', `${fmt(item.venta, 2)} CUP`],
+          ['Costo', `${fmt(item.costo, 2)} CUP`],
+          ['Margen %', `${fmt(item.margen_porcentaje, 1)} %`],
+        ]);
+      } },
     }, costCategories.length > 0);
     const knownWaste = waste.filter((item) => Number(item.valor) > 0);
     chart('gMerma', {
-      chart: { type: 'bar', height: Math.max(230, knownWaste.length * 56 + 56), marginRight: 56 },
-      legend: { enabled: false },
-      xAxis: { categories: knownWaste.map((item) => item.tipo), lineWidth: 0, tickLength: 0 },
-      yAxis: { min: 0 },
-      tooltip: { formatter() { const item = knownWaste[this.point.index]; return tip(item.tipo, [['Unidades', `${fmt(item.cantidad, 3)} u.`], ['Pérdida (costo)', `${fmt(item.valor, 2)} CUP`]]); } },
-      plotOptions: { bar: { borderRadius: 8, borderWidth: 0, dataLabels: { enabled: true, formatter() { return `${fmt(this.y, 2)} CUP`; }, style: { color: '#e2e8f0', textOutline: 'none', fontWeight: '600' } } } },
-      series: [{ name: 'Pérdida', color: '#fb7185', data: knownWaste.map((item) => Number(item.valor)) }],
+      chart: { type: 'bar', height: Math.max(230, knownWaste.length * 56 + 56) },
+      colors: ['#fb7185'],
+      series: [{ name: 'Pérdida', data: knownWaste.map((item) => Number(item.valor)) }],
+      plotOptions: { bar: { horizontal: true, borderRadius: 8, barHeight: '65%' } },
+      xaxis: { categories: knownWaste.map((item) => item.tipo), labels: { style: axisLabels, formatter: (value) => `${fmt(value, 2)} CUP` } },
+      yaxis: { labels: { style: { colors: '#cbd5e1' }, maxWidth: 150 } },
+      dataLabels: { enabled: true, formatter: (value) => `${fmt(value, 2)} CUP`, style: { colors: ['#e2e8f0'], fontWeight: 600 }, background: { enabled: false } },
+      tooltip: { custom: ({ dataPointIndex }) => {
+        const item = knownWaste[dataPointIndex];
+        return item ? tip(item.tipo, [['Unidades', `${fmt(item.cantidad, 3)} u.`], ['Pérdida (costo)', `${fmt(item.valor, 2)} CUP`]]) : '';
+      } },
     }, knownWaste.length > 0);
   }
   const toast = (message) => {

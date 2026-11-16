@@ -95,6 +95,14 @@ button.sw{padding:0;cursor:pointer}
 .ib:hover{background:#1e293b;color:#fff;border-color:#475569}
 .ib.del:hover{background:#ef444418;color:#fca5a5;border-color:#ef444466}
 dialog{position:fixed;top:50%;left:50%;right:auto;bottom:auto;transform:translate(-50%,-50%);margin:0!important;background:#101625;color:#e2e8f0;border:1px solid #1e293b;border-radius:.9rem;padding:0;width:calc(100% - 2rem);max-width:34rem;max-height:calc(100dvh - 2rem);overflow:auto;box-shadow:0 24px 60px -12px rgba(0,0,0,.8)}
+dialog#createI,dialog#editI{max-width:56rem}
+.dialog-body{max-height:min(65vh,max(0px,calc(100dvh - 12rem)));overflow-y:auto}
+.dialog-grid-wide{grid-column:1/-1}
+.recipe-row{display:grid;grid-template-columns:minmax(0,1fr) 36px;gap:.5rem}
+.recipe-row select{grid-column:1/-1}
+.recipe-row input{grid-column:1}
+.recipe-row button{grid-column:2;grid-row:2}
+@media(min-width:640px){.recipe-row{grid-template-columns:minmax(0,1fr) 150px 36px}.recipe-row select,.recipe-row input,.recipe-row button{grid-column:auto;grid-row:auto}}
 dialog::backdrop{background:rgba(0,0,0,.65)}
 .carta-items-table{min-width:68rem;border-collapse:separate;border-spacing:0}
 .carta-items-table thead th{height:3.5rem;background:#0b0f19;font-size:.75rem;font-weight:400;color:#94a3b8;padding:.75rem 1.25rem;text-align:left;white-space:nowrap}
@@ -181,8 +189,3 @@ dialog::backdrop{background:rgba(0,0,0,.65)}
 @media(max-width:900px){.mn-layout{grid-template-columns:1fr}.mn-side{position:static}.mn-panel{overflow-x:auto}.mn-list{flex-direction:row}.mn-ci{width:auto;white-space:nowrap}.mn-ph{display:none}.mn-panel{padding:.5rem}}
 @media print{.mn-gh{break-after:avoid}.mn-gh .ico{display:none}.mn-tools,.mn-dots,.mn-side,.mn-img::after{display:none!important}.menu{background:#fff!important;padding:0}.mn-layout{display:block}.mn-top,.mn-card{background:#fff!important;border:1px solid #ccc!important;break-inside:avoid}.mn-title{color:#000!important}.mn-grid{grid-template-columns:repeat(2,1fr)}}
 </style>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,500;600;700&family=Kaushan+Script&display=swap" rel="stylesheet">
-<script src="https://cdn.tailwindcss.com"></script>
-<script>
-tailwind.config={theme:{extend:{fontFamily:{sans:['Inter','sans-serif'],display:['Fraunces','Georgia','serif']},colors:{bg:'#0b0f19',side:'#090d16',card:'#101625',inner:'#0a0d14',line:'#1e293b'}}}}
-</script>

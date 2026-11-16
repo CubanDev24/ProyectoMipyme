@@ -148,6 +148,26 @@ con el botón **Imprimir QR**.
 | `ws/caja/` | `caja` |
 | `ws/cliente/<mesa>/` | `cliente_<N>` |
 
+## Uso sin conexión a internet
+
+Las fuentes, hojas de estilo, iconos, gráficos, exportación a Excel e imágenes
+del cliente se sirven desde `static/`; las licencias de las dependencias y las
+fuentes están en `static/vendor/licenses/`. Los reportes usan ApexCharts 3.45.1
+localmente. Highcharts no se distribuye con el proyecto porque requiere una
+licencia que cubra el uso de la aplicación.
+
+Tailwind se compila una vez durante el desarrollo; el servidor solo necesita el
+CSS generado. Con Tailwind CLI 3.4.17 ejecuta desde la raíz:
+
+```powershell
+.\tailwindcss.exe -i static\css\tailwind.input.css -o static\css\tailwind.css -c tailwind.config.js --minify
+```
+
+En producción, recopila y sirve los estáticos del servidor local con
+`python manage.py collectstatic`. Para acceder desde otros dispositivos sin
+internet, el servidor y los dispositivos deben permanecer conectados a la
+misma red local.
+
 ## Para producción
 
 - Sustituir `InMemoryChannelLayer` por Redis:

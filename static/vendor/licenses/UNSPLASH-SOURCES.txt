@@ -1,0 +1,11 @@
+Images downloaded from Unsplash for local, offline use:
+
+- cliente-hero.jpg:
+  https://images.unsplash.com/photo-1517248135467-4c7edcad34c4
+- cliente-plato-placeholder.jpg:
+  https://images.unsplash.com/photo-1547592180-85f173990554
+- cliente-plato-alternating.jpg:
+  https://images.unsplash.com/photo-1544025162-d76694265947
+
+Unsplash license:
+https://unsplash.com/license

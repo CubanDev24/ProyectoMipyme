@@ -1,21 +1,3 @@
-<script src="https://cdn.tailwindcss.com"></script>
-<script>
-  tailwind.config = {
-    theme: {
-      extend: {
-        fontFamily: { sans: ['Inter', 'sans-serif'] },
-        colors: {
-          bg: '#0b0f19',
-          side: '#090d16',
-          card: '#101625',
-          inner: '#0a0d14',
-          line: '#1e293b',
-        },
-      },
-    },
-  };
-</script>
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 <style>
     body.report-body{font-family:Inter,system-ui,sans-serif;background:radial-gradient(900px 380px at 70% -120px,rgba(16,185,129,.10),transparent 70%),#0b0f19;background-attachment:fixed;color:#e2e8f0;min-height:100vh}
     .reports-shell{display:flex;height:100dvh;overflow:hidden}
@@ -186,7 +168,6 @@
     .num{font-variant-numeric:tabular-nums}
     .report-body :focus-visible{outline:2px solid #34d399;outline-offset:2px;border-radius:6px}
     .report-page{font-size:14px}
-    .report-page #admin-sidebar nav a{font-size:.875rem;line-height:1.25rem}
     .report-page .reports-header-left{gap:.75rem}
     .report-page .reports-header-badge{gap:.5rem;padding:.375rem .75rem;font-size:.75rem}
     @media(min-width:1024px){.report-page .reports-header{padding-right:2rem;padding-left:2rem}}
@@ -258,6 +239,8 @@
     .report-page .hct-h{font-weight:700;color:#fff;font-size:.85rem;padding-bottom:.5rem;margin-bottom:.4rem;border-bottom:1px solid #1e293b}
     .report-page .hct-r{display:flex;justify-content:space-between;gap:1.4rem;font-size:.78rem;color:#94a3b8;padding:.13rem 0}
     .report-page .hct-r b{color:#f1f5f9;font-weight:600;font-variant-numeric:tabular-nums;text-align:right}
+    .report-page .apexcharts-tooltip.report-chart-tooltip{background:rgba(8,12,22,.97)!important;border:1px solid #334155!important;border-radius:12px!important;padding:0!important;box-shadow:0 8px 24px rgba(0,0,0,.4)!important;color:#e2e8f0!important}
+    .report-page .apexcharts-tooltip.report-chart-tooltip .hct{background:transparent}
     .report-page .xl-col{display:flex;flex-direction:column}
     .report-page .xl-col .xl-scroll{flex:1}
     .report-page #gTop,.report-page #gCat,.report-page #gPago,.report-page #gTiempo{min-height:300px}
@@ -298,5 +281,6 @@
     @media print{.report-page aside,.report-page header,.report-page .no-print{display:none!important}.report-page{background:#fff;color:#000}.report-page .card,.report-page .panel,.report-page .kp,.report-page .xl,.report-page .mini{background:#fff!important;border-color:#ccc!important}.report-page *{color:#000!important}.report-page .rt thead th{background:#217346!important;color:#fff!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}.report-page .rpt-content{max-width:none;padding:0}}
     @media(prefers-reduced-motion:reduce){*,*::before,*::after{transition:none!important}}
   </style>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/highcharts/11.4.8/highcharts.js"></script>
-<script defer src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
+{% load static %}
+<script src="{% static 'vendor/js/apexcharts-3.45.1.min.js' %}"></script>
+<script defer src="{% static 'vendor/js/exceljs-4.4.0.min.js' %}"></script>

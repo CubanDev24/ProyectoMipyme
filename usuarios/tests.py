@@ -113,10 +113,8 @@ class UsuarioTurnoTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'name="fondo_inicial_cup"')
         self.assertContains(response, 'Detalle del turno actual')
-        self.assertContains(
-            response,
-            'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap',
-        )
+        self.assertContains(response, 'css/fonts.css')
+        self.assertNotContains(response, 'fonts.googleapis.com')
         self.assertContains(response, f'href="{reverse("inventario:wifi_qr")}"')
         self.assertEqual(list(response.context['facturas_turno']), [factura_turno])
         self.assertContains(
@@ -415,9 +413,10 @@ class UsuarioTurnoTests(TestCase):
         self.assertContains(response, 'id="gPago"')
         self.assertContains(response, 'id="gTiempo"')
         self.assertEqual(response.content.decode().count('class="card"'), 6)
-        self.assertContains(response, 'highcharts/11.4.8/highcharts.js')
-        self.assertContains(response, 'exceljs/4.4.0/exceljs.min.js')
-        self.assertNotContains(response, 'apexcharts')
+        self.assertContains(response, 'vendor/js/apexcharts-3.45.1.min.js')
+        self.assertContains(response, 'vendor/js/exceljs-4.4.0.min.js')
+        self.assertNotContains(response, 'highcharts')
+        self.assertNotContains(response, 'cdnjs.cloudflare.com')
         self.assertNotContains(response, 'class="report-note"')
 
         response_default = self.client.get(reverse('usuarios:reportes'))
