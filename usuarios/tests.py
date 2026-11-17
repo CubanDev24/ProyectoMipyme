@@ -1218,6 +1218,14 @@ class UsuarioTurnoTests(TestCase):
             asunto='Cierre de turno realizado',
             mensaje__contains=f'Cajera {self.cajera.username} cerró el turno',
         ).exists())
+        self.client.force_login(self.admin)
+        response = self.client.get(reverse('usuarios:dashboard'))
+        self.assertContains(response, f'Cajera {self.cajera.username} cerró el turno')
+        self.assertContains(response, 'Resumen del turno')
+        self.assertContains(response, 'Efectivo esperado')
+        notificacion = response.context['notificaciones'][0]
+        self.assertTrue(notificacion.mensaje_corto.startswith(f'Cajera {self.cajera.username} cerró el turno del '))
+        self.assertEqual(notificacion.efectivo_esperado_cup, Decimal('325.00'))
 
     def test_resumen_financiero_incluye_facturas_de_turno_que_cruza_medianoche(self):
         turno = Turno.objects.create(estado='cerrado')

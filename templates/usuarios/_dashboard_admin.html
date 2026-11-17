@@ -352,22 +352,38 @@
   {% for n in notificaciones %}
     <article class="turn-notification">
       <div class="turn-notification-head">
-        <div class="flex items-start gap-3 min-w-0">
-          <span class="kic !bg-emerald-500/15 !text-emerald-300"><i class="fa-solid fa-circle-check" aria-hidden="true"></i></span>
-          <div class="min-w-0"><h3 class="turn-notification-title">{{ n.asunto }}</h3><p class="turn-notification-message">{{ n.mensaje }}</p></div>
+        <div class="turn-notification-heading">
+          <span class="turn-notification-icon"><i class="fa-solid fa-circle-check" aria-hidden="true"></i></span>
+          <div class="min-w-0">
+            <p class="turn-notification-kicker">Cierre completado</p>
+            <h3 class="turn-notification-title">{{ n.asunto }}</h3>
+            <p class="turn-notification-message">{{ n.mensaje_corto|default:n.mensaje }}</p>
+          </div>
         </div>
-        <span class="turn-notification-date num">{{ n.creada_en|date:"d/m/Y H:i" }}</span>
+        <time class="turn-notification-date num" datetime="{{ n.creada_en|date:'c' }}">{{ n.creada_en|date:"d/m/Y H:i" }}</time>
       </div>
       {% if n.turno %}
-        <dl class="turn-notification-data">
-          <div class="stat"><dt class="text-[11px] text-slate-400">Facturas</dt><dd class="num text-sm font-semibold mt-0.5 text-white">{{ n.turno_resumen.cantidad_facturas|default:0 }}</dd></div>
-          <div class="stat"><dt class="text-[11px] text-slate-400">USD</dt><dd class="num text-sm font-semibold mt-0.5 text-white">{{ n.turno_resumen.total_usd|default:0|floatformat:2 }} USD</dd></div>
-          <div class="stat"><dt class="text-[11px] text-slate-400">Fondo inicial</dt><dd class="num text-sm font-semibold mt-0.5 text-white">{{ n.turno.fondo_inicial_cup|floatformat:2 }} CUP</dd></div>
-          <div class="stat"><dt class="text-[11px] text-slate-400">Efectivo</dt><dd class="num text-sm font-semibold mt-0.5 text-white">{{ n.turno_resumen.total_efectivo_cup|default:0|floatformat:2 }} CUP</dd></div>
-          <div class="stat"><dt class="text-[11px] text-slate-400">Transferencia</dt><dd class="num text-sm font-semibold mt-0.5 text-white">{{ n.turno_resumen.total_transferencia_cup|default:0|floatformat:2 }} CUP</dd></div>
-          <div class="stat hi"><dt class="text-[11px] text-slate-400">Total general</dt><dd class="num text-sm font-semibold mt-0.5 text-emerald-300">{{ n.turno_resumen.total_general_cup|default:0|floatformat:2 }} CUP</dd></div>
-        </dl>
-        <div class="flex flex-wrap items-center gap-1.5 mt-3"><span class="text-xs text-slate-400 mr-1">Participantes</span>{% for participante in n.turno.usuarios.all %}<span class="chip">{{ participante.get_full_name|default:participante.username }}</span>{% empty %}<span class="chip">Sin participantes</span>{% endfor %}</div>
+        <div class="turn-notification-body">
+          <div class="turn-notification-section-heading">
+            <h4>Resumen del turno</h4>
+            <span>Turno del {{ n.turno.fecha|date:"d/m/Y" }}</span>
+          </div>
+          <dl class="turn-notification-data">
+            <div class="turn-notification-stat"><dt>Facturas</dt><dd class="num">{{ n.turno_resumen.cantidad_facturas|default:0 }}</dd></div>
+            <div class="turn-notification-stat"><dt>USD recibido</dt><dd class="num">{{ n.turno_resumen.total_usd|default:0|floatformat:2 }} USD</dd></div>
+            <div class="turn-notification-stat"><dt>Fondo inicial</dt><dd class="num">{{ n.turno.fondo_inicial_cup|floatformat:2 }} CUP</dd></div>
+            <div class="turn-notification-stat"><dt>Efectivo</dt><dd class="num">{{ n.turno_resumen.total_efectivo_cup|default:0|floatformat:2 }} CUP</dd></div>
+            <div class="turn-notification-stat"><dt>Efectivo esperado</dt><dd class="num">{{ n.efectivo_esperado_cup|floatformat:2 }} CUP</dd></div>
+            <div class="turn-notification-stat"><dt>Transferencias</dt><dd class="num">{{ n.turno_resumen.total_transferencia_cup|default:0|floatformat:2 }} CUP</dd></div>
+            <div class="turn-notification-stat is-highlight"><dt>Total facturado</dt><dd class="num">{{ n.turno_resumen.total_general_cup|default:0|floatformat:2 }} CUP</dd></div>
+          </dl>
+          <div class="turn-notification-participants">
+            <span>Participantes</span>
+            <div class="turn-notification-chips">
+              {% for participante in n.turno.usuarios.all %}<span class="chip">{{ participante.get_full_name|default:participante.username }}</span>{% empty %}<span class="chip">Sin participantes</span>{% endfor %}
+            </div>
+          </div>
+        </div>
       {% endif %}
     </article>
   {% empty %}

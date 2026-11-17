@@ -188,7 +188,13 @@ def dashboard(request):
                 total_usd=Sum('monto_usd'),
             )
         if turno_notificacion:
-            notificacion.turno_resumen = resumenes_notificacion[turno_notificacion.pk]
+            resumen = resumenes_notificacion[turno_notificacion.pk]
+            notificacion.turno_resumen = resumen
+            notificacion.mensaje_corto = (notificacion.mensaje or '').partition('\n')[0]
+            notificacion.efectivo_esperado_cup = (
+                turno_notificacion.fondo_inicial_cup
+                + (resumen['total_efectivo_cup'] or Decimal('0'))
+            )
     ipv_configurado = False
     opciones_ipv = []
     if turno and turno.estado == 'abierto' and request.user.role in ROLES_CON_ACCESO_FINANCIERO:
