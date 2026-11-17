@@ -16,6 +16,7 @@ class Mesa(models.Model):
     activa = models.BooleanField(default=True)
     abierta = models.BooleanField(default=False)
     sesion_id = models.UUIDField(default=uuid.uuid4, editable=False)
+    ultima_llamada_mesera = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         ordering = ['numero']

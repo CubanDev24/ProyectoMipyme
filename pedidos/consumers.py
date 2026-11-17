@@ -1,6 +1,8 @@
 import json
-from decimal import Decimal, ROUND_HALF_UP
+import math
 import uuid
+from datetime import timedelta
+from decimal import Decimal, ROUND_HALF_UP
 
 from django.db import transaction
 from channels.generic.websocket import AsyncWebsocketConsumer
@@ -12,6 +14,9 @@ from carta.models import Plato
 from inventario.services import descontar_inventario_por_pedido
 from usuarios.models import get_turno_abierto
 from .order_routing import destino_para_plato
+
+
+LLAMADA_MESERA_COOLDOWN_SECONDS = 30
 
 
 def _redondear(valor):
@@ -1911,11 +1916,17 @@ class ClienteConsumer(AsyncWebsocketConsumer):
                 }))
 
         elif accion == 'llamar_camarero':
-            mesa_numero = await self.mesa_abierta_para_llamada()
+            mesa_numero, espera_segundos = await self.registrar_llamada_mesera()
             if mesa_numero is None:
                 await self.send(text_data=json.dumps({
                     'tipo': 'error_llamada_camarero',
-                    'mensaje': 'La mesa está cerrada. No se pudo avisar a la mesera.',
+                    'mensaje': (
+                        f'Ya se envió un llamado desde esta mesa. Espera {espera_segundos} '
+                        'segundos antes de volver a llamar.'
+                        if espera_segundos
+                        else 'La mesa está cerrada. No se pudo avisar a la mesera.'
+                    ),
+                    'espera_segundos': espera_segundos,
                 }))
                 return
             await self.channel_layer.group_send('mesera', {
@@ -1925,6 +1936,7 @@ class ClienteConsumer(AsyncWebsocketConsumer):
             await self.send(text_data=json.dumps({
                 'tipo': 'llamada_camarero_confirmada',
                 'mesa_numero': mesa_numero,
+                'cooldown_segundos': LLAMADA_MESERA_COOLDOWN_SECONDS,
             }))
 
         elif accion in ['solicitar_cuenta', 'solicitar_factura']:
@@ -1986,13 +1998,43 @@ class ClienteConsumer(AsyncWebsocketConsumer):
         await self.send(text_data=json.dumps({'tipo': 'mesa_actualizada', 'mesa': event['mesa']}))
 
     @database_sync_to_async
-    def mesa_abierta_para_llamada(self):
-        mesa = Mesa.objects.filter(
+    def registrar_llamada_mesera(self):
+        ahora = timezone.now()
+        mesa_numero = Mesa.objects.filter(
             numero=self.mesa_numero,
             activa=True,
             abierta=True,
         ).values_list('numero', flat=True).first()
-        return mesa
+        if mesa_numero is None:
+            return None, 0
+
+        limite = ahora - timedelta(seconds=LLAMADA_MESERA_COOLDOWN_SECONDS)
+        llamada_registrada = Mesa.objects.filter(
+            numero=mesa_numero,
+            activa=True,
+            abierta=True,
+        ).filter(
+            Q(ultima_llamada_mesera__isnull=True)
+            | Q(ultima_llamada_mesera__lte=limite)
+        ).update(ultima_llamada_mesera=ahora)
+        if llamada_registrada:
+            return mesa_numero, 0
+
+        ultima_llamada = Mesa.objects.filter(
+            numero=mesa_numero,
+            activa=True,
+            abierta=True,
+        ).values_list('ultima_llamada_mesera', flat=True).first()
+        if ultima_llamada is None:
+            return None, 0
+        espera_segundos = max(
+            1,
+            math.ceil(
+                (ultima_llamada + timedelta(seconds=LLAMADA_MESERA_COOLDOWN_SECONDS) - ahora)
+                .total_seconds()
+            ),
+        )
+        return None, espera_segundos
 
     @database_sync_to_async
     def get_historial_cliente(self):

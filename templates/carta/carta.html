@@ -30,9 +30,9 @@
       <button type="button" class="cliente-icon-btn" onclick="alternarTema()" title="Cambiar tema" aria-label="Cambiar tema">
         <i class="fa-regular fa-moon" id="temaIcon"></i>
       </button>
-      <button type="button" class="cliente-call-btn" onclick="llamarCamarero()" title="Llamar camarero">
+      <button type="button" id="btnLlamarMesera" class="cliente-call-btn" onclick="llamarCamarero()" title="Llamar camarero">
         <i class="fa-solid fa-bell"></i>
-        <span>Llamar</span>
+        <span id="llamarMeseraTexto">Llamar</span>
       </button>
     </div>
   </header>
@@ -292,11 +292,11 @@
       </div>
 
       <div class="cliente-invoice-content">
-        <p class="cliente-invoice-desc">Solicita tu factura y descárgala cuando esté lista.</p>
+        <p class="cliente-invoice-desc">Solicita la cuenta. Podrás consultar o descargar la factura aquí cuando el cobro esté listo.</p>
         
         <div id="cuentaFinalContainer" class="cliente-cuenta-final-block" style="display:none;"></div>
 
-        <button type="button" class="cliente-amber-btn" onclick="solicitarCuentaRapida()">
+        <button type="button" id="btnSolicitarFactura" class="cliente-amber-btn" onclick="solicitarCuentaRapida()">
           <i class="fa-solid fa-bell"></i> Solicitar Factura al Mesero
         </button>
 
@@ -624,6 +624,11 @@
 .cliente-call-btn:hover {
   background: var(--gc-amber);
   color: #0a0f16;
+}
+
+.cliente-call-btn:disabled {
+  cursor: not-allowed;
+  opacity: .6;
 }
 
 /* ===== MAIN CONTENT ===== */
@@ -1565,9 +1570,47 @@
   margin-bottom: 12px;
 }
 
+.cliente-invoice-pending {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 12px;
+  padding: 14px;
+  border: 1px solid rgba(251, 191, 36, .42);
+  border-radius: 14px;
+  background: linear-gradient(135deg, rgba(251, 191, 36, .16), rgba(245, 158, 11, .06));
+  box-shadow: 0 8px 22px rgba(245, 158, 11, .08);
+}
+
+.cliente-invoice-pending-icon {
+  display: grid;
+  flex: 0 0 36px;
+  width: 36px;
+  height: 36px;
+  place-items: center;
+  border-radius: 50%;
+  background: rgba(251, 191, 36, .18);
+  color: #fbbf24;
+  font-size: 15px;
+}
+
+.cliente-invoice-pending h3 {
+  margin: 0 0 4px;
+  color: #fbbf24;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.cliente-invoice-pending p {
+  margin: 0;
+  color: var(--gc-text-muted);
+  font-size: 11px;
+  line-height: 1.6;
+}
+
 .cliente-cuenta-final-block {
   background: var(--gc-card);
-  border: 1px solid var(--gc-emerald);
+  border: none;
   border-radius: 10px;
   padding: 12px;
   margin-bottom: 12px;
@@ -1982,6 +2025,10 @@ let notificacionesCliente = new Set();
 let toastTimeoutId = null;
 let currentView = 'menu';
 let recargaFacturaTimeoutId = null;
+let facturaSolicitadaCliente = false;
+let llamadaEnviando = false;
+let llamadaCooldownHasta = 0;
+let llamadaCooldownIntervalId = null;
 const facturaOcultaStorageKey = `facturaFinalOculta:${MESA}`;
 
 function facturaYaOculta(factura) {
@@ -2007,11 +2054,62 @@ function limpiarEstadoFacturaFinal() {
   recargaFacturaTimeoutId = null;
   sessionStorage.removeItem(facturaOcultaStorageKey);
   facturaFinalCliente = false;
+  facturaSolicitadaCliente = false;
   const container = document.getElementById('cuentaFinalContainer');
   if (container) {
     container.innerHTML = '';
     container.style.display = 'none';
   }
+  actualizarBotonFactura();
+}
+
+function actualizarBotonFactura() {
+  const button = document.getElementById('btnSolicitarFactura');
+  if (button) {
+    button.style.display = (
+      !mesaDisponible || facturaSolicitadaCliente || facturaFinalCliente
+    ) ? 'none' : '';
+  }
+}
+
+function renderFacturaSolicitada() {
+  const container = document.getElementById('cuentaFinalContainer');
+  if (!container) return;
+  facturaSolicitadaCliente = true;
+  container.style.display = 'block';
+  container.innerHTML = `
+    <div role="status" aria-live="polite" class="cliente-invoice-pending">
+      <span class="cliente-invoice-pending-icon"><i class="fa-regular fa-clock"></i></span>
+      <div>
+        <h3>Cuenta solicitada</h3>
+        <p>La mesera recibió tu solicitud y está preparando el cobro. Cuando esté listo, podrás consultar o descargar la factura aquí.</p>
+      </div>
+    </div>
+  `;
+  actualizarBotonFactura();
+}
+
+function actualizarBotonLlamada() {
+  const button = document.getElementById('btnLlamarMesera');
+  if (!button) return;
+  const restante = Math.max(0, Math.ceil((llamadaCooldownHasta - Date.now()) / 1000));
+  const texto = document.getElementById('llamarMeseraTexto');
+  button.disabled = !mesaDisponible || llamadaEnviando || restante > 0;
+  button.title = restante > 0
+    ? `Podrás volver a llamar en ${restante} segundos`
+    : 'Llamar camarero';
+  if (texto) texto.textContent = restante > 0 ? `Espera ${restante}s` : 'Llamar';
+  if (restante === 0 && llamadaCooldownIntervalId !== null) {
+    clearInterval(llamadaCooldownIntervalId);
+    llamadaCooldownIntervalId = null;
+  }
+}
+
+function iniciarCooldownLlamada(segundos) {
+  llamadaCooldownHasta = Date.now() + Math.max(1, Number(segundos) || 30) * 1000;
+  actualizarBotonLlamada();
+  if (llamadaCooldownIntervalId !== null) clearInterval(llamadaCooldownIntervalId);
+  llamadaCooldownIntervalId = setInterval(actualizarBotonLlamada, 1000);
 }
 
 // ============================================================
@@ -2245,7 +2343,11 @@ function conectar() {
     showToast('Error de Conexión', 'No se pudo conectar con el servidor.', 'error');
   };
   
-  ws.onclose = () => setTimeout(conectar, 3000);
+  ws.onclose = () => {
+    llamadaEnviando = false;
+    actualizarBotonLlamada();
+    setTimeout(conectar, 3000);
+  };
   
   ws.onmessage = e => {
     const d = JSON.parse(e.data);
@@ -2257,15 +2359,19 @@ function conectar() {
       pedidoActual = pedidosCliente.filter(p => p.estado !== 'cerrado').slice(-1)[0] || null;
       renderHistorialCliente();
       facturaFinalCliente = Boolean(d.factura && !facturaOculta);
+      facturaSolicitadaCliente = !facturaFinalCliente && pedidosCliente.some(p => p.cuenta_solicitada);
       if (facturaFinalCliente) {
         renderCuentaFinal(d.factura);
         if (!mesaDisponible) programarRecargaFactura(d.factura);
+      } else if (facturaSolicitadaCliente) {
+        renderFacturaSolicitada();
       } else {
         const container = document.getElementById('cuentaFinalContainer');
         container.innerHTML = '';
         container.style.display = 'none';
       }
-      if (facturaFinalCliente) {
+      actualizarBotonFactura();
+      if (facturaFinalCliente || facturaSolicitadaCliente) {
         switchTab('invoice');
       }
       if (pedidoActual) mostrarEstado(pedidoActual);
@@ -2297,9 +2403,14 @@ function conectar() {
       showToast('Error', d.mensaje || 'No se pudo enviar el pedido.', 'error');
 
     } else if (d.tipo === 'llamada_camarero_confirmada') {
+      llamadaEnviando = false;
+      iniciarCooldownLlamada(d.cooldown_segundos);
       showToast('Mesera avisada', `La mesera recibió tu llamado desde la mesa ${d.mesa_numero}.`, 'success');
 
     } else if (d.tipo === 'error_llamada_camarero') {
+      llamadaEnviando = false;
+      if (d.espera_segundos) iniciarCooldownLlamada(d.espera_segundos);
+      else actualizarBotonLlamada();
       showToast('No se pudo avisar', d.mensaje, 'error');
       
     } else if (d.tipo === 'pedido_actualizado') {
@@ -2316,6 +2427,10 @@ function conectar() {
       renderHistorialCliente();
       if (d.pedido.estado === 'rechazado') {
         showToast('Pedido rechazado', 'La mesera no enviará esta solicitud a cocina o a la barra.', 'error');
+      }
+      if (d.pedido.cuenta_solicitada && !facturaFinalCliente) {
+        renderFacturaSolicitada();
+        switchTab('invoice');
       }
       if (pedidoActual && (d.pedido.id === pedidoActual.id || (d.pedido.pedido_ids && d.pedido.pedido_ids.includes(pedidoActual.id)))) {
         if (Array.isArray(d.pedido.pedido_ids)) {
@@ -2340,16 +2455,17 @@ function conectar() {
       notificarCliente(`pedido-${d.pedido_id}-cerrado`, `Pedido #${d.pedido_id} cerrado`, 'success');
       
     } else if (d.tipo === 'factura_solicitada' || d.tipo === 'cuenta_en_camino') {
-      const factura = d.factura || { id: '—', total_cup: d.total_cup || 0, items_snapshot: d.items || [] };
-      renderCuentaFinal(factura);
-      notificarCliente(`factura-${factura.id || MESA}`, `Factura solicitada: ${factura.total_cup || '0.00'} CUP`, 'success');
+      renderFacturaSolicitada();
+      switchTab('invoice');
+      notificarCliente(`factura-${d.factura?.id || MESA}`, 'La cuenta fue solicitada. La factura estará disponible aquí cuando el cobro esté listo.', 'success');
       
     } else if (d.tipo === 'factura_final') {
       facturaFinalCliente = true;
+      facturaSolicitadaCliente = false;
       renderCuentaFinal(d.factura);
       programarRecargaFactura(d.factura);
       switchTab('invoice');
-      document.querySelector('#view-invoice .cliente-amber-btn').style.display = 'none';
+      actualizarBotonFactura();
       document.getElementById('btnFacturaDirecta').style.display = 'none';
       notificarCliente(`factura-${d.factura.id}`, `Factura final: ${d.factura.total_cup} CUP`, 'success');
       
@@ -2701,6 +2817,7 @@ function renderCuentaFinal(factura) {
   if (!factura) return;
   const container = document.getElementById('cuentaFinalContainer');
   if (!container) return;
+  actualizarBotonFactura();
 
   if (facturaFinalCliente && factura.pdf_url) {
     const pdfUrl = escapeHtml(factura.pdf_url);
@@ -2799,6 +2916,10 @@ function cerrarConfirmacionCuenta() {
 }
 
 function solicitarCuentaRapida() {
+  if (facturaSolicitadaCliente || facturaFinalCliente) {
+    showToast('Cuenta solicitada', 'Te avisaremos aquí cuando la factura esté lista para consultar o descargar.', 'warning');
+    return;
+  }
   if (pedidoActual && ['listo', 'servido'].includes(pedidoActual.estado) && !pedidoActual.cuenta_solicitada) {
     abrirConfirmacionCuenta();
   } else {
@@ -2814,6 +2935,14 @@ function llamarCamarero() {
     showToast('Mesa cerrada', 'No se puede llamar a la mesera desde una mesa cerrada.', 'warning');
     return;
   }
+  if (llamadaEnviando) return;
+  const restante = Math.ceil((llamadaCooldownHasta - Date.now()) / 1000);
+  if (restante > 0) {
+    showToast('Llamado enviado', `Espera ${restante} segundos antes de volver a llamar.`, 'warning');
+    return;
+  }
+  llamadaEnviando = true;
+  actualizarBotonLlamada();
   if (ws && ws.readyState === WebSocket.OPEN) {
     ws.send(JSON.stringify({ accion: 'llamar_camarero', mesa: MESA }));
     return;
@@ -2925,6 +3054,8 @@ function actualizarDisponibilidadMesa() {
   }
   const btnEnviar = document.getElementById('btnEnviarPedido');
   if (btnEnviar) btnEnviar.disabled = !mesaDisponible || carrito.length === 0;
+  actualizarBotonLlamada();
+  actualizarBotonFactura();
 }
 
 // ============================================================

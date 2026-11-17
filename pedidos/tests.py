@@ -1917,7 +1917,40 @@ class FacturaWorkflowTests(TestCase):
         cliente.send.assert_awaited_once_with(text_data=json.dumps({
             'tipo': 'llamada_camarero_confirmada',
             'mesa_numero': self.mesa.numero,
+            'cooldown_segundos': 30,
         }))
+
+    def test_llamados_repetidos_desde_la_mesa_se_limitan_por_treinta_segundos(self):
+        cliente = ClienteConsumer()
+        cliente.mesa_numero = str(self.mesa.numero)
+        cliente.channel_layer = AsyncMock()
+        cliente.send = AsyncMock()
+
+        async_to_sync(cliente.receive)(json.dumps({'accion': 'llamar_camarero'}))
+        async_to_sync(cliente.receive)(json.dumps({'accion': 'llamar_camarero'}))
+
+        cliente.channel_layer.group_send.assert_awaited_once_with('mesera', {
+            'type': 'llamada_mesera',
+            'mesa_numero': self.mesa.numero,
+        })
+        respuesta = json.loads(cliente.send.await_args.kwargs['text_data'])
+        self.assertEqual(respuesta['tipo'], 'error_llamada_camarero')
+        self.assertGreater(respuesta['espera_segundos'], 0)
+
+    def test_llamada_cliente_se_permite_tras_vencer_el_limite(self):
+        self.mesa.ultima_llamada_mesera = timezone.now() - timedelta(seconds=31)
+        self.mesa.save(update_fields=['ultima_llamada_mesera'])
+        cliente = ClienteConsumer()
+        cliente.mesa_numero = str(self.mesa.numero)
+        cliente.channel_layer = AsyncMock()
+        cliente.send = AsyncMock()
+
+        async_to_sync(cliente.receive)(json.dumps({'accion': 'llamar_camarero'}))
+
+        cliente.channel_layer.group_send.assert_awaited_once_with('mesera', {
+            'type': 'llamada_mesera',
+            'mesa_numero': self.mesa.numero,
+        })
 
     def test_en_turno_usa_la_relacion_directa_con_el_usuario(self):
         User = get_user_model()
